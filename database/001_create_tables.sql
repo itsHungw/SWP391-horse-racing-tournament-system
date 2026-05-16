@@ -724,3 +724,15 @@ ALTER TABLE race_results
 ADD CONSTRAINT chk_finish_time_positive
 CHECK (finish_time_seconds IS NULL OR finish_time_seconds > 0);
 
+ALTER TABLE wallet_transactions
+ADD CONSTRAINT chk_wtxn_type
+CHECK (txn_type IN ('PLACE_BET', 'BET_PAYOUT', 'BLOG_REWARD'));
+
+ALTER TABLE wallet_transactions
+ADD CONSTRAINT chk_wtxn_ref_type
+CHECK (reference_type IN ('PREDICTIONS', 'RACE_RESULTS', 'BLOG'));
+
+ALTER TABLE wallet_transactions
+ADD CONSTRAINT chk_wtxn_amount
+CHECK (amount > 0);
+
