@@ -2,14 +2,14 @@
 
 ## 1. Goal
 
-Rewrite the project documentation from scratch so it is:
+Refactor the existing markdown documentation in `docs/specs/` so it is:
 
 - easy for lecturers/reviewers to understand,
 - practical for the development team to use,
 - fully aligned with the updated database model,
 - explicit that the product is a **clean prediction game**, not a betting or real-money system.
 
-The new documentation should replace the old flat `docs/specs` structure with a clearer audience-first structure.
+The work should preserve useful existing content, rewrite outdated parts, and replace the old flat `docs/specs` structure with a clearer nested structure.
 
 ## 2. Product Positioning
 
@@ -32,45 +32,45 @@ Points are internal game points only.
 
 ## 3. Chosen Documentation Structure
 
-The documentation will be organized by reader intent:
+The documentation will be organized by reader intent while staying under `docs/specs/`:
 
 ```text
 docs/
   README.md
 
-  product/
-    01_project-overview.md
-    02_scope-and-non-goals.md
-    03_roles-and-user-journeys.md
+  specs/
+    product/
+      01_project-overview.md
+      02_scope-and-non-goals.md
+      03_roles-and-user-stories.md
 
-  business/
-    01_domain-model.md
-    02_core-business-rules.md
-    03_race-lifecycle.md
-    04_prediction-game-rules.md
-    05_blog-reward-rules.md
+    business/
+      01_domain-model.md
+      02_business-rules.md
+      03_workflows.md
+      04_prediction-game.md
+      05_blog-rewards.md
 
-  technical/
-    01_system-architecture.md
-    02_backend-architecture.md
-    03_frontend-architecture.md
-    04_api-contract.md
-    05_error-handling-and-security.md
-    06_ai-race-insight.md
+    technical/
+      01_tech-stack.md
+      02_backend-architecture.md
+      03_frontend-architecture.md
+      04_api-and-ui.md
+      05_error-codes.md
+      06_ai-race-insight.md
+      07_file-storage.md
 
-  data/
-    01_database-overview.md
-    02_erd.md
-    03_data-dictionary.md
-    04_seed-data.md
+    data/
+      01_database-design.md
+      02_erd-and-status-lifecycles.md
 
-  delivery/
-    01_implementation-roadmap.md
-    02_testing-strategy.md
-    03_demo-scenarios.md
+    delivery/
+      01_implementation-checklist.md
 ```
 
 `docs/README.md` will act as the landing page and reading guide for both reviewers and developers.
+
+The refactor will map the useful content from the old flat files into the new structure instead of discarding it wholesale.
 
 ## 4. Business Model
 
@@ -163,7 +163,7 @@ This is intentionally small enough to be explainable, testable, and realistic fo
 
 ## 6. Content Rewrite Rules
 
-When rewriting the old docs:
+When refactoring the old docs:
 
 - replace stale terminology such as `wallet`, `betting`, `pool`, `prize_amount`,
 - prefer `point account`, `prediction game`, `entry cost`, `prize points`,
@@ -173,12 +173,12 @@ When rewriting the old docs:
 
 ## 7. Source of Truth
 
-Because the database script is newer than the current markdown specs, the rewrite will treat these files as the current source of truth:
+Because the database script is newer than the current markdown specs, the refactor will treat these files as the current source of truth:
 
 - `database/001_create_tables.sql`
 - `database/002_seed_data.sql`
 
-The new docs should align with the database, while correcting any database elements that still reflect the removed pool-based prediction model.
+The refactored docs should align with the database, while correcting any database elements that still reflect the removed pool-based prediction model.
 
 ## 8. Success Criteria
 

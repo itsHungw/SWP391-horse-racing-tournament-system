@@ -5,7 +5,7 @@
 -- Version: 2.0
 -- Update:
 --   - Removed real-money/betting wording
---   - Replaced wallet/betting with Prediction Points + Prediction Pool
+--   - Replaced wallet/betting with clean Prediction Points
 --   - Added blog reward anti-farming fields
 --   - Added daily point earning limit table
 -- =====================================================================
@@ -656,7 +656,7 @@ CREATE TABLE tournament_rankings (
 CREATE INDEX idx_rank_tournament ON tournament_rankings(tournament_id);
 
 -- =====================================================================
--- 6. PREDICTION POINTS, POOLS & NOTIFICATIONS
+-- 6. PREDICTION POINTS & NOTIFICATIONS
 -- =====================================================================
 
 -- 6.1 user_point_accounts
@@ -695,18 +695,16 @@ CREATE TABLE point_transactions (
     CONSTRAINT chk_pt_transaction_type CHECK (
         transaction_type IN (
             'PREDICTION_ENTRY',
-            'PREDICTION_POOL_REWARD',
+            'PREDICTION_REWARD',
             'BLOG_REWARD',
             'RACE_CANCEL_REFUND',
-            'ADMIN_ADJUSTMENT',
-            'SYSTEM_RETENTION'
+            'ADMIN_ADJUSTMENT'
         )
     ),
 
     CONSTRAINT chk_pt_reference_type CHECK (
         reference_type IS NULL OR reference_type IN (
             'RACE_PREDICTION',
-            'PREDICTION_POOL',
             'RACE_RESULT',
             'BLOG',
             'ADMIN',
@@ -720,65 +718,10 @@ CREATE INDEX idx_pt_type ON point_transactions(transaction_type);
 CREATE INDEX idx_pt_created_at ON point_transactions(created_at);
 CREATE INDEX idx_pt_reference ON point_transactions(reference_type, reference_id);
 
--- 6.1b prediction_pools
--- A prediction pool stores the total points committed by users for a race.
--- After the race result is published, the pool is redistributed to correct predictions.
-CREATE TABLE prediction_pools (
-    id BIGINT NOT NULL IDENTITY(1,1),
-
-    race_id BIGINT NOT NULL,
-    prediction_type VARCHAR(30) NOT NULL DEFAULT 'WINNER',
-
-    total_committed_points INT NOT NULL DEFAULT 0,
-    total_winning_points INT NOT NULL DEFAULT 0,
-
-    reward_pool_points INT NOT NULL DEFAULT 0,
-    total_rewarded_points INT NOT NULL DEFAULT 0,
-
-    system_retention_percent DECIMAL(5,2) NOT NULL DEFAULT 5.00,
-    system_retained_points INT NOT NULL DEFAULT 0,
-
-    status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
-
-    locked_at DATETIME2 NULL,
-    evaluated_at DATETIME2 NULL,
-
-    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
-    updated_at DATETIME2 NULL,
-
-    CONSTRAINT pk_prediction_pools PRIMARY KEY (id),
-    CONSTRAINT uq_prediction_pool UNIQUE (race_id, prediction_type),
-    CONSTRAINT fk_pp_race FOREIGN KEY (race_id) REFERENCES races(id),
-
-    CONSTRAINT chk_pp_type CHECK (
-        prediction_type IN ('WINNER', 'TOP3')
-    ),
-
-    CONSTRAINT chk_pp_points CHECK (
-        total_committed_points >= 0
-        AND total_winning_points >= 0
-        AND reward_pool_points >= 0
-        AND total_rewarded_points >= 0
-        AND system_retained_points >= 0
-    ),
-
-    CONSTRAINT chk_pp_retention CHECK (
-        system_retention_percent >= 0 AND system_retention_percent <= 100
-    ),
-
-    CONSTRAINT chk_pp_status CHECK (
-        status IN ('OPEN', 'LOCKED', 'EVALUATED', 'CANCELLED', 'REFUNDED')
-    )
-);
-
-CREATE INDEX idx_pp_race_id ON prediction_pools(race_id);
-CREATE INDEX idx_pp_status ON prediction_pools(status);
-
--- 6.1c race_predictions
+-- 6.1b race_predictions
 CREATE TABLE race_predictions (
     id BIGINT NOT NULL IDENTITY(1,1),
 
-    pool_id BIGINT NOT NULL,
     race_id BIGINT NOT NULL,
     spectator_id BIGINT NOT NULL,
 
@@ -788,10 +731,8 @@ CREATE TABLE race_predictions (
     predicted_second_id BIGINT NULL,
     predicted_third_id BIGINT NULL,
 
-    points_committed INT NOT NULL,
-    points_rewarded INT NOT NULL DEFAULT 0,
-
-    reward_multiplier DECIMAL(10,4) NULL,
+    entry_cost_points INT NOT NULL,
+    reward_points INT NOT NULL DEFAULT 0,
 
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
 
@@ -805,7 +746,6 @@ CREATE TABLE race_predictions (
 
     CONSTRAINT uq_race_spectator_prediction UNIQUE (race_id, spectator_id, prediction_type),
 
-    CONSTRAINT fk_rpred_pool FOREIGN KEY (pool_id) REFERENCES prediction_pools(id),
     CONSTRAINT fk_rpred_race FOREIGN KEY (race_id) REFERENCES races(id),
     CONSTRAINT fk_rpred_spectator FOREIGN KEY (spectator_id) REFERENCES users(id),
 
@@ -817,16 +757,12 @@ CREATE TABLE race_predictions (
         prediction_type IN ('WINNER', 'TOP3')
     ),
 
-    CONSTRAINT chk_rpred_points_committed CHECK (
-        points_committed > 0
+    CONSTRAINT chk_rpred_entry_cost CHECK (
+        entry_cost_points > 0
     ),
 
-    CONSTRAINT chk_rpred_points_rewarded CHECK (
-        points_rewarded >= 0
-    ),
-
-    CONSTRAINT chk_rpred_multiplier CHECK (
-        reward_multiplier IS NULL OR reward_multiplier >= 0
+    CONSTRAINT chk_rpred_reward_points CHECK (
+        reward_points >= 0
     ),
 
     CONSTRAINT chk_rpred_status CHECK (
@@ -841,12 +777,11 @@ CREATE TABLE race_predictions (
     )
 );
 
-CREATE INDEX idx_rpred_pool_id ON race_predictions(pool_id);
 CREATE INDEX idx_rpred_race_id ON race_predictions(race_id);
 CREATE INDEX idx_rpred_spectator_id ON race_predictions(spectator_id);
 CREATE INDEX idx_rpred_status ON race_predictions(status);
 
--- 6.1d ai_predictions
+-- 6.1c ai_predictions
 CREATE TABLE ai_predictions (
     id BIGINT NOT NULL IDENTITY(1,1),
     race_id BIGINT NOT NULL,
@@ -1016,21 +951,15 @@ VALUES
 --   3. Points cannot be withdrawn.
 --   4. Points cannot be converted to real money.
 --   5. Users may earn points from reading published blogs or admin/event rewards.
---   6. Users may commit points to race prediction pools.
---
--- Prediction Pool Redistribution:
---   reward_pool_points = total_committed_points - system_retained_points
---   system_retained_points = FLOOR(total_committed_points * system_retention_percent / 100)
---   reward_multiplier = reward_pool_points / total_winning_points
---   user points_rewarded = FLOOR(points_committed * reward_multiplier)
+--   6. Users may spend points on fixed-cost race predictions.
 --
 -- Recommended backend rules:
---   - Create one prediction_pools row per race + prediction_type.
---   - Lock prediction pool before race starts.
---   - Do not allow prediction creation/update after pool is LOCKED.
---   - If race is CANCELLED, refund all points_committed.
---   - If no correct prediction exists, keep pool as evaluated and no user receives reward.
---   - Any rounding remainder can be added to system_retained_points.
+--   - Each prediction uses a fixed entry cost defined by system rules.
+--   - Lock predictions before race starts.
+--   - Do not allow prediction creation/update after status is LOCKED.
+--   - If race is CANCELLED, refund entry_cost_points.
+--   - Correct predictions receive a fixed reward based on prediction_type and result accuracy.
+--   - Incorrect predictions keep reward_points = 0 and do not receive refunds.
 --
 -- Blog Reward Anti-Farming:
 --   - Blog must be PUBLISHED.
@@ -1043,4 +972,3 @@ VALUES
 -- END OF SCRIPT
 -- =====================================================================
 """
-
