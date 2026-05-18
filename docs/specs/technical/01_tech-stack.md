@@ -2,7 +2,7 @@
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Java 17+, Spring Boot 3.x |
+| Backend | Java 21, Spring Boot 4.x |
 | Security | Spring Security, JWT |
 | Persistence | Spring Data JPA / Hibernate |
 | Validation | Jakarta Bean Validation |
@@ -24,4 +24,3 @@ frontend/
 ```
 
 Development runs backend and frontend separately; production can package the frontend build into backend static assets.
-

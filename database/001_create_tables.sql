@@ -30,9 +30,10 @@ CREATE TABLE users (
     date_of_birth DATE NULL,
     gender VARCHAR(20) NULL, -- MALE / FEMALE / OTHER
     address NVARCHAR(255) NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE / LOCKED / DISABLED / PENDING_EMAIL_VERIFY
+    status VARCHAR(30) NOT NULL DEFAULT 'PENDING_EMAIL_VERIFY', -- ACTIVE / LOCKED / DISABLED / PENDING_EMAIL_VERIFY
     email_verified BIT NOT NULL DEFAULT 0,
     last_login_at DATETIME2 NULL,
+    password_changed_at DATETIME2 NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
     updated_at DATETIME2 NULL,
     deleted_at DATETIME2 NULL,
@@ -97,7 +98,13 @@ CREATE TABLE user_role_history (
 
     CONSTRAINT pk_user_role_history PRIMARY KEY (id),
     CONSTRAINT fk_urh_user_role FOREIGN KEY (user_role_id) REFERENCES user_roles(id),
-    CONSTRAINT fk_urh_changed_by FOREIGN KEY (changed_by) REFERENCES users(id)
+    CONSTRAINT fk_urh_changed_by FOREIGN KEY (changed_by) REFERENCES users(id),
+    CONSTRAINT chk_urh_old_status CHECK (
+        old_status IS NULL OR old_status IN ('ACTIVE', 'SUSPENDED', 'REMOVED')
+    ),
+    CONSTRAINT chk_urh_new_status CHECK (
+        new_status IN ('ACTIVE', 'SUSPENDED', 'REMOVED')
+    )
 );
 
 -- 1.4 role_requests
@@ -128,6 +135,10 @@ CREATE TABLE role_requests (
 CREATE INDEX idx_role_requests_user_id ON role_requests(user_id);
 CREATE INDEX idx_role_requests_status ON role_requests(status);
 CREATE INDEX idx_role_requests_role ON role_requests(requested_role);
+
+CREATE UNIQUE INDEX uq_role_requests_pending
+ON role_requests(user_id, requested_role)
+WHERE status = 'PENDING';
 
 -- =====================================================================
 -- 2. PROFILE TABLES
@@ -441,6 +452,10 @@ CREATE INDEX idx_inv_jockey_id ON jockey_invitations(jockey_id);
 CREATE INDEX idx_inv_owner_id ON jockey_invitations(owner_id);
 CREATE INDEX idx_inv_race_id ON jockey_invitations(race_id);
 CREATE INDEX idx_inv_status ON jockey_invitations(status);
+
+CREATE UNIQUE INDEX uq_jockey_invitations_pending
+ON jockey_invitations(race_id, horse_id)
+WHERE status = 'PENDING';
 
 -- 4.2 race_participants
 CREATE TABLE race_participants (
@@ -774,6 +789,16 @@ CREATE TABLE race_predictions (
             'CANCELLED',
             'REFUNDED'
         )
+    ),
+    CONSTRAINT chk_rpred_top3_distinct CHECK (
+        prediction_type <> 'TOP3'
+        OR (
+            predicted_second_id IS NOT NULL
+            AND predicted_third_id IS NOT NULL
+            AND predicted_winner_id <> predicted_second_id
+            AND predicted_winner_id <> predicted_third_id
+            AND predicted_second_id <> predicted_third_id
+        )
     )
 );
 
@@ -930,16 +955,55 @@ CREATE TABLE user_daily_point_limits (
 CREATE INDEX idx_udpl_user_date ON user_daily_point_limits(user_id, point_date);
 
 -- =====================================================================
--- 8. OPTIONAL SEED DATA
+-- 8. AUTHENTICATION SUPPORT TABLES
 -- =====================================================================
 
-INSERT INTO roles (name, description)
-VALUES
-    ('ADMIN', 'System administrator'),
-    ('HORSE_OWNER', 'Horse owner'),
-    ('JOCKEY', 'Jockey'),
-    ('REFEREE', 'Race referee'),
-    ('SPECTATOR', 'Spectator and race prediction user');
+CREATE TABLE auth_sessions (
+    id BIGINT NOT NULL IDENTITY(1,1),
+    user_id BIGINT NOT NULL,
+    refresh_token_hash VARCHAR(255) NOT NULL,
+    user_agent NVARCHAR(500) NULL,
+    ip_address VARCHAR(100) NULL,
+    expires_at DATETIME2 NOT NULL,
+    revoked_at DATETIME2 NULL,
+    replaced_by_session_id BIGINT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    last_used_at DATETIME2 NULL,
+    CONSTRAINT pk_auth_sessions PRIMARY KEY (id),
+    CONSTRAINT fk_auth_sessions_user FOREIGN KEY (user_id) REFERENCES users(id),
+    CONSTRAINT fk_auth_sessions_replaced_by FOREIGN KEY (replaced_by_session_id) REFERENCES auth_sessions(id)
+);
+
+CREATE INDEX idx_auth_sessions_user_id ON auth_sessions(user_id);
+CREATE INDEX idx_auth_sessions_expires_at ON auth_sessions(expires_at);
+
+CREATE TABLE email_verification_tokens (
+    id BIGINT NOT NULL IDENTITY(1,1),
+    user_id BIGINT NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME2 NOT NULL,
+    used_at DATETIME2 NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT pk_email_verification_tokens PRIMARY KEY (id),
+    CONSTRAINT fk_evt_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_evt_user_id ON email_verification_tokens(user_id);
+CREATE INDEX idx_evt_expires_at ON email_verification_tokens(expires_at);
+
+CREATE TABLE password_reset_tokens (
+    id BIGINT NOT NULL IDENTITY(1,1),
+    user_id BIGINT NOT NULL,
+    token_hash VARCHAR(255) NOT NULL,
+    expires_at DATETIME2 NOT NULL,
+    used_at DATETIME2 NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+    CONSTRAINT pk_password_reset_tokens PRIMARY KEY (id),
+    CONSTRAINT fk_prt_user FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX idx_prt_user_id ON password_reset_tokens(user_id);
+CREATE INDEX idx_prt_expires_at ON password_reset_tokens(expires_at);
 
 -- =====================================================================
 -- 9. BUSINESS RULE NOTES
@@ -971,4 +1035,3 @@ VALUES
 -- =====================================================================
 -- END OF SCRIPT
 -- =====================================================================
-"""

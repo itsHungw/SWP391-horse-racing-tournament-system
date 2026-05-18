@@ -5,6 +5,10 @@
 ```mermaid
 erDiagram
     users ||--o{ user_roles : has
+    users ||--o{ role_requests : submits
+    users ||--o{ auth_sessions : opens
+    users ||--o{ email_verification_tokens : verifies
+    users ||--o{ password_reset_tokens : resets
     users ||--o{ horses : owns
     tournaments ||--o{ races : contains
     tournaments ||--o{ tournament_registrations : receives
@@ -55,3 +59,14 @@ stateDiagram-v2
     PENDING --> REFUNDED
 ```
 
+## 5. User authentication lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> PENDING_EMAIL_VERIFY
+    PENDING_EMAIL_VERIFY --> ACTIVE
+    ACTIVE --> LOCKED
+    ACTIVE --> DISABLED
+    LOCKED --> ACTIVE
+    DISABLED --> ACTIVE
+```

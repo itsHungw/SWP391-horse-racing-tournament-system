@@ -1,1 +1,5 @@
 .worktrees/
+
+# .agents/skills/ is ignored, but the directory itself is not
+!.agents/skills/
+
