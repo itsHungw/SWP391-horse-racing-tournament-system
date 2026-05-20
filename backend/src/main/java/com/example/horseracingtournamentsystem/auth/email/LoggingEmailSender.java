@@ -11,11 +11,11 @@ public class LoggingEmailSender implements EmailSender {
 
     @Override
     public void sendEmailVerification(String email, String rawToken) {
-        logger.info("Email verification token issued for {}", email);
+        logger.info("Email verification token issued for {}: {}", email, rawToken);
     }
 
     @Override
     public void sendPasswordReset(String email, String rawToken) {
-        logger.info("Password reset token issued for {}", email);
+        logger.info("Password reset token issued for {}: {}", email, rawToken);
     }
 }

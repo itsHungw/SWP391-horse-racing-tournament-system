@@ -1,8 +1,11 @@
 package com.example.horseracingtournamentsystem.auth.service;
 
+import com.example.horseracingtournamentsystem.auth.dto.request.LoginRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.RegisterRequest;
+import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
 import com.example.horseracingtournamentsystem.auth.email.EmailSender;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
+import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -10,9 +13,7 @@ import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
 import java.util.Locale;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +29,25 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenService oneTimeTokenService;
     private final EmailSender emailSender;
+    private final JwtService jwtService;
 
+    @Transactional(readOnly = true)
+    public LoginResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.email());
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("INVALID_CREDENTIALS"));
+
+        if (User.STATUS_PENDING_EMAIL_VERIFY.equals(user.getStatus())) {
+            throw new IllegalArgumentException("EMAIL_NOT_VERIFIED");
+        }
+
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("INVALID_CREDENTIALS");
+        }
+
+        String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
+        return new LoginResponse(accessToken, user.getFullName(), user.getEmail());
+    }
   
     @Transactional
     public void register(RegisterRequest request) {
