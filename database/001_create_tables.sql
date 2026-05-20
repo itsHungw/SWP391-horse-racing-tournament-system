@@ -32,6 +32,9 @@ CREATE TABLE users (
     address NVARCHAR(255) NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING_EMAIL_VERIFY', -- ACTIVE / LOCKED / DISABLED / PENDING_EMAIL_VERIFY
     email_verified BIT NOT NULL DEFAULT 0,
+    phone_verified BIT NOT NULL DEFAULT 0,
+    age_verified BIT NOT NULL DEFAULT 0,
+    profile_completed BIT NOT NULL DEFAULT 0,
     last_login_at DATETIME2 NULL,
     password_changed_at DATETIME2 NULL,
     created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
