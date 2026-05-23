@@ -1,12 +1,14 @@
 import type { PropsWithChildren } from "react";
 
 type StatusBadgeProps = PropsWithChildren<{
-  tone: "ready" | "draft";
+  tone: "ready" | "draft" | "success" | "critical";
 }>;
 
 const toneClasses = {
   ready: "bg-emerald-50 text-emerald-800 ring-emerald-600/20",
   draft: "bg-amber-50 text-amber-800 ring-amber-600/20",
+  success: "bg-emerald-50 text-emerald-800 ring-emerald-600/20",
+  critical: "bg-red-50 text-red-800 ring-red-600/20",
 };
 
 export function StatusBadge({ children, tone }: StatusBadgeProps) {

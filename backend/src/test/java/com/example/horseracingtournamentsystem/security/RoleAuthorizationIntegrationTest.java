@@ -18,13 +18,13 @@ class RoleAuthorizationIntegrationTest {
 
     @Test
     void rejectsAnonymousAccessToMeEndpoint() throws Exception {
-        mockMvc.perform(get("/api/me"))
+        mockMvc.perform(get("/api/v1/me"))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void permitsPublicAuthRoutesThroughSecurity() throws Exception {
-        mockMvc.perform(get("/api/auth/missing"))
+        mockMvc.perform(get("/api/v1/auth/missing"))
                 .andExpect(status().isNotFound());
     }
 }
