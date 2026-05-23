@@ -66,7 +66,7 @@ class AuthRegistrationIntegrationTest {
     void registerCreatesPendingUserWithSpectatorRole() throws Exception {
         roleRepository.save(Role.of("SPECTATOR", "Spectator"));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Spec Tator","email":"spec@example.com","password":"Password123!"}
@@ -87,7 +87,7 @@ class AuthRegistrationIntegrationTest {
     void registerStoresOptionalPhoneWhenProvided() throws Exception {
         roleRepository.save(Role.of("SPECTATOR", "Spectator"));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Phone User","email":"phone@example.com","password":"Password123!","phone":"0909123456"}
@@ -103,7 +103,7 @@ class AuthRegistrationIntegrationTest {
     void registerNormalizesEmailAndSendsVerificationEmail() throws Exception {
         roleRepository.save(Role.of("SPECTATOR", "Spectator"));
 
-        mockMvc.perform(post("/api/auth/register")
+        mockMvc.perform(post("/api/v1/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"fullName":"Spec Tator","email":"Spec@Example.COM","password":"Password123!"}
@@ -116,6 +116,7 @@ class AuthRegistrationIntegrationTest {
                 .containsExactly(new SentEmail("spec@example.com", emailSender.verificationEmails().get(0).rawToken()));
 
         String sentToken = emailSender.verificationEmails().get(0).rawToken();
+        assertThat(sentToken).matches("\\d{6}");
         EmailVerificationToken savedToken = emailVerificationTokenRepository.findAll().get(0);
         assertThat(savedToken.getUser().getId()).isEqualTo(user.getId());
         assertThat(savedToken.getTokenHash()).isEqualTo(sha256(sentToken));
@@ -123,7 +124,7 @@ class AuthRegistrationIntegrationTest {
 
     @Test
     void verifyEmailActivatesPendingUser() throws Exception {
-        String rawToken = "verification-token";
+        String rawToken = "123456";
         User user = userRepository.save(User.pending("Verify User", "verify@example.com", "hash"));
         emailVerificationTokenRepository.save(EmailVerificationToken.create(
                 user,
@@ -131,7 +132,7 @@ class AuthRegistrationIntegrationTest {
                 LocalDateTime.now().plusHours(1)
         ));
 
-        mockMvc.perform(post("/api/auth/verify-email")
+        mockMvc.perform(post("/api/v1/auth/verify-email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"" + rawToken + "\"}"))
                 .andExpect(status().isOk());
@@ -143,7 +144,7 @@ class AuthRegistrationIntegrationTest {
 
     @Test
     void resendVerificationEmailIssuesNewTokenForPendingUser() throws Exception {
-        String oldRawToken = "old-verification-token";
+        String oldRawToken = "123456";
         User user = userRepository.save(User.pending("Pending User", "pending@example.com", "hash"));
         EmailVerificationToken oldToken = emailVerificationTokenRepository.save(EmailVerificationToken.create(
                 user,
@@ -151,13 +152,14 @@ class AuthRegistrationIntegrationTest {
                 LocalDateTime.now().plusHours(1)
         ));
 
-        mockMvc.perform(post("/api/auth/resend-verification-email")
+        mockMvc.perform(post("/api/v1/auth/resend-verification-email")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"Pending@Example.COM\"}"))
                 .andExpect(status().isOk());
 
         assertThat(emailSender.verificationEmails())
                 .containsExactly(new SentEmail("pending@example.com", emailSender.verificationEmails().get(0).rawToken()));
+        assertThat(emailSender.verificationEmails().get(0).rawToken()).matches("\\d{6}");
         assertThat(emailVerificationTokenRepository.findById(oldToken.getId()).orElseThrow().getUsedAt())
                 .isNotNull();
         assertThat(emailVerificationTokenRepository.findAll())

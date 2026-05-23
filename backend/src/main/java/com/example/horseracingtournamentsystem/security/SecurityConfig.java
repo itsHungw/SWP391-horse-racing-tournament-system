@@ -40,11 +40,11 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/error", "/api/auth/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/owner/**").hasRole("HORSE_OWNER")
-                        .requestMatchers("/api/jockey/**").hasRole("JOCKEY")
-                        .requestMatchers("/api/referee/**").hasRole("REFEREE")
+                        .requestMatchers("/error", "/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/owner/**").hasRole("HORSE_OWNER")
+                        .requestMatchers("/api/v1/jockey/**").hasRole("JOCKEY")
+                        .requestMatchers("/api/v1/referee/**").hasRole("REFEREE")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -56,4 +56,3 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 }
-
