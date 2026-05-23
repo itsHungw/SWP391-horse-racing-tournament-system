@@ -1,5 +1,5 @@
-import { RoleRequest } from "../../types/adminRoleRequest";
 import { RoleRequestStatusBadge } from "../../components/RoleRequestStatusBadge";
+import { RoleRequest } from "../../types/adminRoleRequest";
 
 type Props = {
   request: RoleRequest;
@@ -9,6 +9,41 @@ type Props = {
   processing: boolean;
 };
 
+const emptyValue = "Not provided";
+
+function displayValue(value?: string | null) {
+  return value?.trim() ? value : emptyValue;
+}
+
+function formatDate(value?: string | null) {
+  if (!value) return emptyValue;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+  }).format(date);
+}
+
+function verificationLabel(isVerified: boolean | undefined, verifiedText: string, unverifiedText: string) {
+  return isVerified ? verifiedText : unverifiedText;
+}
+
+function VerificationItem({ label, verified }: { label: string; verified: boolean | undefined }) {
+  return (
+    <span
+      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black ${
+        verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+      }`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function AdminRoleRequestDetailPage({
   request,
   onApprove,
@@ -16,109 +51,197 @@ export function AdminRoleRequestDetailPage({
   onBack,
   processing,
 }: Props) {
+  const account = request.user;
+  const accountName = account?.fullName || request.fullName;
+  const accountEmail = account?.email || request.email;
+  const accountId = account?.id || request.userId;
+  const currentRoles = account?.roles?.length ? account.roles : [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-slate-100 pb-5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onBack}
-            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none cursor-pointer"
-          >
-            &larr; Quay lại danh sách
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-500">Mã yêu cầu: #{request.id}</span>
-        </div>
+    <section aria-labelledby="admin-role-request-detail-title" className="space-y-6">
+      <div className="flex flex-col gap-4 border-b border-[#d8d8d8] pb-5 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+          onClick={onBack}
+          type="button"
+        >
+          Back to queue
+        </button>
+        <span className="text-sm font-black text-slate-500">Request #{request.id}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-        {/* Cột Trái: Thông tin người gửi */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3">
-            Thông tin tài khoản
-          </h3>
-          <div className="space-y-3 text-sm">
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Họ và tên</span>
-              <span className="font-medium text-slate-950">{request.fullName}</span>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Email liên hệ</span>
-              <span className="font-medium text-slate-950">{request.email}</span>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Mã định danh User</span>
-              <span className="font-medium text-slate-950">#{request.userId}</span>
-            </div>
-            <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Trạng thái xử lý</span>
-              <div className="mt-1">
-                <RoleRequestStatusBadge status={request.status} />
+      <div>
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+          Request detail
+        </p>
+        <h1 id="admin-role-request-detail-title" className="mt-2 text-4xl font-black tracking-tight">
+          {accountName}
+        </h1>
+        <p className="mt-2 text-base text-slate-600">{accountEmail}</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section
+          className="rounded-lg border border-[#d8d8d8] bg-white p-6"
+          aria-labelledby="account-section-title"
+        >
+          <h2 id="account-section-title" className="border-b border-[#ececec] pb-3 text-lg font-black">
+            Account Information
+          </h2>
+          <div className="mt-4 space-y-5 text-sm">
+            <dl className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Full name</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{accountName}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">User ID</dt>
+                <dd className="mt-1 font-bold text-[#171717]">#{accountId}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Email</dt>
+                <dd className="mt-1 break-all font-bold text-[#171717]">{accountEmail}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Phone</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{displayValue(account?.phone)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Date of birth</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{formatDate(account?.dateOfBirth)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Gender</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{displayValue(account?.gender)}</dd>
+              </div>
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Address</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{displayValue(account?.address)}</dd>
+              </div>
+            </dl>
+
+            <div className="rounded-md border border-[#ececec] bg-[#fafafa] p-4">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Verification</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <VerificationItem
+                  label={verificationLabel(account?.emailVerified, "Email verified", "Email not verified")}
+                  verified={account?.emailVerified}
+                />
+                <VerificationItem
+                  label={verificationLabel(account?.phoneVerified, "Phone verified", "Phone not verified")}
+                  verified={account?.phoneVerified}
+                />
+                <VerificationItem
+                  label={verificationLabel(account?.ageVerified, "Age verified", "Age not verified")}
+                  verified={account?.ageVerified}
+                />
+                <VerificationItem
+                  label={verificationLabel(account?.profileCompleted, "Profile complete", "Profile incomplete")}
+                  verified={account?.profileCompleted}
+                />
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Cột Phải: Thông tin nâng cấp */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm space-y-4">
-          <h3 className="text-lg font-semibold text-slate-900 border-b border-slate-100 pb-3">
-            Hồ sơ nâng cấp vai trò
-          </h3>
-          <div className="space-y-3 text-sm">
             <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Vai trò đăng ký</span>
-              <span className="font-mono font-bold text-slate-950">{request.requestedRole}</span>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Current roles</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {currentRoles.length > 0 ? (
+                  currentRoles.map((role) => (
+                    <span key={role} className="rounded-md bg-[#070f4f] px-2.5 py-1 text-xs font-black text-white">
+                      {role}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm font-bold text-slate-500">No roles reported</span>
+                )}
+              </div>
+            </div>
+
+            <dl className="grid gap-4 border-t border-[#ececec] pt-4 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Account status</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{displayValue(account?.status)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Request status</dt>
+                <dd className="mt-2">
+                  <RoleRequestStatusBadge status={request.status} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Joined</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{formatDate(account?.createdAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Last login</dt>
+                <dd className="mt-1 font-bold text-[#171717]">{formatDate(account?.lastLoginAt)}</dd>
+              </div>
+            </dl>
+          </div>
+        </section>
+
+        <section className="rounded-lg border border-[#d8d8d8] bg-white p-6" aria-labelledby="role-section-title">
+          <h2 id="role-section-title" className="border-b border-[#ececec] pb-3 text-lg font-black">
+            Role Evidence
+          </h2>
+          <dl className="mt-4 space-y-4 text-sm">
+            <div>
+              <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Requested role</dt>
+              <dd className="mt-1 font-black text-[#006d5b]">{request.requestedRole}</dd>
             </div>
             <div>
-              <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Lý do xin nâng cấp</span>
-              <p className="mt-1 rounded bg-slate-50 p-3 text-slate-700 border border-slate-100">
-                {request.reason || "Không cung cấp lý do."}
-              </p>
+              <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Reason</dt>
+              <dd className="mt-2 rounded-md border border-[#ececec] bg-[#fafafa] p-4 leading-6 text-slate-700">
+                {request.reason || "No reason provided."}
+              </dd>
             </div>
             {request.evidenceUrl && (
               <div>
-                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Bằng chứng / Chứng chỉ</span>
-                <a
-                  href={request.evidenceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium break-all"
-                >
-                  {request.evidenceUrl} &rarr;
-                </a>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Evidence URL</dt>
+                <dd className="mt-1">
+                  <a
+                    className="break-all font-bold text-[#006d5b] underline"
+                    href={request.evidenceUrl}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {request.evidenceUrl}
+                  </a>
+                </dd>
               </div>
             )}
             {request.adminNote && (
               <div>
-                <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wider">Ghi chú của Admin</span>
-                <p className="mt-1 rounded bg-rose-50/70 p-3 text-rose-800 border border-rose-100">
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Admin note</dt>
+                <dd className="mt-2 rounded-md border border-rose-100 bg-rose-50 p-4 leading-6 text-rose-800">
                   {request.adminNote}
-                </p>
+                </dd>
               </div>
             )}
-          </div>
-        </div>
+          </dl>
+        </section>
       </div>
 
       {request.status === "PENDING" && (
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-5">
+        <div className="flex flex-col justify-end gap-3 border-t border-[#d8d8d8] pt-5 sm:flex-row">
           <button
-            onClick={onReject}
+            className="min-h-11 rounded-md bg-[#b3193a] px-6 text-sm font-black text-white shadow-sm hover:bg-[#8f1430] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={processing}
-            className="rounded-md bg-rose-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 focus:outline-none cursor-pointer"
+            onClick={onReject}
+            type="button"
           >
-            Từ chối yêu cầu
+            Reject Request
           </button>
           <button
-            onClick={onApprove}
+            className="min-h-11 rounded-md bg-[#006d5b] px-6 text-sm font-black text-white shadow-sm hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={processing}
-            className="rounded-md bg-emerald-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none cursor-pointer"
+            onClick={onApprove}
+            type="button"
           >
-            {processing ? "Đang xử lý..." : "Phê duyệt quyền"}
+            {processing ? "Processing..." : "Approve Role"}
           </button>
         </div>
       )}
-    </div>
+    </section>
   );
 }

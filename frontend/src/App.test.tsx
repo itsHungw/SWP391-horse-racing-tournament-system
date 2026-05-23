@@ -145,4 +145,40 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: /join the circuit/i })).toBeInTheDocument();
     expect(document.querySelectorAll("main")).toHaveLength(1);
   });
+
+  it("renders the admin operations foundation route", () => {
+    window.history.pushState({}, "", "/admin");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("banner", { name: /admin operations header/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: /admin workspace/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /admin operations/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", {
+        name: /search admin workspace/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /role requests/i }),
+    ).toHaveAttribute("href", "/admin/role-requests");
+  });
+
+  it("keeps future admin sections inside the admin shell", () => {
+    window.history.pushState({}, "", "/admin/users");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("banner", { name: /admin operations header/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /users/i })).toBeInTheDocument();
+    expect(screen.getByText(/this admin section is reserved/i)).toBeInTheDocument();
+  });
 });

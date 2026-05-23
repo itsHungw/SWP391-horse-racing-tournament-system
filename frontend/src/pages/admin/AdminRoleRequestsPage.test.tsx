@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { AdminRoleRequestsPage } from "./AdminRoleRequestsPage";
+
 import { RoleRequest } from "../../types/adminRoleRequest";
+import { AdminRoleRequestsPage } from "./AdminRoleRequestsPage";
 
 const mockRequests: RoleRequest[] = [
   {
@@ -11,30 +12,30 @@ const mockRequests: RoleRequest[] = [
     email: "quan@gmail.com",
     requestedRole: "JOCKEY",
     status: "PENDING",
-    reason: "Thích đua ngựa",
+    reason: "Wants to join race operations",
     createdAt: "2026-05-20T10:00:00",
   },
 ];
 
 describe("AdminRoleRequestsPage", () => {
-  it("renders table with data and filter select options", () => {
+  it("renders role request rows and opens detail from the queue", () => {
     const handleView = vi.fn();
     render(
       <AdminRoleRequestsPage
-        requests={mockRequests}
         loading={false}
-        selectedStatus="ALL"
+        onRefresh={vi.fn()}
         onStatusChange={vi.fn()}
         onViewDetail={handleView}
-        onRefresh={vi.fn()}
-      />
+        requests={mockRequests}
+        selectedStatus="ALL"
+      />,
     );
 
+    expect(screen.getByRole("heading", { name: /role request review queue/i })).toBeInTheDocument();
     expect(screen.getByText("Minh Quan")).toBeInTheDocument();
     expect(screen.getByText("JOCKEY")).toBeInTheDocument();
 
-    const viewBtn = screen.getByRole("button", { name: /Xem chi tiết/i });
-    fireEvent.click(viewBtn);
+    fireEvent.click(screen.getByRole("button", { name: /view detail/i }));
     expect(handleView).toHaveBeenCalledWith(1);
   });
 });

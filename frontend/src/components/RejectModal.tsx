@@ -13,10 +13,10 @@ export function RejectModal({ isOpen, onClose, onConfirm, isSubmitting }: Props)
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (!reason.trim()) {
-      setError("Lý do từ chối là bắt buộc.");
+      setError("A rejection reason is required.");
       return;
     }
     setError("");
@@ -24,52 +24,65 @@ export function RejectModal({ isOpen, onClose, onConfirm, isSubmitting }: Props)
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl border border-slate-100">
-        <h3 className="text-lg font-semibold text-slate-900">Từ chối yêu cầu nâng cấp</h3>
-        <p className="mt-2 text-sm text-slate-500">
-          Vui lòng cung cấp lý do từ chối chi tiết. Lý do này sẽ được gửi tới người dùng.
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <section
+        aria-labelledby="reject-modal-title"
+        className="w-full max-w-md rounded-lg border border-[#d8d8d8] bg-white p-6 shadow-xl"
+        role="dialog"
+      >
+        <h2 id="reject-modal-title" className="text-xl font-black text-[#171717]">
+          Reject Role Request
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Add a clear reason so the user understands what to fix before submitting another request.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-4">
+        <form className="mt-5" onSubmit={handleSubmit}>
           <div>
-            <label htmlFor="reject-reason" className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-              Lý do từ chối
+            <label
+              className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600"
+              htmlFor="reject-reason"
+            >
+              Rejection reason
             </label>
             <textarea
-              id="reject-reason"
-              rows={3}
-              value={reason}
-              onChange={(e) => {
-                setReason(e.target.value);
-                if (e.target.value.trim()) setError("");
-              }}
-              className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm placeholder-slate-400 shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-              placeholder="Ví dụ: Tài liệu chứng minh mờ, thông tin không trùng khớp..."
+              className="mt-2 block w-full rounded-md border border-[#bdbdbd] px-3 py-2 text-sm placeholder-slate-400 shadow-sm focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
               disabled={isSubmitting}
+              id="reject-reason"
+              onChange={(event) => {
+                setReason(event.target.value);
+                if (event.target.value.trim()) setError("");
+              }}
+              placeholder="Example: Evidence document is missing or does not match the requested role."
+              rows={4}
+              value={reason}
             />
-            {error && <p className="mt-1 text-xs text-rose-600">{error}</p>}
+            {error && (
+              <p className="mt-2 text-xs font-bold text-[#b3193a]" role="alert">
+                {error}
+              </p>
+            )}
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
             <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none"
+              className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
               disabled={isSubmitting}
+              onClick={onClose}
+              type="button"
             >
-              Hủy bỏ
+              Cancel
             </button>
             <button
-              type="submit"
-              className="rounded-md bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 focus:outline-none flex items-center justify-center"
+              className="min-h-11 rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#8f1430] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
               disabled={isSubmitting}
+              type="submit"
             >
-              {isSubmitting ? "Đang xử lý..." : "Xác nhận từ chối"}
+              {isSubmitting ? "Submitting..." : "Confirm Rejection"}
             </button>
           </div>
         </form>
-      </div>
+      </section>
     </div>
   );
 }

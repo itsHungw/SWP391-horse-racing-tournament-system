@@ -1,5 +1,5 @@
-import { RoleRequest } from "../../types/adminRoleRequest";
 import { RoleRequestStatusBadge } from "../../components/RoleRequestStatusBadge";
+import { RoleRequest } from "../../types/adminRoleRequest";
 
 type Props = {
   requests: RoleRequest[];
@@ -19,80 +19,89 @@ export function AdminRoleRequestsPage({
   onRefresh,
 }: Props) {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-5">
+    <section aria-labelledby="admin-role-requests-title" className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Danh sách yêu cầu nâng cấp vai trò</h2>
-          <p className="text-sm text-slate-500 mt-1">Duyệt hồ sơ xin quyền nài ngựa, trọng tài, chủ sở hữu.</p>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+            Access control
+          </p>
+          <h1 id="admin-role-requests-title" className="mt-2 text-4xl font-black tracking-tight">
+            Role Request Review Queue
+          </h1>
+          <p className="mt-2 max-w-3xl text-base text-slate-600">
+            Review jockey, owner, and referee access requests before users can enter specialist workflows.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <select
+            aria-label="Filter role requests by status"
+            className="min-h-11 rounded-md border border-[#bdbdbd] bg-white px-3 py-2 text-sm font-bold text-slate-700 shadow-sm focus:border-[#b3193a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a]"
             id="status-filter"
+            onChange={(event) => onStatusChange(event.target.value)}
             value={selectedStatus}
-            onChange={(e) => onStatusChange(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm focus:border-emerald-500 focus:outline-none"
-            aria-label="Lọc theo trạng thái"
           >
-            <option value="ALL">Tất cả trạng thái</option>
-            <option value="PENDING">Chờ duyệt</option>
-            <option value="APPROVED">Đã duyệt</option>
-            <option value="REJECTED">Đã từ chối</option>
+            <option value="ALL">All statuses</option>
+            <option value="PENDING">Pending</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
           </select>
           <button
+            className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
             onClick={onRefresh}
-            className="inline-flex items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none cursor-pointer"
+            type="button"
           >
-            Tải lại
+            Refresh
           </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <p className="text-slate-500 text-sm animate-pulse">Đang tải dữ liệu...</p>
+        <div className="flex items-center justify-center rounded-lg border border-[#d8d8d8] bg-white py-16">
+          <p className="text-sm font-bold text-slate-500">Loading role requests...</p>
         </div>
       ) : requests.length === 0 ? (
-        <div className="text-center py-12 border border-dashed border-slate-200 rounded-lg bg-slate-50">
-          <p className="text-slate-500 text-sm">Không có yêu cầu nâng cấp nào được tìm thấy.</p>
+        <div className="rounded-lg border border-dashed border-[#bdbdbd] bg-white py-16 text-center">
+          <p className="text-sm font-bold text-slate-500">No role requests match this filter.</p>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-slate-200 text-left text-sm text-slate-700">
-            <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+        <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
+          <table className="min-w-full divide-y divide-[#ececec] text-left text-sm text-slate-700">
+            <thead className="bg-[#f7f7f7] text-xs font-black uppercase tracking-[0.14em] text-slate-500">
               <tr>
-                <th className="px-6 py-3">Người gửi</th>
-                <th className="px-6 py-3">Vai trò yêu cầu</th>
-                <th className="px-6 py-3">Trạng thái</th>
-                <th className="px-6 py-3">Ngày gửi</th>
-                <th className="px-6 py-3 text-right">Hành động</th>
+                <th className="px-6 py-3">Applicant</th>
+                <th className="px-6 py-3">Requested role</th>
+                <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">Submitted</th>
+                <th className="px-6 py-3 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 bg-white">
-              {requests.map((req) => (
-                <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+            <tbody className="divide-y divide-[#ececec] bg-white">
+              {requests.map((request) => (
+                <tr className="transition-colors hover:bg-[#fafafa]" key={request.id}>
                   <td className="px-6 py-4">
-                    <div className="font-medium text-slate-900">{req.fullName}</div>
-                    <div className="text-xs text-slate-500">{req.email}</div>
+                    <div className="font-black text-[#171717]">{request.fullName}</div>
+                    <div className="text-xs text-slate-500">{request.email}</div>
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs">{req.requestedRole}</td>
+                  <td className="px-6 py-4 font-black text-[#006d5b]">{request.requestedRole}</td>
                   <td className="px-6 py-4">
-                    <RoleRequestStatusBadge status={req.status} />
+                    <RoleRequestStatusBadge status={request.status} />
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-500">
-                    {new Date(req.createdAt).toLocaleDateString("vi-VN", {
+                    {new Date(request.createdAt).toLocaleDateString("en-US", {
                       year: "numeric",
-                      month: "2-digit",
-                      day: "2-digit",
+                      month: "short",
+                      day: "numeric",
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
-                      onClick={() => onViewDetail(req.id)}
-                      className="inline-flex items-center rounded-md bg-white px-3 py-1.5 text-xs font-medium text-slate-700 ring-1 ring-inset ring-slate-300 hover:bg-slate-50 focus:outline-none cursor-pointer"
+                      className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-xs font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                      onClick={() => onViewDetail(request.id)}
+                      type="button"
                     >
-                      Xem chi tiết
+                      View Detail
                     </button>
                   </td>
                 </tr>
@@ -101,6 +110,6 @@ export function AdminRoleRequestsPage({
           </table>
         </div>
       )}
-    </div>
+    </section>
   );
 }

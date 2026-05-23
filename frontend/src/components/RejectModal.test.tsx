@@ -1,49 +1,49 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+
 import { RejectModal } from "./RejectModal";
 
 describe("RejectModal", () => {
-  it("renders when isOpen is true and validates input", () => {
+  it("renders when open and validates required reason", () => {
     const handleConfirm = vi.fn();
     const handleClose = vi.fn();
 
     render(
       <RejectModal
         isOpen={true}
+        isSubmitting={false}
         onClose={handleClose}
         onConfirm={handleConfirm}
-        isSubmitting={false}
-      />
+      />,
     );
 
-    expect(screen.getByText("Từ chối yêu cầu nâng cấp")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /reject role request/i })).toBeInTheDocument();
 
-    const submitBtn = screen.getByRole("button", { name: /Xác nhận từ chối/i });
-    fireEvent.click(submitBtn);
+    fireEvent.click(screen.getByRole("button", { name: /confirm rejection/i }));
 
-    expect(screen.getByText("Lý do từ chối là bắt buộc.")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("A rejection reason is required.");
     expect(handleConfirm).not.toHaveBeenCalled();
   });
 
-  it("calls onConfirm when inputs are valid", () => {
+  it("calls onConfirm when the reason is valid", () => {
     const handleConfirm = vi.fn();
     const handleClose = vi.fn();
 
     render(
       <RejectModal
         isOpen={true}
+        isSubmitting={false}
         onClose={handleClose}
         onConfirm={handleConfirm}
-        isSubmitting={false}
-      />
+      />,
     );
 
-    const textarea = screen.getByPlaceholderText(/Tài liệu chứng minh mờ/i);
-    fireEvent.change(textarea, { target: { value: "Lý do hợp lệ" } });
+    fireEvent.change(screen.getByLabelText(/rejection reason/i), {
+      target: { value: "Evidence document is missing." },
+    });
 
-    const submitBtn = screen.getByRole("button", { name: /Xác nhận từ chối/i });
-    fireEvent.click(submitBtn);
+    fireEvent.click(screen.getByRole("button", { name: /confirm rejection/i }));
 
-    expect(handleConfirm).toHaveBeenCalledWith("Lý do hợp lệ");
+    expect(handleConfirm).toHaveBeenCalledWith("Evidence document is missing.");
   });
 });

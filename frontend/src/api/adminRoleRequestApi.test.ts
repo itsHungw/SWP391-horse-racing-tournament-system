@@ -15,7 +15,7 @@ describe("adminRoleRequestApi", () => {
     vi.mocked(httpClient.get).mockResolvedValue({ data: mockData });
 
     const result = await getRoleRequests("PENDING");
-    expect(httpClient.get).toHaveBeenCalledWith("/api/admin/role-requests", {
+    expect(httpClient.get).toHaveBeenCalledWith("/admin/role-requests", {
       params: { status: "PENDING" },
     });
     expect(result).toEqual(mockData);
@@ -24,13 +24,13 @@ describe("adminRoleRequestApi", () => {
   it("approveRequest calls the correct endpoint", async () => {
     vi.mocked(httpClient.post).mockResolvedValue({});
     await approveRequest(123);
-    expect(httpClient.post).toHaveBeenCalledWith("/api/admin/role-requests/123/approve");
+    expect(httpClient.post).toHaveBeenCalledWith("/admin/role-requests/123/approve");
   });
 
   it("rejectRequest calls the correct endpoint and payload", async () => {
     vi.mocked(httpClient.post).mockResolvedValue({});
     await rejectRequest(123, "Lý do");
-    expect(httpClient.post).toHaveBeenCalledWith("/api/admin/role-requests/123/reject", {
+    expect(httpClient.post).toHaveBeenCalledWith("/admin/role-requests/123/reject", {
       reason: "Lý do",
     });
   });
