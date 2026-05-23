@@ -19,20 +19,20 @@ public class OneTimeTokenService {
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final TokenHashService tokenHashService;
     private final SecureRandom secureRandom = new SecureRandom();
-    private final long emailTokenTtlHours;
+    private final long emailOtpTtlMinutes;
     private final long passwordResetTokenTtlMinutes;
 
     public OneTimeTokenService(
             EmailVerificationTokenRepository emailVerificationTokenRepository,
             PasswordResetTokenRepository passwordResetTokenRepository,
             TokenHashService tokenHashService,
-            @Value("${app.auth.email-token-ttl-hours}") long emailTokenTtlHours,
+            @Value("${app.auth.email-otp-ttl-minutes:10}") long emailOtpTtlMinutes,
             @Value("${app.auth.password-reset-token-ttl-minutes}") long passwordResetTokenTtlMinutes
     ) {
         this.emailVerificationTokenRepository = emailVerificationTokenRepository;
         this.passwordResetTokenRepository = passwordResetTokenRepository;
         this.tokenHashService = tokenHashService;
-        this.emailTokenTtlHours = emailTokenTtlHours;
+        this.emailOtpTtlMinutes = emailOtpTtlMinutes;
         this.passwordResetTokenTtlMinutes = passwordResetTokenTtlMinutes;
     }
 
@@ -40,11 +40,11 @@ public class OneTimeTokenService {
     public String createEmailVerificationToken(User user) {
         emailVerificationTokenRepository.findByUserIdAndUsedAtIsNull(user.getId())
                 .forEach(EmailVerificationToken::markUsed);
-        String rawToken = randomToken();
+        String rawToken = randomOtp();
         emailVerificationTokenRepository.save(EmailVerificationToken.create(
                 user,
                 tokenHashService.sha256(rawToken),
-                LocalDateTime.now().plusHours(emailTokenTtlHours)
+                LocalDateTime.now().plusMinutes(emailOtpTtlMinutes)
         ));
         return rawToken;
     }
@@ -76,5 +76,9 @@ public class OneTimeTokenService {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+    }
+
+    private String randomOtp() {
+        return String.format("%06d", secureRandom.nextInt(1_000_000));
     }
 }

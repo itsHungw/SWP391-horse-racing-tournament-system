@@ -63,7 +63,7 @@ class AuthLoginIntegrationTest {
         userRepository.save(user);
 
         // 4. Tiến hành POST login
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"testlogin@example.com\",\"password\":\"validPassword123\"}"))
                 .andExpect(status().isOk())
@@ -74,7 +74,7 @@ class AuthLoginIntegrationTest {
 
     @Test
     void shouldRejectLoginWithInvalidCredentials() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"wrong@example.com\",\"password\":\"wrongpassword\"}"))
                 .andExpect(status().isBadRequest());
