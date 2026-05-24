@@ -52,9 +52,15 @@ public class AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
-        if (userRepository.existsByEmail(email)) {
+        User existingUser = userRepository.findByEmail(email).orElse(null);
+        if (existingUser != null) {
+            if (User.STATUS_PENDING_EMAIL_VERIFY.equals(existingUser.getStatus())) {
+                sendVerificationEmail(existingUser);
+                return;
+            }
             throw new IllegalArgumentException("EMAIL_ALREADY_EXISTS");
         }
+
         User user = userRepository.save(User.pending(
                 request.fullName().trim(),
                 email,
@@ -64,6 +70,10 @@ public class AuthService {
         Role spectator = roleRepository.findByName("SPECTATOR")
                 .orElseThrow(() -> new IllegalStateException("SPECTATOR_ROLE_NOT_CONFIGURED"));
         userRoleRepository.save(UserRole.active(user, spectator, null));
+        sendVerificationEmail(user);
+    }
+
+    private void sendVerificationEmail(User user) {
         String rawToken = oneTimeTokenService.createEmailVerificationToken(user);
         emailSender.sendEmailVerification(user.getEmail(), rawToken);
     }
