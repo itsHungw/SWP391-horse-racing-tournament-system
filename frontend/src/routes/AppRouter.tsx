@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/AppLayout";
 import { RoleDashboardPage } from "../pages/RoleDashboardPage";
 import { HomePage } from "../pages/public/HomePage";
+import { JoinUsPage } from "../pages/public/JoinUsPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
@@ -17,6 +18,7 @@ export function AppRouter() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
+        <Route path="join-us" element={<JoinUsPage />} />
         
         {/* Authentication routes */}
         <Route path="login" element={<LoginPage />} />

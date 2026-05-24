@@ -36,8 +36,8 @@ const quickLinks = [
     path: "M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z",
   },
   {
-    label: "Role Request",
-    href: "/my-role-requests",
+    label: "Join Us",
+    href: "/join-us",
     path: "M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5s-3 1.34-3 3 1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z",
   },
   {
@@ -135,9 +135,9 @@ export function HomePage() {
               </a>
               <a
                 className="flex items-center border-b-2 border-transparent px-4 py-4 text-sm font-bold uppercase tracking-widest transition hover:border-white"
-                href="/my-role-requests"
+                href="/join-us"
               >
-                Request Role <span className="ml-2">&rarr;</span>
+                Join Us <span className="ml-2">&rarr;</span>
               </a>
             </div>
           </div>
@@ -230,11 +230,11 @@ export function HomePage() {
           <div className="mb-12 md:mb-0 md:w-1/2 md:pr-12">
             <h2 className="mb-6 text-5xl font-black uppercase tracking-tight">2026 Preakness Preview</h2>
             <p className="mb-8 max-w-lg text-xl leading-relaxed text-gray-300">
-              Complete your profile and request a specialist role when you are ready to join owner, jockey, or referee
-              workflows.
+              Explore how to join owner, jockey, or referee workflows before submitting your specialist role
+              application.
             </p>
-            <a className="flex items-center font-bold uppercase tracking-widest text-lime-400 hover:underline" href="/my-role-requests">
-              Request Specialist Role <span className="ml-2">&rarr;</span>
+            <a className="flex items-center font-bold uppercase tracking-widest text-lime-400 hover:underline" href="/join-us">
+              Join With Us <span className="ml-2">&rarr;</span>
             </a>
           </div>
           <div className="group relative cursor-pointer md:w-1/2">
@@ -316,7 +316,7 @@ export function HomePage() {
               <img alt="NYRA Logo" className="mb-8 h-24" src={footerImage} />
               <div className="space-y-4 text-sm font-bold uppercase tracking-widest">
                 {["Contact NYRA", "Live Chat", "Sponsor with NYRA", "About NYRA", "Careers"].map((item) => (
-                  <a className="block transition hover:text-nyraGreen" href="#" key={item}>
+                  <a className="block transition hover:text-nyraGreen" href={item === "Careers" ? "/join-us" : "#"} key={item}>
                     {item}
                   </a>
                 ))}

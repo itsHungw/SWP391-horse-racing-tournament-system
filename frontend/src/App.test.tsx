@@ -34,9 +34,9 @@ describe("App", () => {
       "href",
       "#tournaments",
     );
-    expect(screen.getByRole("link", { name: /request role/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /^join us/i })[0]).toHaveAttribute(
       "href",
-      "/my-role-requests",
+      "/join-us",
     );
     expect(screen.getByText(/live racing in nyc/i)).toBeInTheDocument();
     expect(screen.getByText(/visit aqueduct/i)).toBeInTheDocument();
@@ -64,6 +64,10 @@ describe("App", () => {
     expect(
       within(primaryNav).queryByRole("link", { name: /^role request$/i }),
     ).not.toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
+      "href",
+      "/join-us",
+    );
     expect(
       within(primaryNav).queryByRole("link", { name: /^admin$/i }),
     ).not.toBeInTheDocument();
@@ -83,7 +87,7 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: /sign up for free points/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /create account/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
       "href",
       "/register",
     );
@@ -109,9 +113,9 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /^logout$/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^log in$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^sign up$/i })).not.toBeInTheDocument();
-    expect(within(primaryNav).getByRole("link", { name: /^role request$/i })).toHaveAttribute(
+    expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
       "href",
-      "/my-role-requests",
+      "/join-us",
     );
     expect(
       screen.getByRole("heading", { name: /latest tournament blog/i }),
@@ -123,7 +127,7 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: /sign up for free points/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /create account/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
       "href",
       "/register",
     );
@@ -144,6 +148,25 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: /join the circuit/i })).toBeInTheDocument();
     expect(document.querySelectorAll("main")).toHaveLength(1);
+  });
+
+  it("renders the Join Us hiring page with application path", () => {
+    window.history.pushState({}, "", "/join-us");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /we are hiring/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^jockey$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^owner$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^referee$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
+      "href",
+      "/register",
+    );
+    expect(screen.getByRole("link", { name: /view application flow/i })).toHaveAttribute(
+      "href",
+      "#application-flow",
+    );
   });
 
   it("renders the admin operations foundation route", () => {
