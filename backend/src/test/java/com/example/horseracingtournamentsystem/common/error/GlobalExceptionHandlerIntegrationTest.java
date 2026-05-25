@@ -99,4 +99,18 @@ class GlobalExceptionHandlerIntegrationTest {
                 .andExpect(jsonPath("$.message").value("Role request not found"))
                 .andExpect(jsonPath("$.path").value("/api/v1/admin/role-requests/999999/approve"));
     }
+
+    @Test
+    void nonMultipartUploadsUseConsistentApiErrorShape() throws Exception {
+        mockMvc.perform(post("/api/v1/files/upload")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.timestamp", notNullValue()))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.message").value("Multipart file upload is required"))
+                .andExpect(jsonPath("$.path").value("/api/v1/files/upload"));
+    }
 }

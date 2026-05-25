@@ -39,16 +39,24 @@ function shouldSkipRefresh(url?: string) {
   );
 }
 
+function isFormDataBody(data: unknown) {
+  return typeof FormData !== "undefined" && data instanceof FormData;
+}
+
 httpClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("accessToken");
+    const headers = AxiosHeaders.from(config.headers);
 
-    if (token && !isAccessTokenExpired(token)) {
-      const headers = AxiosHeaders.from(config.headers);
-      headers.set("Authorization", `Bearer ${token}`);
-      config.headers = headers;
+    if (isFormDataBody(config.data)) {
+      headers.delete("Content-Type");
     }
 
+    if (token && !isAccessTokenExpired(token)) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+
+    config.headers = headers;
     return config;
   },
   (error) => {

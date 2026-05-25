@@ -59,6 +59,31 @@ describe("httpClient", () => {
     expect(adapter).toHaveBeenCalledTimes(2);
   });
 
+  it("does not force JSON content type for FormData uploads", async () => {
+    const formData = new FormData();
+    formData.append("file", new File(["avatar"], "avatar.png", { type: "image/png" }));
+    const adapter = vi.fn((config: InternalAxiosRequestConfig) =>
+      Promise.resolve({
+        config,
+        data: {
+          contentType: config.headers.get("Content-Type"),
+        },
+        headers: {},
+        status: 200,
+        statusText: "OK",
+      }),
+    );
+
+    const response = await httpClient.request({
+      adapter,
+      data: formData,
+      method: "post",
+      url: "/files/upload?category=AVATAR",
+    });
+
+    expect(response.data.contentType).not.toBe("application/json");
+  });
+
   it("clears the local session when refresh fails after an unauthorized API response", async () => {
     const sessionChanged = vi.fn();
     vi.spyOn(axios, "post").mockRejectedValue(
