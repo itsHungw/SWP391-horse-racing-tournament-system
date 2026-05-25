@@ -1,48 +1,217 @@
-import React, { useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+
 import { getMyProfile } from "../../api/profileApi";
 import { getMyRoleRequests, submitRoleRequest } from "../../api/roleRequestApi";
-import { RoleRequest, RequestedRole } from "../../types/roleRequest";
+import { ClientHeader } from "../../components/client/ClientHeader";
 import { SkeletonLoader } from "../../components/common/SkeletonLoader";
 import { StatusBadge } from "../../components/StatusBadge";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { Profile } from "../../types/profile";
+import { RoleRequest, RequestedRole } from "../../types/roleRequest";
+
+type RoleOption = {
+  role: RequestedRole;
+  title: string;
+  eyebrow: string;
+  description: string;
+  requirements: string[];
+};
+
+const roleOptions: RoleOption[] = [
+  {
+    role: "JOCKEY",
+    title: "Jockey",
+    eyebrow: "Race participation",
+    description: "Apply for race-day access, lineup eligibility, and future performance tracking.",
+    requirements: ["Complete profile", "Riding background", "Admin review"],
+  },
+  {
+    role: "HORSE_OWNER",
+    title: "Owner",
+    eyebrow: "Stable operations",
+    description: "Request owner access for stable participation and tournament operations workflows.",
+    requirements: ["Verified account", "Owner intent", "Contact details"],
+  },
+  {
+    role: "REFEREE",
+    title: "Referee",
+    eyebrow: "Tournament integrity",
+    description: "Support fair tournament operations, race oversight, and structured review decisions.",
+    requirements: ["Operational experience", "Clear reason", "Admin approval"],
+  },
+];
+
+function roleTitle(role: RequestedRole) {
+  return roleOptions.find((option) => option.role === role)?.title ?? role.replace("_", " ");
+}
+
+function formatDate(value: string) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function statusTone(status: RoleRequest["status"]) {
+  if (status === "APPROVED") {
+    return "success";
+  }
+
+  if (status === "REJECTED" || status === "CANCELLED") {
+    return "critical";
+  }
+
+  return "draft";
+}
+
+function statusLabel(status: RoleRequest["status"]) {
+  const labels: Record<RoleRequest["status"], string> = {
+    PENDING: "Under review",
+    APPROVED: "Approved",
+    REJECTED: "Rejected",
+    CANCELLED: "Cancelled",
+  };
+
+  return labels[status];
+}
+
+function getApiErrorMessage(error: unknown) {
+  if (error && typeof error === "object" && "response" in error) {
+    const response = (error as { response?: { data?: { message?: string; error?: string } } }).response;
+    return response?.data?.message || response?.data?.error || "Unable to submit application.";
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unable to submit application.";
+}
+
+function ReadinessDot({ ready }: { ready: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`mt-1 h-4 w-4 shrink-0 rounded-full border-4 ${
+        ready ? "border-nyraGreen bg-nyraGreen" : "border-slate-300 bg-white"
+      }`}
+    />
+  );
+}
 
 export function MyRoleRequestsPage() {
-  const [profileCompleted, setProfileCompleted] = useState<boolean>(false);
-  const [userRoles, setUserRoles] = useState<string[]>([]);
+  useDocumentTitle("Role Applications | Horse Racing Tournament");
+
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [requests, setRequests] = useState<RoleRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // Form input states
-  const [selectedRole, setSelectedRole] = useState<RequestedRole>("HORSE_OWNER");
+  const [selectedRole, setSelectedRole] = useState<RequestedRole>("JOCKEY");
   const [reason, setReason] = useState("");
+  const [evidenceUrl, setEvidenceUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
+    async function loadInitialData() {
+      try {
+        setLoading(true);
+        const [profileData, requestData] = await Promise.all([getMyProfile(), getMyRoleRequests()]);
+
+        if (!active) {
+          return;
+        }
+
+        setProfile(profileData);
+        setRequests(requestData);
+        setError(null);
+      } catch {
+        if (active) {
+          setError("Unable to load your application workspace. Please try again.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadInitialData();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const loadInitialData = async () => {
-    try {
-      setLoading(true);
-      const [profile, reqList] = await Promise.all([
-        getMyProfile(),
-        getMyRoleRequests()
-      ]);
-      setProfileCompleted(profile.profileCompleted);
-      setUserRoles(["SPECTATOR"]);
-      setRequests(reqList);
-    } catch (err: any) {
-      setError("Không thể tải thông tin. Vui lòng kiểm tra kết nối.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const profileCompleted = Boolean(profile?.profileCompleted);
+  const selectedOption = roleOptions.find((option) => option.role === selectedRole) ?? roleOptions[0];
 
-  const handleApply = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (reason.length < 20 || reason.length > 500) {
-      setError("Lý do xin cấp quyền phải từ 20 đến 500 ký tự.");
+  const latestByRole = useMemo(() => {
+    return requests.reduce<Partial<Record<RequestedRole, RoleRequest>>>((acc, request) => {
+      if (!acc[request.requestedRole]) {
+        acc[request.requestedRole] = request;
+      }
+      return acc;
+    }, {});
+  }, [requests]);
+
+  const readinessItems = [
+    {
+      label: "Email verified",
+      ready: true,
+      helper: "Required before account access.",
+    },
+    {
+      label: profileCompleted ? "Profile complete" : "Profile incomplete",
+      ready: profileCompleted,
+      helper: "Required before applications can be reviewed.",
+    },
+    {
+      label: profile?.phoneVerified ? "Phone verified" : "Phone verification pending",
+      ready: Boolean(profile?.phoneVerified),
+      helper: "Recommended for faster admin review.",
+    },
+    {
+      label: profile?.ageVerified ? "Age verified" : "Age verification pending",
+      ready: Boolean(profile?.ageVerified),
+      helper: "Used later for prediction eligibility.",
+    },
+  ];
+
+  const selectedRequest = latestByRole[selectedRole];
+  const selectedRoleBlocked = selectedRequest?.status === "PENDING" || selectedRequest?.status === "APPROVED";
+  const canSubmit = profileCompleted && !selectedRoleBlocked && !submitting;
+
+  const handleApply = async (event: FormEvent) => {
+    event.preventDefault();
+
+    const cleanReason = reason.trim();
+    const cleanEvidenceUrl = evidenceUrl.trim();
+
+    if (!profileCompleted) {
+      setError("Complete your profile before submitting an application.");
+      return;
+    }
+
+    if (selectedRoleBlocked) {
+      setError(`${selectedOption.title} already has an active application state.`);
+      return;
+    }
+
+    if (cleanReason.length < 20 || cleanReason.length > 500) {
+      setError("Application reason must be between 20 and 500 characters.");
       return;
     }
 
@@ -50,146 +219,308 @@ export function MyRoleRequestsPage() {
       setError(null);
       setSuccess(null);
       setSubmitting(true);
-      const newReq = await submitRoleRequest(selectedRole, reason);
-      setRequests((prev) => [newReq, ...prev]);
-      setSuccess("Gửi yêu cầu thành công. Vui lòng chờ Admin phê duyệt!");
+      const newRequest = await submitRoleRequest(selectedRole, cleanReason, cleanEvidenceUrl || undefined);
+      setRequests((current) => [newRequest, ...current]);
+      setSuccess("Application submitted. The operations team will review it soon.");
       setReason("");
-    } catch (err: any) {
-      setError(err.message || "Gửi yêu cầu thất bại.");
+      setEvidenceUrl("");
+    } catch (err) {
+      setError(getApiErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const isPending = (role: RequestedRole) => {
-    return requests.some((r) => r.requestedRole === role && r.status === "PENDING");
-  };
-
-  const isOwned = (role: RequestedRole) => {
-    return userRoles.includes(role);
-  };
-
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-4xl p-6">
-        <SkeletonLoader />
-      </div>
-    );
-  }
-
-  // UX empty state redirect
-  if (!profileCompleted) {
-    return (
-      <div className="mx-auto max-w-md border border-slate-200 bg-white rounded-lg p-8 text-center space-y-4 shadow-sm">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-50 text-2xl text-amber-500">
-          🔒
-        </div>
-        <h3 className="text-lg font-bold text-slate-900">Yêu cầu hoàn tất Hồ sơ</h3>
-        <p className="text-sm text-slate-600 leading-relaxed">
-          Bạn cần phải cập nhật thông tin cá nhân (Họ tên, Số điện thoại, Địa chỉ) tại trang Hồ sơ trước khi có thể đăng ký các vai trò chuyên môn trong hệ thống.
-        </p>
-        <button
-          onClick={() => (window.location.href = "/profile")}
-          className="w-full rounded bg-emerald-700 py-2.5 text-sm font-semibold text-white shadow hover:bg-emerald-600 transition-colors cursor-pointer"
-        >
-          Đi đến trang Hồ sơ ngay
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <h2 className="text-xl font-bold text-slate-900">Yêu Cầu Thay Đổi Vai Trò</h2>
+    <div className="min-h-dvh bg-white text-[#171717]">
+      <ClientHeader />
 
-      {error && <div className="rounded bg-red-50 p-3 text-sm text-red-600 border border-red-100">{error}</div>}
-      {success && <div className="rounded bg-emerald-50 p-3 text-sm text-emerald-600 border border-emerald-100">{success}</div>}
-
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        {/* Cột trái: Form xin vai trò */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-1 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Đăng ký mới</h3>
-          <form onSubmit={handleApply} className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700">Chọn vai trò mong muốn</label>
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value as RequestedRole)}
-                className="mt-1 block w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-emerald-500"
-              >
-                <option value="HORSE_OWNER" disabled={isPending("HORSE_OWNER") || isOwned("HORSE_OWNER")}>
-                  Chủ Ngựa {isPending("HORSE_OWNER") ? "(Đang chờ duyệt)" : isOwned("HORSE_OWNER") ? "(Đã sở hữu)" : ""}
-                </option>
-                <option value="JOCKEY" disabled={isPending("JOCKEY") || isOwned("JOCKEY")}>
-                  Nài Ngựa {isPending("JOCKEY") ? "(Đang chờ duyệt)" : isOwned("JOCKEY") ? "(Đã sở hữu)" : ""}
-                </option>
-                <option value="REFEREE" disabled={isPending("REFEREE") || isOwned("REFEREE")}>
-                  Trọng Tài {isPending("REFEREE") ? "(Đang chờ duyệt)" : isOwned("REFEREE") ? "(Đã sở hữu)" : ""}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700">Lý do xin cấp quyền</label>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                rows={4}
-                placeholder="Điền tối thiểu 20 ký tự mô tả lý do bạn xin cấp quyền vai trò này..."
-                className="mt-1 block w-full rounded border border-slate-300 px-3 py-2 text-sm shadow-sm outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
-              />
-              <span className="text-[10px] text-slate-400 block mt-1">Độ dài lý do: {reason.length}/500 ký tự</span>
-            </div>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full rounded bg-emerald-700 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-600 disabled:opacity-50 transition-colors cursor-pointer"
-            >
-              {submitting ? "Đang gửi..." : "Gửi yêu cầu"}
-            </button>
-          </form>
-        </div>
-
-        {/* Cột phải: Bảng lịch sử */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm md:col-span-2 space-y-4">
-          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500">Lịch sử gửi duyệt</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase">
-                  <th className="px-4 py-2.5">Vai trò</th>
-                  <th className="px-4 py-2.5">Trạng thái</th>
-                  <th className="px-4 py-2.5">Ngày gửi</th>
-                  <th className="px-4 py-2.5">Lý do bị từ chối</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {requests.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-6 text-center text-slate-400">
-                      Chưa có lịch sử gửi duyệt vai trò.
-                    </td>
-                  </tr>
-                ) : (
-                  requests.map((r) => (
-                    <tr key={r.id}>
-                      <td className="px-4 py-3 font-semibold text-slate-800">{r.requestedRole.replace("_", " ")}</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge tone={r.status === "APPROVED" ? "success" : r.status === "REJECTED" ? "critical" : "draft"}>
-                          {r.status}
-                        </StatusBadge>
-                      </td>
-                      <td className="px-4 py-3 text-slate-500">{new Date(r.createdAt).toLocaleDateString("vi-VN")}</td>
-                      <td className="px-4 py-3 text-slate-500 text-xs">{r.rejectReason || "-"}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+      <main className="mx-auto max-w-[1536px] px-6 py-12 md:px-11 md:py-16">
+        {loading ? (
+          <div className="mx-auto max-w-5xl">
+            <SkeletonLoader />
           </div>
-        </div>
-      </div>
+        ) : (
+          <div className="space-y-10">
+            <section className="grid gap-8 border-b border-slate-200 pb-10 lg:grid-cols-[1fr_420px]">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-nyraGreen">Join the circuit</p>
+                <h1 className="mt-3 text-5xl font-black uppercase leading-none tracking-tight text-nyraDark md:text-6xl">
+                  Role Applications
+                </h1>
+                <p className="mt-5 max-w-3xl text-lg font-bold leading-8 text-slate-600">
+                  Choose the role that matches your track, submit a concise reason, and keep your application status in
+                  one review queue.
+                </p>
+              </div>
+
+              <aside className="border border-slate-200 bg-slate-50 p-6" aria-labelledby="readiness-title">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">Account readiness</p>
+                    <h2 id="readiness-title" className="mt-2 text-2xl font-black uppercase tracking-tight">
+                      Review Gate
+                    </h2>
+                  </div>
+                  <StatusBadge tone={profileCompleted ? "success" : "draft"}>
+                    {profileCompleted ? "Ready" : "Action needed"}
+                  </StatusBadge>
+                </div>
+
+                <ul aria-label="Application readiness" className="mt-6 space-y-4">
+                  {readinessItems.map((item) => (
+                    <li className="flex gap-3" key={item.label}>
+                      <ReadinessDot ready={item.ready} />
+                      <div>
+                        <p className="text-sm font-black text-slate-900">{item.label}</p>
+                        <p className="text-xs font-bold leading-5 text-slate-500">{item.helper}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {!profileCompleted && (
+                  <a
+                    className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-lime-400 px-5 py-3 text-sm font-black uppercase tracking-widest text-black transition hover:bg-[#b7ff4a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
+                    href="/profile"
+                  >
+                    Complete Profile
+                  </a>
+                )}
+              </aside>
+            </section>
+
+            {!profileCompleted ? (
+              <section className="border border-slate-200 bg-white p-8 shadow-sm" aria-labelledby="profile-needed">
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Application locked</p>
+                <h2 id="profile-needed" className="mt-3 text-4xl font-black uppercase tracking-tight">
+                  Complete Your Profile
+                </h2>
+                <p className="mt-4 max-w-3xl text-base font-bold leading-7 text-slate-600">
+                  Admin needs your name, phone number, date of birth, gender, and address before reviewing a specialist
+                  role request. Finish that first, then return here to choose your track.
+                </p>
+              </section>
+            ) : (
+              <section className="space-y-8" aria-labelledby="role-selection-title">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Open applications</p>
+                  <h2 id="role-selection-title" className="mt-3 text-4xl font-black uppercase tracking-tight">
+                    Choose Your Track
+                  </h2>
+                </div>
+
+                <div className="grid gap-5 lg:grid-cols-3">
+                  {roleOptions.map((option) => {
+                    const request = latestByRole[option.role];
+                    const pending = request?.status === "PENDING";
+                    const approved = request?.status === "APPROVED";
+                    const blocked = pending || approved;
+                    const selected = selectedRole === option.role;
+                    const buttonLabel = pending
+                      ? `${option.title} application under review`
+                      : approved
+                        ? `${option.title} role already granted`
+                        : `Select ${option.title} role`;
+
+                    return (
+                      <button
+                        aria-pressed={selected}
+                        className={`min-h-[330px] cursor-pointer border bg-white p-6 text-left shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen disabled:cursor-not-allowed disabled:opacity-70 ${
+                          selected ? "border-nyraGreen shadow-xl" : "border-slate-200 hover:-translate-y-1 hover:border-nyraGreen"
+                        }`}
+                        disabled={blocked}
+                        key={option.role}
+                        onClick={() => setSelectedRole(option.role)}
+                        type="button"
+                      >
+                        <div className="flex h-full flex-col justify-between">
+                          <div>
+                            <div className="flex items-start justify-between gap-4">
+                              <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">
+                                {option.eyebrow}
+                              </p>
+                              {request && <StatusBadge tone={statusTone(request.status)}>{statusLabel(request.status)}</StatusBadge>}
+                            </div>
+                            <h3 className="mt-5 text-4xl font-black uppercase tracking-tight text-nyraDark">
+                              {option.title}
+                            </h3>
+                            <p className="mt-4 text-base font-bold leading-7 text-slate-600">{option.description}</p>
+                            <ul className="mt-6 space-y-3">
+                              {option.requirements.map((requirement) => (
+                                <li className="flex gap-3 text-sm font-bold text-slate-700" key={requirement}>
+                                  <ReadinessDot ready />
+                                  <span>{requirement}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                          <span className="mt-7 block border-t border-slate-200 pt-4 text-sm font-black uppercase tracking-widest text-nyraGreen">
+                            {buttonLabel}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]" aria-labelledby="application-form-title">
+              <form
+                className="border border-slate-200 bg-white p-6 shadow-sm md:p-8"
+                onSubmit={handleApply}
+              >
+                <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Selected role</p>
+                <h2 id="application-form-title" className="mt-3 text-3xl font-black uppercase tracking-tight">
+                  {selectedOption.title} Application
+                </h2>
+                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{selectedOption.description}</p>
+
+                {error && (
+                  <div className="mt-6 border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800" role="alert">
+                    {error}
+                  </div>
+                )}
+                {success && (
+                  <div
+                    aria-live="polite"
+                    className="mt-6 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"
+                  >
+                    {success}
+                  </div>
+                )}
+
+                <div className="mt-6 space-y-5">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="reason">
+                      Application reason
+                    </label>
+                    <textarea
+                      className="mt-2 min-h-[150px] w-full resize-y border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      disabled={!profileCompleted || selectedRoleBlocked}
+                      id="reason"
+                      maxLength={500}
+                      minLength={20}
+                      onChange={(event) => setReason(event.target.value)}
+                      placeholder="Tell the operations team why this role fits your experience."
+                      required
+                      value={reason}
+                    />
+                    <p className="mt-2 text-xs font-bold text-slate-500">{reason.length}/500 characters</p>
+                  </div>
+
+                  <div>
+                    <label
+                      className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen"
+                      htmlFor="evidenceUrl"
+                    >
+                      Evidence URL
+                    </label>
+                    <input
+                      className="mt-2 h-12 w-full border border-slate-300 bg-white px-4 text-base font-bold text-slate-900 outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      disabled={!profileCompleted || selectedRoleBlocked}
+                      id="evidenceUrl"
+                      onChange={(event) => setEvidenceUrl(event.target.value)}
+                      placeholder="https://..."
+                      type="url"
+                      value={evidenceUrl}
+                    />
+                    <p className="mt-2 text-xs font-bold text-slate-500">
+                      Optional. Add license, portfolio, race history, or supporting documents.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-nyraGreen px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-[#006d5b] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
+                  disabled={!canSubmit}
+                  type="submit"
+                >
+                  {submitting ? "Submitting..." : "Submit Application"}
+                </button>
+              </form>
+
+              <section className="border border-slate-200 bg-slate-50 p-6 md:p-8" aria-labelledby="application-history-title">
+                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">My applications</p>
+                    <h2 id="application-history-title" className="mt-3 text-3xl font-black uppercase tracking-tight">
+                      Review Queue
+                    </h2>
+                  </div>
+                  <p className="text-sm font-bold text-slate-500">{requests.length} total</p>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {requests.length === 0 ? (
+                    <div className="border border-dashed border-slate-300 bg-white p-8 text-center">
+                      <p className="text-sm font-black uppercase tracking-widest text-slate-500">No applications yet</p>
+                      <p className="mt-2 text-sm font-bold text-slate-500">
+                        Select a role and submit your first application.
+                      </p>
+                    </div>
+                  ) : (
+                    requests.map((request) => (
+                      <article className="border border-slate-200 bg-white p-5" key={request.id}>
+                        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">
+                              {roleTitle(request.requestedRole)}
+                            </p>
+                            <h3 className="mt-2 text-xl font-black uppercase tracking-tight text-nyraDark">
+                              {statusLabel(request.status)}
+                            </h3>
+                          </div>
+                          <StatusBadge tone={statusTone(request.status)}>{statusLabel(request.status)}</StatusBadge>
+                        </div>
+                        <ol className="mt-5 grid gap-2 text-xs font-black uppercase tracking-widest text-slate-500 md:grid-cols-3">
+                          <li className="border-l-4 border-nyraGreen bg-slate-50 p-3">Submitted</li>
+                          <li className="border-l-4 border-amber-500 bg-slate-50 p-3">Under review</li>
+                          <li
+                            className={`border-l-4 bg-slate-50 p-3 ${
+                              request.status === "APPROVED"
+                                ? "border-emerald-600"
+                                : request.status === "REJECTED"
+                                  ? "border-red-600"
+                                  : "border-slate-300"
+                            }`}
+                          >
+                            Decision
+                          </li>
+                        </ol>
+                        <dl className="mt-5 grid gap-4 text-sm md:grid-cols-2">
+                          <div>
+                            <dt className="font-black uppercase tracking-widest text-slate-400">Submitted on</dt>
+                            <dd className="mt-1 font-bold text-slate-700">{formatDate(request.createdAt)}</dd>
+                          </div>
+                          <div>
+                            <dt className="font-black uppercase tracking-widest text-slate-400">Evidence</dt>
+                            <dd className="mt-1 font-bold text-slate-700">
+                              {request.evidenceUrl ? (
+                                <a className="text-nyraGreen underline" href={request.evidenceUrl}>
+                                  Open evidence
+                                </a>
+                              ) : (
+                                "Not provided"
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                        {request.rejectReason && (
+                          <p className="mt-4 border-l-4 border-red-600 bg-red-50 p-4 text-sm font-bold text-red-800">
+                            {request.rejectReason}
+                          </p>
+                        )}
+                      </article>
+                    ))
+                  )}
+                </div>
+              </section>
+            </section>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
