@@ -40,8 +40,25 @@ public class AdminRoleRequestService {
     public AdminRoleRequestResponse approve(Long requestId, String reviewerEmail, String adminNote) {
         RoleRequest request = getRequest(requestId);
         User reviewer = getReviewer(reviewerEmail);
+        if (UserRolePolicy.isSpecialistRole(request.getRequestedRole())
+                && UserRolePolicy.hasActiveSpecialistRole(request.getUser())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has an active specialist role");
+        }
+
         request.approve(reviewer, normalizeNote(adminNote, "Approved by admin."));
         assignRequestedRoleIfAvailable(request, reviewer);
+        return AdminRoleRequestResponse.from(roleRequestRepository.save(request));
+    }
+
+    @Transactional
+    public AdminRoleRequestResponse passCvReview(Long requestId, String reviewerEmail, String cvReviewNote) {
+        RoleRequest request = getRequest(requestId);
+        if (!RoleRequest.STATUS_PENDING.equals(request.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending requests can pass CV screening");
+        }
+
+        User reviewer = getReviewer(reviewerEmail);
+        request.passCvReview(reviewer, normalizeNote(cvReviewNote, "CV passed screening."));
         return AdminRoleRequestResponse.from(roleRequestRepository.save(request));
     }
 

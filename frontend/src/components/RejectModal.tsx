@@ -53,7 +53,7 @@ export function RejectModal({ isOpen, onClose, onConfirm, isSubmitting }: Props)
                 setReason(event.target.value);
                 if (event.target.value.trim()) setError("");
               }}
-              placeholder="Example: Evidence document is missing or does not match the requested role."
+              placeholder="Example: Resume document is missing or does not match the requested role."
               rows={4}
               value={reason}
             />

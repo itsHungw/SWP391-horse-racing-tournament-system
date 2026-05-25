@@ -1,7 +1,26 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+
+vi.mock("./api/authApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api/authApi")>();
+
+  return {
+    ...actual,
+    logoutRemote: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
+function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
+  const encode = (value: object) =>
+    btoa(JSON.stringify(value))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ exp, roles })}.signature`;
+}
 
 describe("App", () => {
   beforeEach(() => {
@@ -94,7 +113,7 @@ describe("App", () => {
   });
 
   it("renders authenticated client header links and logs out", () => {
-    localStorage.setItem("accessToken", "test-token");
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
     localStorage.setItem("fullName", "Nguyen Van A");
     localStorage.setItem("email", "member@example.com");
 
@@ -169,8 +188,62 @@ describe("App", () => {
     );
   });
 
-  it("renders the admin operations foundation route", () => {
+  it("redirects unauthenticated admin visitors to login", () => {
     window.history.pushState({}, "", "/admin");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("redirects unauthenticated profile visitors to login", () => {
+    window.history.pushState({}, "", "/profile");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("redirects unauthenticated role application visitors to login", () => {
+    window.history.pushState({}, "", "/my-role-requests");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("keeps an expired access token session visible so refresh can recover it", () => {
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"], 1));
+    localStorage.setItem("fullName", "Nguyen Van A");
+    localStorage.setItem("email", "member@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
+      "href",
+      "/spectator",
+    );
+    expect(localStorage.getItem("accessToken")).not.toBeNull();
+  });
+
+  it("renders a polished forbidden page for authenticated non-admin users", () => {
+    window.history.pushState({}, "", "/admin");
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
+    localStorage.setItem("fullName", "Nguyen Van A");
+    localStorage.setItem("email", "member@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /admin access required/i })).toBeInTheDocument();
+    expect(screen.getByText(/your account is signed in/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /return home/i })).toHaveAttribute("href", "/");
+  });
+
+  it("renders the admin operations foundation route for admin users", () => {
+    window.history.pushState({}, "", "/admin");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
 
     render(<App />);
 
@@ -195,6 +268,9 @@ describe("App", () => {
 
   it("keeps future admin sections inside the admin shell", () => {
     window.history.pushState({}, "", "/admin/users");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
 
     render(<App />);
 

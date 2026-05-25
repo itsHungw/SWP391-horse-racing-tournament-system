@@ -30,11 +30,15 @@ export interface RoleRequest {
   email: string;
   requestedRole: 'JOCKEY' | 'OWNER' | 'REFEREE';
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  cvReviewStatus?: 'NOT_REVIEWED' | 'PASSED';
   reason: string;
-  evidenceUrl?: string;
+  resumeUrl?: string;
   adminNote?: string;
+  cvReviewNote?: string;
   createdAt: string;
   reviewedAt?: string | null;
+  cvReviewedAt?: string | null;
   reviewedBy?: AdminRoleRequestReviewer | null;
+  cvReviewedBy?: AdminRoleRequestReviewer | null;
   user?: AdminRoleRequestUser | null;
 }

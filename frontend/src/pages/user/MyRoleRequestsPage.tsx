@@ -41,8 +41,22 @@ const roleOptions: RoleOption[] = [
   },
 ];
 
-function roleTitle(role: RequestedRole) {
-  return roleOptions.find((option) => option.role === role)?.title ?? role.replace("_", " ");
+function normalizeRoleName(role: string): RequestedRole | null {
+  const normalized = role.trim().toUpperCase();
+  if (normalized === "OWNER") {
+    return "HORSE_OWNER";
+  }
+
+  if (normalized === "HORSE_OWNER" || normalized === "JOCKEY" || normalized === "REFEREE") {
+    return normalized;
+  }
+
+  return null;
+}
+
+function roleTitle(role: RequestedRole | string) {
+  const normalized = normalizeRoleName(role);
+  return roleOptions.find((option) => option.role === normalized)?.title ?? role.replace("_", " ");
 }
 
 function formatDate(value: string) {
@@ -117,7 +131,7 @@ export function MyRoleRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<RequestedRole>("JOCKEY");
   const [reason, setReason] = useState("");
-  const [evidenceUrl, setEvidenceUrl] = useState("");
+  const [resumeUrl, setResumeUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -191,14 +205,32 @@ export function MyRoleRequestsPage() {
   ];
 
   const selectedRequest = latestByRole[selectedRole];
-  const selectedRoleBlocked = selectedRequest?.status === "PENDING" || selectedRequest?.status === "APPROVED";
+  const activeSpecialistRole = useMemo(() => {
+    const roleFromProfile = profile?.roles?.map(normalizeRoleName).find(Boolean);
+    if (roleFromProfile) {
+      return roleFromProfile;
+    }
+
+    return requests.find((request) => request.status === "APPROVED" && normalizeRoleName(request.requestedRole))
+      ?.requestedRole;
+  }, [profile?.roles, requests]);
+  const pendingSpecialistRequest = useMemo(() => {
+    if (activeSpecialistRole) {
+      return undefined;
+    }
+
+    return requests.find((request) => request.status === "PENDING" && normalizeRoleName(request.requestedRole));
+  }, [activeSpecialistRole, requests]);
+  const specialistApplicationsLocked = Boolean(activeSpecialistRole || pendingSpecialistRequest);
+  const selectedRoleBlocked =
+    specialistApplicationsLocked || selectedRequest?.status === "PENDING" || selectedRequest?.status === "APPROVED";
   const canSubmit = profileCompleted && !selectedRoleBlocked && !submitting;
 
   const handleApply = async (event: FormEvent) => {
     event.preventDefault();
 
     const cleanReason = reason.trim();
-    const cleanEvidenceUrl = evidenceUrl.trim();
+    const cleanResumeUrl = resumeUrl.trim();
 
     if (!profileCompleted) {
       setError("Complete your profile before submitting an application.");
@@ -215,15 +247,20 @@ export function MyRoleRequestsPage() {
       return;
     }
 
+    if (!cleanResumeUrl) {
+      setError("Resume PDF link is required before submitting an application.");
+      return;
+    }
+
     try {
       setError(null);
       setSuccess(null);
       setSubmitting(true);
-      const newRequest = await submitRoleRequest(selectedRole, cleanReason, cleanEvidenceUrl || undefined);
+      const newRequest = await submitRoleRequest(selectedRole, cleanReason, cleanResumeUrl);
       setRequests((current) => [newRequest, ...current]);
       setSuccess("Application submitted. The operations team will review it soon.");
       setReason("");
-      setEvidenceUrl("");
+      setResumeUrl("");
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -310,18 +347,50 @@ export function MyRoleRequestsPage() {
                   </h2>
                 </div>
 
+                {activeSpecialistRole && (
+                  <div className="border-l-4 border-nyraGreen bg-emerald-50 p-5 text-sm font-bold text-emerald-900">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">
+                      Active specialist role
+                    </p>
+                    <p className="mt-2">
+                      You currently hold {roleTitle(activeSpecialistRole)} access. Contact admin if you need to change
+                      your specialist track.
+                    </p>
+                  </div>
+                )}
+
+                {!activeSpecialistRole && pendingSpecialistRequest && (
+                  <div className="border-l-4 border-amber-500 bg-amber-50 p-5 text-sm font-bold text-amber-900">
+                    <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
+                      Specialist application pending
+                    </p>
+                    <p className="mt-2">
+                      Your {roleTitle(pendingSpecialistRequest.requestedRole)} application is under review. Wait for
+                      admin decision before applying for another specialist track.
+                    </p>
+                  </div>
+                )}
+
                 <div className="grid gap-5 lg:grid-cols-3">
                   {roleOptions.map((option) => {
                     const request = latestByRole[option.role];
                     const pending = request?.status === "PENDING";
                     const approved = request?.status === "APPROVED";
-                    const blocked = pending || approved;
+                    const lockedByPendingSpecialist = Boolean(
+                      pendingSpecialistRequest && pendingSpecialistRequest.requestedRole !== option.role,
+                    );
+                    const blocked = specialistApplicationsLocked || pending || approved;
                     const selected = selectedRole === option.role;
-                    const buttonLabel = pending
-                      ? `${option.title} application under review`
-                      : approved
-                        ? `${option.title} role already granted`
-                        : `Select ${option.title} role`;
+                    let buttonLabel = `Select ${option.title} role`;
+                    if (activeSpecialistRole) {
+                      buttonLabel = "Locked by active specialist role";
+                    } else if (lockedByPendingSpecialist) {
+                      buttonLabel = "Locked while another specialist application is pending";
+                    } else if (pending) {
+                      buttonLabel = `${option.title} application under review`;
+                    } else if (approved) {
+                      buttonLabel = `${option.title} role already granted`;
+                    }
 
                     return (
                       <button
@@ -329,7 +398,7 @@ export function MyRoleRequestsPage() {
                         className={`min-h-[330px] cursor-pointer border bg-white p-6 text-left shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen disabled:cursor-not-allowed disabled:opacity-70 ${
                           selected ? "border-nyraGreen shadow-xl" : "border-slate-200 hover:-translate-y-1 hover:border-nyraGreen"
                         }`}
-                        disabled={blocked}
+                      disabled={blocked}
                         key={option.role}
                         onClick={() => setSelectedRole(option.role)}
                         type="button"
@@ -413,21 +482,22 @@ export function MyRoleRequestsPage() {
                   <div>
                     <label
                       className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen"
-                      htmlFor="evidenceUrl"
+                      htmlFor="resumeUrl"
                     >
-                      Evidence URL
+                      Resume PDF URL
                     </label>
                     <input
                       className="mt-2 h-12 w-full border border-slate-300 bg-white px-4 text-base font-bold text-slate-900 outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
                       disabled={!profileCompleted || selectedRoleBlocked}
-                      id="evidenceUrl"
-                      onChange={(event) => setEvidenceUrl(event.target.value)}
-                      placeholder="https://..."
+                      id="resumeUrl"
+                      onChange={(event) => setResumeUrl(event.target.value)}
+                      placeholder="https://example.com/resume.pdf"
+                      required
                       type="url"
-                      value={evidenceUrl}
+                      value={resumeUrl}
                     />
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      Optional. Add license, portfolio, race history, or supporting documents.
+                      Required. Add a shareable PDF resume link for admin CV screening.
                     </p>
                   </div>
                 </div>
@@ -495,15 +565,21 @@ export function MyRoleRequestsPage() {
                             <dd className="mt-1 font-bold text-slate-700">{formatDate(request.createdAt)}</dd>
                           </div>
                           <div>
-                            <dt className="font-black uppercase tracking-widest text-slate-400">Evidence</dt>
+                            <dt className="font-black uppercase tracking-widest text-slate-400">Resume</dt>
                             <dd className="mt-1 font-bold text-slate-700">
-                              {request.evidenceUrl ? (
-                                <a className="text-nyraGreen underline" href={request.evidenceUrl}>
-                                  Open evidence
+                              {request.resumeUrl ? (
+                                <a className="text-nyraGreen underline" href={request.resumeUrl}>
+                                  Open resume
                                 </a>
                               ) : (
                                 "Not provided"
                               )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="font-black uppercase tracking-widest text-slate-400">CV screening</dt>
+                            <dd className="mt-1 font-bold text-slate-700">
+                              {request.cvReviewStatus === "PASSED" ? "Passed CV screening" : "Waiting for CV review"}
                             </dd>
                           </div>
                         </dl>

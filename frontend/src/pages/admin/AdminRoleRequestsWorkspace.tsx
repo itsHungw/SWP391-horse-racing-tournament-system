@@ -1,105 +1,12 @@
 import { useEffect, useState } from "react";
 
-import { approveRequest, getRoleRequests, rejectRequest } from "../../api/adminRoleRequestApi";
+import { approveRequest, getRoleRequests, passCvReview, rejectRequest } from "../../api/adminRoleRequestApi";
 import { RejectModal } from "../../components/RejectModal";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { RoleRequest } from "../../types/adminRoleRequest";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminRoleRequestDetailPage } from "./AdminRoleRequestDetailPage";
 import { AdminRoleRequestsPage } from "./AdminRoleRequestsPage";
-
-const fallbackMockData: RoleRequest[] = [
-  {
-    id: 1,
-    userId: 101,
-    fullName: "Nguyen Van A",
-    email: "vana@gmail.com",
-    requestedRole: "JOCKEY",
-    status: "PENDING",
-    reason: "I have three years of horse training and race riding experience.",
-    evidenceUrl: "https://example.com/cert-vana",
-    createdAt: "2026-05-20T10:00:00",
-    user: {
-      id: 101,
-      fullName: "Nguyen Van A",
-      email: "vana@gmail.com",
-      phone: "0901000101",
-      dateOfBirth: "1998-03-12",
-      gender: "MALE",
-      address: "District 7, Ho Chi Minh City",
-      status: "ACTIVE",
-      emailVerified: true,
-      phoneVerified: true,
-      ageVerified: true,
-      profileCompleted: true,
-      roles: ["SPECTATOR"],
-      createdAt: "2026-05-05T08:30:00",
-      lastLoginAt: "2026-05-22T09:45:00",
-    },
-  },
-  {
-    id: 2,
-    userId: 102,
-    fullName: "Tran Thi B",
-    email: "thib@gmail.com",
-    requestedRole: "OWNER",
-    status: "APPROVED",
-    reason: "I operate a racing stable and want to register owner workflows.",
-    evidenceUrl: "https://example.com/cert-thib",
-    createdAt: "2026-05-19T14:30:00",
-    user: {
-      id: 102,
-      fullName: "Tran Thi B",
-      email: "thib@gmail.com",
-      phone: "0902000202",
-      dateOfBirth: "1992-11-24",
-      gender: "FEMALE",
-      address: "Thu Duc City, Ho Chi Minh City",
-      status: "ACTIVE",
-      emailVerified: true,
-      phoneVerified: false,
-      ageVerified: true,
-      profileCompleted: true,
-      roles: ["SPECTATOR", "OWNER"],
-      createdAt: "2026-04-28T11:00:00",
-      lastLoginAt: "2026-05-21T17:10:00",
-    },
-  },
-  {
-    id: 3,
-    userId: 103,
-    fullName: "Le Hoang C",
-    email: "hoangc@gmail.com",
-    requestedRole: "REFEREE",
-    status: "REJECTED",
-    reason: "I want to review and score race results as a referee.",
-    adminNote: "The attached document does not match the requested referee role.",
-    createdAt: "2026-05-18T09:15:00",
-    reviewedAt: "2026-05-19T10:20:00",
-    reviewedBy: {
-      id: 1,
-      fullName: "Admin Operator",
-      email: "admin@equinepro.test",
-    },
-    user: {
-      id: 103,
-      fullName: "Le Hoang C",
-      email: "hoangc@gmail.com",
-      phone: "0903000303",
-      dateOfBirth: "2001-07-08",
-      gender: "MALE",
-      address: "Bien Hoa, Dong Nai",
-      status: "ACTIVE",
-      emailVerified: true,
-      phoneVerified: false,
-      ageVerified: false,
-      profileCompleted: false,
-      roles: ["SPECTATOR"],
-      createdAt: "2026-05-10T13:15:00",
-      lastLoginAt: undefined,
-    },
-  },
-];
 
 export function AdminRoleRequestsWorkspace() {
   useDocumentTitle("Admin role requests");
@@ -129,11 +36,9 @@ export function AdminRoleRequestsWorkspace() {
       }
       setRequests(data);
     } catch (err) {
-      console.warn("Admin role request API unavailable. Using local fallback data.", err);
-      const mockFiltered = fallbackMockData.filter(
-        (request) => selectedStatus === "ALL" || request.status === selectedStatus,
-      );
-      setRequests(mockFiltered);
+      console.error("Admin role request API unavailable.", err);
+      setRequests([]);
+      showToast("Could not load role requests from the server.", "error");
     } finally {
       setLoading(false);
     }
@@ -150,17 +55,28 @@ export function AdminRoleRequestsWorkspace() {
       await approveRequest(selectedRequestId);
       showToast("Role request approved.");
     } catch (err) {
-      console.warn("Approve API failed. Updating fallback data locally.", err);
-      const request = fallbackMockData.find((item) => item.id === selectedRequestId);
-      if (request) {
-        request.status = "APPROVED";
-      }
-      showToast("Role request approved in local fallback mode.");
+      console.error("Approve API failed.", err);
+      showToast("Could not approve this role request.", "error");
     } finally {
       setProcessing(false);
       setCurrentView("LIST");
       setSelectedRequestId(null);
       fetchData();
+    }
+  };
+
+  const handlePassCv = async () => {
+    if (selectedRequestId === null) return;
+    setProcessing(true);
+    try {
+      const updatedRequest = await passCvReview(selectedRequestId, "CV passed. Ready for interview.");
+      setRequests((current) => current.map((item) => (item.id === selectedRequestId ? updatedRequest : item)));
+      showToast("CV screening marked as passed.");
+    } catch (err) {
+      console.error("Pass CV API failed.", err);
+      showToast("Could not mark CV screening as passed.", "error");
+    } finally {
+      setProcessing(false);
     }
   };
 
@@ -171,13 +87,8 @@ export function AdminRoleRequestsWorkspace() {
       await rejectRequest(selectedRequestId, reason);
       showToast("Role request rejected.");
     } catch (err) {
-      console.warn("Reject API failed. Updating fallback data locally.", err);
-      const request = fallbackMockData.find((item) => item.id === selectedRequestId);
-      if (request) {
-        request.status = "REJECTED";
-        request.adminNote = reason;
-      }
-      showToast("Role request rejected in local fallback mode.");
+      console.error("Reject API failed.", err);
+      showToast("Could not reject this role request.", "error");
     } finally {
       setProcessing(false);
       setIsRejectOpen(false);
@@ -226,6 +137,7 @@ export function AdminRoleRequestsWorkspace() {
                 setCurrentView("LIST");
                 setSelectedRequestId(null);
               }}
+              onPassCv={handlePassCv}
               onReject={() => setIsRejectOpen(true)}
               processing={processing}
               request={activeRequest}

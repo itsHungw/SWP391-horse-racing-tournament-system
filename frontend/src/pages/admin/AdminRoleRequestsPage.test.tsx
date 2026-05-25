@@ -12,6 +12,7 @@ const mockRequests: RoleRequest[] = [
     email: "quan@gmail.com",
     requestedRole: "JOCKEY",
     status: "PENDING",
+    cvReviewStatus: "NOT_REVIEWED",
     reason: "Wants to join race operations",
     createdAt: "2026-05-20T10:00:00",
   },
@@ -34,6 +35,7 @@ describe("AdminRoleRequestsPage", () => {
     expect(screen.getByRole("heading", { name: /role request review queue/i })).toBeInTheDocument();
     expect(screen.getByText("Minh Quan")).toBeInTheDocument();
     expect(screen.getByText("JOCKEY")).toBeInTheDocument();
+    expect(screen.getByText("CV not reviewed")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /view detail/i }));
     expect(handleView).toHaveBeenCalledWith(1);

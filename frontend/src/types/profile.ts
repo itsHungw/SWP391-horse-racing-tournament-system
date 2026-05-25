@@ -5,6 +5,7 @@ export interface Profile {
   dateOfBirth?: string;
   address: string;
   avatarUrl?: string;
+  roles?: string[];
   profileCompleted: boolean;
   phoneVerified: boolean;
   ageVerified: boolean;

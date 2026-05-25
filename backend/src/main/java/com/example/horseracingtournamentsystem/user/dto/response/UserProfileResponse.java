@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.user.dto.response;
 
 import com.example.horseracingtournamentsystem.user.entity.User;
 import java.time.LocalDate;
+import java.util.Set;
 
 public record UserProfileResponse(
         String fullName,
@@ -10,6 +11,7 @@ public record UserProfileResponse(
         LocalDate dateOfBirth,
         String address,
         String avatarUrl,
+        Set<String> roles,
         boolean profileCompleted,
         boolean phoneVerified,
         boolean ageVerified
@@ -22,6 +24,7 @@ public record UserProfileResponse(
                 user.getDateOfBirth(),
                 user.getAddress(),
                 user.getAvatarUrl(),
+                user.getActiveRoleNames(),
                 user.isProfileCompleted(),
                 user.isPhoneVerified(),
                 user.isAgeVerified()

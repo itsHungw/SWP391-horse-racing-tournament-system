@@ -9,9 +9,10 @@ public record UserRoleRequestResponse(
         String userEmail,
         String requestedRole,
         String status,
+        String cvReviewStatus,
         String reason,
         String rejectReason,
-        String evidenceUrl,
+        String resumeUrl,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -22,9 +23,10 @@ public record UserRoleRequestResponse(
                 request.getUser().getEmail(),
                 request.getRequestedRole(),
                 request.getStatus(),
+                request.getCvReviewStatus(),
                 request.getReason(),
                 RoleRequest.STATUS_REJECTED.equals(request.getStatus()) ? request.getAdminNote() : null,
-                request.getEvidenceUrl(),
+                request.getResumeUrl(),
                 request.getCreatedAt(),
                 request.getUpdatedAt()
         );

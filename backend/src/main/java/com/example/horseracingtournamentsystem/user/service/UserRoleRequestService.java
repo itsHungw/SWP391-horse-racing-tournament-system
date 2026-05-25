@@ -30,7 +30,7 @@ public class UserRoleRequestService {
 
     @Transactional
     public UserRoleRequestResponse submit(String email, SubmitRoleRequestRequest request) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findWithUserRolesByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
         if (!user.isProfileCompleted()) {
@@ -38,6 +38,21 @@ public class UserRoleRequestService {
         }
 
         String requestedRole = request.requestedRole().trim().toUpperCase();
+        if (UserRolePolicy.isSpecialistRole(requestedRole) && UserRolePolicy.hasActiveSpecialistRole(user)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have an active specialist role");
+        }
+
+        if (UserRolePolicy.isSpecialistRole(requestedRole)) {
+            boolean hasPendingSpecialistRequest = roleRequestRepository.existsByUserEmailAndStatusAndRequestedRoleIn(
+                    email,
+                    RoleRequest.STATUS_PENDING,
+                    UserRolePolicy.specialistRoles()
+            );
+            if (hasPendingSpecialistRequest) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a pending specialist role request");
+            }
+        }
+
         boolean alreadyPending = roleRequestRepository.existsByUserEmailAndRequestedRoleAndStatus(
                 email,
                 requestedRole,
@@ -51,15 +66,8 @@ public class UserRoleRequestService {
                 user,
                 requestedRole,
                 request.reason().trim(),
-                normalizeOptional(request.evidenceUrl())
+                request.resumeUrl().trim()
         );
         return UserRoleRequestResponse.from(roleRequestRepository.save(roleRequest));
-    }
-
-    private String normalizeOptional(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        return value.trim();
     }
 }

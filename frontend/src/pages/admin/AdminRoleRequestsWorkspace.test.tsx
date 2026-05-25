@@ -9,6 +9,7 @@ import { AdminRoleRequestsWorkspace } from "./AdminRoleRequestsWorkspace";
 vi.mock("../../api/adminRoleRequestApi", () => ({
   approveRequest: vi.fn(),
   getRoleRequests: vi.fn(),
+  passCvReview: vi.fn(),
   rejectRequest: vi.fn(),
 }));
 
@@ -20,7 +21,9 @@ const mockRequests: RoleRequest[] = [
     email: "quan@gmail.com",
     requestedRole: "JOCKEY",
     status: "PENDING",
+    cvReviewStatus: "NOT_REVIEWED",
     reason: "I want to join race operations",
+    resumeUrl: "https://example.com/resume.pdf",
     createdAt: "2026-05-20T10:00:00",
   },
 ];
@@ -43,5 +46,26 @@ describe("AdminRoleRequestsWorkspace", () => {
 
     expect(screen.getByRole("heading", { name: /minh quan/i })).toBeInTheDocument();
     expect(screen.getByText("I want to join race operations")).toBeInTheDocument();
+  });
+
+  it("does not show local fallback data when the admin API fails", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(api.getRoleRequests).mockRejectedValue(new Error("API unavailable"));
+
+    try {
+      render(
+        <MemoryRouter>
+          <AdminRoleRequestsWorkspace />
+        </MemoryRouter>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText("No role requests match this filter.")).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText("Nguyen Van A")).not.toBeInTheDocument();
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

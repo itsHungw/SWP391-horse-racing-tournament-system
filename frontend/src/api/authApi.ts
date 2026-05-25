@@ -17,3 +17,7 @@ export async function resendVerificationEmail(email: string): Promise<void> {
 export async function verifyEmail(token: string): Promise<void> {
   await httpClient.post("/auth/verify-email", { token });
 }
+
+export async function logoutRemote(): Promise<void> {
+  await httpClient.post("/auth/logout");
+}

@@ -11,8 +11,9 @@ const mockRequest: RoleRequest = {
   email: "quan@gmail.com",
   requestedRole: "JOCKEY",
   status: "PENDING",
+  cvReviewStatus: "NOT_REVIEWED",
   reason: "I want to join race operations",
-  evidenceUrl: "http://example.com/certificate",
+  resumeUrl: "http://example.com/resume.pdf",
   createdAt: "2026-05-20T10:00:00",
   user: {
     id: 10,
@@ -37,6 +38,7 @@ const mockRequest: RoleRequest = {
 describe("AdminRoleRequestDetailPage", () => {
   it("renders detail view and calls approval action", () => {
     const handleApprove = vi.fn();
+    const handlePassCv = vi.fn();
     const handleReject = vi.fn();
     const handleBack = vi.fn();
 
@@ -44,6 +46,7 @@ describe("AdminRoleRequestDetailPage", () => {
       <AdminRoleRequestDetailPage
         onApprove={handleApprove}
         onBack={handleBack}
+        onPassCv={handlePassCv}
         onReject={handleReject}
         processing={false}
         request={mockRequest}
@@ -57,10 +60,14 @@ describe("AdminRoleRequestDetailPage", () => {
     expect(screen.getByText("Email verified")).toBeInTheDocument();
     expect(screen.getByText("Profile complete")).toBeInTheDocument();
     expect(screen.getByText("SPECTATOR")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /example.com\/certificate/i })).toHaveAttribute(
+    expect(screen.getAllByText("CV not reviewed").length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /example.com\/resume.pdf/i })).toHaveAttribute(
       "href",
-      "http://example.com/certificate",
+      "http://example.com/resume.pdf",
     );
+
+    fireEvent.click(screen.getByRole("button", { name: /pass cv screening/i }));
+    expect(handlePassCv).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /approve role/i }));
     expect(handleApprove).toHaveBeenCalled();

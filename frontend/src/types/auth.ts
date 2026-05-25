@@ -9,3 +9,7 @@ export interface LoginResponse {
   fullName: string;
   email: string;
 }
+
+export interface AuthResponse {
+  accessToken: string;
+}

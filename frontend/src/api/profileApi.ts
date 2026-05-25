@@ -10,6 +10,7 @@ const mockProfile: Profile = {
   dateOfBirth: "2000-01-02",
   address: "District 1, Ho Chi Minh City",
   avatarUrl: "",
+  roles: ["SPECTATOR"],
   profileCompleted: false,
   phoneVerified: false,
   ageVerified: true,

@@ -4,6 +4,7 @@ import { RoleRequest } from "../../types/adminRoleRequest";
 type Props = {
   request: RoleRequest;
   onApprove: () => void;
+  onPassCv: () => void;
   onReject: () => void;
   onBack: () => void;
   processing: boolean;
@@ -44,9 +45,24 @@ function VerificationItem({ label, verified }: { label: string; verified: boolea
   );
 }
 
+function CvReviewBadge({ status }: { status?: RoleRequest["cvReviewStatus"] }) {
+  const passed = status === "PASSED";
+
+  return (
+    <span
+      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black ${
+        passed ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+      }`}
+    >
+      {passed ? "CV passed" : "CV not reviewed"}
+    </span>
+  );
+}
+
 export function AdminRoleRequestDetailPage({
   request,
   onApprove,
+  onPassCv,
   onReject,
   onBack,
   processing,
@@ -169,6 +185,12 @@ export function AdminRoleRequestDetailPage({
                 </dd>
               </div>
               <div>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">CV screening</dt>
+                <dd className="mt-2">
+                  <CvReviewBadge status={request.cvReviewStatus} />
+                </dd>
+              </div>
+              <div>
                 <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Joined</dt>
                 <dd className="mt-1 font-bold text-[#171717]">{formatDate(account?.createdAt)}</dd>
               </div>
@@ -182,7 +204,7 @@ export function AdminRoleRequestDetailPage({
 
         <section className="rounded-lg border border-[#d8d8d8] bg-white p-6" aria-labelledby="role-section-title">
           <h2 id="role-section-title" className="border-b border-[#ececec] pb-3 text-lg font-black">
-            Role Evidence
+            Role Resume
           </h2>
           <dl className="mt-4 space-y-4 text-sm">
             <div>
@@ -195,21 +217,32 @@ export function AdminRoleRequestDetailPage({
                 {request.reason || "No reason provided."}
               </dd>
             </div>
-            {request.evidenceUrl && (
+            {request.resumeUrl && (
               <div>
-                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Evidence URL</dt>
+                <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Resume PDF</dt>
                 <dd className="mt-1">
                   <a
                     className="break-all font-bold text-[#006d5b] underline"
-                    href={request.evidenceUrl}
+                    href={request.resumeUrl}
                     rel="noopener noreferrer"
                     target="_blank"
                   >
-                    {request.evidenceUrl}
+                    {request.resumeUrl}
                   </a>
                 </dd>
               </div>
             )}
+            <div>
+              <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">CV screening</dt>
+              <dd className="mt-2 rounded-md border border-[#ececec] bg-[#fafafa] p-4 leading-6 text-slate-700">
+                <div className="flex flex-wrap items-center gap-2">
+                  <CvReviewBadge status={request.cvReviewStatus} />
+                  {request.cvReviewedAt && <span className="font-bold">on {formatDate(request.cvReviewedAt)}</span>}
+                  {request.cvReviewedBy && <span className="font-bold">by {request.cvReviewedBy.fullName}</span>}
+                </div>
+                {request.cvReviewNote && <p className="mt-3 font-bold text-slate-600">{request.cvReviewNote}</p>}
+              </dd>
+            </div>
             {request.adminNote && (
               <div>
                 <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Admin note</dt>
@@ -224,6 +257,16 @@ export function AdminRoleRequestDetailPage({
 
       {request.status === "PENDING" && (
         <div className="flex flex-col justify-end gap-3 border-t border-[#d8d8d8] pt-5 sm:flex-row">
+          {request.cvReviewStatus !== "PASSED" && (
+            <button
+              className="min-h-11 rounded-md border border-[#006d5b] bg-white px-6 text-sm font-black text-[#006d5b] shadow-sm hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] disabled:cursor-not-allowed disabled:opacity-60"
+              disabled={processing}
+              onClick={onPassCv}
+              type="button"
+            >
+              Pass CV Screening
+            </button>
+          )}
           <button
             className="min-h-11 rounded-md bg-[#b3193a] px-6 text-sm font-black text-white shadow-sm hover:bg-[#8f1430] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
             disabled={processing}

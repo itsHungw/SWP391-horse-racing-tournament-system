@@ -63,8 +63,8 @@ class AdminRoleRequestIntegrationTest {
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Administrator"));
         Role spectatorRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
+        roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
-        roleRepository.save(Role.of("OWNER", "Owner"));
 
         admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
         admin.verifyEmail();
@@ -88,7 +88,7 @@ class AdminRoleRequestIntegrationTest {
                 applicant,
                 "JOCKEY",
                 "I have racing experience.",
-                "https://example.com/cert"
+                "https://example.com/resumes/minh-quan.pdf"
         ));
 
         mockMvc.perform(get("/api/v1/admin/role-requests")
@@ -97,6 +97,8 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$[0].fullName").value("Minh Quan"))
                 .andExpect(jsonPath("$[0].email").value("quan@example.com"))
                 .andExpect(jsonPath("$[0].requestedRole").value("JOCKEY"))
+                .andExpect(jsonPath("$[0].resumeUrl").value("https://example.com/resumes/minh-quan.pdf"))
+                .andExpect(jsonPath("$[0].cvReviewStatus").value("NOT_REVIEWED"))
                 .andExpect(jsonPath("$[0].user.id").value(applicant.getId()))
                 .andExpect(jsonPath("$[0].user.phone").value("0909123456"))
                 .andExpect(jsonPath("$[0].user.dateOfBirth").value("2000-01-02"))
@@ -110,7 +112,7 @@ class AdminRoleRequestIntegrationTest {
     @Test
     void adminCanFilterRoleRequestsByStatus() throws Exception {
         roleRequestRepository.save(RoleRequest.pending(applicant, "JOCKEY", "Pending request", null));
-        RoleRequest rejected = RoleRequest.pending(applicant, "OWNER", "Rejected request", null);
+        RoleRequest rejected = RoleRequest.pending(applicant, "HORSE_OWNER", "Rejected request", null);
         rejected.reject(admin, "Not enough evidence.");
         roleRequestRepository.save(rejected);
 
@@ -141,6 +143,46 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.adminNote").value("Approved for the next tournament."))
                 .andExpect(jsonPath("$.reviewedAt", notNullValue()))
                 .andExpect(jsonPath("$.reviewedBy.id").value(admin.getId()));
+    }
+
+    @Test
+    void adminCannotApproveSpecialistRequestWhenApplicantAlreadyHasActiveSpecialistRole() throws Exception {
+        Role jockeyRole = roleRepository.findByName("JOCKEY").orElseThrow();
+        userRoleRepository.save(UserRole.active(applicant, jockeyRole, admin));
+        RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
+                applicant,
+                "HORSE_OWNER",
+                "Please approve me as owner.",
+                null
+        ));
+
+        mockMvc.perform(post("/api/v1/admin/role-requests/{id}/approve", request.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adminNote\":\"Approved after interview.\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("User already has an active specialist role"));
+    }
+
+    @Test
+    void adminCanPassCvScreeningBeforeInterview() throws Exception {
+        RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
+                applicant,
+                "JOCKEY",
+                "Please review my resume.",
+                "https://example.com/resumes/minh-quan.pdf"
+        ));
+
+        mockMvc.perform(post("/api/v1/admin/role-requests/{id}/pass-cv", request.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"cvReviewNote\":\"CV looks qualified. Call for interview.\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.cvReviewStatus").value("PASSED"))
+                .andExpect(jsonPath("$.cvReviewNote").value("CV looks qualified. Call for interview."))
+                .andExpect(jsonPath("$.cvReviewedAt", notNullValue()))
+                .andExpect(jsonPath("$.cvReviewedBy.email").value(admin.getEmail()));
     }
 
     @Test

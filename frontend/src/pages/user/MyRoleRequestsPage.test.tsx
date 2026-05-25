@@ -30,6 +30,7 @@ const completedProfile = {
   dateOfBirth: "2000-01-02",
   address: "Ho Chi Minh City",
   avatarUrl: "",
+  roles: ["SPECTATOR"],
   profileCompleted: true,
   phoneVerified: false,
   ageVerified: true,
@@ -50,7 +51,9 @@ describe("MyRoleRequestsPage", () => {
         userId: 1,
         requestedRole: "JOCKEY",
         status: "PENDING",
+        cvReviewStatus: "NOT_REVIEWED",
         reason: "I have race-day experience and want to join tournament lineups.",
+        resumeUrl: "https://example.com/resumes/jockey.pdf",
         createdAt: "2026-05-24T00:00:00",
       },
     ]);
@@ -63,10 +66,26 @@ describe("MyRoleRequestsPage", () => {
 
     const jockeyCard = screen.getByRole("button", { name: /jockey application under review/i });
     expect(jockeyCard).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: /locked while another specialist application is pending/i })).toHaveLength(2);
     expect(screen.getAllByText(/under review/i).length).toBeGreaterThan(0);
   });
 
-  it("submits a role request with evidence url", async () => {
+  it("locks specialist applications when the user already has an active specialist role", async () => {
+    vi.mocked(getMyProfile).mockResolvedValue({
+      ...completedProfile,
+      roles: ["SPECTATOR", "JOCKEY"],
+    });
+    vi.mocked(getMyRoleRequests).mockResolvedValue([]);
+
+    renderPage();
+
+    expect(await screen.findByText("Active specialist role")).toBeInTheDocument();
+    expect(screen.getByText(/you currently hold jockey access/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /submit application/i })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: /locked by active specialist role/i })).toHaveLength(3);
+  });
+
+  it("submits a role request with resume url", async () => {
     vi.mocked(getMyProfile).mockResolvedValue(completedProfile);
     vi.mocked(getMyRoleRequests).mockResolvedValue([]);
     vi.mocked(submitRoleRequest).mockResolvedValue({
@@ -74,8 +93,9 @@ describe("MyRoleRequestsPage", () => {
       userId: 1,
       requestedRole: "REFEREE",
       status: "PENDING",
+      cvReviewStatus: "NOT_REVIEWED",
       reason: "I have tournament operations experience and can support fair review workflows.",
-      evidenceUrl: "https://example.com/referee-proof",
+      resumeUrl: "https://example.com/referee-resume.pdf",
       createdAt: "2026-05-24T00:00:00",
     });
 
@@ -87,8 +107,8 @@ describe("MyRoleRequestsPage", () => {
         value: "I have tournament operations experience and can support fair review workflows.",
       },
     });
-    fireEvent.change(screen.getByLabelText(/evidence url/i), {
-      target: { value: "https://example.com/referee-proof" },
+    fireEvent.change(screen.getByLabelText(/resume pdf url/i), {
+      target: { value: "https://example.com/referee-resume.pdf" },
     });
     fireEvent.click(screen.getByRole("button", { name: /submit application/i }));
 
@@ -96,7 +116,7 @@ describe("MyRoleRequestsPage", () => {
       expect(submitRoleRequest).toHaveBeenCalledWith(
         "REFEREE",
         "I have tournament operations experience and can support fair review workflows.",
-        "https://example.com/referee-proof",
+        "https://example.com/referee-resume.pdf",
       );
     });
     expect(await screen.findByText(/application submitted/i)).toBeInTheDocument();

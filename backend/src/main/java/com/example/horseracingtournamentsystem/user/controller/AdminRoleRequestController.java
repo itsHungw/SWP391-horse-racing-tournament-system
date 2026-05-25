@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.user.controller;
 
 import com.example.horseracingtournamentsystem.user.dto.request.ApproveRoleRequestRequest;
+import com.example.horseracingtournamentsystem.user.dto.request.PassCvReviewRequest;
 import com.example.horseracingtournamentsystem.user.dto.request.RejectRoleRequestRequest;
 import com.example.horseracingtournamentsystem.user.dto.response.AdminRoleRequestResponse;
 import com.example.horseracingtournamentsystem.user.service.AdminRoleRequestService;
@@ -36,6 +37,16 @@ public class AdminRoleRequestController {
     ) {
         String adminNote = request == null ? null : request.adminNote();
         return adminRoleRequestService.approve(id, authentication.getName(), adminNote);
+    }
+
+    @PostMapping("/{id}/pass-cv")
+    public AdminRoleRequestResponse passCv(
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) PassCvReviewRequest request,
+            Authentication authentication
+    ) {
+        String cvReviewNote = request == null ? null : request.cvReviewNote();
+        return adminRoleRequestService.passCvReview(id, authentication.getName(), cvReviewNote);
     }
 
     @PostMapping("/{id}/reject")

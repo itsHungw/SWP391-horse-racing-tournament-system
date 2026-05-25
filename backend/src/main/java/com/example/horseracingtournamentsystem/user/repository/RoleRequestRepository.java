@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.user.repository;
 
 import com.example.horseracingtournamentsystem.user.entity.RoleRequest;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,4 +17,10 @@ public interface RoleRequestRepository extends JpaRepository<RoleRequest, Long> 
     List<RoleRequest> findByUserEmailOrderByCreatedAtDesc(String email);
 
     boolean existsByUserEmailAndRequestedRoleAndStatus(String email, String requestedRole, String status);
+
+    boolean existsByUserEmailAndStatusAndRequestedRoleIn(
+            String email,
+            String status,
+            Collection<String> requestedRoles
+    );
 }

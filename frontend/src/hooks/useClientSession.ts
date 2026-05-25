@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+import { logoutRemote } from "../api/authApi";
+import { AUTH_SESSION_CHANGED_EVENT, clearClientSession } from "../utils/authSession";
+import { getRolesFromAccessToken } from "../utils/authRoles";
 
 type ClientSession = {
   accessToken: string;
   email: string | null;
   fullName: string | null;
+  roles: string[];
 };
 
 function readClientSession(): ClientSession | null {
@@ -17,6 +21,7 @@ function readClientSession(): ClientSession | null {
     accessToken,
     email: localStorage.getItem("email"),
     fullName: localStorage.getItem("fullName"),
+    roles: getRolesFromAccessToken(accessToken),
   };
 }
 
@@ -29,16 +34,17 @@ export function useClientSession() {
     };
 
     window.addEventListener("storage", syncSession);
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncSession);
 
     return () => {
       window.removeEventListener("storage", syncSession);
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncSession);
     };
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("fullName");
-    localStorage.removeItem("email");
+    void logoutRemote().catch(() => undefined);
+    clearClientSession();
     setSession(null);
   }, []);
 

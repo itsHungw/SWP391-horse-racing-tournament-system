@@ -18,7 +18,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public UserProfileResponse getProfile(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findWithUserRolesByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return UserProfileResponse.from(user);
     }

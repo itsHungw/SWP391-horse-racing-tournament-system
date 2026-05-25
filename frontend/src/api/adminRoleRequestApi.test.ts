@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { getRoleRequests, approveRequest, rejectRequest } from "./adminRoleRequestApi";
+import { getRoleRequests, approveRequest, passCvReview, rejectRequest } from "./adminRoleRequestApi";
 import { httpClient } from "./httpClient";
 
 vi.mock("./httpClient", () => ({
@@ -33,5 +33,17 @@ describe("adminRoleRequestApi", () => {
     expect(httpClient.post).toHaveBeenCalledWith("/admin/role-requests/123/reject", {
       reason: "Lý do",
     });
+  });
+
+  it("passCvReview calls the correct endpoint and payload", async () => {
+    const mockData = { id: 123, cvReviewStatus: "PASSED" };
+    vi.mocked(httpClient.post).mockResolvedValue({ data: mockData });
+
+    const result = await passCvReview(123, "CV passed.");
+
+    expect(httpClient.post).toHaveBeenCalledWith("/admin/role-requests/123/pass-cv", {
+      cvReviewNote: "CV passed.",
+    });
+    expect(result).toEqual(mockData);
   });
 });

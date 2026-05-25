@@ -9,8 +9,8 @@ export async function getMyRoleRequests(): Promise<RoleRequest[]> {
 export async function submitRoleRequest(
   requestedRole: RequestedRole,
   reason: string,
-  evidenceUrl?: string,
+  resumeUrl: string,
 ): Promise<RoleRequest> {
-  const response = await httpClient.post<RoleRequest>("/role-requests", { requestedRole, reason, evidenceUrl });
+  const response = await httpClient.post<RoleRequest>("/role-requests", { requestedRole, reason, resumeUrl });
   return response.data;
 }

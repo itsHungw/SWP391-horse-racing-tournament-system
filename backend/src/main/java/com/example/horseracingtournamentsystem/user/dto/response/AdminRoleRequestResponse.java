@@ -10,12 +10,16 @@ public record AdminRoleRequestResponse(
         String email,
         String requestedRole,
         String status,
+        String cvReviewStatus,
         String reason,
-        String evidenceUrl,
+        String resumeUrl,
         String adminNote,
+        String cvReviewNote,
         LocalDateTime createdAt,
         LocalDateTime reviewedAt,
+        LocalDateTime cvReviewedAt,
         AdminRoleRequestReviewerResponse reviewedBy,
+        AdminRoleRequestReviewerResponse cvReviewedBy,
         AdminRoleRequestUserResponse user
 ) {
     public static AdminRoleRequestResponse from(RoleRequest request) {
@@ -26,12 +30,16 @@ public record AdminRoleRequestResponse(
                 request.getUser().getEmail(),
                 request.getRequestedRole(),
                 request.getStatus(),
+                request.getCvReviewStatus(),
                 request.getReason(),
-                request.getEvidenceUrl(),
+                request.getResumeUrl(),
                 request.getAdminNote(),
+                request.getCvReviewNote(),
                 request.getCreatedAt(),
                 request.getReviewedAt(),
+                request.getCvReviewedAt(),
                 AdminRoleRequestReviewerResponse.from(request.getReviewedBy()),
+                AdminRoleRequestReviewerResponse.from(request.getCvReviewedBy()),
                 AdminRoleRequestUserResponse.from(request.getUser())
         );
     }

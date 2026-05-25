@@ -10,6 +10,10 @@ type Props = {
   onRefresh: () => void;
 };
 
+function cvReviewLabel(status?: RoleRequest["cvReviewStatus"]) {
+  return status === "PASSED" ? "CV passed" : "CV not reviewed";
+}
+
 export function AdminRoleRequestsPage({
   requests,
   loading,
@@ -71,6 +75,7 @@ export function AdminRoleRequestsPage({
                 <th className="px-6 py-3">Applicant</th>
                 <th className="px-6 py-3">Requested role</th>
                 <th className="px-6 py-3">Status</th>
+                <th className="px-6 py-3">CV</th>
                 <th className="px-6 py-3">Submitted</th>
                 <th className="px-6 py-3 text-right">Action</th>
               </tr>
@@ -85,6 +90,17 @@ export function AdminRoleRequestsPage({
                   <td className="px-6 py-4 font-black text-[#006d5b]">{request.requestedRole}</td>
                   <td className="px-6 py-4">
                     <RoleRequestStatusBadge status={request.status} />
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black ${
+                        request.cvReviewStatus === "PASSED"
+                          ? "bg-emerald-50 text-emerald-700"
+                          : "bg-amber-50 text-amber-700"
+                      }`}
+                    >
+                      {cvReviewLabel(request.cvReviewStatus)}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-xs text-slate-500">
                     {new Date(request.createdAt).toLocaleDateString("en-US", {
