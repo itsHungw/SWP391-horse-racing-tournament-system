@@ -1,7 +1,26 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+
+vi.mock("./api/authApi", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./api/authApi")>();
+
+  return {
+    ...actual,
+    logoutRemote: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
+function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
+  const encode = (value: object) =>
+    btoa(JSON.stringify(value))
+      .replaceAll("+", "-")
+      .replaceAll("/", "_")
+      .replaceAll("=", "");
+
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ exp, roles })}.signature`;
+}
 
 describe("App", () => {
   beforeEach(() => {
@@ -34,9 +53,9 @@ describe("App", () => {
       "href",
       "#tournaments",
     );
-    expect(screen.getByRole("link", { name: /request role/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /^join us/i })[0]).toHaveAttribute(
       "href",
-      "/my-role-requests",
+      "/join-us",
     );
     expect(screen.getByText(/live racing in nyc/i)).toBeInTheDocument();
     expect(screen.getByText(/visit aqueduct/i)).toBeInTheDocument();
@@ -64,6 +83,10 @@ describe("App", () => {
     expect(
       within(primaryNav).queryByRole("link", { name: /^role request$/i }),
     ).not.toBeInTheDocument();
+    expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
+      "href",
+      "/join-us",
+    );
     expect(
       within(primaryNav).queryByRole("link", { name: /^admin$/i }),
     ).not.toBeInTheDocument();
@@ -83,14 +106,14 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: /sign up for free points/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /create account/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
       "href",
       "/register",
     );
   });
 
   it("renders authenticated client header links and logs out", () => {
-    localStorage.setItem("accessToken", "test-token");
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
     localStorage.setItem("fullName", "Nguyen Van A");
     localStorage.setItem("email", "member@example.com");
 
@@ -109,9 +132,9 @@ describe("App", () => {
     expect(screen.getByRole("button", { name: /^logout$/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^log in$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^sign up$/i })).not.toBeInTheDocument();
-    expect(within(primaryNav).getByRole("link", { name: /^role request$/i })).toHaveAttribute(
+    expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
       "href",
-      "/my-role-requests",
+      "/join-us",
     );
     expect(
       screen.getByRole("heading", { name: /latest tournament blog/i }),
@@ -123,7 +146,7 @@ describe("App", () => {
     expect(
       screen.getByRole("heading", { name: /sign up for free points/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /create account/i })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
       "href",
       "/register",
     );
@@ -144,5 +167,117 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: /join the circuit/i })).toBeInTheDocument();
     expect(document.querySelectorAll("main")).toHaveLength(1);
+  });
+
+  it("renders the Join Us hiring page with application path", () => {
+    window.history.pushState({}, "", "/join-us");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /we are hiring/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^jockey$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^owner$/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /^referee$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
+      "href",
+      "/register",
+    );
+    expect(screen.getByRole("link", { name: /view application flow/i })).toHaveAttribute(
+      "href",
+      "#application-flow",
+    );
+  });
+
+  it("redirects unauthenticated admin visitors to login", () => {
+    window.history.pushState({}, "", "/admin");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("redirects unauthenticated profile visitors to login", () => {
+    window.history.pushState({}, "", "/profile");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("redirects unauthenticated role application visitors to login", () => {
+    window.history.pushState({}, "", "/my-role-requests");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
+  });
+
+  it("keeps an expired access token session visible so refresh can recover it", () => {
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"], 1));
+    localStorage.setItem("fullName", "Nguyen Van A");
+    localStorage.setItem("email", "member@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
+      "href",
+      "/spectator",
+    );
+    expect(localStorage.getItem("accessToken")).not.toBeNull();
+  });
+
+  it("renders a polished forbidden page for authenticated non-admin users", () => {
+    window.history.pushState({}, "", "/admin");
+    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
+    localStorage.setItem("fullName", "Nguyen Van A");
+    localStorage.setItem("email", "member@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /admin access required/i })).toBeInTheDocument();
+    expect(screen.getByText(/your account is signed in/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /return home/i })).toHaveAttribute("href", "/");
+  });
+
+  it("renders the admin operations foundation route for admin users", () => {
+    window.history.pushState({}, "", "/admin");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("banner", { name: /admin operations header/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("navigation", { name: /admin workspace/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /admin operations/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("searchbox", {
+        name: /search admin workspace/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /role requests/i }),
+    ).toHaveAttribute("href", "/admin/role-requests");
+  });
+
+  it("keeps future admin sections inside the admin shell", () => {
+    window.history.pushState({}, "", "/admin/users");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("banner", { name: /admin operations header/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /users/i })).toBeInTheDocument();
+    expect(screen.getByText(/this admin section is reserved/i)).toBeInTheDocument();
   });
 });

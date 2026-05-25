@@ -166,6 +166,36 @@ class AuthRegistrationIntegrationTest {
                 .hasSize(2);
     }
 
+    @Test
+    void registerAgainForPendingEmailResendsVerificationWithoutCreatingDuplicateUser() throws Exception {
+        roleRepository.save(Role.of("SPECTATOR", "Spectator"));
+        String oldRawToken = "123456";
+        User user = userRepository.save(User.pending("Pending User", "pending@example.com", "hash", "0909123456"));
+        EmailVerificationToken oldToken = emailVerificationTokenRepository.save(EmailVerificationToken.create(
+                user,
+                sha256(oldRawToken),
+                LocalDateTime.now().minusMinutes(1)
+        ));
+
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"fullName":"New Name","email":"Pending@Example.COM","password":"Password123!","phone":"0909000000"}
+                                """))
+                .andExpect(status().isCreated());
+
+        assertThat(userRepository.findAll()).hasSize(1);
+        User unchangedUser = userRepository.findByEmail("pending@example.com").orElseThrow();
+        assertThat(unchangedUser.getFullName()).isEqualTo("Pending User");
+        assertThat(unchangedUser.getPhone()).isEqualTo("0909123456");
+        assertThat(emailSender.verificationEmails())
+                .containsExactly(new SentEmail("pending@example.com", emailSender.verificationEmails().get(0).rawToken()));
+        assertThat(emailSender.verificationEmails().get(0).rawToken()).matches("\\d{6}");
+        assertThat(emailVerificationTokenRepository.findById(oldToken.getId()).orElseThrow().getUsedAt())
+                .isNotNull();
+        assertThat(emailVerificationTokenRepository.findAll()).hasSize(2);
+    }
+
     private String sha256(String rawToken) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")

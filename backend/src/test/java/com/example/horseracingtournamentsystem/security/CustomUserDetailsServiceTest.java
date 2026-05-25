@@ -19,7 +19,7 @@ class CustomUserDetailsServiceTest {
     void shouldLoadUserByEmailSuccessfully() {
         User dummyUser = User.pending("Nguyen A", "a@example.com", "hashpwd");
         dummyUser.verifyEmail(); // Active user
-        when(userRepository.findByEmail("a@example.com")).thenReturn(Optional.of(dummyUser));
+        when(userRepository.findWithUserRolesByEmail("a@example.com")).thenReturn(Optional.of(dummyUser));
 
         UserDetails userDetails = userDetailsService.loadUserByUsername("a@example.com");
 
@@ -31,7 +31,7 @@ class CustomUserDetailsServiceTest {
 
     @Test
     void shouldThrowExceptionWhenUserNotFound() {
-        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+        when(userRepository.findWithUserRolesByEmail("unknown@example.com")).thenReturn(Optional.empty());
 
         assertThrows(UsernameNotFoundException.class, () -> {
             userDetailsService.loadUserByUsername("unknown@example.com");

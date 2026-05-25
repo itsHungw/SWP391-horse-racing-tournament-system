@@ -80,6 +80,10 @@ public class AuthSession {
         this.revokedAt = LocalDateTime.now();
     }
 
+    public void markUsedNow() {
+        this.lastUsedAt = LocalDateTime.now();
+    }
+
     public void replaceBy(AuthSession replacementSession) {
         this.replacedBySession = replacementSession;
         revokeNow();

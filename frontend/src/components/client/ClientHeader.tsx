@@ -9,12 +9,10 @@ const publicPrimaryNav = [
   { label: "Predictions", href: "#predictions" },
   { label: "Blog", href: "#blog" },
   { label: "Leaderboard", href: "#leaderboard" },
+  { label: "Join Us", href: "/join-us" },
 ];
 
-const authenticatedPrimaryNav = [
-  ...publicPrimaryNav,
-  { label: "Role Request", href: "/my-role-requests" },
-];
+const authenticatedPrimaryNav = publicPrimaryNav;
 
 export function ClientHeader() {
   const navigate = useNavigate();

@@ -25,6 +25,8 @@ public class RoleRequest {
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_REJECTED = "REJECTED";
     public static final String STATUS_CANCELLED = "CANCELLED";
+    public static final String CV_REVIEW_NOT_REVIEWED = "NOT_REVIEWED";
+    public static final String CV_REVIEW_PASSED = "PASSED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -45,8 +47,22 @@ public class RoleRequest {
     @Column(name = "reason")
     private String reason;
 
-    @Column(name = "evidence_url", length = 500)
-    private String evidenceUrl;
+    @Column(name = "resume_url", length = 500)
+    private String resumeUrl;
+
+    @Column(name = "cv_review_status", nullable = false, length = 30)
+    private String cvReviewStatus;
+
+    @Lob
+    @Column(name = "cv_review_note")
+    private String cvReviewNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cv_reviewed_by")
+    private User cvReviewedBy;
+
+    @Column(name = "cv_reviewed_at")
+    private LocalDateTime cvReviewedAt;
 
     @Lob
     @Column(name = "admin_note")
@@ -65,15 +81,25 @@ public class RoleRequest {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    public static RoleRequest pending(User user, String requestedRole, String reason, String evidenceUrl) {
+    public static RoleRequest pending(User user, String requestedRole, String reason, String resumeUrl) {
         RoleRequest request = new RoleRequest();
         request.user = user;
         request.requestedRole = requestedRole;
         request.status = STATUS_PENDING;
+        request.cvReviewStatus = CV_REVIEW_NOT_REVIEWED;
         request.reason = reason;
-        request.evidenceUrl = evidenceUrl;
+        request.resumeUrl = resumeUrl;
         request.createdAt = LocalDateTime.now();
         return request;
+    }
+
+    public void passCvReview(User reviewer, String note) {
+        LocalDateTime now = LocalDateTime.now();
+        this.cvReviewStatus = CV_REVIEW_PASSED;
+        this.cvReviewNote = note;
+        this.cvReviewedBy = reviewer;
+        this.cvReviewedAt = now;
+        this.updatedAt = now;
     }
 
     public void approve(User reviewer, String adminNote) {

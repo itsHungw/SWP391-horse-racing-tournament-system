@@ -1,48 +1,59 @@
 import { httpClient } from "./httpClient";
-import { Profile } from "../types/profile";
+import { Profile, UpdateProfileRequest } from "../types/profile";
 
-const USE_MOCK = true;
+const USE_MOCK = false;
 
 const mockProfile: Profile = {
-  fullName: "Nguyễn Văn A",
+  fullName: "Nguyen Van A",
   phone: "0987654321",
-  address: "Đường số 1, Quận 1, TPHCM",
+  gender: "MALE",
+  dateOfBirth: "2000-01-02",
+  address: "District 1, Ho Chi Minh City",
   avatarUrl: "",
-  profileCompleted: false
+  roles: ["SPECTATOR"],
+  profileCompleted: false,
+  phoneVerified: false,
+  ageVerified: true,
 };
 
 export async function getMyProfile(): Promise<Profile> {
   if (USE_MOCK) {
-    await new Promise(resolve => setTimeout(resolve, 300));
+    await new Promise((resolve) => setTimeout(resolve, 300));
     return { ...mockProfile };
   }
+
   const response = await httpClient.get<Profile>("/users/me/profile");
   return response.data;
 }
 
 export async function uploadAvatar(file: File): Promise<{ url: string }> {
   if (USE_MOCK) {
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise((resolve) => setTimeout(resolve, 800));
     return { url: URL.createObjectURL(file) };
   }
+
   const formData = new FormData();
   formData.append("file", file);
-  const response = await httpClient.post<{ url: string }>("/files/upload?category=AVATAR", formData, {
-    headers: { "Content-Type": "multipart/form-data" }
-  });
+
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=AVATAR", formData);
   return response.data;
 }
 
-export async function updateMyProfile(data: Omit<Profile, "profileCompleted">): Promise<Profile> {
+export async function updateMyProfile(data: UpdateProfileRequest): Promise<Profile> {
   if (USE_MOCK) {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     mockProfile.fullName = data.fullName;
     mockProfile.phone = data.phone;
+    mockProfile.gender = data.gender;
+    mockProfile.dateOfBirth = data.dateOfBirth;
     mockProfile.address = data.address;
-    if (data.avatarUrl) mockProfile.avatarUrl = data.avatarUrl;
+    if (data.avatarUrl) {
+      mockProfile.avatarUrl = data.avatarUrl;
+    }
     mockProfile.profileCompleted = true;
     return { ...mockProfile };
   }
+
   const response = await httpClient.put<Profile>("/users/me/profile", data);
   return response.data;
 }

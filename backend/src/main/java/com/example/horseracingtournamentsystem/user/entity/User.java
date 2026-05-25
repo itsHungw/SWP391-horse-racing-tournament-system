@@ -9,6 +9,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -134,5 +135,23 @@ public class User {
 
     void addUserRole(UserRole userRole) {
         userRoles.add(userRole);
+    }
+
+    public void updateProfile(String fullName, String phone, String gender, LocalDate dateOfBirth, String address, String avatarUrl) {
+        this.fullName = fullName;
+        this.phone = phone;
+        this.gender = gender;
+        this.dateOfBirth = dateOfBirth;
+        this.address = address;
+        if (avatarUrl != null && !avatarUrl.isBlank()) {
+            this.avatarUrl = avatarUrl;
+        }
+        this.profileCompleted = true;
+        this.ageVerified = isAtLeast18(dateOfBirth);
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    private boolean isAtLeast18(LocalDate dateOfBirth) {
+        return dateOfBirth != null && Period.between(dateOfBirth, LocalDate.now()).getYears() >= 18;
     }
 }
