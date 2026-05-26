@@ -40,7 +40,14 @@ public class SecurityConfig {
                         .accessDeniedHandler(accessDeniedHandler)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/error", "/api/v1/auth/**", "/api/v1/files/download/**").permitAll()
+                        .requestMatchers(
+                                "/error",
+                                "/api/v1/auth/**",
+                                "/api/v1/files/download/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
                         .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/horses/**", "/api/v1/tournaments/**", "/api/v1/races/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/owner/**").hasRole("HORSE_OWNER")
