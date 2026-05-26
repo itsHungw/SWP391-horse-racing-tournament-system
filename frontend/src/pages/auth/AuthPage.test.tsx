@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { login, register } from "../../api/authApi";
@@ -13,6 +13,13 @@ vi.mock("../../api/authApi", () => ({
 
 const mockedLogin = vi.mocked(login);
 const mockedRegister = vi.mocked(register);
+
+function createAccessTokenWithRoles(roles: string[]) {
+  const header = window.btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = window.btoa(JSON.stringify({ roles }));
+
+  return `${header}.${payload}.signature`;
+}
 
 describe("Auth pages", () => {
   beforeEach(() => {
@@ -54,6 +61,35 @@ describe("Auth pages", () => {
     expect(localStorage.getItem("accessToken")).toBe("access-token");
     expect(localStorage.getItem("fullName")).toBe("Official User");
     expect(localStorage.getItem("email")).toBe("official@nyra.com");
+  });
+
+  it("redirects admins to the admin dashboard after login", async () => {
+    mockedLogin.mockResolvedValue({
+      accessToken: createAccessTokenWithRoles(["ADMIN", "SPECTATOR"]),
+      email: "admin@nyra.com",
+      fullName: "Admin User",
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/login"]}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin" element={<h1>Admin dashboard</h1>} />
+          <Route path="/" element={<h1>Home</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "admin@nyra.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "Password1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /secure login/i }));
+
+    expect(await screen.findByRole("heading", { name: /admin dashboard/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /^home$/i })).not.toBeInTheDocument();
   });
 
   it("connects the NYRA-style register UI to the register API", async () => {

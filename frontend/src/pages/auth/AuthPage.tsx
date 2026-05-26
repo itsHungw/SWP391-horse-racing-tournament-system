@@ -5,6 +5,7 @@ import { login, register } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
 import logo from "../../assets/logo.png";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { getRolesFromAccessToken } from "../../utils/authRoles";
 import {
   sanitizePhoneNumber,
   validateEmail,
@@ -109,7 +110,8 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       localStorage.setItem("accessToken", response.accessToken);
       localStorage.setItem("fullName", response.fullName);
       localStorage.setItem("email", response.email);
-      navigate("/", { replace: true });
+      const roles = getRolesFromAccessToken(response.accessToken);
+      navigate(roles.includes("ADMIN") ? "/admin" : "/", { replace: true });
     } catch (err) {
       setError(getApiErrorMessage(err, "Login failed. Please check your credentials."));
     } finally {
