@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: backend
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  # sql:
+  #   init:
+  #     mode: always
+  servlet:
+    multipart:
+      max-file-size: 10MB
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+
+app:
+  auth:
+    jwt-secret: ${AUTH_JWT_SECRET}
+    access-token-ttl-minutes: 15
+    refresh-token-ttl-days: 7
+    email-otp-ttl-minutes: 10
+    password-reset-token-ttl-minutes: 30
+    refresh-cookie-name: refresh_token
+    refresh-cookie-secure: false
+    refresh-cookie-same-site: Lax
+  frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
+  mail:
+    enabled: ${APP_MAIL_ENABLED:true}
+    from: ${MAIL_FROM:no-reply@equinepro.local}

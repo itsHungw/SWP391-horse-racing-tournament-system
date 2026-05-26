@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:backend-tests;MODE=MSSQLServer;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  sql:
+    init:
+      mode: never
+
+app:
+  auth:
+    jwt-secret: test-secret-test-secret-test-secret-test-secret
+    access-token-ttl-minutes: 15
+    refresh-token-ttl-days: 7
+    email-otp-ttl-minutes: 10
+    password-reset-token-ttl-minutes: 30
+    refresh-cookie-name: refresh_token
+    refresh-cookie-secure: false
+    refresh-cookie-same-site: Lax
