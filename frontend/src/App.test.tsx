@@ -123,7 +123,7 @@ describe("App", () => {
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
-      "/spectator",
+      "/spectator/dashboard",
     );
     expect(screen.getByRole("link", { name: /^profile$/i })).toHaveAttribute(
       "href",
@@ -221,9 +221,22 @@ describe("App", () => {
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
-      "/spectator",
+      "/spectator/dashboard",
     );
     expect(localStorage.getItem("accessToken")).not.toBeNull();
+  });
+
+  it("routes horse owner dashboard link to the owner workspace", () => {
+    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
+    localStorage.setItem("fullName", "Owner User");
+    localStorage.setItem("email", "owner@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
+      "href",
+      "/owner/dashboard",
+    );
   });
 
   it("renders a polished forbidden page for authenticated non-admin users", () => {
@@ -266,7 +279,7 @@ describe("App", () => {
     ).toHaveAttribute("href", "/admin/role-requests");
   });
 
-  it("keeps future admin sections inside the admin shell", () => {
+  it("keeps admin user management inside the admin shell", () => {
     window.history.pushState({}, "", "/admin/users");
     localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
     localStorage.setItem("fullName", "Admin Operator");
@@ -277,7 +290,7 @@ describe("App", () => {
     expect(
       screen.getByRole("banner", { name: /admin operations header/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /users/i })).toBeInTheDocument();
-    expect(screen.getByText(/this admin section is reserved/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /user management/i })).toBeInTheDocument();
+    expect(screen.getByText(/manage accounts/i)).toBeInTheDocument();
   });
 });
