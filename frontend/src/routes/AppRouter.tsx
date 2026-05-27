@@ -13,6 +13,8 @@ import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
 import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage";
 import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWorkspace";
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
+import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
+import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 
@@ -49,15 +51,8 @@ export function AppRouter() {
         <Route path="referee" element={<RoleDashboardPage role="Referee" />} />
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
-        <Route
-          path="admin/users"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Users"
-              description="Manage user records, verification state, and account readiness before assigning specialist roles."
-            />
-          )}
-        />
+        <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />
+        <Route path="admin/users/:id" element={adminRoute(<AdminUserDetailPage />)} />
         <Route
           path="admin/tournaments"
           element={adminRoute(

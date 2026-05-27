@@ -1,5 +1,16 @@
 import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
+import { 
+  LayoutDashboard, 
+  UserCheck, 
+  Users, 
+  Trophy, 
+  Flag, 
+  Compass, 
+  FileText, 
+  Award, 
+  Settings 
+} from "lucide-react";
 
 import logo from "../assets/logo.png";
 import { useClientSession } from "../hooks/useClientSession";
@@ -9,15 +20,15 @@ type AdminLayoutProps = {
 };
 
 const adminNavItems = [
-  { label: "Overview", href: "/admin", marker: "R" },
-  { label: "Role Requests", href: "/admin/role-requests", marker: "RQ" },
-  { label: "Users", href: "/admin/users", marker: "U" },
-  { label: "Tournaments", href: "/admin/tournaments", marker: "T" },
-  { label: "Races", href: "/admin/races", marker: "RA" },
-  { label: "Predictions", href: "/admin/predictions", marker: "P" },
-  { label: "Blog", href: "/admin/blog", marker: "B" },
-  { label: "Points", href: "/admin/points", marker: "PT" },
-  { label: "Settings", href: "/admin/settings", marker: "S" },
+  { label: "Overview", href: "/admin", icon: LayoutDashboard },
+  { label: "Role Requests", href: "/admin/role-requests", icon: UserCheck },
+  { label: "Users", href: "/admin/users", icon: Users },
+  { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
+  { label: "Races", href: "/admin/races", icon: Flag },
+  { label: "Predictions", href: "/admin/predictions", icon: Compass },
+  { label: "Blog", href: "/admin/blog", icon: FileText },
+  { label: "Points", href: "/admin/points", icon: Award },
+  { label: "Settings", href: "/admin/settings", icon: Settings },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
@@ -97,12 +108,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.href}
                   to={item.href}
                 >
-                  <span
-                    aria-hidden="true"
-                    className="flex h-7 min-w-7 items-center justify-center rounded-full border border-slate-300 bg-white text-[10px] font-black"
-                  >
-                    {item.marker}
-                  </span>
+                  <item.icon className="h-5 w-5 opacity-80" aria-hidden="true" />
                   {item.label}
                 </NavLink>
               ))}
