@@ -111,7 +111,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       localStorage.setItem("fullName", response.fullName);
       localStorage.setItem("email", response.email);
       const roles = getRolesFromAccessToken(response.accessToken);
-      navigate(roles.includes("ADMIN") ? "/admin" : "/", { replace: true });
+      if (roles.includes("ADMIN")) {
+        navigate("/admin", { replace: true });
+      } else if (roles.includes("REFEREE")) {
+        navigate("/referee", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
     } catch (err) {
       setError(getApiErrorMessage(err, "Login failed. Please check your credentials."));
     } finally {

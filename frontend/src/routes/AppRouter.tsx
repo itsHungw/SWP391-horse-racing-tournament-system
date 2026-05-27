@@ -15,6 +15,12 @@ import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWork
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
+import { RequireRefereeRoute } from "./RequireRefereeRoute";
+import { RefereeLayout } from "../layouts/RefereeLayout";
+import { RefereeOverviewPage } from "../pages/referee/RefereeOverviewPage";
+import { PreRaceCheckPage } from "../pages/referee/PreRaceCheckPage";
+import { SubmitResultsPage } from "../pages/referee/SubmitResultsPage";
+import { IncidentReportsPage } from "../pages/referee/IncidentReportsPage";
 
 function adminRoute(element: ReactNode) {
   return <RequireAdminRoute>{element}</RequireAdminRoute>;
@@ -22,6 +28,10 @@ function adminRoute(element: ReactNode) {
 
 function authRoute(element: ReactNode) {
   return <RequireAuthRoute>{element}</RequireAuthRoute>;
+}
+
+function refereeRoute(element: ReactNode) {
+  return <RequireRefereeRoute>{element}</RequireRefereeRoute>;
 }
 
 export function AppRouter() {
@@ -46,7 +56,12 @@ export function AppRouter() {
         />
         <Route path="owner" element={<RoleDashboardPage role="Owner" />} />
         <Route path="jockey" element={<RoleDashboardPage role="Jockey" />} />
-        <Route path="referee" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee" element={refereeRoute(<RefereeLayout />)}>
+          <Route index element={<RefereeOverviewPage />} />
+          <Route path="races/:id/check" element={<PreRaceCheckPage />} />
+          <Route path="races/:id/results" element={<SubmitResultsPage />} />
+          <Route path="races/:id/report" element={<IncidentReportsPage />} />
+        </Route>
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route
