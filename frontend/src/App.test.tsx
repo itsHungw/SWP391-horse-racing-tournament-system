@@ -12,6 +12,30 @@ vi.mock("./api/authApi", async (importOriginal) => {
   };
 });
 
+vi.mock("./api/adminUserApi", () => ({
+  createAdminUser: vi.fn(),
+  getAdminUsers: vi.fn().mockResolvedValue({
+    content: [],
+    totalPages: 0,
+    totalElements: 0,
+  }),
+}));
+
+vi.mock("./api/racingApi", () => ({
+  approveAdminHorse: vi.fn(),
+  approveAdminTournamentRegistration: vi.fn(),
+  createOwnerHorse: vi.fn(),
+  createOwnerTournamentRegistration: vi.fn(),
+  getAdminHorses: vi.fn(),
+  getAdminTournamentRegistrations: vi.fn(),
+  getOwnerHorses: vi.fn(),
+  getOwnerTournamentRegistrations: vi.fn(),
+  getPublicTournaments: vi.fn(),
+  rejectAdminHorse: vi.fn(),
+  rejectAdminTournamentRegistration: vi.fn(),
+  withdrawOwnerTournamentRegistration: vi.fn(),
+}));
+
 function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
   const encode = (value: object) =>
     btoa(JSON.stringify(value))
@@ -288,9 +312,17 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
+      "href",
+      "/admin/horses",
+    );
+    expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournament-registrations",
+    );
   });
 
-  it("keeps admin user management inside the admin shell", () => {
+  it("keeps admin user management inside the admin shell", async () => {
     window.history.pushState({}, "", "/admin/users");
     localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
     localStorage.setItem("fullName", "Admin Operator");
@@ -303,5 +335,32 @@ describe("App", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /user management/i })).toBeInTheDocument();
     expect(screen.getByText(/manage accounts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no users found/i)).toBeInTheDocument();
+  });
+
+  it("keeps admin horse approvals inside the admin shell", async () => {
+    window.history.pushState({}, "", "/admin/horses");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /horse approvals/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no horses match this filter/i)).toBeInTheDocument();
+  });
+
+  it("keeps admin tournament registrations inside the admin shell", async () => {
+    window.history.pushState({}, "", "/admin/tournament-registrations");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 });

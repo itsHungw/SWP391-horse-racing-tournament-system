@@ -15,6 +15,8 @@ import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWork
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
 import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
+import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
+import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
@@ -64,6 +66,8 @@ export function AppRouter() {
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />
         <Route path="admin/users/:id" element={adminRoute(<AdminUserDetailPage />)} />
+        <Route path="admin/horses" element={adminRoute(<AdminHorsesPage />)} />
+        <Route path="admin/tournament-registrations" element={adminRoute(<AdminTournamentRegistrationsPage />)} />
         <Route
           path="admin/tournaments"
           element={adminRoute(
