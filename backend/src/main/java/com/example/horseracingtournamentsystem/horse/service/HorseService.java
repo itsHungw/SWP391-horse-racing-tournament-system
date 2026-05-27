@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.horse.service;
 
 import com.example.horseracingtournamentsystem.horse.dto.request.HorseRequest;
+import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseRequest;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseResponse;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
@@ -40,6 +41,15 @@ public class HorseService {
     }
 
     @Transactional
+    public HorseResponse createOwnerHorse(String email, OwnerHorseRequest req) {
+        User owner = findUserByEmail(email);
+        String code = normalizeRegistrationCode(req.registrationCode());
+        Horse horse = Horse.submitForReview(owner, req, code);
+        horseRepository.save(horse);
+        return mapToResponse(horse);
+    }
+
+    @Transactional
     public HorseResponse updateHorse(Long id, HorseRequest req) {
         Horse horse = horseRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
@@ -73,6 +83,41 @@ public class HorseService {
                 .collect(Collectors.toList());
     }
 
+    public List<HorseResponse> getAdminHorses(String status) {
+        if (status == null || status.isBlank()) {
+            return getAdminHorses();
+        }
+        return horseRepository.findAllByStatusAndDeletedAtIsNull(status.trim().toUpperCase()).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<HorseResponse> getOwnerHorses(String email) {
+        return horseRepository.findAllByOwnerEmailAndDeletedAtIsNullOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public HorseResponse approveHorse(Long id, String adminEmail) {
+        Horse horse = horseRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
+        User reviewer = findUserByEmail(adminEmail);
+        horse.approve(reviewer);
+        horseRepository.save(horse);
+        return mapToResponse(horse);
+    }
+
+    @Transactional
+    public HorseResponse rejectHorse(Long id, String adminEmail, String reason) {
+        Horse horse = horseRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
+        findUserByEmail(adminEmail);
+        horse.reject(reason);
+        horseRepository.save(horse);
+        return mapToResponse(horse);
+    }
+
     public List<HorseResponse> getPublicHorses() {
         return horseRepository.findAllByStatusAndDeletedAtIsNull("APPROVED").stream()
                 .map(this::mapToResponse)
@@ -96,9 +141,31 @@ public class HorseService {
                 .gender(h.getGender())
                 .dateOfBirth(h.getDateOfBirth())
                 .color(h.getColor())
+                .heightCm(h.getHeightCm())
+                .weightKg(h.getWeightKg())
+                .healthStatus(h.getHealthStatus())
+                .imageUrl(h.getImageUrl())
+                .evidenceUrl(h.getEvidenceUrl())
+                .medicalNote(h.getMedicalNote())
+                .description(h.getDescription())
                 .status(h.getStatus())
+                .rejectionReason(h.getRejectionReason())
+                .approvedBy(h.getApprovedBy() == null ? null : h.getApprovedBy().getId())
+                .approvedAt(h.getApprovedAt())
                 .createdAt(h.getCreatedAt())
                 .updatedAt(h.getUpdatedAt())
                 .build();
+    }
+
+    private User findUserByEmail(String email) {
+        return userRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private String normalizeRegistrationCode(String registrationCode) {
+        if (registrationCode == null || registrationCode.isBlank()) {
+            return "HORSE_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        }
+        return registrationCode.trim();
     }
 }

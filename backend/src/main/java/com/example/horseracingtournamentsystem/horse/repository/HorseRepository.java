@@ -9,5 +9,6 @@ public interface HorseRepository extends JpaRepository<Horse, Long> {
     Optional<Horse> findByIdAndDeletedAtIsNull(Long id);
     List<Horse> findAllByDeletedAtIsNull();
     List<Horse> findAllByStatusAndDeletedAtIsNull(String status);
+    List<Horse> findAllByOwnerEmailAndDeletedAtIsNullOrderByCreatedAtDesc(String ownerEmail);
     Optional<Horse> findByIdAndStatusAndDeletedAtIsNull(Long id, String status);
 }
