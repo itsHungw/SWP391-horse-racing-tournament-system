@@ -42,13 +42,19 @@ export function AppRouter() {
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
 
-        <Route
-          path="spectator"
-          element={<RoleDashboardPage role="Spectator" />}
-        />
-        <Route path="owner" element={<RoleDashboardPage role="Owner" />} />
-        <Route path="jockey" element={<RoleDashboardPage role="Jockey" />} />
-        <Route path="referee" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
+        <Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
+        <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
+        <Route path="owner/dashboard" element={authRoute(<RoleDashboardPage role="Owner" />)} />
+        <Route path="jockey" element={<Navigate to="/jockey/dashboard" replace />} />
+        <Route path="jockey/dashboard" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="jockey/invitations" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="jockey/races" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="referee" element={<Navigate to="/referee/dashboard" replace />} />
+        <Route path="referee/dashboard" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/races" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/checks" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/results" element={<RoleDashboardPage role="Referee" />} />
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />

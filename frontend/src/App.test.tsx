@@ -239,6 +239,17 @@ describe("App", () => {
     );
   });
 
+  it("redirects owner base route to owner dashboard for authenticated owners", async () => {
+    window.history.pushState({}, "", "/owner");
+    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
+    localStorage.setItem("fullName", "Owner User");
+    localStorage.setItem("email", "owner@example.com");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owner dashboard/i })).toBeInTheDocument();
+  });
+
   it("renders a polished forbidden page for authenticated non-admin users", () => {
     window.history.pushState({}, "", "/admin");
     localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
