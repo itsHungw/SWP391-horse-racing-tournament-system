@@ -66,3 +66,28 @@ export async function submitRaceResults(raceId: number, results: ParticipantResu
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export type ViolationEntry = {
+  offenderId: number;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  description: string;
+};
+
+export type RefereeReportEntry = {
+  title: string;
+  summary: string;
+};
+
+export async function submitViolation(raceId: number, violation: ViolationEntry): Promise<void> {
+  const token = localStorage.getItem("accessToken");
+  await axios.post(`${API_URL}/races/${raceId}/violations`, violation, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function submitRefereeReport(raceId: number, report: RefereeReportEntry): Promise<void> {
+  const token = localStorage.getItem("accessToken");
+  await axios.post(`${API_URL}/races/${raceId}/reports`, report, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
