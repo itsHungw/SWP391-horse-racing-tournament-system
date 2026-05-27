@@ -5,6 +5,8 @@ import { AppLayout } from "../layouts/AppLayout";
 import { RoleDashboardPage } from "../pages/RoleDashboardPage";
 import { HomePage } from "../pages/public/HomePage";
 import { JoinUsPage } from "../pages/public/JoinUsPage";
+import { SpectatorBlogListPage } from "../pages/public/SpectatorBlogListPage";
+import { SpectatorBlogDetailPage } from "../pages/public/SpectatorBlogDetailPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
@@ -13,6 +15,8 @@ import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
 import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage";
 import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWorkspace";
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
+import { AdminBlogListPage } from "../pages/admin/AdminBlogListPage";
+import { AdminBlogFormPage } from "../pages/admin/AdminBlogFormPage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 
@@ -30,6 +34,8 @@ export function AppRouter() {
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
         <Route path="join-us" element={<JoinUsPage />} />
+        <Route path="blogs" element={<SpectatorBlogListPage />} />
+        <Route path="blogs/:slug" element={<SpectatorBlogDetailPage />} />
         
         {/* Authentication routes */}
         <Route path="login" element={<LoginPage />} />
@@ -85,15 +91,9 @@ export function AppRouter() {
             />
           )}
         />
-        <Route
-          path="admin/blog"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Blog"
-              description="Manage tournament posts, publishing state, and content reward eligibility."
-            />
-          )}
-        />
+        <Route path="admin/blog" element={adminRoute(<AdminBlogListPage />)} />
+        <Route path="admin/blog/new" element={adminRoute(<AdminBlogFormPage />)} />
+        <Route path="admin/blog/edit/:id" element={adminRoute(<AdminBlogFormPage />)} />
         <Route
           path="admin/points"
           element={adminRoute(
