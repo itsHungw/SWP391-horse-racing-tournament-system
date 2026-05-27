@@ -1,0 +1,277 @@
+<h2>Interactive Mockup: Minimalist Referee Dashboard (V3)</h2>
+<p class="subtitle">Updated with a clean, compact sans-serif typography, lighter font weights, and a sleek minimalist layout. No fancy serif fonts or heavy decorations.</p>
+
+<div class="mockup" style="max-width: 1000px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border-radius: 8px; overflow: hidden; background: #ffffff; border: 1px solid #e2e8f0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <!-- Mockup Topbar -->
+  <div class="mockup-header" style="background: #ffffff; border-bottom: 1px solid #e2e8f0; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; color: #64748b; font-size: 13px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></div>
+      <strong style="color: #0f172a; font-size: 13px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">EQUINEPRO ELITE — REFEREE PORTAL</strong>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px; font-size: 12px;">
+      <span>Referee: <strong style="color: #0f172a; font-weight: 600;">Julian Sterling</strong></span>
+      <a href="/" style="background: #f8fafc; color: #475569; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: 500; border: 1px solid #cbd5e1; transition: 0.15s;">Exit Dashboard</a>
+    </div>
+  </div>
+
+  <div style="display: flex; min-height: 500px; background: #f8fafc; color: #334155; font-size: 13px;">
+    <!-- Mockup Sidebar -->
+    <div style="width: 220px; background: #ffffff; border-right: 1px solid #e2e8f0; padding: 20px 0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="padding: 0 16px 16px 16px; border-bottom: 1px solid #f1f5f9; margin-bottom: 16px;">
+          <div style="font-size: 10px; color: #94a3b8; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;">WORKSPACE</div>
+          <div style="font-size: 13px; color: #004d3d; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>🛡️ Head Referee</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px;">
+          <div onclick="switchTab('races')" id="menu-races" style="padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; background: #004d3d; color: #ffffff; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+            🏁 Assigned Races
+          </div>
+          <div onclick="switchTab('checks')" id="menu-checks" style="padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 8px; transition: 0.15s;">
+            📋 Pre-Race Checks
+          </div>
+          <div onclick="switchTab('results')" id="menu-results" style="padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 8px; transition: 0.15s;">
+            🏆 Submit Results
+          </div>
+          <div onclick="switchTab('reports')" id="menu-reports" style="padding: 10px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; color: #64748b; display: flex; align-items: center; gap: 8px; transition: 0.15s;">
+            ⚠️ Reports & Violations
+          </div>
+        </div>
+      </div>
+      <div style="padding: 16px; border-top: 1px solid #f1f5f9; font-size: 10px; color: #94a3b8;">
+        EquinePro v2.0
+      </div>
+    </div>
+
+    <!-- Mockup Content Area -->
+    <div style="flex: 1; padding: 24px; background: #f8fafc;">
+      <!-- Tab 1: Assigned Races -->
+      <div id="tab-races" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+            <h3 style="font-size: 18px; color: #0f172a; font-weight: 600; margin: 0;">Assigned Races</h3>
+            <p style="font-size: 12px; color: #64748b; margin-top: 3px; margin-bottom: 0;">Track and manage the races you are scheduled to officiate.</p>
+          </div>
+          <span style="background: rgba(0,77,61,0.05); color: #004d3d; border: 1px solid rgba(0,77,61,0.1); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500;">2026 Season</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <!-- Race Card 1 -->
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #ecfdf5; color: #059669; font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0; text-transform: uppercase;">Active</span>
+                <strong style="color: #0f172a; font-size: 14px; font-weight: 600;">Royal Ascot Gold Cup - Qualifiers A</strong>
+              </div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 6px; display: flex; gap: 16px;">
+                <span>Code: <strong style="color: #334155; font-family: monospace; font-size: 11px;">R-2026-001</strong></span>
+                <span>Distance: <strong>1,600m</strong></span>
+                <span>Entries: <strong>6 / 6 Assigned</strong></span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="switchTab('checks')" style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 8px 12px; border-radius: 4px; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.15s;">📋 Verify Pre-check</button>
+              <button onclick="switchTab('results')" style="background: #fbbf24; color: #0f172a; border: none; padding: 8px 14px; border-radius: 4px; font-size: 11px; font-weight: 600; cursor: pointer; transition: 0.15s;">🏆 Submit Results</button>
+            </div>
+          </div>
+
+          <!-- Race Card 2 -->
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; display: flex; justify-content: space-between; align-items: center; opacity: 0.8; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #f1f5f9; color: #64748b; font-size: 9px; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid #e2e8f0; text-transform: uppercase;">Scheduled</span>
+                <strong style="color: #0f172a; font-size: 14px; font-weight: 600;">Royal Ascot Gold Cup - Final Derby</strong>
+              </div>
+              <div style="font-size: 12px; color: #64748b; margin-top: 6px; display: flex; gap: 16px;">
+                <span>Code: <strong style="color: #334155; font-family: monospace; font-size: 11px;">R-2026-002</strong></span>
+                <span>Distance: <strong>2,400m</strong></span>
+                <span>Starts: <strong>May 28, 15:30 UTC</strong></span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="alert('This race has not started preparation time yet.')" style="background: #f8fafc; border: 1px solid #e2e8f0; color: #94a3b8; padding: 8px 12px; border-radius: 4px; font-size: 11px; cursor: not-allowed;" disabled>Locked</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Pre-Race Checks -->
+      <div id="tab-checks" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 18px; color: #0f172a; font-weight: 600; margin: 0;">Pre-Race Check-in Verification</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 3px; margin-bottom: 0;">Inspect and approve health, weight, identity, and gear criteria for <strong>R-2026-001</strong>.</p>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
+            <thead>
+              <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #475569;">
+                <th style="padding: 10px 16px; font-weight: 600;">Horse Name</th>
+                <th style="padding: 10px 16px; font-weight: 600;">Assigned Jockey</th>
+                <th style="padding: 10px 16px; text-align: center; font-weight: 600;">Weight</th>
+                <th style="padding: 10px 16px; text-align: center; font-weight: 600;">Gear OK</th>
+                <th style="padding: 10px 16px; text-align: center; font-weight: 600;">Health OK</th>
+                <th style="padding: 10px 16px; text-align: center; font-weight: 600;">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+                <td style="padding: 10px 16px; font-weight: 600; color: #0f172a;">⚡ Thunderstrike (H-002)</td>
+                <td style="padding: 10px 16px; color: #004d3d; font-weight: 600;">Julian Sterling</td>
+                <td style="padding: 10px 16px; text-align: center;">54.5 kg</td>
+                <td style="padding: 10px 16px; text-align: center;"><input type="checkbox" checked disabled style="accent-color:#004d3d;"></td>
+                <td style="padding: 10px 16px; text-align: center;"><input type="checkbox" checked disabled style="accent-color:#004d3d;"></td>
+                <td style="padding: 10px 16px; text-align: center;"><span style="color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600;">PASSED</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #f1f5f9; color: #334155;">
+                <td style="padding: 10px 16px; font-weight: 600; color: #0f172a;">🐎 Golden Mane (H-005)</td>
+                <td style="padding: 10px 16px; color: #004d3d; font-weight: 600;">Michael Chang</td>
+                <td style="padding: 10px 16px; text-align: center;">56.0 kg</td>
+                <td style="padding: 10px 16px; text-align: center;"><input type="checkbox" id="equip-ok" checked style="accent-color:#004d3d;"></td>
+                <td style="padding: 10px 16px; text-align: center;"><input type="checkbox" id="health-ok" checked style="accent-color:#004d3d;"></td>
+                <td style="padding: 10px 16px; text-align: center;">
+                  <select style="background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600;">
+                    <option value="PASSED">PASSED</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="PENDING">PENDING</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button onclick="alert('Pre-race verification checks saved successfully!')" style="background: #004d3d; color: white; padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: 0.15s;">💾 Save Pre-Checks</button>
+      </div>
+
+      <!-- Tab 3: Submit Results -->
+      <div id="tab-results" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 18px; color: #0f172a; font-weight: 600; margin: 0;">Submit Final Results</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 3px; margin-bottom: 0;">Record finishing order (ranks) and elapsed times for active race participants.</p>
+        </div>
+
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 12px; font-size: 11px; font-weight: 600; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 12px; color: #64748b; text-transform: uppercase;">
+            <span>Horse & Jockey Entry</span>
+            <span>Rank</span>
+            <span>Elapsed Time</span>
+            <span>Status</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 12px; align-items: center; margin-bottom: 12px;">
+            <span style="font-weight: 600; color: #0f172a;">⚡ Thunderstrike — Julian Sterling</span>
+            <input type="number" placeholder="1" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; font-weight: 600; width: 60px; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="text" placeholder="94.250" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; font-weight: 600; width: 80px; font-size: 12px;">
+              <span style="font-size: 12px; color: #64748b;">sec</span>
+            </div>
+            <span style="color: #059669; font-weight: 600; font-size: 12px;">FINISHED</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 12px; align-items: center; margin-bottom: 12px;">
+            <span style="font-weight: 600; color: #0f172a;">🐎 Golden Mane — Michael Chang</span>
+            <input type="number" placeholder="2" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; font-weight: 600; width: 60px; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="text" placeholder="95.890" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; font-weight: 600; width: 80px; font-size: 12px;">
+              <span style="font-size: 12px; color: #64748b;">sec</span>
+            </div>
+            <span style="color: #059669; font-weight: 600; font-size: 12px;">FINISHED</span>
+          </div>
+        </div>
+
+        <button onclick="alert('Results submitted! Waiting for Admin verification and confirmation.')" style="background: #fbbf24; color: #0f172a; padding: 8px 16px; border-radius: 4px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: 0.15s;">🏁 Submit Official Results</button>
+      </div>
+
+      <!-- Tab 4: Reports & Violations -->
+      <div id="tab-reports" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 18px; color: #0f172a; font-weight: 600; margin: 0;">Incident Reporting & Officiating Log</h3>
+          <p style="font-size: 12px; color: #64748b; margin-top: 3px; margin-bottom: 0;">Log rules violations, medical incidents, or submit the final officiating race report.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+            <h4 style="color: #ef4444; font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; margin-top: 0;">🚨 File New Infraction</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #64748b; font-weight: 500;">Offender/Participant</label>
+                <select style="background: #ffffff; border: 1px solid #cbd5e1; color: #0f172a; padding: 6px 10px; border-radius: 4px; width: 100%; font-size: 12px;">
+                  <option>Julian Sterling (Jockey)</option>
+                  <option>Michael Chang (Jockey)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #64748b; font-weight: 500;">Severity Level</label>
+                <select style="background: #ffffff; border: 1px solid #cbd5e1; color: #ef4444; padding: 6px 10px; border-radius: 4px; width: 100%; font-weight: 600; font-size: 12px;">
+                  <option value="LOW">LOW SEVERITY</option>
+                  <option value="MEDIUM">MEDIUM SEVERITY</option>
+                  <option value="HIGH">HIGH SEVERITY</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #64748b; font-weight: 500;">Infraction Description</label>
+                <textarea rows="3" placeholder="Provide accurate details of the rules infraction..." style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; width: 100%; resize: none; font-size: 12px;"></textarea>
+              </div>
+              <button onclick="alert('Violation incident logged successfully!')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.15s;">Submit Violation</button>
+            </div>
+          </div>
+
+          <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.01);">
+            <h4 style="color: #004d3d; font-size: 13px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; margin-top: 0;">📝 Official Referee Report</h4>
+            <div style="display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #64748b; font-weight: 500;">Report Title</label>
+                <input type="text" value="Race Report: Royal Ascot Gold Cup - R-2026-001" style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; width: 100%; font-weight: 600; font-size: 12px;">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #64748b; font-weight: 500;">Race Summary & Observations</label>
+                <textarea rows="4" placeholder="Summarize overall race conditions, fairness, track status, and highlights..." style="background: #ffffff; border: 1px solid #cbd5e1; padding: 6px 10px; border-radius: 4px; color: #0f172a; width: 100%; resize: none; font-size: 12px;"></textarea>
+              </div>
+              <button onclick="alert('Referee report saved draft!')" style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 8px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.15s;">Save Draft</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchTab(tabId) {
+    // Hide all tabs
+    document.getElementById('tab-races').style.display = 'none';
+    document.getElementById('tab-checks').style.display = 'none';
+    document.getElementById('tab-results').style.display = 'none';
+    document.getElementById('tab-reports').style.display = 'none';
+
+    // Show selected tab
+    document.getElementById('tab-' + tabId).style.display = 'block';
+
+    // Reset all menu items style
+    const menuIds = ['races', 'checks', 'results', 'reports'];
+    menuIds.forEach(id => {
+      const menu = document.getElementById('menu-' + id);
+      menu.style.background = 'transparent';
+      menu.style.color = '#64748b';
+      menu.style.fontWeight = '500';
+    });
+
+    // Active selected menu item style
+    const activeMenu = document.getElementById('menu-' + tabId);
+    activeMenu.style.background = '#004d3d';
+    activeMenu.style.color = '#ffffff';
+    activeMenu.style.fontWeight = '500';
+  }
+</script>
+
+<div class="options" style="margin-top: 2rem;">
+  <div class="option" data-choice="approve_v3" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>Approve Minimalist Design (V3)</h3>
+      <p>This typography is very neat, clean, and perfectly minimal. Let's proceed with this exact specification.</p>
+    </div>
+  </div>
+</div>

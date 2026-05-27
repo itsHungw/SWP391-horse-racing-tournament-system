@@ -57,7 +57,10 @@ export function AppRouter() {
         <Route path="owner" element={<RoleDashboardPage role="Owner" />} />
         <Route path="jockey" element={<RoleDashboardPage role="Jockey" />} />
         <Route path="referee" element={refereeRoute(<RefereeLayout />)}>
-          <Route index element={<RefereeOverviewPage />} />
+          <Route index element={<RefereeOverviewPage mode="all" />} />
+          <Route path="pre-checks" element={<RefereeOverviewPage mode="check" />} />
+          <Route path="results" element={<RefereeOverviewPage mode="results" />} />
+          <Route path="reports" element={<RefereeOverviewPage mode="reports" />} />
           <Route path="races/:id/check" element={<PreRaceCheckPage />} />
           <Route path="races/:id/results" element={<SubmitResultsPage />} />
           <Route path="races/:id/report" element={<IncidentReportsPage />} />

@@ -1,0 +1,277 @@
+<h2>Mockup trực quan: Giao diện Referee Dashboard</h2>
+<p class="subtitle">Dưới đây là thiết kế giao diện độc lập (Dedicated Layout) với tông màu sang trọng đặc trưng của dự án (Nyra Green, Slate & Gold). Bạn có thể bấm chọn các tab hoặc mục trên màn hình dưới đây để xem thử các phân hệ chức năng!</p>
+
+<div class="mockup" style="max-width: 1000px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border-radius: 12px; overflow: hidden; background: #0f172a;">
+  <!-- Mockup Topbar -->
+  <div class="mockup-header" style="background: #090d16; border-bottom: 1px solid #1e293b; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; color: #94a3b8;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: #22c55e;"></div>
+      <strong style="color: #f8fafc; font-size: 14px; tracking: 0.1em; font-family: serif;">EQUINEPRO ELITE — REFEREE PORTAL</strong>
+    </div>
+    <div style="display: flex; align-items: center; gap: 16px; font-size: 12px;">
+      <span>Xin chào, Trọng tài <strong>Julian Sterling</strong></span>
+      <a href="/" style="background: rgba(255,255,255,0.1); color: #f8fafc; padding: 4px 10px; border-radius: 4px; text-decoration: none; font-size: 11px;">Quay về trang chính</a>
+    </div>
+  </div>
+
+  <div style="display: flex; min-height: 520px; background: #0f172a; color: #e2e8f0; font-family: sans-serif;">
+    <!-- Mockup Sidebar -->
+    <div style="width: 220px; background: #090d16; border-right: 1px solid #1e293b; padding: 20px 0; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="padding: 0 16px 16px 16px; border-bottom: 1px solid #1e293b; margin-bottom: 16px;">
+          <div style="font-size: 10px; color: #64748b; font-weight: bold; uppercase; letter-spacing: 0.1em;">VAI TRÒ HIỆN TẠI</div>
+          <div style="font-size: 13px; color: #fbbf24; font-weight: bold; margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>🛡️ Trọng tài chính</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 0 8px;">
+          <div onclick="switchTab('races')" id="menu-races" style="padding: 10px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; background: #004d3d; color: #fff; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+            🏁 Trận đua phân công
+          </div>
+          <div onclick="switchTab('checks')" id="menu-checks" style="padding: 10px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #94a3b8; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
+            📋 Pre-race Checks
+          </div>
+          <div onclick="switchTab('results')" id="menu-results" style="padding: 10px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #94a3b8; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
+            🏆 Nhập kết quả cuộc đua
+          </div>
+          <div onclick="switchTab('reports')" id="menu-reports" style="padding: 10px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; color: #94a3b8; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
+            ⚠️ Vi phạm & Báo cáo
+          </div>
+        </div>
+      </div>
+      <div style="padding: 16px; border-top: 1px solid #1e293b; font-size: 11px; color: #64748b;">
+        EquinePro v2.0
+      </div>
+    </div>
+
+    <!-- Mockup Content Area -->
+    <div style="flex: 1; padding: 24px; overflow-y: auto; background: #0f172a;">
+      <!-- Tab 1: Assigned Races -->
+      <div id="tab-races" style="display: block;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <div>
+            <h3 style="font-size: 20px; font-family: serif; color: #f8fafc;">Danh sách trận đua phân công</h3>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Dưới đây là các cuộc đua bạn được chỉ định làm trọng tài chính.</p>
+          </div>
+          <span style="background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;">Mùa giải 2026</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <!-- Race Card 1 -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #004d3d; color: #34c759; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">ONGOING</span>
+                <strong style="color: #f8fafc; font-size: 15px;">Royal Ascot Gold Cup - Vòng loại 1</strong>
+              </div>
+              <div style="font-size: 12px; color: #94a3b8; margin-top: 6px; display: flex; gap: 16px;">
+                <span>Mã trận: <code>R-2026-001</code></span>
+                <span>Cự ly: <strong>1600m</strong></span>
+                <span>Số ngựa đăng ký: <strong>6/6</strong></span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="switchTab('checks')" style="background: #004d3d; border: 1px solid #0284c7; color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">📋 Đi đến Pre-check</button>
+              <button onclick="switchTab('results')" style="background: #fbbf24; color: #0f172a; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer;">🏆 Nhập kết quả</button>
+            </div>
+          </div>
+
+          <!-- Race Card 2 -->
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px; display: flex; justify-content: space-between; align-items: center; opacity: 0.85;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="background: #475569; color: #cbd5e1; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">SCHEDULED</span>
+                <strong style="color: #f8fafc; font-size: 15px;">Royal Ascot Gold Cup - Vòng chung kết</strong>
+              </div>
+              <div style="font-size: 12px; color: #94a3b8; margin-top: 6px; display: flex; gap: 16px;">
+                <span>Mã trận: <code>R-2026-002</code></span>
+                <span>Cự ly: <strong>2400m</strong></span>
+                <span>Bắt đầu lúc: <strong>15:30 - 28/05</strong></span>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button onclick="alert('Trận đấu chưa bắt đầu thời gian chuẩn bị!')" style="background: transparent; border: 1px solid #475569; color: #94a3b8; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: not-allowed;" disabled>Chưa mở</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Pre-Race Checks -->
+      <div id="tab-checks" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 20px; font-family: serif; color: #f8fafc;">Pre-Race Check-in & Verification</h3>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Kiểm tra kỹ lưỡng các thông tin của cặp Ngựa & Nài ngựa trước khi xuất phát tại <strong>R-2026-001</strong>.</p>
+        </div>
+
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; overflow: hidden; margin-bottom: 16px;">
+          <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
+            <thead>
+              <tr style="background: #0f172b; border-bottom: 1px solid #334155; color: #94a3b8;">
+                <th style="padding: 12px 16px;">Tên ngựa</th>
+                <th style="padding: 12px 16px;">Nài ngựa (Jockey)</th>
+                <th style="padding: 12px 16px; text-align: center;">Cân nặng nài</th>
+                <th style="padding: 12px 16px; text-align: center;">Trang bị OK?</th>
+                <th style="padding: 12px 16px; text-align: center;">Sức khỏe OK?</th>
+                <th style="padding: 12px 16px; text-align: center;">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid #334155;">
+                <td style="padding: 12px 16px; font-weight: bold; color: #fff;">⚡ Thunderstrike (H-002)</td>
+                <td style="padding: 12px 16px; color: #fbbf24;">Julian Sterling</td>
+                <td style="padding: 12px 16px; text-align: center;">54.5 kg</td>
+                <td style="padding: 12px 16px; text-align: center;"><input type="checkbox" checked disabled></td>
+                <td style="padding: 12px 16px; text-align: center;"><input type="checkbox" checked disabled></td>
+                <td style="padding: 12px 16px; text-align: center;"><span style="color: #22c55e; background: rgba(34,197,94,0.1); padding: 2px 8px; border-radius: 4px; font-size: 11px;">ĐẠT (PASSED)</span></td>
+              </tr>
+              <tr style="border-bottom: 1px solid #334155;">
+                <td style="padding: 12px 16px; font-weight: bold; color: #fff;">🐎 Golden Mane (H-005)</td>
+                <td style="padding: 12px 16px; color: #fbbf24;">Michael Chang</td>
+                <td style="padding: 12px 16px; text-align: center;">56.0 kg</td>
+                <td style="padding: 12px 16px; text-align: center;"><input type="checkbox" id="equip-ok" checked></td>
+                <td style="padding: 12px 16px; text-align: center;"><input type="checkbox" id="health-ok" checked></td>
+                <td style="padding: 12px 16px; text-align: center;">
+                  <select style="background: #0f172a; border: 1px solid #475569; color: white; padding: 2px 4px; border-radius: 4px; font-size: 11px;">
+                    <option value="PASSED">PASSED</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="PENDING">PENDING</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <button onclick="alert('Đã lưu kết quả kiểm tra trước trận!')" style="background: #004d3d; color: white; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: bold; border: none; cursor: pointer;">💾 Lưu bản Pre-check</button>
+      </div>
+
+      <!-- Tab 3: Submit Results -->
+      <div id="tab-results" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 20px; font-family: serif; color: #f8fafc;">Nhập kết quả chung cuộc</h3>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Ghi nhận vị trí (Rank) và thời gian hoàn thành (Finish Time) của các nài ngựa tham dự cuộc đua.</p>
+        </div>
+
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 16px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #475569; padding-bottom: 8px; margin-bottom: 12px; color: #94a3b8;">
+            <span>Cặp Ngựa & Nài ngựa</span>
+            <span>Vị trí (Rank)</span>
+            <span>Thời gian hoàn thành</span>
+            <span>Trạng thái</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 16px; align-items: center; margin-bottom: 12px;">
+            <span style="font-weight: bold;">⚡ Thunderstrike - Julian Sterling</span>
+            <input type="number" placeholder="1" style="background: #0f172a; border: 1px solid #475569; padding: 6px; border-radius: 4px; color: #fff;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="text" placeholder="1:34.250" style="background: #0f172a; border: 1px solid #475569; padding: 6px; border-radius: 4px; color: #fff; width: 80px;">
+              <span>giây</span>
+            </div>
+            <span style="color: #22c55e;">FINISHED</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 2fr 1fr 1.5fr 1fr; gap: 16px; align-items: center; margin-bottom: 12px;">
+            <span style="font-weight: bold;">🐎 Golden Mane - Michael Chang</span>
+            <input type="number" placeholder="2" style="background: #0f172a; border: 1px solid #475569; padding: 6px; border-radius: 4px; color: #fff;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <input type="text" placeholder="1:35.890" style="background: #0f172a; border: 1px solid #475569; padding: 6px; border-radius: 4px; color: #fff; width: 80px;">
+              <span>giây</span>
+            </div>
+            <span style="color: #22c55e;">FINISHED</span>
+          </div>
+        </div>
+
+        <button onclick="alert('Khai báo kết quả thành công! Hệ thống đang chờ Admin xác nhận.')" style="background: #fbbf24; color: #0f172a; padding: 10px 20px; border-radius: 6px; font-size: 13px; font-weight: bold; border: none; cursor: pointer;">🏁 Nộp kết quả trận đấu</button>
+      </div>
+
+      <!-- Tab 4: Reports & Violations -->
+      <div id="tab-reports" style="display: none;">
+        <div style="margin-bottom: 20px;">
+          <h3 style="font-size: 20px; font-family: serif; color: #f8fafc;">Báo cáo vi phạm & Báo cáo chung</h3>
+          <p style="font-size: 12px; color: #94a3b8; margin-top: 4px;">Ghi nhận các sự cố, hành vi sai quy định trong giải đấu và tạo biên bản lưu trữ chính thức.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px;">
+            <h4 style="color: #ef4444; font-size: 14px; font-weight: bold; margin-bottom: 12px;">⚠️ Ghi nhận Vi phạm mới</h4>
+            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #94a3b8;">Chọn đối tượng vi phạm</label>
+                <select style="background: #0f172a; border: 1px solid #475569; color: white; padding: 8px; border-radius: 4px; width: 100%;">
+                  <option>Julian Sterling (Nài ngựa)</option>
+                  <option>Michael Chang (Nài ngựa)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #94a3b8;">Mức độ nghiêm trọng</label>
+                <select style="background: #0f172a; border: 1px solid #475569; color: #ef4444; padding: 8px; border-radius: 4px; width: 100%; font-weight: bold;">
+                  <option value="LOW">THẤP (LOW)</option>
+                  <option value="MEDIUM">TRUNG BÌNH (MEDIUM)</option>
+                  <option value="HIGH">CAO / CỰC NGHIÊM TRỌNG (HIGH)</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #94a3b8;">Mô tả hành vi vi phạm</label>
+                <textarea rows="3" style="background: #0f172a; border: 1px solid #475569; padding: 8px; border-radius: 4px; color: #fff; width: 100%; resize: none;"></textarea>
+              </div>
+              <button onclick="alert('Đã thêm hành vi vi phạm vào danh sách báo cáo!')" style="background: #ef4444; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">🚨 Gửi cáo cáo vi phạm</button>
+            </div>
+          </div>
+
+          <div style="background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px;">
+            <h4 style="color: #fbbf24; font-size: 14px; font-weight: bold; margin-bottom: 12px;">📝 Biên bản tổng kết Trọng tài</h4>
+            <div style="display: flex; flex-direction: column; gap: 12px; font-size: 12px;">
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #94a3b8;">Tiêu đề báo cáo</label>
+                <input type="text" value="Báo cáo cuộc đua Royal Ascot Gold Cup - R-2026-001" style="background: #0f172a; border: 1px solid #475569; padding: 8px; border-radius: 4px; color: #fff; width: 100%;">
+              </div>
+              <div>
+                <label style="display: block; margin-bottom: 4px; color: #94a3b8;">Tóm tắt diễn biến cuộc đua (Summary)</label>
+                <textarea rows="4" placeholder="Mô tả tóm tắt diễn biến cuộc đua..." style="background: #0f172a; border: 1px solid #475569; padding: 8px; border-radius: 4px; color: #fff; width: 100%; resize: none;"></textarea>
+              </div>
+              <button onclick="alert('Đã lưu nháp Báo cáo tổng kết!')" style="background: transparent; border: 1px solid #475569; color: white; padding: 8px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;">Lưu nháp</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function switchTab(tabId) {
+    // Hide all tabs
+    document.getElementById('tab-races').style.display = 'none';
+    document.getElementById('tab-checks').style.display = 'none';
+    document.getElementById('tab-results').style.display = 'none';
+    document.getElementById('tab-reports').style.display = 'none';
+
+    // Show selected tab
+    document.getElementById('tab-' + tabId).style.display = 'block';
+
+    // Reset all menu items style
+    const menuIds = ['races', 'checks', 'results', 'reports'];
+    menuIds.forEach(id => {
+      const menu = document.getElementById('menu-' + id);
+      menu.style.background = 'transparent';
+      menu.style.color = '#94a3b8';
+      menu.style.fontWeight = 'normal';
+    });
+
+    // Active selected menu item style
+    const activeMenu = document.getElementById('menu-' + tabId);
+    activeMenu.style.background = '#004d3d';
+    activeMenu.style.color = '#fff';
+    activeMenu.style.fontWeight = 'bold';
+  }
+</script>
+
+<div class="options" style="margin-top: 2rem;">
+  <div class="option" data-choice="approve_mockup" onclick="toggleSelect(this)">
+    <div class="letter">✓</div>
+    <div class="content">
+      <h3>Duyệt Mockup thiết kế</h3>
+      <p>Giao diện rất trực quan và đáp ứng đúng các nhu cầu của tôi. Hãy sử dụng mẫu layout này cho các bước tiếp theo.</p>
+    </div>
+  </div>
+</div>

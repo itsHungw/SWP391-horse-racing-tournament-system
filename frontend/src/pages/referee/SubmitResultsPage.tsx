@@ -19,9 +19,17 @@ export function SubmitResultsPage() {
 
   const handleNumberChange = (index: number, field: "position" | "finishTimeSeconds", value: string) => {
     const updated = [...entries];
-    const parsed = value === "" ? "" : Number(value);
-    updated[index] = { ...updated[index], [field]: parsed };
-    setEntries(updated);
+    if (field === "finishTimeSeconds") {
+      // Allow raw string value to let user type decimal point '.'
+      if (value === "" || /^[0-9]*\.?[0-9]*$/.test(value)) {
+        updated[index] = { ...updated[index], [field]: value as any };
+        setEntries(updated);
+      }
+    } else {
+      const parsed = value === "" ? "" : Number(value);
+      updated[index] = { ...updated[index], [field]: parsed };
+      setEntries(updated);
+    }
   };
 
   const handleStatusChange = (index: number, status: ParticipantResultEntry["status"]) => {
@@ -45,7 +53,14 @@ export function SubmitResultsPage() {
     try {
       setSubmitting(true);
       setMessage(null);
-      await submitRaceResults(raceId, entries);
+      
+      // Safely map string/decimal elapsed times to numeric representation for the API
+      const mappedEntries = entries.map((e) => ({
+        ...e,
+        finishTimeSeconds: e.finishTimeSeconds === "" ? "" : Number(e.finishTimeSeconds),
+      }));
+
+      await submitRaceResults(raceId, mappedEntries as any);
       setMessage("Results submitted successfully! Awaiting Admin review.");
     } catch {
       setMessage("Failed to submit official race results.");

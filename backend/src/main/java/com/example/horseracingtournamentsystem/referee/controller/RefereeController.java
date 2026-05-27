@@ -24,6 +24,9 @@ public class RefereeController {
         // Initialize assigned races
         RACES.add(createRace(1L, "Royal Ascot Gold Cup - Qualifiers A", "R-2026-001", 1600, "ACTIVE"));
         RACES.add(createRace(2L, "Dubai World Cup - Final Derby", "R-2026-002", 2400, "SCHEDULED"));
+        RACES.add(createRace(3L, "Kentucky Derby - Triple Crown Leg 1", "R-2026-003", 2000, "SCHEDULED"));
+        RACES.add(createRace(4L, "Melbourne Cup - Steeplechase Qualifier", "R-2026-004", 3200, "ACTIVE"));
+        RACES.add(createRace(5L, "Grand National - Handicap Chase", "R-2026-005", 1800, "RESULT_SUBMITTED"));
 
         // Initialize participants for Race 1
         List<Map<String, Object>> race1Parts = new ArrayList<>();
@@ -36,11 +39,56 @@ public class RefereeController {
         race2Parts.add(createParticipant(3L, "Windrunner (H-009)", "Sarah Jenkins", 53.0, true, true, "PASSED"));
         PARTICIPANTS.put(2L, race2Parts);
 
+        // Initialize participants for Race 3 (New - Scheduled, all pending)
+        List<Map<String, Object>> race3Parts = new ArrayList<>();
+        race3Parts.add(createParticipant(4L, "Silver Bullet (H-012)", "Alan Smith", 55.0, false, false, "PENDING"));
+        race3Parts.add(createParticipant(5L, "Midnight Rider (H-015)", "Bruce Wayne", 54.0, false, false, "PENDING"));
+        race3Parts.add(createParticipant(6L, "Desert Fox (H-018)", "Clark Kent", 56.5, false, false, "PENDING"));
+        PARTICIPANTS.put(3L, race3Parts);
+
+        // Initialize participants for Race 4 (New - Active, passed & failed)
+        List<Map<String, Object>> race4Parts = new ArrayList<>();
+        race4Parts.add(createParticipant(7L, "Shadowfax (H-021)", "Gandalf Grey", 53.5, true, true, "PASSED"));
+        race4Parts.add(createParticipant(8L, "Artax (H-022)", "Atreyu Green", 52.0, true, true, "PASSED"));
+        race4Parts.add(createParticipant(9L, "Pegaso (H-023)", "Hercules Gold", 58.0, false, false, "FAILED"));
+        PARTICIPANTS.put(4L, race4Parts);
+
+        // Initialize participants for Race 5 (New - Completed)
+        List<Map<String, Object>> race5Parts = new ArrayList<>();
+        race5Parts.add(createParticipant(10L, "Jolly Jumper (H-031)", "Lucky Luke", 55.0, true, true, "PASSED"));
+        race5Parts.add(createParticipant(11L, "Black Beauty (H-032)", "Anna Sewell", 54.0, true, true, "PASSED"));
+        PARTICIPANTS.put(5L, race5Parts);
+
         // Initialize results template for Race 1
         List<Map<String, Object>> race1Results = new ArrayList<>();
         race1Results.add(createResult(1L, "Thunderstrike", "Julian Sterling", "", "", "FINISHED"));
         race1Results.add(createResult(2L, "Golden Mane", "Michael Chang", "", "", "FINISHED"));
         RESULTS.put(1L, race1Results);
+
+        // Initialize results template for Race 2
+        List<Map<String, Object>> race2Results = new ArrayList<>();
+        race2Results.add(createResult(3L, "Windrunner", "Sarah Jenkins", "", "", "FINISHED"));
+        RESULTS.put(2L, race2Results);
+
+        // Initialize results template for Race 3
+        List<Map<String, Object>> race3Results = new ArrayList<>();
+        race3Results.add(createResult(4L, "Silver Bullet", "Alan Smith", "", "", "FINISHED"));
+        race3Results.add(createResult(5L, "Midnight Rider", "Bruce Wayne", "", "", "FINISHED"));
+        race3Results.add(createResult(6L, "Desert Fox", "Clark Kent", "", "", "FINISHED"));
+        RESULTS.put(3L, race3Results);
+
+        // Initialize results template for Race 4
+        List<Map<String, Object>> race4Results = new ArrayList<>();
+        race4Results.add(createResult(7L, "Shadowfax", "Gandalf Grey", "", "", "FINISHED"));
+        race4Results.add(createResult(8L, "Artax", "Atreyu Green", "", "", "FINISHED"));
+        race4Results.add(createResult(9L, "Pegaso", "Hercules Gold", "", "", "FINISHED"));
+        RESULTS.put(4L, race4Results);
+
+        // Initialize submitted results for Race 5
+        List<Map<String, Object>> race5Results = new ArrayList<>();
+        race5Results.add(createResult(10L, "Jolly Jumper", "Lucky Luke", 1, 92.4, "FINISHED"));
+        race5Results.add(createResult(11L, "Black Beauty", "Anna Sewell", 2, 94.1, "FINISHED"));
+        RESULTS.put(5L, race5Results);
     }
 
     private static Map<String, Object> createRace(Long id, String name, String code, int distance, String status) {

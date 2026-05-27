@@ -31,5 +31,32 @@ describe("RefereeOverviewPage", () => {
     expect(screen.getByText("R-2026-001")).toBeInTheDocument();
     expect(screen.getByText(/Verify Pre-check/i)).toBeInTheDocument();
     expect(screen.getByText(/Submit Results/i)).toBeInTheDocument();
+    expect(screen.getByText(/Log Incident/i)).toBeInTheDocument();
+  });
+
+  it("filters action buttons when in specific modes", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+
+    const { rerender } = render(
+      <MemoryRouter>
+        <RefereeOverviewPage mode="check" />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Pre-Race Checks")).toBeInTheDocument();
+    expect(screen.getByText(/Verify Pre-check/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Submit Results/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Log Incident/i)).not.toBeInTheDocument();
+
+    rerender(
+      <MemoryRouter>
+        <RefereeOverviewPage mode="results" />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Submit Results" })).toBeInTheDocument();
+    expect(screen.queryByText(/Verify Pre-check/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Submit Results/i })).toBeInTheDocument();
+    expect(screen.queryByText(/Log Incident/i)).not.toBeInTheDocument();
   });
 });

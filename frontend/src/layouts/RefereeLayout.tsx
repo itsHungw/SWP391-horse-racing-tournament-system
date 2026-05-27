@@ -29,6 +29,42 @@ export function RefereeLayout() {
             >
               <span>🏁</span> Assigned Races
             </NavLink>
+            <NavLink
+              to="/referee/pre-checks"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-[#004d3d] text-white font-bold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`
+              }
+            >
+              <span>📋</span> Pre-Race Checks
+            </NavLink>
+            <NavLink
+              to="/referee/results"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-[#004d3d] text-white font-bold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`
+              }
+            >
+              <span>🏆</span> Submit Results
+            </NavLink>
+            <NavLink
+              to="/referee/reports"
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-[#004d3d] text-white font-bold"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`
+              }
+            >
+              <span>🚨</span> Reports & Violations
+            </NavLink>
           </nav>
         </div>
         <div className="p-6 border-t border-slate-100 text-[10px] text-slate-400 font-semibold uppercase tracking-wider">

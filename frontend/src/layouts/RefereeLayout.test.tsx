@@ -29,5 +29,8 @@ describe("RefereeLayout", () => {
     expect(screen.getByText(/Head Referee/i)).toBeInTheDocument();
     expect(screen.getByText("Exit Dashboard")).toBeInTheDocument();
     expect(screen.getByText(/Assigned Races/i)).toBeInTheDocument();
+    expect(screen.getByText(/Pre-Race Checks/i)).toBeInTheDocument();
+    expect(screen.getByText(/Submit Results/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reports & Violations/i)).toBeInTheDocument();
   });
 });
