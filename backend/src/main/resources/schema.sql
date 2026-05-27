@@ -112,3 +112,73 @@ BEGIN
     ADD CONSTRAINT FK_horses_approved_by
     FOREIGN KEY (approved_by) REFERENCES dbo.users(id)
 END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.tournament_registrations (
+        id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        tournament_id bigint NOT NULL,
+        horse_id bigint NOT NULL,
+        owner_id bigint NOT NULL,
+        status nvarchar(30) NOT NULL,
+        note nvarchar(max) NULL,
+        rejection_reason nvarchar(max) NULL,
+        reviewed_by bigint NULL,
+        reviewed_at datetime2 NULL,
+        created_at datetime2 NOT NULL,
+        updated_at datetime2 NULL,
+        withdrawn_at datetime2 NULL
+    )
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_tournament_registrations_tournament'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournament_registrations')
+   )
+BEGIN
+    ALTER TABLE dbo.tournament_registrations
+    ADD CONSTRAINT FK_tournament_registrations_tournament
+    FOREIGN KEY (tournament_id) REFERENCES dbo.tournaments(id)
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_tournament_registrations_horse'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournament_registrations')
+   )
+BEGIN
+    ALTER TABLE dbo.tournament_registrations
+    ADD CONSTRAINT FK_tournament_registrations_horse
+    FOREIGN KEY (horse_id) REFERENCES dbo.horses(id)
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_tournament_registrations_owner'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournament_registrations')
+   )
+BEGIN
+    ALTER TABLE dbo.tournament_registrations
+    ADD CONSTRAINT FK_tournament_registrations_owner
+    FOREIGN KEY (owner_id) REFERENCES dbo.users(id)
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_tournament_registrations_reviewed_by'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournament_registrations')
+   )
+BEGIN
+    ALTER TABLE dbo.tournament_registrations
+    ADD CONSTRAINT FK_tournament_registrations_reviewed_by
+    FOREIGN KEY (reviewed_by) REFERENCES dbo.users(id)
+END;
