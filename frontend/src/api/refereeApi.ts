@@ -42,3 +42,27 @@ export async function savePreRaceChecks(raceId: number, checks: ParticipantVerif
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export type ParticipantResultEntry = {
+  participantId: number;
+  horseName: string;
+  jockeyName: string;
+  position: number | "";
+  finishTimeSeconds: number | "";
+  status: "FINISHED" | "DISQUALIFIED" | "DID_NOT_FINISH" | "WITHDRAWN";
+};
+
+export async function getRaceResultEntries(raceId: number): Promise<ParticipantResultEntry[]> {
+  const token = localStorage.getItem("accessToken");
+  const response = await axios.get(`${API_URL}/races/${raceId}/result-entries`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return response.data;
+}
+
+export async function submitRaceResults(raceId: number, results: ParticipantResultEntry[]): Promise<void> {
+  const token = localStorage.getItem("accessToken");
+  await axios.post(`${API_URL}/races/${raceId}/results`, results, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
