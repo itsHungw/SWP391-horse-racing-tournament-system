@@ -1,6 +1,4 @@
-import axios from "axios";
-
-const API_URL = "/api/referee";
+import { httpClient } from "./httpClient";
 
 export type RaceSummary = {
   id: number;
@@ -11,10 +9,7 @@ export type RaceSummary = {
 };
 
 export async function getAssignedRaces(): Promise<RaceSummary[]> {
-  const token = localStorage.getItem("accessToken");
-  const response = await axios.get(`${API_URL}/races`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await httpClient.get<RaceSummary[]>("/referee/races");
   return response.data;
 }
 
@@ -29,18 +24,12 @@ export type ParticipantVerification = {
 };
 
 export async function getRaceParticipants(raceId: number): Promise<ParticipantVerification[]> {
-  const token = localStorage.getItem("accessToken");
-  const response = await axios.get(`${API_URL}/races/${raceId}/participants`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await httpClient.get<ParticipantVerification[]>(`/referee/races/${raceId}/participants`);
   return response.data;
 }
 
 export async function savePreRaceChecks(raceId: number, checks: ParticipantVerification[]): Promise<void> {
-  const token = localStorage.getItem("accessToken");
-  await axios.post(`${API_URL}/races/${raceId}/pre-checks`, checks, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await httpClient.post(`/referee/races/${raceId}/pre-checks`, checks);
 }
 
 export type ParticipantResultEntry = {
@@ -53,18 +42,12 @@ export type ParticipantResultEntry = {
 };
 
 export async function getRaceResultEntries(raceId: number): Promise<ParticipantResultEntry[]> {
-  const token = localStorage.getItem("accessToken");
-  const response = await axios.get(`${API_URL}/races/${raceId}/result-entries`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await httpClient.get<ParticipantResultEntry[]>(`/referee/races/${raceId}/result-entries`);
   return response.data;
 }
 
 export async function submitRaceResults(raceId: number, results: ParticipantResultEntry[]): Promise<void> {
-  const token = localStorage.getItem("accessToken");
-  await axios.post(`${API_URL}/races/${raceId}/results`, results, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await httpClient.post(`/referee/races/${raceId}/results`, results);
 }
 
 export type ViolationEntry = {
@@ -79,15 +62,9 @@ export type RefereeReportEntry = {
 };
 
 export async function submitViolation(raceId: number, violation: ViolationEntry): Promise<void> {
-  const token = localStorage.getItem("accessToken");
-  await axios.post(`${API_URL}/races/${raceId}/violations`, violation, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await httpClient.post(`/referee/races/${raceId}/violations`, violation);
 }
 
 export async function submitRefereeReport(raceId: number, report: RefereeReportEntry): Promise<void> {
-  const token = localStorage.getItem("accessToken");
-  await axios.post(`${API_URL}/races/${raceId}/reports`, report, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  await httpClient.post(`/referee/races/${raceId}/reports`, report);
 }
