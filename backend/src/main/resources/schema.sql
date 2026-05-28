@@ -131,8 +131,64 @@ BEGIN
     )
 END;
 
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'tournament_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD tournament_id bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'horse_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD horse_id bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'owner_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD owner_id bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'status') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD status nvarchar(30) NOT NULL CONSTRAINT DF_tournament_registrations_status DEFAULT N'PENDING'
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'note') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD note nvarchar(max) NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'rejection_reason') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD rejection_reason nvarchar(max) NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'reviewed_by') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD reviewed_by bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'reviewed_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD reviewed_at datetime2 NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'created_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD created_at datetime2 NOT NULL CONSTRAINT DF_tournament_registrations_created_at DEFAULT SYSUTCDATETIME()
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'updated_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD updated_at datetime2 NULL
+END;
+
+IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.tournament_registrations', N'withdrawn_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournament_registrations ADD withdrawn_at datetime2 NULL
+END;
+
 IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
    AND OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournament_registrations', N'tournament_id') IS NOT NULL
    AND NOT EXISTS (
        SELECT 1 FROM sys.foreign_keys
        WHERE name = N'FK_tournament_registrations_tournament'
@@ -146,6 +202,7 @@ END;
 
 IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
    AND OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournament_registrations', N'horse_id') IS NOT NULL
    AND NOT EXISTS (
        SELECT 1 FROM sys.foreign_keys
        WHERE name = N'FK_tournament_registrations_horse'
@@ -159,6 +216,7 @@ END;
 
 IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
    AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournament_registrations', N'owner_id') IS NOT NULL
    AND NOT EXISTS (
        SELECT 1 FROM sys.foreign_keys
        WHERE name = N'FK_tournament_registrations_owner'
@@ -172,6 +230,7 @@ END;
 
 IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NOT NULL
    AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournament_registrations', N'reviewed_by') IS NOT NULL
    AND NOT EXISTS (
        SELECT 1 FROM sys.foreign_keys
        WHERE name = N'FK_tournament_registrations_reviewed_by'
