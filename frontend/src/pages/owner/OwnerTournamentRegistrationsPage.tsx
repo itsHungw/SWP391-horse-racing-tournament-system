@@ -1,5 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-
+import { useCallback, useEffect, useState } from "react";
 import {
   createOwnerTournamentRegistration,
   getOwnerHorses,
@@ -12,36 +11,34 @@ import { OwnerLayout } from "../../layouts/OwnerLayout";
 import type { Horse, Tournament, TournamentRegistration } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 
-type RegistrationForm = {
-  tournamentId: string;
-  horseId: string;
-  note: string;
-};
-
-const emptyForm: RegistrationForm = {
-  tournamentId: "",
-  horseId: "",
-  note: "",
-};
+import { RegistrationWizardHeader } from "./components/RegistrationWizardHeader";
+import { StepSelectTournament } from "./components/StepSelectTournament";
+import { StepSelectHorse } from "./components/StepSelectHorse";
+import { StepConfirmRegistration } from "./components/StepConfirmRegistration";
+import { RegistrationStatusTimeline } from "./components/RegistrationStatusTimeline";
 
 export function OwnerTournamentRegistrationsPage() {
-  useDocumentTitle("Owner tournament registrations");
+  useDocumentTitle("Tournament Registrations - Owner");
 
+  // Wizard States
+  const [currentStep, setCurrentStep] = useState(1);
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
+  const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
+  const [note, setNote] = useState("");
+
+  // Database States
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [horses, setHorses] = useState<Horse[]>([]);
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
-  const [form, setForm] = useState<RegistrationForm>(emptyForm);
+
+  // Operation UI States
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [activeTimelineReg, setActiveTimelineReg] = useState<TournamentRegistration | null>(null);
 
-  const openTournaments = useMemo(
-    () => tournaments.filter((tournament) => tournament.status === "OPEN_REGISTRATION"),
-    [tournaments],
-  );
-  const approvedHorses = useMemo(() => horses.filter((horse) => horse.status === "APPROVED"), [horses]);
-
-  const loadWorkspace = useCallback(async () => {
+  const loadWorkspaceData = useCallback(async () => {
     setLoading(true);
     try {
       const [tournamentData, horseData, registrationData] = await Promise.all([
@@ -52,37 +49,60 @@ export function OwnerTournamentRegistrationsPage() {
       setTournaments(Array.isArray(tournamentData) ? tournamentData : []);
       setHorses(Array.isArray(horseData) ? horseData : []);
       setRegistrations(Array.isArray(registrationData) ? registrationData : []);
-      setMessage(null);
+      setPageMessage(null);
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not load tournament registrations."));
+      setPageMessage(getApiErrorMessage(error, "Could not load registration data."));
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void loadWorkspace();
-  }, [loadWorkspace]);
+    void loadWorkspaceData();
+  }, [loadWorkspaceData]);
 
-  const updateField = (field: keyof RegistrationForm, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
+  const handleSelectTournament = (tournament: Tournament) => {
+    setSelectedTournament(tournament);
+    setCurrentStep(2);
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleSelectHorse = (horse: Horse) => {
+    setSelectedHorse(horse);
+    setCurrentStep(3);
+  };
+
+  const handleBackStep = () => {
+    setSubmitError(null);
+    setCurrentStep((prev) => prev - 1);
+  };
+
+  const handleFinalSubmit = async () => {
+    if (!selectedTournament || !selectedHorse) return;
+
     setSaving(true);
-    setMessage(null);
+    setSubmitError(null);
     try {
-      await createOwnerTournamentRegistration({
-        tournamentId: Number(form.tournamentId),
-        horseId: Number(form.horseId),
-        note: form.note.trim() || undefined,
-      });
-      setForm(emptyForm);
-      setMessage("Tournament registration submitted for admin review.");
-      await loadWorkspace();
+      const payload = {
+        tournamentId: selectedTournament.id,
+        horseId: selectedHorse.id,
+        note: note.trim() || undefined,
+      };
+      const newReg = await createOwnerTournamentRegistration(payload);
+
+      setSelectedTournament(null);
+      setSelectedHorse(null);
+      setNote("");
+      setCurrentStep(1);
+
+      setPageMessage("Registration submitted successfully and is pending admin review!");
+      await loadWorkspaceData();
+
+      const updatedReg = newReg.id ? newReg : null;
+      if (updatedReg) {
+        setActiveTimelineReg(updatedReg);
+      }
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not submit this registration."));
+      setSubmitError(getApiErrorMessage(error, "Could not submit this registration."));
     } finally {
       setSaving(false);
     }
@@ -90,13 +110,16 @@ export function OwnerTournamentRegistrationsPage() {
 
   const handleWithdraw = async (registration: TournamentRegistration) => {
     setSaving(true);
-    setMessage(null);
+    setPageMessage(null);
     try {
       await withdrawOwnerTournamentRegistration(registration.id);
-      setMessage(`${registration.horseName} withdrawn from ${registration.tournamentName}.`);
-      await loadWorkspace();
+      setPageMessage(`${registration.horseName} has been withdrawn from ${registration.tournamentName}.`);
+      await loadWorkspaceData();
+      if (activeTimelineReg && activeTimelineReg.id === registration.id) {
+        setActiveTimelineReg({ ...activeTimelineReg, status: "WITHDRAWN" });
+      }
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not withdraw this registration."));
+      setPageMessage(getApiErrorMessage(error, "Could not withdraw this registration."));
     } finally {
       setSaving(false);
     }
@@ -115,115 +138,129 @@ export function OwnerTournamentRegistrationsPage() {
           </p>
         </div>
 
-        {message && (
-          <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700" role="status">
-            {message}
-          </p>
-        )}
-
-        <form
-          className="grid gap-4 rounded-lg border border-slate-200 bg-white p-5 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1.5fr_auto]"
-          onSubmit={handleSubmit}
-        >
-          <label className="space-y-1 text-sm font-bold text-slate-700">
-            <span>Tournament</span>
-            <select
-              className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
-              onChange={(event) => updateField("tournamentId", event.target.value)}
-              required
-              value={form.tournamentId}
-            >
-              <option value="">Select tournament</option>
-              {openTournaments.map((tournament) => (
-                <option key={tournament.id} value={tournament.id}>
-                  {tournament.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1 text-sm font-bold text-slate-700">
-            <span>Horse</span>
-            <select
-              className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
-              onChange={(event) => updateField("horseId", event.target.value)}
-              required
-              value={form.horseId}
-            >
-              <option value="">Select horse</option>
-              {approvedHorses.map((horse) => (
-                <option key={horse.id} value={horse.id}>
-                  {horse.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1 text-sm font-bold text-slate-700">
-            <span>Note</span>
-            <input
-              className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
-              onChange={(event) => updateField("note", event.target.value)}
-              value={form.note}
-            />
-          </label>
-          <div className="flex items-end">
-            <button
-              className="min-h-11 w-full rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#070f4f]"
-              disabled={saving || loading}
-              type="submit"
-            >
-              Submit Registration
-            </button>
-          </div>
-        </form>
-
-        {loading ? (
-          <div className="rounded-lg border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-500">
-            Loading registrations...
-          </div>
-        ) : registrations.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-500">
-            No tournament registrations yet.
-          </div>
-        ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-black uppercase text-slate-500">
-                <tr>
-                  <th className="px-6 py-3">Tournament</th>
-                  <th className="px-6 py-3">Horse</th>
-                  <th className="px-6 py-3">Status</th>
-                  <th className="px-6 py-3">Note</th>
-                  <th className="px-6 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {registrations.map((registration) => (
-                  <tr key={registration.id}>
-                    <td className="px-6 py-4 font-black">{registration.tournamentName}</td>
-                    <td className="px-6 py-4">{registration.horseName}</td>
-                    <td className="px-6 py-4">
-                      <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black">{registration.status}</span>
-                      {registration.rejectionReason && (
-                        <p className="mt-2 text-xs font-bold text-rose-700">{registration.rejectionReason}</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">{registration.note || "No note"}</td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        className="min-h-11 rounded-md border border-[#070f4f] px-4 text-xs font-black text-[#070f4f] hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={registration.status !== "PENDING" || saving}
-                        onClick={() => handleWithdraw(registration)}
-                        type="button"
-                      >
-                        Withdraw
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {pageMessage && (
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-xs font-bold text-slate-700 shadow-sm flex justify-between items-center" role="status">
+            <span>{pageMessage}</span>
+            <button onClick={() => setPageMessage(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
           </div>
         )}
+
+        {/* Wizard Panel */}
+        <div className="border border-slate-200 rounded-xl bg-white p-6 shadow-sm">
+          <RegistrationWizardHeader currentStep={currentStep} />
+
+          <div className="mt-6">
+            {currentStep === 1 && (
+              <StepSelectTournament
+                tournaments={tournaments}
+                loading={loading}
+                onSelect={handleSelectTournament}
+              />
+            )}
+
+            {currentStep === 2 && selectedTournament && (
+              <StepSelectHorse
+                selectedTournament={selectedTournament}
+                horses={horses}
+                onPrev={handleBackStep}
+                onNext={handleSelectHorse}
+              />
+            )}
+
+            {currentStep === 3 && selectedTournament && selectedHorse && (
+              <StepConfirmRegistration
+                selectedTournament={selectedTournament}
+                selectedHorse={selectedHorse}
+                note={note}
+                onChangeNote={setNote}
+                saving={saving}
+                submitError={submitError}
+                onPrev={handleBackStep}
+                onSubmit={handleFinalSubmit}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Status Timeline */}
+        {activeTimelineReg && (
+          <RegistrationStatusTimeline
+            registration={activeTimelineReg}
+            onClose={() => setActiveTimelineReg(null)}
+          />
+        )}
+
+        {/* Registration History */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-black text-slate-800">Registration History & Status</h2>
+          {loading ? (
+            <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-400">
+              Loading registrations...
+            </div>
+          ) : registrations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-400">
+              No tournament registrations yet.
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
+                  <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-6 py-3.5">Tournament</th>
+                      <th className="px-6 py-3.5">Horse</th>
+                      <th className="px-6 py-3.5">Status</th>
+                      <th className="px-6 py-3.5">Note</th>
+                      <th className="px-6 py-3.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
+                    {registrations.map((registration) => (
+                      <tr key={registration.id} className="hover:bg-slate-50/50">
+                        <td className="px-6 py-4 font-black text-slate-800">{registration.tournamentName}</td>
+                        <td className="px-6 py-4">{registration.horseName}</td>
+                        <td className="px-6 py-4">
+                          <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black border uppercase ${
+                            registration.status === "APPROVED"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : registration.status === "PENDING"
+                              ? "bg-amber-50 text-amber-700 border-amber-100"
+                              : registration.status === "REJECTED"
+                              ? "bg-rose-50 text-rose-700 border-rose-100"
+                              : "bg-slate-50 text-slate-500 border-slate-100"
+                          }`}>
+                            {registration.status}
+                          </span>
+                          {registration.rejectionReason && (
+                            <p className="mt-1 text-[10px] text-rose-600 font-medium">Reason: {registration.rejectionReason}</p>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 font-normal italic">{registration.note || "No note"}</td>
+                        <td className="px-6 py-4 text-right space-x-2">
+                          <button
+                            className="text-xs font-black text-[#006d5b] hover:underline cursor-pointer"
+                            onClick={() => setActiveTimelineReg(registration)}
+                            type="button"
+                          >
+                            Track Status
+                          </button>
+                          <button
+                            className="text-xs font-black text-rose-600 hover:text-rose-800 hover:underline disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                            disabled={registration.status !== "PENDING" || saving}
+                            onClick={() => handleWithdraw(registration)}
+                            type="button"
+                          >
+                            Withdraw
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
       </section>
     </OwnerLayout>
   );

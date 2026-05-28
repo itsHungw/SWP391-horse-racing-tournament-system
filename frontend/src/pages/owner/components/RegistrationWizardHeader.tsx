@@ -6,9 +6,9 @@ interface Props {
 
 export function RegistrationWizardHeader({ currentStep }: Props) {
   const steps = [
-    { number: 1, label: "Chọn Giải Đấu" },
-    { number: 2, label: "Chọn Ngựa & Hồ Sơ Y Tế" },
-    { number: 3, label: "Xác Nhận Đăng Ký" },
+    { number: 1, label: "Select Tournament" },
+    { number: 2, label: "Select Horse & Eligibility" },
+    { number: 3, label: "Confirm Registration" },
   ];
 
   return (
