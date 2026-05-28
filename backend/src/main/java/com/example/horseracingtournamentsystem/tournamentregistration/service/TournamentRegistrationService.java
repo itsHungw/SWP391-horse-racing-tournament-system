@@ -1,5 +1,7 @@
 package com.example.horseracingtournamentsystem.tournamentregistration.service;
 
+import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
+import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -10,6 +12,7 @@ import com.example.horseracingtournamentsystem.tournamentregistration.entity.Tou
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +29,7 @@ public class TournamentRegistrationService {
     private final TournamentRegistrationRepository registrationRepository;
     private final TournamentRepository tournamentRepository;
     private final HorseRepository horseRepository;
+    private final HorseDocumentRepository horseDocumentRepository;
     private final UserRepository userRepository;
 
     public List<TournamentRegistrationResponse> listOwnerRegistrations(String email) {
@@ -101,6 +105,7 @@ public class TournamentRegistrationService {
         if (!"APPROVED".equals(horse.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Horse must be approved before tournament registration");
         }
+        validateRequiredMedicalDocuments(horse, tournament.getEndDate());
         if (!"OPEN_REGISTRATION".equals(tournament.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is not open for registration");
         }
@@ -119,6 +124,52 @@ public class TournamentRegistrationService {
                 && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), "APPROVED") >= tournament.getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is full");
         }
+    }
+
+    private void validateRequiredMedicalDocuments(Horse horse, LocalDate tournamentEndDate) {
+        List<HorseDocument> documents = horseDocumentRepository.findAllByHorseIdAndDocumentTypeIn(
+                horse.getId(),
+                List.of("COGGINS", "HEALTH_CERTIFICATE")
+        );
+
+        boolean hasCoggins = hasDocumentType(documents, "COGGINS");
+        boolean hasHealthCertificate = hasDocumentType(documents, "HEALTH_CERTIFICATE");
+
+        if (!hasCoggins || !hasHealthCertificate) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Missing required medical documents: " + missingDocumentNames(hasCoggins, hasHealthCertificate)
+            );
+        }
+
+        boolean cogginsValid = hasValidDocumentType(documents, "COGGINS", tournamentEndDate);
+        boolean healthCertificateValid = hasValidDocumentType(documents, "HEALTH_CERTIFICATE", tournamentEndDate);
+        if (!cogginsValid || !healthCertificateValid) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Medical documents must be valid through the tournament end date"
+            );
+        }
+    }
+
+    private boolean hasDocumentType(List<HorseDocument> documents, String documentType) {
+        return documents.stream().anyMatch(document -> documentType.equals(document.getDocumentType()));
+    }
+
+    private boolean hasValidDocumentType(List<HorseDocument> documents, String documentType, LocalDate tournamentEndDate) {
+        return documents.stream()
+                .filter(document -> documentType.equals(document.getDocumentType()))
+                .anyMatch(document -> !document.getExpiryDate().isBefore(tournamentEndDate));
+    }
+
+    private String missingDocumentNames(boolean hasCoggins, boolean hasHealthCertificate) {
+        if (!hasCoggins && !hasHealthCertificate) {
+            return "Coggins and Health Certificate";
+        }
+        if (!hasCoggins) {
+            return "Coggins";
+        }
+        return "Health Certificate";
     }
 
     private TournamentRegistrationResponse mapToResponse(TournamentRegistration registration) {

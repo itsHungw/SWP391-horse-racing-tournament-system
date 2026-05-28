@@ -21,7 +21,7 @@ describe("OwnerLayout", () => {
       "href",
       "/owner/dashboard",
     );
-    expect(within(ownerNav).getByRole("link", { name: /my horses/i })).toHaveAttribute("href", "/owner/horses");
+    expect(within(ownerNav).getByRole("link", { name: /horse roster/i })).toHaveAttribute("href", "/owner/horses");
     expect(within(ownerNav).getByRole("link", { name: /tournament registrations/i })).toHaveAttribute(
       "href",
       "/owner/registrations",

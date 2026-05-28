@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { ClipboardList, Gauge, LogOut, Trophy, User, Workflow } from "lucide-react";
+import { ClipboardList, Gauge, LogOut, Search, Trophy, User, Workflow } from "lucide-react";
 
 import logo from "../assets/logo.png";
 import { useClientSession } from "../hooks/useClientSession";
@@ -11,7 +11,7 @@ type OwnerLayoutProps = {
 
 const ownerNavItems = [
   { label: "Dashboard", href: "/owner/dashboard", icon: Gauge },
-  { label: "My Horses", href: "/owner/horses", icon: Trophy },
+  { label: "Horse Roster", href: "/owner/horses", icon: Trophy },
   { label: "Tournament Registrations", href: "/owner/registrations", icon: ClipboardList },
   { label: "Profile", href: "/profile", icon: User },
 ];
@@ -28,7 +28,7 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
   return (
     <div className="min-h-dvh bg-[#eef1ef] text-slate-950">
       <header aria-label="Owner workspace header" className="border-b border-slate-200 bg-white" role="banner">
-        <div className="mx-auto flex min-h-20 max-w-[1680px] flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="mx-auto flex min-h-20 max-w-[1680px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <a className="flex items-center gap-3" href="/owner/dashboard" aria-label="EquinePro owner dashboard">
             <img alt="" className="h-10 w-10 object-contain" src={logo} />
             <div>
@@ -36,6 +36,16 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">Stable operations</p>
             </div>
           </a>
+
+          <label className="relative w-full max-w-xl text-sm font-bold text-slate-700">
+            <span className="sr-only">Search owner workspace</span>
+            <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
+            <input
+              className="min-h-11 w-full rounded-md border border-slate-300 bg-slate-50 pl-10 pr-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
+              placeholder="Search horses, tournaments..."
+              type="search"
+            />
+          </label>
 
           <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-md border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-bold text-slate-700">

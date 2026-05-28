@@ -63,4 +63,30 @@ describe("OwnerTournamentRegistrationsPage", () => {
       });
     });
   });
+
+  it("shows backend eligibility errors for missing medical documents", async () => {
+    vi.mocked(createOwnerTournamentRegistration).mockRejectedValueOnce({
+      isAxiosError: true,
+      response: {
+        data: {
+          message: "Missing required medical documents: Coggins and Health Certificate",
+        },
+      },
+    });
+
+    render(
+      <MemoryRouter>
+        <OwnerTournamentRegistrationsPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/^tournament$/i), { target: { value: "1" } });
+    fireEvent.change(screen.getByLabelText(/^horse$/i), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit registration/i }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Missing required medical documents: Coggins and Health Certificate",
+    );
+  });
 });

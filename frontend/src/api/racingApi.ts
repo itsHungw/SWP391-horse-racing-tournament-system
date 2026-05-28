@@ -1,7 +1,9 @@
 import { httpClient } from "./httpClient";
 import type {
   Horse,
-  HorsePayload,
+  HorseDocument,
+  HorseDocumentPayload,
+  HorseMultipartPayload,
   HorseStatus,
   Tournament,
   TournamentRegistration,
@@ -19,9 +21,54 @@ export async function getOwnerHorses(): Promise<Horse[]> {
   return response.data;
 }
 
-export async function createOwnerHorse(payload: HorsePayload): Promise<Horse> {
-  const response = await httpClient.post<Horse>("/owner/horses", payload);
+export async function getOwnerHorse(id: number): Promise<Horse> {
+  const response = await httpClient.get<Horse>(`/owner/horses/${id}`);
   return response.data;
+}
+
+export async function createOwnerHorse(payload: HorseMultipartPayload): Promise<Horse> {
+  const formData = new FormData();
+  appendFormValue(formData, "name", payload.name);
+  appendFormValue(formData, "gender", payload.gender);
+  appendFormValue(formData, "breed", payload.breed);
+  appendFormValue(formData, "dateOfBirth", payload.dateOfBirth);
+  appendFormValue(formData, "color", payload.color);
+  appendFormValue(formData, "heightCm", payload.heightCm);
+  appendFormValue(formData, "weightKg", payload.weightKg);
+  appendFormValue(formData, "healthStatus", payload.healthStatus);
+  appendFormValue(formData, "medicalNote", payload.medicalNote);
+  appendFormValue(formData, "description", payload.description);
+  formData.append("imageFile", payload.imageFile);
+  formData.append("evidenceFile", payload.evidenceFile);
+
+  const response = await httpClient.post<Horse>("/owner/horses", formData);
+  return response.data;
+}
+
+export async function getOwnerHorseDocuments(id: number): Promise<HorseDocument[]> {
+  const response = await httpClient.get<HorseDocument[]>(`/owner/horses/${id}/documents`);
+  return response.data;
+}
+
+export async function createOwnerHorseDocument(id: number, payload: HorseDocumentPayload): Promise<HorseDocument> {
+  const formData = new FormData();
+  appendFormValue(formData, "documentType", payload.documentType);
+  appendFormValue(formData, "referenceNumber", payload.referenceNumber);
+  appendFormValue(formData, "issueDate", payload.issueDate);
+  appendFormValue(formData, "expiryDate", payload.expiryDate);
+  appendFormValue(formData, "issuer", payload.issuer);
+  appendFormValue(formData, "notes", payload.notes);
+  formData.append("documentFile", payload.documentFile);
+
+  const response = await httpClient.post<HorseDocument>(`/owner/horses/${id}/documents`, formData);
+  return response.data;
+}
+
+function appendFormValue(formData: FormData, key: string, value: string | number | undefined) {
+  if (value === undefined || value === "") {
+    return;
+  }
+  formData.append(key, String(value));
 }
 
 export async function getAdminHorses(status?: HorseStatus): Promise<Horse[]> {

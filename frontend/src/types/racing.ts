@@ -27,8 +27,8 @@ export type Horse = {
 export type HorsePayload = {
   name: string;
   gender: "MALE" | "FEMALE" | "";
-  imageUrl: string;
-  evidenceUrl: string;
+  imageUrl?: string;
+  evidenceUrl?: string;
   registrationCode?: string;
   breed?: string;
   dateOfBirth?: string;
@@ -38,6 +38,42 @@ export type HorsePayload = {
   healthStatus?: string;
   medicalNote?: string;
   description?: string;
+};
+
+export type HorseMultipartPayload = Omit<HorsePayload, "imageUrl" | "evidenceUrl"> & {
+  imageFile: File;
+  evidenceFile: File;
+};
+
+export type HorseDocumentType =
+  | "OWNERSHIP_CERTIFICATE"
+  | "HEALTH_CERTIFICATE"
+  | "COGGINS"
+  | "REGISTRATION_CERTIFICATE"
+  | "OTHER";
+
+export type HorseDocument = {
+  id: number;
+  horseId: number;
+  horseName?: string;
+  documentType: HorseDocumentType;
+  referenceNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  issuer: string;
+  fileUrl: string;
+  notes?: string;
+  createdAt?: string;
+};
+
+export type HorseDocumentPayload = {
+  documentType: HorseDocumentType;
+  referenceNumber: string;
+  issueDate: string;
+  expiryDate: string;
+  issuer: string;
+  notes?: string;
+  documentFile: File;
 };
 
 export type Tournament = {

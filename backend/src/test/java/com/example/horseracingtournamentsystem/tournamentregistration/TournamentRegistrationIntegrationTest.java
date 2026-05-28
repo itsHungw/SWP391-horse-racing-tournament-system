@@ -4,7 +4,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -46,6 +48,9 @@ class TournamentRegistrationIntegrationTest {
     private HorseRepository horseRepository;
 
     @Autowired
+    private HorseDocumentRepository horseDocumentRepository;
+
+    @Autowired
     private TournamentRepository tournamentRepository;
 
     @Autowired
@@ -69,6 +74,7 @@ class TournamentRegistrationIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        horseDocumentRepository.deleteAll();
         horseRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
@@ -146,6 +152,8 @@ class TournamentRegistrationIntegrationTest {
 
     @Test
     void ownerRegistersApprovedOwnHorseIntoOpenTournament() throws Exception {
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().plusDays(1));
+
         mockMvc.perform(post("/api/v1/owner/tournament-registrations")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -155,6 +163,28 @@ class TournamentRegistrationIntegrationTest {
                 .andExpect(jsonPath("$.horseId").value(approvedHorse.getId()))
                 .andExpect(jsonPath("$.ownerId").value(ownerUser.getId()))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void ownerCannotRegisterHorseMissingRequiredMedicalDocuments() throws Exception {
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Missing required medical documents: Coggins and Health Certificate"));
+    }
+
+    @Test
+    void ownerCannotRegisterHorseWithMedicalDocumentsExpiringBeforeTournamentEnds() throws Exception {
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().minusDays(1));
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Medical documents must be valid through the tournament end date"));
     }
 
     @Test
@@ -226,6 +256,8 @@ class TournamentRegistrationIntegrationTest {
     }
 
     private long createPendingRegistration() throws Exception {
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().plusDays(1));
+
         MvcResult result = mockMvc.perform(post("/api/v1/owner/tournament-registrations")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -234,6 +266,31 @@ class TournamentRegistrationIntegrationTest {
                 .andReturn();
 
         return ((Number) new JsonPathExpectationsHelper("$.id").evaluateJsonPath(result.getResponse().getContentAsString())).longValue();
+    }
+
+    private void addRequiredMedicalDocuments(Horse horse, LocalDate expiryDate) {
+        horseDocumentRepository.save(HorseDocument.create(
+                horse,
+                ownerUser,
+                "COGGINS",
+                "COG-2026-001",
+                LocalDate.now().minusDays(10),
+                expiryDate,
+                "Saigon Equine Clinic",
+                "/uploads/horses/documents/coggins.pdf",
+                null
+        ));
+        horseDocumentRepository.save(HorseDocument.create(
+                horse,
+                ownerUser,
+                "HEALTH_CERTIFICATE",
+                "HC-2026-001",
+                LocalDate.now().minusDays(10),
+                expiryDate,
+                "Saigon Equine Clinic",
+                "/uploads/horses/documents/health.pdf",
+                null
+        ));
     }
 
     private String registrationBody(Horse horse) {

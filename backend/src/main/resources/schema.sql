@@ -113,6 +113,103 @@ BEGIN
     FOREIGN KEY (approved_by) REFERENCES dbo.users(id)
 END;
 
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.horse_documents (
+        id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        horse_id bigint NOT NULL,
+        uploaded_by bigint NOT NULL,
+        document_type nvarchar(50) NOT NULL,
+        reference_number nvarchar(100) NOT NULL,
+        issue_date date NOT NULL,
+        expiry_date date NOT NULL,
+        issuer nvarchar(150) NOT NULL,
+        file_url nvarchar(500) NOT NULL,
+        notes nvarchar(max) NULL,
+        created_at datetime2 NOT NULL
+    )
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'horse_id') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD horse_id bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'uploaded_by') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD uploaded_by bigint NULL
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'document_type') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD document_type nvarchar(50) NOT NULL CONSTRAINT DF_horse_documents_document_type DEFAULT N'OTHER'
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'reference_number') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD reference_number nvarchar(100) NOT NULL CONSTRAINT DF_horse_documents_reference_number DEFAULT N'N/A'
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'issue_date') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD issue_date date NOT NULL CONSTRAINT DF_horse_documents_issue_date DEFAULT CONVERT(date, SYSUTCDATETIME())
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'expiry_date') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD expiry_date date NOT NULL CONSTRAINT DF_horse_documents_expiry_date DEFAULT CONVERT(date, SYSUTCDATETIME())
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'issuer') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD issuer nvarchar(150) NOT NULL CONSTRAINT DF_horse_documents_issuer DEFAULT N'Unknown'
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'file_url') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD file_url nvarchar(500) NOT NULL CONSTRAINT DF_horse_documents_file_url DEFAULT N''
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'notes') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD notes nvarchar(max) NULL
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horse_documents', N'created_at') IS NULL
+BEGIN
+    ALTER TABLE dbo.horse_documents ADD created_at datetime2 NOT NULL CONSTRAINT DF_horse_documents_created_at DEFAULT SYSUTCDATETIME()
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.horse_documents', N'horse_id') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.foreign_keys
+       WHERE name = N'FK_horse_documents_horse'
+         AND parent_object_id = OBJECT_ID(N'dbo.horse_documents')
+   )
+BEGIN
+    ALTER TABLE dbo.horse_documents
+    ADD CONSTRAINT FK_horse_documents_horse
+    FOREIGN KEY (horse_id) REFERENCES dbo.horses(id)
+END;
+
+IF OBJECT_ID(N'dbo.horse_documents', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.horse_documents', N'uploaded_by') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.foreign_keys
+       WHERE name = N'FK_horse_documents_uploaded_by'
+         AND parent_object_id = OBJECT_ID(N'dbo.horse_documents')
+   )
+BEGIN
+    ALTER TABLE dbo.horse_documents
+    ADD CONSTRAINT FK_horse_documents_uploaded_by
+    FOREIGN KEY (uploaded_by) REFERENCES dbo.users(id)
+END;
+
 IF OBJECT_ID(N'dbo.tournament_registrations', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.tournament_registrations (

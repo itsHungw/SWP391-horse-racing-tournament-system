@@ -1,9 +1,15 @@
 package com.example.horseracingtournamentsystem.horse.service;
 
+import com.example.horseracingtournamentsystem.common.upload.HorseFileStorageService;
 import com.example.horseracingtournamentsystem.horse.dto.request.HorseRequest;
+import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseDocumentMultipartRequest;
+import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseMultipartRequest;
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseRequest;
+import com.example.horseracingtournamentsystem.horse.dto.response.HorseDocumentResponse;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseResponse;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
+import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
@@ -22,7 +28,9 @@ import java.util.stream.Collectors;
 public class HorseService {
 
     private final HorseRepository horseRepository;
+    private final HorseDocumentRepository horseDocumentRepository;
     private final UserRepository userRepository;
+    private final HorseFileStorageService horseFileStorageService;
 
     @Transactional
     public HorseResponse createHorse(HorseRequest req) {
@@ -43,8 +51,20 @@ public class HorseService {
     @Transactional
     public HorseResponse createOwnerHorse(String email, OwnerHorseRequest req) {
         User owner = findUserByEmail(email);
-        String code = normalizeRegistrationCode(req.registrationCode());
+        String code = normalizeRegistrationCode(null);
         Horse horse = Horse.submitForReview(owner, req, code);
+        horseRepository.save(horse);
+        return mapToResponse(horse);
+    }
+
+    @Transactional
+    public HorseResponse createOwnerHorse(String email, OwnerHorseMultipartRequest req) {
+        User owner = findUserByEmail(email);
+        String imageUrl = horseFileStorageService.storeHorseImage(owner.getId(), req.getImageFile());
+        String evidenceUrl = horseFileStorageService.storeHorseEvidence(owner.getId(), req.getEvidenceFile());
+        OwnerHorseRequest ownerHorseRequest = req.toOwnerHorseRequest(imageUrl, evidenceUrl);
+        String code = normalizeRegistrationCode(null);
+        Horse horse = Horse.submitForReview(owner, ownerHorseRequest, code);
         horseRepository.save(horse);
         return mapToResponse(horse);
     }
@@ -96,6 +116,50 @@ public class HorseService {
         return horseRepository.findAllByOwnerEmailAndDeletedAtIsNullOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    public HorseResponse getOwnerHorseDetail(String email, Long id) {
+        Horse horse = horseRepository.findByIdAndOwnerEmailAndDeletedAtIsNull(id, email.trim().toLowerCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
+        return mapToResponse(horse);
+    }
+
+    public List<HorseDocumentResponse> getOwnerHorseDocuments(String email, Long horseId) {
+        requireOwnedHorse(email, horseId);
+        return horseDocumentRepository.findAllByHorseIdAndHorseOwnerEmailOrderByCreatedAtDesc(
+                        horseId,
+                        email.trim().toLowerCase()
+                ).stream()
+                .map(this::mapDocumentToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public HorseDocumentResponse createOwnerHorseDocument(
+            String email,
+            Long horseId,
+            OwnerHorseDocumentMultipartRequest request
+    ) {
+        User owner = findUserByEmail(email);
+        Horse horse = requireOwnedHorse(email, horseId);
+        if (request.getExpiryDate().isBefore(request.getIssueDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expiry date must be on or after issue date.");
+        }
+
+        String fileUrl = horseFileStorageService.storeHorseDocument(owner.getId(), request.getDocumentFile());
+        HorseDocument document = HorseDocument.create(
+                horse,
+                owner,
+                request.getDocumentType(),
+                request.getReferenceNumber().trim(),
+                request.getIssueDate(),
+                request.getExpiryDate(),
+                request.getIssuer().trim(),
+                fileUrl,
+                normalizeOptional(request.getNotes())
+        );
+        horseDocumentRepository.save(document);
+        return mapDocumentToResponse(document);
     }
 
     @Transactional
@@ -157,9 +221,30 @@ public class HorseService {
                 .build();
     }
 
+    private HorseDocumentResponse mapDocumentToResponse(HorseDocument document) {
+        return HorseDocumentResponse.builder()
+                .id(document.getId())
+                .horseId(document.getHorse().getId())
+                .horseName(document.getHorse().getName())
+                .documentType(document.getDocumentType())
+                .referenceNumber(document.getReferenceNumber())
+                .issueDate(document.getIssueDate())
+                .expiryDate(document.getExpiryDate())
+                .issuer(document.getIssuer())
+                .fileUrl(document.getFileUrl())
+                .notes(document.getNotes())
+                .createdAt(document.getCreatedAt())
+                .build();
+    }
+
     private User findUserByEmail(String email) {
         return userRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private Horse requireOwnedHorse(String email, Long horseId) {
+        return horseRepository.findByIdAndOwnerEmailAndDeletedAtIsNull(horseId, email.trim().toLowerCase())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
     }
 
     private String normalizeRegistrationCode(String registrationCode) {
@@ -167,5 +252,9 @@ public class HorseService {
             return "HORSE_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
         }
         return registrationCode.trim();
+    }
+
+    private String normalizeOptional(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

@@ -18,6 +18,7 @@ import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
+import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
@@ -52,6 +53,7 @@ export function AppRouter() {
         <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
         <Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
         <Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
+        <Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
         <Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
         <Route path="jockey" element={<Navigate to="/jockey/dashboard" replace />} />
         <Route path="jockey/dashboard" element={<RoleDashboardPage role="Jockey" />} />
