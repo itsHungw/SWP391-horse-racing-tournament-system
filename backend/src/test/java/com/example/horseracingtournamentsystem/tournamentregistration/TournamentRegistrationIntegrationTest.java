@@ -1,16 +1,18 @@
 package com.example.horseracingtournamentsystem.tournamentregistration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -61,6 +63,9 @@ class TournamentRegistrationIntegrationTest {
 
     @Autowired
     private UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private TournamentRegistrationRepository registrationRepository;
 
     private String adminToken;
     private String ownerToken;
@@ -218,6 +223,28 @@ class TournamentRegistrationIntegrationTest {
     }
 
     @Test
+    void ownerCanReregisterAfterWithdrawnRegistration() throws Exception {
+        long originalRegistrationId = createPendingRegistration();
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations/{id}/withdraw", originalRegistrationId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("WITHDRAWN"));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn();
+
+        long resubmittedId = extractRegistrationId(result);
+        assertEquals(originalRegistrationId, resubmittedId);
+        assertEquals(1L, registrationRepository.count());
+    }
+
+    @Test
     void adminApprovesPendingRegistration() throws Exception {
         long registrationId = createPendingRegistration();
 
@@ -239,6 +266,30 @@ class TournamentRegistrationIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.rejectionReason").value("Tournament slot requires updated health evidence."));
+    }
+
+    @Test
+    void ownerCanReregisterAfterRejectedRegistration() throws Exception {
+        long originalRegistrationId = createPendingRegistration();
+
+        mockMvc.perform(post("/api/v1/admin/tournament-registrations/{id}/reject", originalRegistrationId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Missing health documents.\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"));
+
+        MvcResult result = mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andReturn();
+
+        long resubmittedId = extractRegistrationId(result);
+        assertEquals(originalRegistrationId, resubmittedId);
+        assertEquals(1L, registrationRepository.count());
     }
 
     @Test
@@ -265,7 +316,12 @@ class TournamentRegistrationIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        return ((Number) new JsonPathExpectationsHelper("$.id").evaluateJsonPath(result.getResponse().getContentAsString())).longValue();
+        return extractRegistrationId(result);
+    }
+
+    private long extractRegistrationId(MvcResult result) throws Exception {
+        return ((Number) new JsonPathExpectationsHelper("$.id")
+                .evaluateJsonPath(result.getResponse().getContentAsString())).longValue();
     }
 
     private void addRequiredMedicalDocuments(Horse horse, LocalDate expiryDate) {

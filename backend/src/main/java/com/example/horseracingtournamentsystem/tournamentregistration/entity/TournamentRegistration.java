@@ -104,6 +104,21 @@ public class TournamentRegistration {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void resubmit(String note) {
+        if (!"WITHDRAWN".equals(this.status) && !"REJECTED".equals(this.status)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only withdrawn or rejected registrations can be resubmitted");
+        }
+        this.status = "PENDING";
+        this.note = note;
+        this.rejectionReason = null;
+        this.reviewedBy = null;
+        this.reviewedAt = null;
+        this.withdrawnAt = null;
+        this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
     private void ensurePendingForReview() {
         if (!"PENDING".equals(this.status)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending registrations can be reviewed");

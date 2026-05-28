@@ -15,7 +15,10 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     Optional<TournamentRegistration> findByIdAndOwnerEmail(Long id, String ownerEmail);
 
-    boolean existsByTournament_IdAndHorse_IdAndStatusNot(Long tournamentId, Long horseId, String status);
+        boolean existsByTournament_IdAndHorse_IdAndStatusIn(Long tournamentId, Long horseId, List<String> statuses);
+
+        Optional<TournamentRegistration> findByTournament_IdAndHorse_IdAndStatusIn(Long tournamentId, Long horseId,
+            List<String> statuses);
 
     long countByTournament_IdAndStatus(Long tournamentId, String status);
 }

@@ -56,23 +56,30 @@ public class TournamentRegistrationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
         Horse horse = horseRepository.findByIdAndDeletedAtIsNull(request.horseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
+        String note = normalizeNote(request.note());
 
         validateOwnerRegistration(owner, tournament, horse);
 
-        TournamentRegistration registration = TournamentRegistration.pending(
-                tournament,
-                horse,
-                owner,
-                normalizeNote(request.note())
-        );
+        TournamentRegistration registration = registrationRepository
+            .findByTournament_IdAndHorse_IdAndStatusIn(
+                tournament.getId(),
+                horse.getId(),
+                List.of("WITHDRAWN", "REJECTED"))
+            .map(existing -> {
+                existing.resubmit(note);
+                return existing;
+            })
+            .orElseGet(() -> TournamentRegistration.pending(tournament, horse, owner, note));
         registrationRepository.save(registration);
         return mapToResponse(registration);
     }
 
     @Transactional
     public TournamentRegistrationResponse withdraw(String email, Long id) {
-        TournamentRegistration registration = registrationRepository.findByIdAndOwnerEmail(id, email.trim().toLowerCase())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+        TournamentRegistration registration = registrationRepository
+                .findByIdAndOwnerEmail(id, email.trim().toLowerCase())
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
         registration.withdraw();
         registrationRepository.save(registration);
         return mapToResponse(registration);
@@ -81,7 +88,8 @@ public class TournamentRegistrationService {
     @Transactional
     public TournamentRegistrationResponse approve(Long id, String adminEmail) {
         TournamentRegistration registration = registrationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
         User reviewer = findUserByEmail(adminEmail);
         registration.approve(reviewer);
         registrationRepository.save(registration);
@@ -91,7 +99,8 @@ public class TournamentRegistrationService {
     @Transactional
     public TournamentRegistrationResponse reject(Long id, String adminEmail, String reason) {
         TournamentRegistration registration = registrationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
         User reviewer = findUserByEmail(adminEmail);
         registration.reject(reviewer, reason);
         registrationRepository.save(registration);
@@ -103,7 +112,8 @@ public class TournamentRegistrationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Horse does not belong to current owner");
         }
         if (!"APPROVED".equals(horse.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Horse must be approved before tournament registration");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Horse must be approved before tournament registration");
         }
         validateRequiredMedicalDocuments(horse, tournament.getEndDate());
         if (!"OPEN_REGISTRATION".equals(tournament.getStatus())) {
@@ -113,15 +123,16 @@ public class TournamentRegistrationService {
         if (now.isBefore(tournament.getRegistrationStartAt()) || now.isAfter(tournament.getRegistrationEndAt())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Registration window is closed");
         }
-        if (registrationRepository.existsByTournament_IdAndHorse_IdAndStatusNot(
-                tournament.getId(),
-                horse.getId(),
-                "WITHDRAWN"
-        )) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Horse already has a registration for this tournament");
+        if (registrationRepository.existsByTournament_IdAndHorse_IdAndStatusIn(
+            tournament.getId(),
+            horse.getId(),
+            List.of("PENDING", "APPROVED"))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Horse already has a registration for this tournament");
         }
         if (tournament.getMaxHorses() != null
-                && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), "APPROVED") >= tournament.getMaxHorses()) {
+                && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), "APPROVED") >= tournament
+                        .getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is full");
         }
     }
@@ -129,8 +140,7 @@ public class TournamentRegistrationService {
     private void validateRequiredMedicalDocuments(Horse horse, LocalDate tournamentEndDate) {
         List<HorseDocument> documents = horseDocumentRepository.findAllByHorseIdAndDocumentTypeIn(
                 horse.getId(),
-                List.of("COGGINS", "HEALTH_CERTIFICATE")
-        );
+                List.of("COGGINS", "HEALTH_CERTIFICATE"));
 
         boolean hasCoggins = hasDocumentType(documents, "COGGINS");
         boolean hasHealthCertificate = hasDocumentType(documents, "HEALTH_CERTIFICATE");
@@ -138,8 +148,7 @@ public class TournamentRegistrationService {
         if (!hasCoggins || !hasHealthCertificate) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Missing required medical documents: " + missingDocumentNames(hasCoggins, hasHealthCertificate)
-            );
+                    "Missing required medical documents: " + missingDocumentNames(hasCoggins, hasHealthCertificate));
         }
 
         boolean cogginsValid = hasValidDocumentType(documents, "COGGINS", tournamentEndDate);
@@ -147,8 +156,7 @@ public class TournamentRegistrationService {
         if (!cogginsValid || !healthCertificateValid) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "Medical documents must be valid through the tournament end date"
-            );
+                    "Medical documents must be valid through the tournament end date");
         }
     }
 
@@ -156,7 +164,8 @@ public class TournamentRegistrationService {
         return documents.stream().anyMatch(document -> documentType.equals(document.getDocumentType()));
     }
 
-    private boolean hasValidDocumentType(List<HorseDocument> documents, String documentType, LocalDate tournamentEndDate) {
+    private boolean hasValidDocumentType(List<HorseDocument> documents, String documentType,
+            LocalDate tournamentEndDate) {
         return documents.stream()
                 .filter(document -> documentType.equals(document.getDocumentType()))
                 .anyMatch(document -> !document.getExpiryDate().isBefore(tournamentEndDate));
