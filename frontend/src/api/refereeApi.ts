@@ -68,3 +68,9 @@ export async function submitViolation(raceId: number, violation: ViolationEntry)
 export async function submitRefereeReport(raceId: number, report: RefereeReportEntry): Promise<void> {
   await httpClient.post(`/referee/races/${raceId}/reports`, report);
 }
+
+export async function transitionRaceState(raceId: number): Promise<string> {
+  const response = await httpClient.post<{ status: string }>(`/referee/races/${raceId}/next-step`);
+  return response.data.status;
+}
+

@@ -26,12 +26,15 @@ describe("RefereeOverviewPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Assigned Races")).toBeInTheDocument();
+    expect(screen.getByText(/Preparing steward assignments/i)).toBeInTheDocument();
+    expect(await screen.findByText("Assigned Race Desk")).toBeInTheDocument();
+    expect(screen.getByText("REFEREE DESK")).toBeInTheDocument();
     expect(screen.getByText("Royal Ascot Gold Cup - Qualifiers A")).toBeInTheDocument();
     expect(screen.getByText("R-2026-001")).toBeInTheDocument();
-    expect(screen.getByText(/Verify Pre-check/i)).toBeInTheDocument();
-    expect(screen.getByText(/Submit Results/i)).toBeInTheDocument();
-    expect(screen.getByText(/Log Incident/i)).toBeInTheDocument();
+    expect(screen.getByText("Step 1: Select a Race Task")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open Pre-Check/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Record Results/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /File Incident/i })).toBeInTheDocument();
   });
 
   it("filters action buttons when in specific modes", async () => {
@@ -44,9 +47,9 @@ describe("RefereeOverviewPage", () => {
     );
 
     expect(await screen.findByText("Pre-Race Checks")).toBeInTheDocument();
-    expect(screen.getByText(/Verify Pre-check/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Submit Results/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Log Incident/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open Pre-Check/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Record Results/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /File Incident/i })).not.toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
@@ -55,8 +58,8 @@ describe("RefereeOverviewPage", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Submit Results" })).toBeInTheDocument();
-    expect(screen.queryByText(/Verify Pre-check/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Submit Results/i })).toBeInTheDocument();
-    expect(screen.queryByText(/Log Incident/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open Pre-Check/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Record Results/i })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /File Incident/i })).not.toBeInTheDocument();
   });
 });

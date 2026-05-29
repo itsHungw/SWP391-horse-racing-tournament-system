@@ -21,6 +21,8 @@ import { RefereeOverviewPage } from "../pages/referee/RefereeOverviewPage";
 import { PreRaceCheckPage } from "../pages/referee/PreRaceCheckPage";
 import { SubmitResultsPage } from "../pages/referee/SubmitResultsPage";
 import { IncidentReportsPage } from "../pages/referee/IncidentReportsPage";
+import { RefereeOfficiatePage } from "../pages/referee/RefereeOfficiatePage";
+
 
 function adminRoute(element: ReactNode) {
   return <RequireAdminRoute>{element}</RequireAdminRoute>;
@@ -64,6 +66,7 @@ export function AppRouter() {
           <Route path="races/:id/check" element={<PreRaceCheckPage />} />
           <Route path="races/:id/results" element={<SubmitResultsPage />} />
           <Route path="races/:id/report" element={<IncidentReportsPage />} />
+          <Route path="races/:id/officiate" element={<RefereeOfficiatePage />} />
         </Route>
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />

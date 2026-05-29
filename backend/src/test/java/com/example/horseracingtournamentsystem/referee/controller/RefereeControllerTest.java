@@ -8,6 +8,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -34,6 +35,13 @@ class RefereeControllerTest {
     @WithMockUser(roles = "REFEREE")
     void getAssignedRaces_withRefereeRole_returnsOk() throws Exception {
         mockMvc.perform(get("/api/v1/referee/races"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(roles = "REFEREE")
+    void transitionNextStep_fromScheduled_returnsNewState() throws Exception {
+        mockMvc.perform(post("/api/v1/referee/races/2/next-step"))
                 .andExpect(status().isOk());
     }
 }

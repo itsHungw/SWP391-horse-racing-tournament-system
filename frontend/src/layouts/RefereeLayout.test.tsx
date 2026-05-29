@@ -24,10 +24,13 @@ describe("RefereeLayout", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("EQUINEPRO ELITE — REFEREE PORTAL")).toBeInTheDocument();
+    expect(screen.getByRole("banner", { name: /Referee workspace header/i })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: /Referee workspace/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Referee Workspace" })).toBeInTheDocument();
+    expect(screen.getByText("RACE OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: /Search referee workspace/i })).toBeInTheDocument();
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
-    expect(screen.getByText(/Head Referee/i)).toBeInTheDocument();
-    expect(screen.getByText("Exit Dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Logout")).toBeInTheDocument();
     expect(screen.getByText(/Assigned Races/i)).toBeInTheDocument();
     expect(screen.getByText(/Pre-Race Checks/i)).toBeInTheDocument();
     expect(screen.getByText(/Submit Results/i)).toBeInTheDocument();

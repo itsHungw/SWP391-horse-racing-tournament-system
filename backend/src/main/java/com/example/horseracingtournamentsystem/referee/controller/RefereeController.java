@@ -173,4 +173,66 @@ public class RefereeController {
         list.add(report);
         return ResponseEntity.ok().build();
     }
+
+    @PostMapping("/races/{raceId}/next-step")
+    public ResponseEntity<Map<String, String>> transitionRaceState(@PathVariable Long raceId) {
+        // Find the target race from static store
+        Map<String, Object> targetRace = null;
+        for (Map<String, Object> race : RACES) {
+            if (race.get("id").equals(raceId)) {
+                targetRace = race;
+                break;
+            }
+        }
+
+        if (targetRace == null) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String currentStatus = (String) targetRace.get("status");
+        String nextStatus;
+
+        switch (currentStatus) {
+            case "SCHEDULED":
+                nextStatus = "PRE_CHECKING";
+                break;
+
+            case "PRE_CHECKING":
+                // Guard: Enforce 0% PENDING Checks
+                List<Map<String, Object>> parts = PARTICIPANTS.getOrDefault(raceId, new java.util.ArrayList<>());
+                for (Map<String, Object> p : parts) {
+                    if ("PENDING".equals(p.get("status"))) {
+                        return ResponseEntity.status(400).body(Map.of("message", "All participants must be verified before proceeding."));
+                    }
+                }
+
+                // Perform scratching for failed entries
+                for (Map<String, Object> p : parts) {
+                    if ("FAILED".equals(p.get("status"))) {
+                        p.put("status", "WITHDRAWN");
+                    }
+                }
+
+                nextStatus = "READY";
+                break;
+
+            case "READY":
+                nextStatus = "ONGOING";
+                break;
+
+            case "ONGOING":
+                nextStatus = "FINISHED";
+                break;
+
+            case "FINISHED":
+                nextStatus = "RESULT_SUBMITTED";
+                break;
+
+            default:
+                return ResponseEntity.badRequest().body(Map.of("message", "Invalid race status path."));
+        }
+
+        targetRace.put("status", nextStatus);
+        return ResponseEntity.ok(Map.of("status", nextStatus));
+    }
 }
