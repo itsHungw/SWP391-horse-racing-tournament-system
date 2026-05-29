@@ -17,6 +17,8 @@ import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
 import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
+import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
+import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
 import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
@@ -70,15 +72,8 @@ export function AppRouter() {
         <Route path="admin/users/:id" element={adminRoute(<AdminUserDetailPage />)} />
         <Route path="admin/horses" element={adminRoute(<AdminHorsesPage />)} />
         <Route path="admin/tournament-registrations" element={adminRoute(<AdminTournamentRegistrationsPage />)} />
-        <Route
-          path="admin/tournaments"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Tournaments"
-              description="Prepare tournament schedules, registration windows, and operational checkpoints."
-            />
-          )}
-        />
+        <Route path="admin/tournaments" element={adminRoute(<AdminTournamentListPage />)} />
+        <Route path="admin/tournaments/:id" element={adminRoute(<AdminTournamentDetailPage />)} />
         <Route
           path="admin/races"
           element={adminRoute(
