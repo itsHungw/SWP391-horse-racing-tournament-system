@@ -52,8 +52,8 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
 
-        if (java.util.List.of("ONGOING", "COMPLETED").contains(tournament.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot modify an ongoing or completed tournament");
+        if (!java.util.List.of("DRAFT", "POSTPONED").contains(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament settings can only be modified when in DRAFT or POSTPONED status");
         }
         if (tournamentRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
@@ -80,9 +80,9 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
         if (!"DRAFT".equals(tournament.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft tournaments can be deleted. Please cancel active tournaments instead");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft tournaments can be deleted. Please postpone active tournaments instead");
         }
-        tournament.cancel();
+        tournament.postpone();
         tournament.softDelete();
         tournamentRepository.save(tournament);
     }
@@ -124,8 +124,8 @@ public class TournamentService {
             case "COMPLETED":
                 tournament.completeTournament();
                 break;
-            case "CANCELLED":
-                tournament.cancel();
+            case "POSTPONED":
+                tournament.postpone();
                 break;
             default:
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament status: " + status);

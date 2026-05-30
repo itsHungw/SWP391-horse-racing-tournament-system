@@ -92,8 +92,8 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void cancel() {
-        this.status = "CANCELLED";
+    public void postpone() {
+        this.status = "POSTPONED";
         this.updatedAt = LocalDateTime.now();
     }
 

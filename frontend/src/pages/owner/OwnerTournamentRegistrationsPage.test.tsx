@@ -33,8 +33,8 @@ describe("OwnerTournamentRegistrationsPage", () => {
     ]);
     vi.mocked(getOwnerTournamentRegistrations).mockResolvedValue([]);
     vi.mocked(getOwnerHorseDocuments).mockResolvedValue([
-      { id: 10, horseId: 3, documentType: "COGGINS", referenceNumber: "COG123", expiryDate: "2026-09-01", fileUrl: "url" },
-      { id: 11, horseId: 3, documentType: "HEALTH_CERTIFICATE", referenceNumber: "HEA123", expiryDate: "2026-09-01", fileUrl: "url" },
+      { id: 10, horseId: 3, documentType: "COGGINS", referenceNumber: "COG123", expiryDate: "2026-09-01", fileUrl: "url", issueDate: "2026-01-01", issuer: "Vet" },
+      { id: 11, horseId: 3, documentType: "HEALTH_CERTIFICATE", referenceNumber: "HEA123", expiryDate: "2026-09-01", fileUrl: "url", issueDate: "2026-01-01", issuer: "Vet" },
     ]);
     vi.mocked(createOwnerTournamentRegistration).mockResolvedValue({
       id: 8,

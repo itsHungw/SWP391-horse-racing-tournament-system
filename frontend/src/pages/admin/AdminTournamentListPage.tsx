@@ -183,7 +183,7 @@ export function AdminTournamentListPage() {
               <option value="CLOSED_REGISTRATION">Closed Registration</option>
               <option value="ONGOING">Ongoing</option>
               <option value="COMPLETED">Completed</option>
-              <option value="CANCELLED">Suspended</option>
+              <option value="POSTPONED">Postponed</option>
             </select>
           </div>
         </div>
@@ -233,14 +233,14 @@ export function AdminTournamentListPage() {
                               ? "bg-blue-100 text-blue-800"
                               : t.status === "COMPLETED"
                               ? "bg-purple-100 text-purple-800"
-                              : t.status === "CANCELLED"
+                              : t.status === "POSTPONED"
                               ? "bg-orange-100 text-orange-800"
                               : t.status === "CLOSED_REGISTRATION"
                               ? "bg-amber-100 text-amber-800"
                               : "bg-slate-100 text-slate-800"
                           }`}
                         >
-                          {t.status === "CANCELLED" ? "SUSPENDED" : t.status.replace("_", " ")}
+                          {t.status === "POSTPONED" ? "POSTPONED" : t.status.replace("_", " ")}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-500">
