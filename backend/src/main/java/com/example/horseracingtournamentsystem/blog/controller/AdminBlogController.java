@@ -6,6 +6,7 @@ import com.example.horseracingtournamentsystem.blog.dto.UpdateBlogRequest;
 import com.example.horseracingtournamentsystem.blog.dto.UpdateBlogStatusRequest;
 import com.example.horseracingtournamentsystem.blog.service.BlogService;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -14,7 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AdminBlogController {
     private final BlogService blogService;
+    private final UserRepository userRepository;
 
     @GetMapping
     public ResponseEntity<Page<BlogResponse>> getAllBlogsForAdmin(
@@ -36,8 +39,10 @@ public class AdminBlogController {
     @PostMapping
     public ResponseEntity<BlogResponse> createBlog(
             @Valid @RequestBody CreateBlogRequest request,
-            @AuthenticationPrincipal User author
+            Authentication authentication
     ) {
+        User author = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
         return ResponseEntity.status(HttpStatus.CREATED).body(blogService.createBlog(request, author));
     }
 

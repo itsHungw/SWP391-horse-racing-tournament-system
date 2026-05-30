@@ -7,7 +7,7 @@ const publicPrimaryNav = [
   { label: "Tournaments", href: "#tournaments" },
   { label: "Races", href: "#races" },
   { label: "Predictions", href: "#predictions" },
-  { label: "Blog", href: "#blog" },
+  { label: "Blog", href: "/blogs" },
   { label: "Leaderboard", href: "#leaderboard" },
   { label: "Join Us", href: "/join-us" },
 ];

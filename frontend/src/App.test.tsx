@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { blogApi } from "./api/blogApi";
 import App from "./App";
 
 vi.mock("./api/authApi", async (importOriginal) => {
@@ -11,6 +12,20 @@ vi.mock("./api/authApi", async (importOriginal) => {
     logoutRemote: vi.fn().mockResolvedValue(undefined),
   };
 });
+
+vi.mock("./api/blogApi", () => ({
+  blogApi: {
+    getPublishedBlogs: vi.fn(),
+  },
+}));
+
+const emptyBlogPage = {
+  content: [],
+  totalElements: 0,
+  totalPages: 0,
+  size: 3,
+  number: 0,
+};
 
 function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
   const encode = (value: object) =>
@@ -26,10 +41,15 @@ describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
     window.history.pushState({}, "", "/");
+    vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(emptyBlogPage);
   });
 
-  it("renders the Aqueduct public home page foundation", () => {
+  it("renders the Aqueduct public home page foundation", async () => {
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     expect(
       screen.getByRole("banner", { name: /client site header/i }),
@@ -74,7 +94,7 @@ describe("App", () => {
     );
     expect(within(primaryNav).getByRole("link", { name: /^blog$/i })).toHaveAttribute(
       "href",
-      "#blog",
+      "/blogs",
     );
     expect(within(primaryNav).getByRole("link", { name: /^leaderboard$/i })).toHaveAttribute(
       "href",
@@ -112,12 +132,16 @@ describe("App", () => {
     );
   });
 
-  it("renders authenticated client header links and logs out", () => {
+  it("renders authenticated client header links and logs out", async () => {
     localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
     localStorage.setItem("fullName", "Nguyen Van A");
     localStorage.setItem("email", "member@example.com");
 
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
 
@@ -212,12 +236,16 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
   });
 
-  it("keeps an expired access token session visible so refresh can recover it", () => {
+  it("keeps an expired access token session visible so refresh can recover it", async () => {
     localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"], 1));
     localStorage.setItem("fullName", "Nguyen Van A");
     localStorage.setItem("email", "member@example.com");
 
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",

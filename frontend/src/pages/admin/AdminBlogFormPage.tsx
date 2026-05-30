@@ -1,145 +1,274 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams, Link } from 'react-router-dom';
-import axios from 'axios';
-import { blogApi } from '../../api/blogApi';
+import { FormEvent, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+import { blogApi } from "../../api/blogApi";
+import { AdminLayout } from "../../layouts/AdminLayout";
+import { Blog } from "../../types/blog";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+
+type BlogStatus = "DRAFT" | "PUBLISHED";
+
+const emptyMessage = "Not set";
 
 export function AdminBlogFormPage() {
   const { id } = useParams<{ id: string }>();
-  const isEditMode = !!id;
+  const isEditMode = Boolean(id);
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState('');
-  const [summary, setSummary] = useState('');
-  const [content, setContent] = useState('');
+  useDocumentTitle(isEditMode ? "Edit blog post" : "New blog post");
+
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [content, setContent] = useState("");
   const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [status, setStatus] = useState<'DRAFT' | 'PUBLISHED'>('DRAFT');
+  const [status, setStatus] = useState<BlogStatus>("DRAFT");
+  const [loading, setLoading] = useState(isEditMode);
+  const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isEditMode) {
-      blogApi.getAllBlogsForAdmin()
-        .then((page) => {
-          const current = page.content.find((b) => b.id === Number(id));
-          if (current) {
-            setTitle(current.title);
-            setSummary(current.summary);
-            setContent(current.content);
-            setThumbnail(current.thumbnail);
-            setStatus(current.status);
-          }
-        })
-        .catch(console.error);
+    if (!isEditMode || !id) {
+      return;
     }
+
+    let isMounted = true;
+
+    async function loadBlog() {
+      try {
+        setLoading(true);
+        setError(null);
+        const page = await blogApi.getAllBlogsForAdmin(undefined, 0, 100);
+        const current = page.content.find((blog: Blog) => blog.id === Number(id));
+        if (!current) {
+          throw new Error("Blog post not found.");
+        }
+        if (!isMounted) {
+          return;
+        }
+        setTitle(current.title);
+        setSummary(current.summary || "");
+        setContent(current.content);
+        setThumbnail(current.thumbnail);
+        setStatus(current.status);
+      } catch (err) {
+        console.error("Blog edit load failed.", err);
+        if (isMounted) {
+          setError("Could not load this blog post for editing.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadBlog();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id, isEditMode]);
 
-  const handleUploadThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleUploadThumbnail = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
     if (!file) return;
-
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('category', 'BLOG');
 
     try {
       setUploading(true);
-      const response = await axios.post<{ url: string }>('/api/v1/files/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      setThumbnail(response.data.url);
+      setError(null);
+      const response = await blogApi.uploadBlogThumbnail(file);
+      setThumbnail(response.url);
     } catch (err) {
-      console.error(err);
-      alert("Failed to upload image.");
+      console.error("Thumbnail upload failed.", err);
+      setError("Could not upload the thumbnail image.");
     } finally {
       setUploading(false);
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const payload = { title, summary, content, thumbnail, status };
+  const handleSave = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const payload = {
+      title: title.trim(),
+      summary: summary.trim(),
+      content: content.trim(),
+      thumbnail,
+      status,
+    };
+
     try {
-      if (isEditMode) {
+      setSaving(true);
+      setError(null);
+      if (isEditMode && id) {
         await blogApi.updateBlog(Number(id), payload);
       } else {
         await blogApi.createBlog(payload);
       }
-      navigate('/admin/blog');
+      navigate("/admin/blog");
     } catch (err) {
-      console.error(err);
-      alert("Failed to save post.");
+      console.error("Blog save failed.", err);
+      setError("Could not save this blog post.");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">
-        {isEditMode ? "Edit Blog Post" : "Create New Blog Post"}
-      </h1>
-      <form onSubmit={handleSave} className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Title</label>
-          <input
-            type="text"
-            required
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg dark:bg-gray-950 dark:text-white dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Summary</label>
-          <textarea
-            value={summary}
-            onChange={(e) => setSummary(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg dark:bg-gray-950 dark:text-white dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            rows={3}
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Thumbnail</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleUploadThumbnail}
-            className="w-full dark:text-gray-300"
-          />
-          {uploading && <p className="text-sm text-gray-400 mt-1">Uploading...</p>}
-          {thumbnail && (
-            <img src={thumbnail} className="mt-4 h-32 w-48 object-cover rounded shadow" alt="Preview" />
-          )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Content</label>
-          <textarea
-            required
-            placeholder="Write your rich HTML content here..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg dark:bg-gray-950 dark:text-white dark:border-gray-700 font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            rows={12}
-          />
-          <p className="text-xs text-gray-400 mt-1">Rich Content Text Block support. HTML characters accepted.</p>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as 'DRAFT' | 'PUBLISHED')}
-            className="px-4 py-2 border rounded-lg dark:bg-gray-950 dark:text-white dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+    <AdminLayout>
+      <section aria-labelledby="admin-blog-form-title" className="space-y-6">
+        <div className="flex flex-col gap-4 border-b border-[#d8d8d8] pb-5 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+              Content operations
+            </p>
+            <h1 id="admin-blog-form-title" className="mt-2 text-4xl font-black tracking-tight">
+              {isEditMode ? "Edit Blog Post" : "Create Blog Post"}
+            </h1>
+            <p className="mt-2 max-w-3xl text-base text-slate-600">
+              Prepare public articles for race context, tournament news, and spectator engagement.
+            </p>
+          </div>
+          <Link
+            className="flex min-h-11 items-center justify-center rounded-md border border-[#070f4f] bg-white px-5 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+            to="/admin/blog"
           >
-            <option value="DRAFT">DRAFT</option>
-            <option value="PUBLISHED">PUBLISHED</option>
-          </select>
-        </div>
-        <div className="flex space-x-4 pt-4 border-t dark:border-gray-700">
-          <button type="submit" className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition duration-200">
-            Save Post
-          </button>
-          <Link to="/admin/blog" className="px-6 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600 transition duration-200">
-            Cancel
+            Back to Blog
           </Link>
         </div>
-      </form>
-    </div>
+
+        {error && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4" role="alert">
+            <p className="text-sm font-bold text-rose-800">{error}</p>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center rounded-lg border border-[#d8d8d8] bg-white py-16">
+            <p className="text-sm font-bold text-slate-500">Loading blog post...</p>
+          </div>
+        ) : (
+          <form className="grid gap-6 xl:grid-cols-[1fr_340px]" onSubmit={handleSave}>
+            <section className="rounded-lg border border-[#d8d8d8] bg-white p-6" aria-labelledby="blog-content-title">
+              <h2 id="blog-content-title" className="border-b border-[#ececec] pb-3 text-lg font-black">
+                Article Content
+              </h2>
+              <div className="mt-5 space-y-5">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="blog-title">
+                    Title
+                  </label>
+                  <input
+                    className="mt-2 min-h-11 w-full rounded-md border border-[#bdbdbd] bg-white px-3 text-sm font-bold text-[#171717] shadow-sm focus:border-[#b3193a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a]"
+                    id="blog-title"
+                    onChange={(event) => setTitle(event.target.value)}
+                    required
+                    type="text"
+                    value={title}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="blog-summary">
+                    Summary
+                  </label>
+                  <textarea
+                    className="mt-2 w-full rounded-md border border-[#bdbdbd] bg-white px-3 py-2 text-sm font-medium leading-6 text-[#171717] shadow-sm focus:border-[#b3193a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a]"
+                    id="blog-summary"
+                    onChange={(event) => setSummary(event.target.value)}
+                    rows={3}
+                    value={summary}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="blog-content">
+                    Content
+                  </label>
+                  <textarea
+                    className="mt-2 min-h-[360px] w-full rounded-md border border-[#bdbdbd] bg-white px-3 py-3 font-mono text-sm leading-6 text-[#171717] shadow-sm focus:border-[#b3193a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a]"
+                    id="blog-content"
+                    onChange={(event) => setContent(event.target.value)}
+                    required
+                    value={content}
+                  />
+                </div>
+              </div>
+            </section>
+
+            <aside className="space-y-6">
+              <section className="rounded-lg border border-[#d8d8d8] bg-white p-5" aria-labelledby="publish-title">
+                <h2 id="publish-title" className="border-b border-[#ececec] pb-3 text-lg font-black">
+                  Publish Settings
+                </h2>
+                <div className="mt-5 space-y-5">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="blog-status">
+                      Status
+                    </label>
+                    <select
+                      className="mt-2 min-h-11 w-full rounded-md border border-[#bdbdbd] bg-white px-3 text-sm font-black text-[#171717] shadow-sm focus:border-[#b3193a] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a]"
+                      id="blog-status"
+                      onChange={(event) => setStatus(event.target.value as BlogStatus)}
+                      value={status}
+                    >
+                      <option value="DRAFT">Draft</option>
+                      <option value="PUBLISHED">Published</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Current thumbnail</p>
+                    <div className="mt-2 overflow-hidden rounded-md border border-[#ececec] bg-[#fafafa]">
+                      {thumbnail ? (
+                        <img alt="Thumbnail preview" className="h-40 w-full object-cover" src={thumbnail} />
+                      ) : (
+                        <div className="flex h-40 items-center justify-center px-4 text-center text-sm font-bold text-slate-500">
+                          {emptyMessage}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500" htmlFor="blog-thumbnail">
+                      Thumbnail image
+                    </label>
+                    <input
+                      accept="image/*"
+                      className="mt-2 block w-full text-sm font-bold text-slate-700 file:mr-4 file:min-h-11 file:rounded-md file:border-0 file:bg-[#070f4f] file:px-4 file:text-sm file:font-black file:text-white hover:file:bg-[#101a70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                      id="blog-thumbnail"
+                      onChange={handleUploadThumbnail}
+                      type="file"
+                    />
+                    {uploading && (
+                      <p className="mt-2 text-sm font-bold text-slate-500" role="status">
+                        Uploading thumbnail...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <div className="flex flex-col gap-3 rounded-lg border border-[#d8d8d8] bg-white p-5">
+                <button
+                  className="min-h-11 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={saving || uploading}
+                  type="submit"
+                >
+                  {saving ? "Saving..." : "Save Post"}
+                </button>
+                <Link
+                  className="flex min-h-11 items-center justify-center rounded-md border border-[#070f4f] bg-white px-5 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                  to="/admin/blog"
+                >
+                  Cancel
+                </Link>
+              </div>
+            </aside>
+          </form>
+        )}
+      </section>
+    </AdminLayout>
   );
 }
