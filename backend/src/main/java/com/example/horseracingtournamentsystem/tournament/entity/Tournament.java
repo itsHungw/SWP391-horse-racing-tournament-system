@@ -107,6 +107,16 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void startOngoing() {
+        this.status = "ONGOING";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void completeTournament() {
+        this.status = "COMPLETED";
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
     }

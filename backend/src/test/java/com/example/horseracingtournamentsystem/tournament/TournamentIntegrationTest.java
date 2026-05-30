@@ -131,4 +131,84 @@ class TournamentIntegrationTest {
                         .content(body))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    void adminCannotDeleteActiveTournament() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby", "DB_26", "Desc", "Loc", 
+                LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDateTime.now(), LocalDateTime.now().plusDays(2),
+                20, adminUser
+            );
+        t.openRegistration(); // sets status to OPEN_REGISTRATION
+        t = tournamentRepository.save(t);
+
+        mockMvc.perform(delete("/api/v1/admin/tournaments/" + t.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void adminCannotModifyOngoingOrCompletedTournament() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby", "DB_26", "Desc", "Loc", 
+                LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDateTime.now(), LocalDateTime.now().plusDays(2),
+                20, adminUser
+            );
+        t.startOngoing(); // status is ONGOING
+        t = tournamentRepository.save(t);
+
+        String updateBody = """
+                {
+                    "name": "Updated Name",
+                    "code": "DB_26",
+                    "description": "Desc",
+                    "location": "Loc",
+                    "startDate": "2026-07-01",
+                    "endDate": "2026-07-15",
+                    "registrationStartAt": "2026-06-01T00:00:00",
+                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "maxHorses": 50
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void adminCanTransitionToAllStatuses() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby", "DB_26", "Desc", "Loc", 
+                LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDateTime.now(), LocalDateTime.now().plusDays(2),
+                20, adminUser
+            );
+        t = tournamentRepository.save(t);
+
+        // Transition to OPEN_REGISTRATION
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "OPEN_REGISTRATION"))
+                .andExpect(status().isOk());
+
+        // Transition to ONGOING
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "ONGOING"))
+                .andExpect(status().isOk());
+
+        // Transition to COMPLETED
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "COMPLETED"))
+                .andExpect(status().isOk());
+    }
 }
