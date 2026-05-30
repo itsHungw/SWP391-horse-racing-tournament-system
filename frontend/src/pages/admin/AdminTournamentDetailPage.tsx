@@ -133,7 +133,7 @@ export function AdminTournamentDetailPage() {
       setUpdatingStatus(true);
       await updateTournamentStatus(tournamentId, targetStatus);
       setShowStatusModal({ show: false, targetStatus: "" });
-      setSuccessMsg(`Status updated successfully to ${targetStatus === "CANCELLED" ? "SUSPENDED" : targetStatus.replace("_", " ")}.`);
+      setSuccessMsg(`Status updated successfully to ${targetStatus.replace("_", " ")}.`);
       loadDetail();
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || "Failed to update tournament status.");
@@ -166,7 +166,7 @@ export function AdminTournamentDetailPage() {
     );
   }
 
-  const isLocked = ["ONGOING", "COMPLETED", "CANCELLED"].includes(tournament.status);
+  const isLocked = !["DRAFT", "POSTPONED"].includes(tournament.status);
   const isDraft = tournament.status === "DRAFT";
 
   // Calculate status badge style
@@ -178,7 +178,7 @@ export function AdminTournamentDetailPage() {
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "COMPLETED":
         return "bg-purple-100 text-purple-800 border-purple-200";
-      case "CANCELLED":
+      case "POSTPONED":
         return "bg-orange-100 text-orange-800 border-orange-200";
       case "CLOSED_REGISTRATION":
         return "bg-amber-100 text-amber-800 border-amber-200";
@@ -215,7 +215,7 @@ export function AdminTournamentDetailPage() {
         <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-4">
             <span className={`rounded border px-3 py-1.5 text-xs font-black tracking-wider uppercase ${getBadgeStyle(tournament.status)}`}>
-              {tournament.status === "CANCELLED" ? "SUSPENDED" : tournament.status.replace("_", " ")}
+              {tournament.status === "POSTPONED" ? "POSTPONED" : tournament.status.replace("_", " ")}
             </span>
             <div>
               <h1 className="text-2xl font-black text-slate-900">{tournament.name}</h1>
@@ -228,20 +228,12 @@ export function AdminTournamentDetailPage() {
           {/* Lifecycle Action Buttons */}
           <div className="flex flex-wrap gap-2">
             {tournament.status === "DRAFT" && (
-              <>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
-                  className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                >
-                  Open Registration
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CANCELLED" })}
-                  className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Suspend Tournament
-                </button>
-              </>
+              <button
+                onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
+                className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Open Registration
+              </button>
             )}
 
             {tournament.status === "OPEN_REGISTRATION" && (
@@ -259,10 +251,10 @@ export function AdminTournamentDetailPage() {
                   Start Tournament
                 </button>
                 <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CANCELLED" })}
+                  onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
                   className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                 >
-                  Suspend Tournament
+                  Postpone Tournament
                 </button>
               </>
             )}
@@ -276,52 +268,30 @@ export function AdminTournamentDetailPage() {
                   Start Tournament
                 </button>
                 <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CANCELLED" })}
+                  onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
                   className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
                 >
-                  Suspend Tournament
+                  Postpone Tournament
                 </button>
               </>
             )}
 
             {tournament.status === "ONGOING" && (
-              <>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "COMPLETED" })}
-                  className="rounded bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700"
-                >
-                  Complete Tournament
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CANCELLED" })}
-                  className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Suspend Tournament
-                </button>
-              </>
+              <button
+                onClick={() => setShowStatusModal({ show: true, targetStatus: "COMPLETED" })}
+                className="rounded bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700"
+              >
+                Complete Tournament
+              </button>
             )}
 
-            {tournament.status === "CANCELLED" && (
-              <>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
-                  className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-                >
-                  Reopen (Open Registration)
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CLOSED_REGISTRATION" })}
-                  className="rounded bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
-                >
-                  Reopen (Closed Registration)
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
-                  className="rounded bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  Reopen (Ongoing)
-                </button>
-              </>
+            {tournament.status === "POSTPONED" && (
+              <button
+                onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
+                className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+              >
+                Reopen Registration
+              </button>
             )}
           </div>
         </div>
@@ -368,7 +338,7 @@ export function AdminTournamentDetailPage() {
             <form onSubmit={handleSave} className="flex flex-col gap-6">
               {isLocked && (
                 <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
-                  This tournament is currently {tournament.status === "CANCELLED" ? "suspended" : tournament.status.toLowerCase()}. Main fields are locked for editing.
+                  Tournament settings can only be modified in DRAFT or POSTPONED status. Currently, it is in {tournament.status.replace("_", " ").toLowerCase()} status.
                 </div>
               )}
 
@@ -586,7 +556,7 @@ export function AdminTournamentDetailPage() {
             <h2 className="text-xl font-black text-slate-900">Change Status</h2>
             <p className="mt-3 text-sm text-slate-600">
               Are you sure you want to transition this tournament status to{" "}
-              <strong>{showStatusModal.targetStatus === "CANCELLED" ? "SUSPENDED" : showStatusModal.targetStatus.replace("_", " ")}</strong>?
+              <strong>{showStatusModal.targetStatus.replace("_", " ")}</strong>?
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button

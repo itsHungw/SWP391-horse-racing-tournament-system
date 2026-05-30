@@ -312,7 +312,7 @@ CREATE TABLE tournaments (
             'CLOSED_REGISTRATION',
             'ONGOING',
             'COMPLETED',
-            'CANCELLED'
+            'POSTPONED'
         )
     )
 );
