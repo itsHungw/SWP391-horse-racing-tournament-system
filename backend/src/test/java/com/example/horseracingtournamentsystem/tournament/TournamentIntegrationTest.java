@@ -150,7 +150,7 @@ class TournamentIntegrationTest {
     }
 
     @Test
-    void adminCannotModifyOngoingOrCompletedTournament() throws Exception {
+    void adminCannotModifyActiveTournament() throws Exception {
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
                 "Derby", "DB_26", "Desc", "Loc", 
@@ -158,7 +158,7 @@ class TournamentIntegrationTest {
                 LocalDateTime.now(), LocalDateTime.now().plusDays(2),
                 20, adminUser
             );
-        t.startOngoing(); // status is ONGOING
+        t.openRegistration(); // status is OPEN_REGISTRATION
         t = tournamentRepository.save(t);
 
         String updateBody = """
@@ -210,5 +210,102 @@ class TournamentIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .param("status", "COMPLETED"))
                 .andExpect(status().isOk());
+    }
+
+    @Autowired
+    private com.example.horseracingtournamentsystem.tournament.scheduler.TournamentScheduler tournamentScheduler;
+
+    @Test
+    void adminCanEditPostponedTournament() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby", "DB_26", "Desc", "Loc", 
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(15),
+                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(5),
+                20, adminUser
+            );
+        t.postpone(); // status is POSTPONED
+        t = tournamentRepository.save(t);
+
+        String updateBody = """
+                {
+                    "name": "Updated Postponed Name",
+                    "code": "DB_26",
+                    "description": "Updated description",
+                    "location": "New Location",
+                    "startDate": "2026-07-01",
+                    "endDate": "2026-07-15",
+                    "registrationStartAt": "2026-06-01T00:00:00",
+                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "maxHorses": 40
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Updated Postponed Name"))
+                .andExpect(jsonPath("$.location").value("New Location"));
+    }
+
+    @Test
+    void adminCanReopenPostponedTournament() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby", "DB_26", "Desc", "Loc", 
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(15),
+                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(5),
+                20, adminUser
+            );
+        t.postpone(); // status is POSTPONED
+        t = tournamentRepository.save(t);
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "OPEN_REGISTRATION"))
+                .andExpect(status().isOk());
+
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updated = 
+            tournamentRepository.findById(t.getId()).orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("OPEN_REGISTRATION", updated.getStatus());
+    }
+
+    @Test
+    void schedulerAutoTransitionsActiveTournaments() {
+        // 1. OPEN_REGISTRATION past registrationEndAt -> CLOSED_REGISTRATION
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t1 = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 1", "DB_1", "Desc", "Loc", 
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(15),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(1),
+                20, adminUser
+            );
+        t1.openRegistration();
+        t1 = tournamentRepository.save(t1);
+
+        // 2. CLOSED_REGISTRATION past startDate -> ONGOING
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t2 = 
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 2", "DB_2", "Desc", "Loc", 
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
+                20, adminUser
+            );
+        t2.closeRegistration();
+        t2 = tournamentRepository.save(t2);
+
+        // Run scheduler
+        tournamentScheduler.checkTournamentStatusTransitions();
+
+        // Assertions
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT1 = 
+            tournamentRepository.findById(t1.getId()).orElseThrow();
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT2 = 
+            tournamentRepository.findById(t2.getId()).orElseThrow();
+
+        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT2.getStatus());
     }
 }
