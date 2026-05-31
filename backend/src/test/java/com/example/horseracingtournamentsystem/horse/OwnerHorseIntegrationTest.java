@@ -157,6 +157,40 @@ class OwnerHorseIntegrationTest {
     }
 
     @Test
+    void ownerGetsPaginatedHorseRoster() throws Exception {
+        for (int index = 1; index <= 9; index++) {
+            horseRepository.save(Horse.create(
+                    ownerUser,
+                    "Horse " + index,
+                    "OWNER_HORSE_" + index,
+                    "Thoroughbred",
+                    "FEMALE",
+                    null,
+                    "Bay"
+            ));
+        }
+        horseRepository.save(Horse.create(
+                anotherOwnerUser,
+                "Other Owner Horse",
+                "OTHER_OWNER_HORSE",
+                "Thoroughbred",
+                "MALE",
+                null,
+                "Black"
+        ));
+
+        mockMvc.perform(get("/api/v1/owner/horses")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .param("page", "1")
+                        .param("size", "4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(4))
+                .andExpect(jsonPath("$.totalElements").value(9))
+                .andExpect(jsonPath("$.size").value(4))
+                .andExpect(jsonPath("$.number").value(1));
+    }
+
+    @Test
     void ownerUploadsHorseDocumentWithMetadata() throws Exception {
         Horse horse = horseRepository.save(Horse.create(
                 ownerUser,

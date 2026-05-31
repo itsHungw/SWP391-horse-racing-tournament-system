@@ -5,6 +5,7 @@ import type {
   HorseDocumentPayload,
   HorseMultipartPayload,
   HorseStatus,
+  PageResponse,
   Tournament,
   TournamentRegistration,
   TournamentRegistrationPayload,
@@ -18,6 +19,17 @@ export async function getPublicTournaments(): Promise<Tournament[]> {
 
 export async function getOwnerHorses(): Promise<Horse[]> {
   const response = await httpClient.get<Horse[]>("/owner/horses");
+  return response.data;
+}
+
+export async function getOwnerHorsesPage(params: {
+  page: number;
+  size: number;
+  query?: string;
+  status?: string;
+  gender?: string;
+}): Promise<PageResponse<Horse>> {
+  const response = await httpClient.get<PageResponse<Horse>>("/owner/horses", { params });
   return response.data;
 }
 
@@ -90,6 +102,18 @@ export async function rejectAdminHorse(id: number, reason: string): Promise<Hors
 
 export async function getOwnerTournamentRegistrations(): Promise<TournamentRegistration[]> {
   const response = await httpClient.get<TournamentRegistration[]>("/owner/tournament-registrations");
+  return response.data;
+}
+
+export async function getOwnerTournamentRegistrationsPage(params: {
+  page: number;
+  size: number;
+  horseId?: number;
+  focusId?: number;
+}): Promise<PageResponse<TournamentRegistration>> {
+  const response = await httpClient.get<PageResponse<TournamentRegistration>>("/owner/tournament-registrations", {
+    params,
+  });
   return response.data;
 }
 

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   createOwnerTournamentRegistration,
   getOwnerHorses,
-  getOwnerTournamentRegistrations,
+  getOwnerTournamentRegistrationsPage,
   getPublicTournaments,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
+import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
 import type { Horse, Tournament, TournamentRegistration } from "../../types/racing";
@@ -17,8 +19,12 @@ import { StepSelectHorse } from "./components/StepSelectHorse";
 import { StepConfirmRegistration } from "./components/StepConfirmRegistration";
 import { RegistrationStatusTimeline } from "./components/RegistrationStatusTimeline";
 
+const REGISTRATION_HISTORY_PAGE_SIZE = 8;
+
 export function OwnerTournamentRegistrationsPage() {
   useDocumentTitle("Tournament Registrations - Owner");
+  const [searchParams] = useSearchParams();
+  const focusedRegistrationId = Number(searchParams.get("registrationId") || 0);
 
   // Wizard States
   const [currentStep, setCurrentStep] = useState(1);
@@ -37,6 +43,14 @@ export function OwnerTournamentRegistrationsPage() {
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [activeTimelineReg, setActiveTimelineReg] = useState<TournamentRegistration | null>(null);
+  const [registrationPage, setRegistrationPage] = useState(1);
+  const [registrationPageMeta, setRegistrationPageMeta] = useState({
+    number: 0,
+    size: REGISTRATION_HISTORY_PAGE_SIZE,
+    totalElements: 0,
+    totalPages: 1,
+  });
+  const [focusedPageResolved, setFocusedPageResolved] = useState(false);
 
   const loadWorkspaceData = useCallback(async () => {
     setLoading(true);
@@ -44,22 +58,58 @@ export function OwnerTournamentRegistrationsPage() {
       const [tournamentData, horseData, registrationData] = await Promise.all([
         getPublicTournaments(),
         getOwnerHorses(),
-        getOwnerTournamentRegistrations(),
+        getOwnerTournamentRegistrationsPage({
+          page: registrationPage - 1,
+          size: REGISTRATION_HISTORY_PAGE_SIZE,
+          focusId: focusedRegistrationId && !focusedPageResolved ? focusedRegistrationId : undefined,
+        }),
       ]);
+      const nextRegistrations = Array.isArray(registrationData.content) ? registrationData.content : [];
       setTournaments(Array.isArray(tournamentData) ? tournamentData : []);
       setHorses(Array.isArray(horseData) ? horseData : []);
-      setRegistrations(Array.isArray(registrationData) ? registrationData : []);
+      setRegistrations(nextRegistrations);
+      setRegistrationPageMeta({
+        number: registrationData.number,
+        size: registrationData.size,
+        totalElements: registrationData.totalElements,
+        totalPages: registrationData.totalPages,
+      });
+      if (registrationData.number + 1 !== registrationPage) {
+        setRegistrationPage(registrationData.number + 1);
+      }
+      if (focusedRegistrationId) {
+        setFocusedPageResolved(true);
+        const focusedRegistration = nextRegistrations.find((registration) => registration.id === focusedRegistrationId);
+        if (focusedRegistration) {
+          setActiveTimelineReg(focusedRegistration);
+        }
+      }
       setPageMessage(null);
     } catch (error) {
       setPageMessage(getApiErrorMessage(error, "Could not load registration data."));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [focusedPageResolved, focusedRegistrationId, registrationPage]);
 
   useEffect(() => {
     void loadWorkspaceData();
   }, [loadWorkspaceData]);
+
+  useEffect(() => {
+    setFocusedPageResolved(false);
+  }, [focusedRegistrationId]);
+
+  useEffect(() => {
+    if (!loading && focusedRegistrationId) {
+      document.getElementById(`registration-${focusedRegistrationId}`)?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }
+  }, [focusedRegistrationId, loading, registrations]);
+
+  const currentRegistrationPage = registrationPageMeta.number + 1;
 
   const handleSelectTournament = (tournament: Tournament) => {
     setSelectedTournament(tournament);
@@ -215,8 +265,15 @@ export function OwnerTournamentRegistrationsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
-                    {registrations.map((registration) => (
-                      <tr key={registration.id} className="hover:bg-slate-50/50">
+                    {registrations.map((registration) => {
+                      const isFocusedRegistration = registration.id === focusedRegistrationId;
+
+                      return (
+                      <tr
+                        id={`registration-${registration.id}`}
+                        key={registration.id}
+                        className={isFocusedRegistration ? "bg-red-50/70 ring-2 ring-inset ring-red-200" : "hover:bg-slate-50/50"}
+                      >
                         <td className="px-6 py-4 font-black text-slate-800">{registration.tournamentName}</td>
                         <td className="px-6 py-4">{registration.horseName}</td>
                         <td className="px-6 py-4">
@@ -254,10 +311,19 @@ export function OwnerTournamentRegistrationsPage() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
+              {registrationPageMeta.totalElements > REGISTRATION_HISTORY_PAGE_SIZE && (
+                <PaginationControls
+                  currentPage={currentRegistrationPage}
+                  onPageChange={setRegistrationPage}
+                  pageSize={REGISTRATION_HISTORY_PAGE_SIZE}
+                  totalItems={registrationPageMeta.totalElements}
+                />
+              )}
             </div>
           )}
         </div>

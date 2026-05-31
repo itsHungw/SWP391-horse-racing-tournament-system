@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.tournamentregistration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -220,6 +222,36 @@ class TournamentRegistrationIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("WITHDRAWN"));
+    }
+
+    @Test
+    void ownerGetsPaginatedTournamentRegistrations() throws Exception {
+        for (int index = 1; index <= 9; index++) {
+            Tournament tournament = tournamentRepository.save(Tournament.create(
+                    "Cup " + index,
+                    "CUP_" + index,
+                    "Paged tournament " + index,
+                    "Saigon Track",
+                    LocalDate.now().plusDays(index + 10L),
+                    LocalDate.now().plusDays(index + 12L),
+                    LocalDateTime.now().minusDays(1),
+                    LocalDateTime.now().plusDays(7),
+                    20,
+                    adminUser
+            ));
+            registrationRepository.save(TournamentRegistration.pending(tournament, approvedHorse, ownerUser, "Ready"));
+        }
+        registrationRepository.save(TournamentRegistration.pending(openTournament, anotherOwnerHorse, anotherOwnerUser, "Other"));
+
+        mockMvc.perform(get("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .param("page", "1")
+                        .param("size", "4"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content.length()").value(4))
+                .andExpect(jsonPath("$.totalElements").value(9))
+                .andExpect(jsonPath("$.size").value(4))
+                .andExpect(jsonPath("$.number").value(1));
     }
 
     @Test

@@ -14,6 +14,8 @@ import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -116,6 +118,17 @@ public class HorseService {
         return horseRepository.findAllByOwnerEmailAndDeletedAtIsNullOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    public Page<HorseResponse> getOwnerHorses(String email, String query, String status, String gender, Pageable pageable) {
+        return horseRepository.searchOwnerHorses(
+                        email.trim().toLowerCase(),
+                        normalizeOptional(query),
+                        normalizeEnumFilter(status),
+                        normalizeEnumFilter(gender),
+                        pageable
+                )
+                .map(this::mapToResponse);
     }
 
     public HorseResponse getOwnerHorseDetail(String email, Long id) {
@@ -256,5 +269,12 @@ public class HorseService {
 
     private String normalizeOptional(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String normalizeEnumFilter(String value) {
+        if (value == null || value.isBlank() || "ALL".equalsIgnoreCase(value.trim())) {
+            return null;
+        }
+        return value.trim().toUpperCase();
     }
 }

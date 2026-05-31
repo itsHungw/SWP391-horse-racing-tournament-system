@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { ArrowLeft, FileText, HeartPulse, Image as ImageIcon, ListChecks, Plus, Trophy, Upload, X } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
@@ -6,9 +6,10 @@ import {
   createOwnerHorseDocument,
   getOwnerHorse,
   getOwnerHorseDocuments,
-  getOwnerTournamentRegistrations,
+  getOwnerTournamentRegistrationsPage,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
+import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
 import type { Horse, HorseDocument, HorseDocumentPayload, HorseDocumentType, TournamentRegistration } from "../../types/racing";
@@ -21,6 +22,7 @@ const tabs: Array<{ id: ProfileTab; label: string; icon: typeof ListChecks }> = 
   { id: "registrations", label: "Tournament Registrations", icon: Trophy },
   { id: "health", label: "Health Notes", icon: HeartPulse },
 ];
+const HORSE_PROFILE_REGISTRATIONS_PAGE_SIZE = 5;
 
 type DocumentFormState = Omit<HorseDocumentPayload, "documentFile"> & {
   documentFile: File | null;
@@ -42,6 +44,13 @@ export function OwnerHorseProfilePage() {
   const [horse, setHorse] = useState<Horse | null>(null);
   const [documents, setDocuments] = useState<HorseDocument[]>([]);
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
+  const [registrationPage, setRegistrationPage] = useState(1);
+  const [registrationPageMeta, setRegistrationPageMeta] = useState({
+    number: 0,
+    size: HORSE_PROFILE_REGISTRATIONS_PAGE_SIZE,
+    totalElements: 0,
+    totalPages: 1,
+  });
   const [activeTab, setActiveTab] = useState<ProfileTab>("overview");
   const [documentPanelOpen, setDocumentPanelOpen] = useState(false);
   const [documentForm, setDocumentForm] = useState<DocumentFormState>(emptyDocumentForm);
@@ -54,6 +63,10 @@ export function OwnerHorseProfilePage() {
   const numericHorseId = Number(horseId);
 
   useEffect(() => {
+    setRegistrationPage(1);
+  }, [numericHorseId]);
+
+  useEffect(() => {
     let active = true;
 
     async function load() {
@@ -61,12 +74,22 @@ export function OwnerHorseProfilePage() {
       try {
         const [horseData, registrationData, documentData] = await Promise.all([
           getOwnerHorse(numericHorseId),
-          getOwnerTournamentRegistrations(),
+          getOwnerTournamentRegistrationsPage({
+            page: registrationPage - 1,
+            size: HORSE_PROFILE_REGISTRATIONS_PAGE_SIZE,
+            horseId: numericHorseId,
+          }),
           getOwnerHorseDocuments(numericHorseId),
         ]);
         if (active) {
           setHorse(horseData);
-          setRegistrations(Array.isArray(registrationData) ? registrationData : []);
+          setRegistrations(Array.isArray(registrationData.content) ? registrationData.content : []);
+          setRegistrationPageMeta({
+            number: registrationData.number,
+            size: registrationData.size,
+            totalElements: registrationData.totalElements,
+            totalPages: registrationData.totalPages,
+          });
           setDocuments(Array.isArray(documentData) ? documentData : []);
           setMessage(null);
         }
@@ -91,16 +114,21 @@ export function OwnerHorseProfilePage() {
     return () => {
       active = false;
     };
-  }, [numericHorseId]);
-
-  const horseRegistrations = useMemo(
-    () => registrations.filter((registration) => registration.horseId === horse?.id),
-    [horse?.id, registrations],
-  );
+  }, [numericHorseId, registrationPage]);
 
   const reloadRegistrations = async () => {
-    const registrationData = await getOwnerTournamentRegistrations();
-    setRegistrations(Array.isArray(registrationData) ? registrationData : []);
+    const registrationData = await getOwnerTournamentRegistrationsPage({
+      page: registrationPage - 1,
+      size: HORSE_PROFILE_REGISTRATIONS_PAGE_SIZE,
+      horseId: numericHorseId,
+    });
+    setRegistrations(Array.isArray(registrationData.content) ? registrationData.content : []);
+    setRegistrationPageMeta({
+      number: registrationData.number,
+      size: registrationData.size,
+      totalElements: registrationData.totalElements,
+      totalPages: registrationData.totalPages,
+    });
   };
 
   const reloadDocuments = async () => {
@@ -238,7 +266,11 @@ export function OwnerHorseProfilePage() {
                 disabled={saving}
                 horse={horse}
                 onWithdraw={handleWithdraw}
-                registrations={horseRegistrations}
+                onPageChange={setRegistrationPage}
+                page={registrationPageMeta.number + 1}
+                pageSize={HORSE_PROFILE_REGISTRATIONS_PAGE_SIZE}
+                registrations={registrations}
+                totalRegistrations={registrationPageMeta.totalElements}
               />
             )}
             {activeTab === "health" && <HealthTab horse={horse} />}
@@ -324,13 +356,21 @@ function OverviewTab({
 function RegistrationsTab({
   disabled,
   horse,
+  onPageChange,
   onWithdraw,
+  page,
+  pageSize,
   registrations,
+  totalRegistrations,
 }: {
   disabled: boolean;
   horse: Horse;
+  onPageChange: (page: number) => void;
   onWithdraw: (registration: TournamentRegistration) => void;
+  page: number;
+  pageSize: number;
   registrations: TournamentRegistration[];
+  totalRegistrations: number;
 }) {
   return (
     <section className="space-y-4 rounded-lg border border-slate-200 bg-white p-6" aria-labelledby="registrations-title">
@@ -354,38 +394,48 @@ function RegistrationsTab({
           No tournament registrations for this horse yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200">
-          <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-            <thead className="bg-slate-50 text-xs font-black uppercase tracking-[0.08em] text-slate-500">
-              <tr>
-                <th className="px-5 py-3">Tournament</th>
-                <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3">Note</th>
-                <th className="px-5 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {registrations.map((registration) => (
-                <tr key={registration.id}>
-                  <td className="px-5 py-4 font-black">{registration.tournamentName}</td>
-                  <td className="px-5 py-4">{titleCase(registration.status)}</td>
-                  <td className="px-5 py-4">
-                    {registration.rejectionReason || registration.note || "No note"}
-                  </td>
-                  <td className="px-5 py-4 text-right">
-                    <button
-                      className="min-h-11 rounded-md border border-slate-300 px-4 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                      disabled={disabled || registration.status !== "PENDING"}
-                      onClick={() => onWithdraw(registration)}
-                      type="button"
-                    >
-                      Withdraw
-                    </button>
-                  </td>
+        <div className="overflow-hidden rounded-lg border border-slate-200">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+              <thead className="bg-slate-50 text-xs font-black uppercase tracking-[0.08em] text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Tournament</th>
+                  <th className="px-5 py-3">Status</th>
+                  <th className="px-5 py-3">Note</th>
+                  <th className="px-5 py-3 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-200">
+                {registrations.map((registration) => (
+                  <tr key={registration.id}>
+                    <td className="px-5 py-4 font-black">{registration.tournamentName}</td>
+                    <td className="px-5 py-4">{titleCase(registration.status)}</td>
+                    <td className="px-5 py-4">
+                      {registration.rejectionReason || registration.note || "No note"}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        className="min-h-11 rounded-md border border-slate-300 px-4 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={disabled || registration.status !== "PENDING"}
+                        onClick={() => onWithdraw(registration)}
+                        type="button"
+                      >
+                        Withdraw
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {totalRegistrations > pageSize && (
+            <PaginationControls
+              currentPage={page}
+              onPageChange={onPageChange}
+              pageSize={pageSize}
+              totalItems={totalRegistrations}
+            />
+          )}
         </div>
       )}
     </section>

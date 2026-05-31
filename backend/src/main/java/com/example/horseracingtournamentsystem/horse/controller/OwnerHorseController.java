@@ -8,6 +8,10 @@ import com.example.horseracingtournamentsystem.horse.service.HorseService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,6 +34,17 @@ public class OwnerHorseController {
     @GetMapping
     public List<HorseResponse> listMine(Authentication authentication) {
         return horseService.getOwnerHorses(authentication.getName());
+    }
+
+    @GetMapping(params = {"page", "size"})
+    public Page<HorseResponse> listMinePage(
+            Authentication authentication,
+            Pageable pageable,
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String gender
+    ) {
+        return horseService.getOwnerHorses(authentication.getName(), query, status, gender, ownerPageable(pageable));
     }
 
     @GetMapping("/{id}")
@@ -55,5 +71,12 @@ public class OwnerHorseController {
             @Valid @ModelAttribute OwnerHorseDocumentMultipartRequest request
     ) {
         return horseService.createOwnerHorseDocument(authentication.getName(), id, request);
+    }
+
+    private Pageable ownerPageable(Pageable pageable) {
+        int page = Math.max(0, pageable.getPageNumber());
+        int size = Math.min(Math.max(1, pageable.getPageSize()), 50);
+        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by(Sort.Direction.DESC, "id"));
+        return PageRequest.of(page, size, sort);
     }
 }

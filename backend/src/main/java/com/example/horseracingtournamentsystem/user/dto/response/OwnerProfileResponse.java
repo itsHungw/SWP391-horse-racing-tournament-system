@@ -6,6 +6,11 @@ import java.time.LocalDateTime;
 public record OwnerProfileResponse(
         String stableName,
         String organizationName,
+        String ownerName,
+        String description,
+        String contactPhone,
+        String contactEmail,
+        String contactAddress,
         String licenseNumber,
         Integer experienceYears,
         String bio,
@@ -22,6 +27,11 @@ public record OwnerProfileResponse(
         return new OwnerProfileResponse(
                 profile.getStableName(),
                 profile.getOrganizationName(),
+                profile.getOwnerName(),
+                profile.getDescription(),
+                profile.getContactPhone(),
+                profile.getContactEmail(),
+                profile.getContactAddress(),
                 profile.getLicenseNumber(),
                 profile.getExperienceYears(),
                 profile.getBio(),

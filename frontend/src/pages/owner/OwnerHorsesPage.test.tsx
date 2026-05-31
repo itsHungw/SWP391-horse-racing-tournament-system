@@ -2,19 +2,19 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createOwnerHorse, getOwnerHorses, getOwnerTournamentRegistrations } from "../../api/racingApi";
+import { createOwnerHorse, getOwnerHorsesPage, getOwnerTournamentRegistrations } from "../../api/racingApi";
 import { OwnerHorsesPage } from "./OwnerHorsesPage";
 
 vi.mock("../../api/racingApi", () => ({
   createOwnerHorse: vi.fn(),
-  getOwnerHorses: vi.fn(),
+  getOwnerHorsesPage: vi.fn(),
   getOwnerTournamentRegistrations: vi.fn(),
 }));
 
 describe("OwnerHorsesPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(getOwnerHorses).mockResolvedValue([
+    vi.mocked(getOwnerHorsesPage).mockResolvedValue(pageOf([
       {
         id: 1,
         name: "Nova",
@@ -34,7 +34,7 @@ describe("OwnerHorsesPage", () => {
         gender: "MALE",
         status: "APPROVED",
       },
-    ]);
+    ]));
     vi.mocked(getOwnerTournamentRegistrations).mockResolvedValue([
       {
         id: 9,
@@ -67,11 +67,18 @@ describe("OwnerHorsesPage", () => {
     expect(screen.getAllByRole("link", { name: /view profile/i })[0]).toHaveAttribute("href", "/owner/horses/1");
 
     fireEvent.change(screen.getByLabelText(/search horses/i), { target: { value: "storm" } });
-    expect(screen.queryByText("Nova")).not.toBeInTheDocument();
-    expect(screen.getByText("Storm")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getOwnerHorsesPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 0, query: "storm", size: 8 }),
+      );
+    });
 
     fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "PENDING" } });
-    expect(screen.getByText(/no horses match this roster view/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getOwnerHorsesPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 0, query: "storm", status: "PENDING", size: 8 }),
+      );
+    });
   });
 
   it("creates a horse from the add horse panel using local files", async () => {
@@ -107,4 +114,41 @@ describe("OwnerHorsesPage", () => {
       );
     });
   });
+
+  it("paginates the filtered horse roster", async () => {
+    const horses = Array.from({ length: 9 }, (_, index) => ({
+        id: index + 1,
+        name: `Horse ${index + 1}`,
+        gender: index % 2 === 0 ? "MALE" : "FEMALE",
+        status: "APPROVED" as const,
+      }));
+    vi.mocked(getOwnerHorsesPage).mockImplementation(({ page, size }) =>
+      Promise.resolve(pageOf(horses.slice(page * size, page * size + size), horses.length, page, size)),
+    );
+
+    render(
+      <MemoryRouter>
+        <OwnerHorsesPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Horse 1")).toBeInTheDocument();
+    expect(screen.queryByText("Horse 9")).not.toBeInTheDocument();
+    expect(screen.getByText(/showing 1-8 of 9/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }));
+
+    expect(await screen.findByText("Horse 9")).toBeInTheDocument();
+    expect(screen.queryByText("Horse 1")).not.toBeInTheDocument();
+  });
 });
+
+function pageOf<T>(content: T[], totalElements = content.length, number = 0, size = 8) {
+  return {
+    content,
+    number,
+    size,
+    totalElements,
+    totalPages: Math.max(1, Math.ceil(totalElements / size)),
+  };
+}

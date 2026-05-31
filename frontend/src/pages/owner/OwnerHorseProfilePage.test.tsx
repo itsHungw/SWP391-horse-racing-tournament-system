@@ -6,7 +6,7 @@ import {
   createOwnerHorseDocument,
   getOwnerHorse,
   getOwnerHorseDocuments,
-  getOwnerTournamentRegistrations,
+  getOwnerTournamentRegistrationsPage,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
 import { OwnerHorseProfilePage } from "./OwnerHorseProfilePage";
@@ -15,7 +15,7 @@ vi.mock("../../api/racingApi", () => ({
   createOwnerHorseDocument: vi.fn(),
   getOwnerHorse: vi.fn(),
   getOwnerHorseDocuments: vi.fn(),
-  getOwnerTournamentRegistrations: vi.fn(),
+  getOwnerTournamentRegistrationsPage: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
@@ -45,7 +45,7 @@ describe("OwnerHorseProfilePage", () => {
       medicalNote: "Annual health certificate uploaded.",
       status: "APPROVED",
     });
-    vi.mocked(getOwnerTournamentRegistrations).mockResolvedValue([
+    vi.mocked(getOwnerTournamentRegistrationsPage).mockResolvedValue(pageOf([
       {
         id: 12,
         tournamentId: 4,
@@ -54,7 +54,7 @@ describe("OwnerHorseProfilePage", () => {
         horseName: "Nova",
         status: "PENDING",
       },
-    ]);
+    ]));
     vi.mocked(getOwnerHorseDocuments).mockResolvedValue([
       {
         id: 7,
@@ -180,4 +180,42 @@ describe("OwnerHorseProfilePage", () => {
       expect(withdrawOwnerTournamentRegistration).toHaveBeenCalledWith(12);
     });
   });
+
+  it("paginates this horse's tournament registrations", async () => {
+    const registrations = Array.from({ length: 6 }, (_, index) => ({
+        id: index + 1,
+        tournamentId: index + 1,
+        tournamentName: `Horse Cup ${index + 1}`,
+        horseId: 1,
+        horseName: "Nova",
+        status: "PENDING" as const,
+      }));
+    vi.mocked(getOwnerTournamentRegistrationsPage).mockImplementation(({ page, size }) =>
+      Promise.resolve(pageOf(registrations.slice(page * size, page * size + size), registrations.length, page, size)),
+    );
+
+    renderProfile();
+
+    expect(await screen.findByRole("heading", { name: /nova/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /tournament registrations/i }));
+
+    expect(screen.getByText("Horse Cup 1")).toBeInTheDocument();
+    expect(screen.queryByText("Horse Cup 6")).not.toBeInTheDocument();
+    expect(screen.getByText(/showing 1-5 of 6/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /next page/i }));
+
+    expect(await screen.findByText("Horse Cup 6")).toBeInTheDocument();
+    expect(screen.queryByText("Horse Cup 1")).not.toBeInTheDocument();
+  });
 });
+
+function pageOf<T>(content: T[], totalElements = content.length, number = 0, size = 5) {
+  return {
+    content,
+    number,
+    size,
+    totalElements,
+    totalPages: Math.max(1, Math.ceil(totalElements / size)),
+  };
+}

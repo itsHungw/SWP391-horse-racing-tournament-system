@@ -7,6 +7,8 @@ import {
   createOwnerTournamentRegistration,
   getOwnerHorseDocuments,
   getOwnerHorses,
+  getOwnerHorsesPage,
+  getOwnerTournamentRegistrationsPage,
 } from "./racingApi";
 
 vi.mock("./httpClient", () => ({
@@ -26,6 +28,20 @@ describe("racingApi", () => {
 
     await expect(getOwnerHorses()).resolves.toEqual([{ id: 1, name: "Nova", status: "PENDING" }]);
     expect(httpClient.get).toHaveBeenCalledWith("/owner/horses");
+  });
+
+  it("loads paginated owner horses with page params", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({
+      data: { content: [{ id: 1, name: "Nova", status: "PENDING" }], totalElements: 9, totalPages: 3, number: 0 },
+    });
+
+    await expect(getOwnerHorsesPage({ page: 0, size: 4 })).resolves.toMatchObject({
+      content: [{ id: 1, name: "Nova", status: "PENDING" }],
+      totalElements: 9,
+    });
+    expect(httpClient.get).toHaveBeenCalledWith("/owner/horses", {
+      params: { page: 0, size: 4 },
+    });
   });
 
   it("creates owner horses without ownerId", async () => {
@@ -87,6 +103,22 @@ describe("racingApi", () => {
       tournamentId: 2,
       horseId: 1,
       note: "Ready",
+    });
+  });
+
+  it("loads paginated owner tournament registrations with optional horse and focus params", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({
+      data: { content: [{ id: 10, status: "REJECTED" }], totalElements: 12, totalPages: 3, number: 1 },
+    });
+
+    await expect(
+      getOwnerTournamentRegistrationsPage({ page: 0, size: 5, horseId: 3, focusId: 10 }),
+    ).resolves.toMatchObject({
+      content: [{ id: 10, status: "REJECTED" }],
+      number: 1,
+    });
+    expect(httpClient.get).toHaveBeenCalledWith("/owner/tournament-registrations", {
+      params: { page: 0, size: 5, horseId: 3, focusId: 10 },
     });
   });
 });

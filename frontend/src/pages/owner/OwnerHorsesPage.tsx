@@ -1,8 +1,9 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { FileText, Image as ImageIcon, Plus, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
-import { createOwnerHorse, getOwnerHorses, getOwnerTournamentRegistrations } from "../../api/racingApi";
+import { createOwnerHorse, getOwnerHorsesPage, getOwnerTournamentRegistrations } from "../../api/racingApi";
+import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
 import type { Horse, HorseMultipartPayload, HorseStatus, TournamentRegistration } from "../../types/racing";
@@ -30,16 +31,24 @@ const emptyForm: HorseFormState = {
 
 const statusOptions: Array<"ALL" | HorseStatus> = ["ALL", "PENDING", "APPROVED", "REJECTED", "INACTIVE"];
 const genderOptions = ["ALL", "MALE", "FEMALE"] as const;
+const HORSE_ROSTER_PAGE_SIZE = 8;
 
 export function OwnerHorsesPage() {
   useDocumentTitle("Horse roster");
 
   const [horses, setHorses] = useState<Horse[]>([]);
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
+  const [horsePage, setHorsePage] = useState({
+    number: 0,
+    size: HORSE_ROSTER_PAGE_SIZE,
+    totalElements: 0,
+    totalPages: 1,
+  });
   const [form, setForm] = useState<HorseFormState>(emptyForm);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<(typeof statusOptions)[number]>("ALL");
   const [genderFilter, setGenderFilter] = useState<(typeof genderOptions)[number]>("ALL");
+  const [currentPage, setCurrentPage] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,8 +58,23 @@ export function OwnerHorsesPage() {
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
     try {
-      const [horseData, registrationData] = await Promise.all([getOwnerHorses(), getOwnerTournamentRegistrations()]);
-      setHorses(Array.isArray(horseData) ? horseData : []);
+      const [horseData, registrationData] = await Promise.all([
+        getOwnerHorsesPage({
+          page: currentPage - 1,
+          size: HORSE_ROSTER_PAGE_SIZE,
+          query: query.trim() || undefined,
+          status: statusFilter === "ALL" ? undefined : statusFilter,
+          gender: genderFilter === "ALL" ? undefined : genderFilter,
+        }),
+        getOwnerTournamentRegistrations(),
+      ]);
+      setHorses(Array.isArray(horseData.content) ? horseData.content : []);
+      setHorsePage({
+        number: horseData.number,
+        size: horseData.size,
+        totalElements: horseData.totalElements,
+        totalPages: horseData.totalPages,
+      });
       setRegistrations(Array.isArray(registrationData) ? registrationData : []);
       setMessage(null);
     } catch (error) {
@@ -58,7 +82,7 @@ export function OwnerHorsesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, genderFilter, query, statusFilter]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -72,19 +96,8 @@ export function OwnerHorsesPage() {
     };
   }, [imagePreview]);
 
-  const filteredHorses = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    return horses.filter((horse) => {
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        [horse.name, horse.breed, horse.registrationCode, horse.color]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalizedQuery));
-      const matchesStatus = statusFilter === "ALL" || horse.status === statusFilter;
-      const matchesGender = genderFilter === "ALL" || horse.gender === genderFilter;
-      return matchesQuery && matchesStatus && matchesGender;
-    });
-  }, [genderFilter, horses, query, statusFilter]);
+  const totalHorses = horsePage.totalElements;
+  const rosterPage = horsePage.number + 1;
 
   const updateField = (field: keyof HorseFormState, value: string) => {
     setForm((current) => ({
@@ -122,6 +135,7 @@ export function OwnerHorsesPage() {
       setForm(emptyForm);
       setImagePreview(null);
       setPanelOpen(false);
+      setCurrentPage(1);
       setMessage("Horse submitted for admin review.");
       await loadWorkspace();
     } catch (error) {
@@ -141,7 +155,7 @@ export function OwnerHorsesPage() {
               Horse Roster
             </h1>
             <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">
-              Manage your stable of {horses.length} {horses.length === 1 ? "horse" : "horses"} and track admin review
+              Manage your stable of {totalHorses} {totalHorses === 1 ? "horse" : "horses"} and track admin review
               readiness.
             </p>
           </div>
@@ -167,7 +181,10 @@ export function OwnerHorsesPage() {
             <Search className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
             <input
               className="min-h-11 w-full rounded-md border border-slate-300 pl-10 pr-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setQuery(event.target.value);
+              }}
               placeholder="Search horses, breed, code..."
               value={query}
             />
@@ -177,7 +194,10 @@ export function OwnerHorsesPage() {
             <span className="sr-only">Filter by status</span>
             <select
               className="min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
-              onChange={(event) => setStatusFilter(event.target.value as (typeof statusOptions)[number])}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setStatusFilter(event.target.value as (typeof statusOptions)[number]);
+              }}
               value={statusFilter}
             >
               {statusOptions.map((status) => (
@@ -192,7 +212,10 @@ export function OwnerHorsesPage() {
             <span className="sr-only">Filter by gender</span>
             <select
               className="min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
-              onChange={(event) => setGenderFilter(event.target.value as (typeof genderOptions)[number])}
+              onChange={(event) => {
+                setCurrentPage(1);
+                setGenderFilter(event.target.value as (typeof genderOptions)[number]);
+              }}
               value={genderFilter}
             >
               {genderOptions.map((gender) => (
@@ -208,56 +231,66 @@ export function OwnerHorsesPage() {
           <div className="rounded-lg border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-500">
             Loading horse roster...
           </div>
-        ) : filteredHorses.length === 0 ? (
+        ) : horses.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-500">
             No horses match this roster view.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-black uppercase tracking-[0.08em] text-slate-500">
-                <tr>
-                  <th className="px-6 py-4">Horse</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Documents</th>
-                  <th className="px-6 py-4">Recent Activity</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200">
-                {filteredHorses.map((horse) => (
-                  <tr className="hover:bg-slate-50" key={horse.id}>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <HorseThumbnail horse={horse} />
-                        <div>
-                          <p className="font-black text-slate-950">{horse.name}</p>
-                          <p className="mt-1 text-sm text-slate-600">
-                            {[horse.breed, horse.color, horse.registrationCode].filter(Boolean).join(" - ") ||
-                              "Profile details pending"}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={horse.status} />
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-wrap gap-2">
-                        <DocumentPill available={Boolean(horse.imageUrl)} icon="image" label="Image" />
-                        <DocumentPill available={Boolean(horse.evidenceUrl)} icon="file" label="Evidence" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-slate-700">{activityForHorse(horse, registrations)}</td>
-                    <td className="px-6 py-4 text-right">
-                      <Link className="font-black text-[#dc2626] hover:text-[#991b1b]" to={`/owner/horses/${horse.id}`}>
-                        View Profile
-                      </Link>
-                    </td>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <thead className="bg-slate-50 text-xs font-black uppercase tracking-[0.08em] text-slate-500">
+                  <tr>
+                    <th className="px-6 py-4">Horse</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Documents</th>
+                    <th className="px-6 py-4">Recent Activity</th>
+                    <th className="px-6 py-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {horses.map((horse) => (
+                    <tr className="hover:bg-slate-50" key={horse.id}>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <HorseThumbnail horse={horse} />
+                          <div>
+                            <p className="font-black text-slate-950">{horse.name}</p>
+                            <p className="mt-1 text-sm text-slate-600">
+                              {[horse.breed, horse.color, horse.registrationCode].filter(Boolean).join(" - ") ||
+                                "Profile details pending"}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={horse.status} />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <DocumentPill available={Boolean(horse.imageUrl)} icon="image" label="Image" />
+                          <DocumentPill available={Boolean(horse.evidenceUrl)} icon="file" label="Evidence" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-700">{activityForHorse(horse, registrations)}</td>
+                      <td className="px-6 py-4 text-right">
+                        <Link className="font-black text-[#dc2626] hover:text-[#991b1b]" to={`/owner/horses/${horse.id}`}>
+                          View Profile
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {horsePage.totalElements > HORSE_ROSTER_PAGE_SIZE && (
+              <PaginationControls
+                currentPage={rosterPage}
+                onPageChange={setCurrentPage}
+                pageSize={HORSE_ROSTER_PAGE_SIZE}
+                totalItems={horsePage.totalElements}
+              />
+            )}
           </div>
         )}
 

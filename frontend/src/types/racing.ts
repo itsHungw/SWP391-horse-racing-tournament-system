@@ -114,3 +114,11 @@ export type TournamentRegistrationPayload = {
   horseId: number;
   note?: string;
 };
+
+export type PageResponse<T> = {
+  content: T[];
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+};

@@ -26,7 +26,7 @@ describe("OwnerLayout", () => {
       "href",
       "/owner/registrations",
     );
-    expect(within(ownerNav).getByRole("link", { name: /profile/i })).toHaveAttribute("href", "/profile");
+    expect(within(ownerNav).getByRole("link", { name: /profile/i })).toHaveAttribute("href", "/owner/profile");
     expect(screen.getByRole("heading", { name: /owner dashboard content/i })).toBeInTheDocument();
   });
 });

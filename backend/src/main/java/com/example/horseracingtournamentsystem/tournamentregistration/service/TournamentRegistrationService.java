@@ -16,6 +16,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +39,23 @@ public class TournamentRegistrationService {
         return registrationRepository.findAllByOwnerEmailOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
                 .map(this::mapToResponse)
                 .toList();
+    }
+
+    public Page<TournamentRegistrationResponse> listOwnerRegistrations(
+            String email,
+            Long horseId,
+            Long focusId,
+            Pageable pageable
+    ) {
+        String ownerEmail = email.trim().toLowerCase();
+        Pageable effectivePageable = focusId == null
+                ? pageable
+                : pageableForFocusedRegistration(ownerEmail, horseId, focusId, pageable);
+
+        Page<TournamentRegistration> registrations = horseId == null
+                ? registrationRepository.findAllByOwnerEmail(ownerEmail, effectivePageable)
+                : registrationRepository.findAllByOwnerEmailAndHorseId(ownerEmail, horseId, effectivePageable);
+        return registrations.map(this::mapToResponse);
     }
 
     public List<TournamentRegistrationResponse> listAdminRegistrations(String status) {
@@ -135,6 +155,22 @@ public class TournamentRegistrationService {
                         .getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is full");
         }
+    }
+
+    private Pageable pageableForFocusedRegistration(String ownerEmail, Long horseId, Long focusId, Pageable pageable) {
+        TournamentRegistration focusedRegistration = horseId == null
+                ? registrationRepository.findByIdAndOwnerEmail(focusId, ownerEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"))
+                : registrationRepository.findByIdAndOwnerEmailAndHorseId(focusId, ownerEmail, horseId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+        long itemsBeforeFocus = registrationRepository.countOwnerRegistrationsBeforeFocus(
+                ownerEmail,
+                horseId,
+                focusedRegistration.getCreatedAt(),
+                focusedRegistration.getId()
+        );
+        int focusedPage = (int) (itemsBeforeFocus / pageable.getPageSize());
+        return PageRequest.of(focusedPage, pageable.getPageSize(), pageable.getSort());
     }
 
     private void validateRequiredMedicalDocuments(Horse horse, LocalDate tournamentEndDate) {

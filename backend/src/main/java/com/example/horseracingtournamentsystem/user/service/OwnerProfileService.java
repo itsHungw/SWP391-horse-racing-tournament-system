@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.user.service;
 
+import com.example.horseracingtournamentsystem.user.dto.request.UpdateOwnerProfileRequest;
 import com.example.horseracingtournamentsystem.user.dto.response.OwnerProfileResponse;
 import com.example.horseracingtournamentsystem.user.entity.HorseOwnerProfile;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -27,5 +28,33 @@ public class OwnerProfileService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner profile not found"));
 
         return OwnerProfileResponse.from(profile);
+    }
+
+    @Transactional
+    public OwnerProfileResponse updateMyProfile(String email, UpdateOwnerProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        HorseOwnerProfile profile = ownerProfileRepository.findByUserId(user.getId())
+                .orElseGet(() -> HorseOwnerProfile.pending(user));
+
+        profile.updateStableProfile(
+                request.stableName().trim(),
+                trimToNull(request.ownerName()),
+                trimToNull(request.description()),
+                request.contactPhone().trim(),
+                request.contactEmail().trim(),
+                request.contactAddress().trim(),
+                trimToNull(request.logoUrl())
+        );
+
+        return OwnerProfileResponse.from(ownerProfileRepository.save(profile));
+    }
+
+    private String trimToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 }

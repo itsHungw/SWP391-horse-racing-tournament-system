@@ -4,6 +4,16 @@ IF COL_LENGTH('horse_owner_profiles', 'stable_name') IS NULL
   ALTER TABLE horse_owner_profiles ADD stable_name VARCHAR(150) NULL;
 IF COL_LENGTH('horse_owner_profiles', 'organization_name') IS NULL
   ALTER TABLE horse_owner_profiles ADD organization_name VARCHAR(150) NULL;
+IF COL_LENGTH('horse_owner_profiles', 'owner_name') IS NULL
+  ALTER TABLE horse_owner_profiles ADD owner_name NVARCHAR(150) NULL;
+IF COL_LENGTH('horse_owner_profiles', 'description') IS NULL
+  ALTER TABLE horse_owner_profiles ADD description NVARCHAR(1000) NULL;
+IF COL_LENGTH('horse_owner_profiles', 'contact_phone') IS NULL
+  ALTER TABLE horse_owner_profiles ADD contact_phone VARCHAR(30) NULL;
+IF COL_LENGTH('horse_owner_profiles', 'contact_email') IS NULL
+  ALTER TABLE horse_owner_profiles ADD contact_email VARCHAR(150) NULL;
+IF COL_LENGTH('horse_owner_profiles', 'contact_address') IS NULL
+  ALTER TABLE horse_owner_profiles ADD contact_address NVARCHAR(500) NULL;
 IF COL_LENGTH('horse_owner_profiles', 'license_number') IS NULL
   ALTER TABLE horse_owner_profiles ADD license_number VARCHAR(100) NULL;
 IF COL_LENGTH('horse_owner_profiles', 'experience_years') IS NULL

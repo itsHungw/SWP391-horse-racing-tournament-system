@@ -31,6 +31,21 @@ public class HorseOwnerProfile {
     @Column(name = "organization_name", length = 150)
     private String organizationName;
 
+    @Column(name = "owner_name", length = 150)
+    private String ownerName;
+
+    @Column(name = "description")
+    private String description;
+
+    @Column(name = "contact_phone", length = 30)
+    private String contactPhone;
+
+    @Column(name = "contact_email", length = 150)
+    private String contactEmail;
+
+    @Column(name = "contact_address")
+    private String contactAddress;
+
     @Column(name = "license_number", length = 100)
     private String licenseNumber;
 
@@ -76,5 +91,24 @@ public class HorseOwnerProfile {
 
     public void markUpdated() {
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateStableProfile(
+            String stableName,
+            String ownerName,
+            String description,
+            String contactPhone,
+            String contactEmail,
+            String contactAddress,
+            String logoUrl
+    ) {
+        this.stableName = stableName;
+        this.ownerName = ownerName;
+        this.description = description;
+        this.contactPhone = contactPhone;
+        this.contactEmail = contactEmail;
+        this.contactAddress = contactAddress;
+        this.logoUrl = logoUrl;
+        this.markUpdated();
     }
 }
