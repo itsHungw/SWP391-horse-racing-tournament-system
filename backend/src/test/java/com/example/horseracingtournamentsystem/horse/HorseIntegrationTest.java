@@ -18,6 +18,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
@@ -105,5 +106,45 @@ class HorseIntegrationTest {
         mockMvc.perform(get("/api/v1/horses"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void adminApprovesPendingHorse() throws Exception {
+        Horse horse = Horse.create(ownerUser, "Nova", "H_CODE_2", "Thoroughbred", "FEMALE", LocalDate.of(2020, 3, 1), "Bay");
+        ReflectionTestUtils.setField(horse, "status", "PENDING");
+        horse = horseRepository.save(horse);
+
+        mockMvc.perform(post("/api/v1/admin/horses/{id}/approve", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.approvedBy").exists())
+                .andExpect(jsonPath("$.approvedAt").exists());
+    }
+
+    @Test
+    void adminRejectsPendingHorseWithReason() throws Exception {
+        Horse horse = Horse.create(ownerUser, "Nova", "H_CODE_3", "Thoroughbred", "FEMALE", LocalDate.of(2020, 3, 1), "Bay");
+        ReflectionTestUtils.setField(horse, "status", "PENDING");
+        horse = horseRepository.save(horse);
+
+        mockMvc.perform(post("/api/v1/admin/horses/{id}/reject", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Missing health certificate\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"))
+                .andExpect(jsonPath("$.rejectionReason").value("Missing health certificate"));
+    }
+
+    @Test
+    void adminCannotReviewApprovedHorseAgain() throws Exception {
+        Horse horse = Horse.create(ownerUser, "Nova", "H_CODE_4", "Thoroughbred", "FEMALE", LocalDate.of(2020, 3, 1), "Bay");
+        horse = horseRepository.save(horse);
+
+        mockMvc.perform(post("/api/v1/admin/horses/{id}/approve", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Only pending horses can be reviewed"));
     }
 }

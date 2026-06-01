@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 
 import logo from "../../assets/logo.png";
 import { useClientSession } from "../../hooks/useClientSession";
+import { getDashboardRouteForRoles } from "../../utils/dashboardRoute";
 
 const publicPrimaryNav = [
   { label: "Tournaments", href: "#tournaments" },
@@ -16,8 +17,9 @@ const authenticatedPrimaryNav = publicPrimaryNav;
 
 export function ClientHeader() {
   const navigate = useNavigate();
-  const { isAuthenticated, logout } = useClientSession();
+  const { isAuthenticated, logout, session } = useClientSession();
   const primaryNav = isAuthenticated ? authenticatedPrimaryNav : publicPrimaryNav;
+  const dashboardHref = getDashboardRouteForRoles(session?.roles ?? []);
 
   const handleLogout = () => {
     logout();
@@ -38,7 +40,7 @@ export function ClientHeader() {
 
           {isAuthenticated ? (
             <nav aria-label="Account" className="flex items-center gap-6 font-bold">
-              <a className="opacity-85 hover:opacity-100" href="/spectator">
+              <a className="opacity-85 hover:opacity-100" href={dashboardHref}>
                 Dashboard
               </a>
               <a className="opacity-85 hover:opacity-100" href="/profile">

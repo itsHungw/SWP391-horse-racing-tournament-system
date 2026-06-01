@@ -15,6 +15,15 @@ import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWork
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
 import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
+import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
+import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
+import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
+import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
+import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
+import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
+import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
+import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
+import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 
@@ -42,26 +51,31 @@ export function AppRouter() {
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
 
-        <Route
-          path="spectator"
-          element={<RoleDashboardPage role="Spectator" />}
-        />
-        <Route path="owner" element={<RoleDashboardPage role="Owner" />} />
-        <Route path="jockey" element={<RoleDashboardPage role="Jockey" />} />
-        <Route path="referee" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
+        <Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
+        <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
+        <Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
+        <Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
+        <Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
+        <Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
+        <Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
+        <Route path="jockey" element={<Navigate to="/jockey/dashboard" replace />} />
+        <Route path="jockey/dashboard" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="jockey/invitations" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="jockey/races" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="referee" element={<Navigate to="/referee/dashboard" replace />} />
+        <Route path="referee/dashboard" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/races" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/checks" element={<RoleDashboardPage role="Referee" />} />
+        <Route path="referee/results" element={<RoleDashboardPage role="Referee" />} />
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />
         <Route path="admin/users/:id" element={adminRoute(<AdminUserDetailPage />)} />
-        <Route
-          path="admin/tournaments"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Tournaments"
-              description="Prepare tournament schedules, registration windows, and operational checkpoints."
-            />
-          )}
-        />
+        <Route path="admin/horses" element={adminRoute(<AdminHorsesPage />)} />
+        <Route path="admin/tournament-registrations" element={adminRoute(<AdminTournamentRegistrationsPage />)} />
+        <Route path="admin/tournaments" element={adminRoute(<AdminTournamentListPage />)} />
+        <Route path="admin/tournaments/:id" element={adminRoute(<AdminTournamentDetailPage />)} />
         <Route
           path="admin/races"
           element={adminRoute(

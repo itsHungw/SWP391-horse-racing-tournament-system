@@ -16,6 +16,8 @@ spring:
       mode: never
 
 app:
+  upload:
+    root: target/test-uploads
   auth:
     jwt-secret: test-secret-test-secret-test-secret-test-secret
     access-token-ttl-minutes: 15

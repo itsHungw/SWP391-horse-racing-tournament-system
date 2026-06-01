@@ -52,6 +52,9 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
 
+        if (!java.util.List.of("DRAFT", "POSTPONED").contains(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament settings can only be modified when in DRAFT or POSTPONED status");
+        }
         if (tournamentRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
         }
@@ -76,7 +79,10 @@ public class TournamentService {
     public void deleteTournament(Long id) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
-        tournament.cancel();
+        if (!"DRAFT".equals(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft tournaments can be deleted. Please postpone active tournaments instead");
+        }
+        tournament.postpone();
         tournament.softDelete();
         tournamentRepository.save(tournament);
     }
@@ -103,10 +109,26 @@ public class TournamentService {
     public void updateStatus(Long id, String status) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
-        if (status.equalsIgnoreCase("OPEN_REGISTRATION")) {
-            tournament.openRegistration();
-        } else if (status.equalsIgnoreCase("CLOSED_REGISTRATION")) {
-            tournament.closeRegistration();
+        
+        String upperStatus = status.toUpperCase();
+        switch (upperStatus) {
+            case "OPEN_REGISTRATION":
+                tournament.openRegistration();
+                break;
+            case "CLOSED_REGISTRATION":
+                tournament.closeRegistration();
+                break;
+            case "ONGOING":
+                tournament.startOngoing();
+                break;
+            case "COMPLETED":
+                tournament.completeTournament();
+                break;
+            case "POSTPONED":
+                tournament.postpone();
+                break;
+            default:
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament status: " + status);
         }
         tournamentRepository.save(tournament);
     }
