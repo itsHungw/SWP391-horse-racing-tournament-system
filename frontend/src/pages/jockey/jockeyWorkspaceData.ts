@@ -1,6 +1,18 @@
 export type ChampionshipStatus = "OPEN_ENROLLMENT" | "ENROLLED" | "COMMITTED" | "COMPLETED";
 export type ContractStatus = "PENDING" | "COMMITTED" | "REJECTED";
 export type RoundStatus = "FINISHED" | "NEXT" | "UPCOMING" | "LOCKED" | "CANCELLED";
+export type JockeyApplicationStatus =
+  | "NOT_APPLIED"
+  | "PENDING_REVIEW"
+  | "APPROVED_FOR_POOL"
+  | "REJECTED"
+  | "WITHDRAWN"
+  | "COMMITTED";
+
+export type ChampionshipRequirement = {
+  label: string;
+  met: boolean;
+};
 
 export type JockeyChampionship = {
   id: string;
@@ -14,6 +26,12 @@ export type JockeyChampionship = {
   enrollmentDeadline: string;
   enrollmentStatus: "Open Enrollment" | "Enrolled" | "Enrollment Closed";
   commitmentStatus: "Enrolled" | "Contract Pending" | "Committed" | "Completed";
+  applicationStatus: JockeyApplicationStatus;
+  poolApproved: number;
+  poolCapacity: number;
+  requirements: ChampionshipRequirement[];
+  applicationSubmittedAt?: string;
+  applicationNote?: string;
   horse: string;
   stable: string;
   rank: string;
@@ -69,6 +87,9 @@ export type CareerRecord = {
   top3Rate: string;
   championshipsJoined: number;
   championshipsWon: number;
+  bestRank: string;
+  totalPoints: number;
+  winRate: string;
 };
 
 export const jockeyChampionships: JockeyChampionship[] = [
@@ -84,6 +105,15 @@ export const jockeyChampionships: JockeyChampionship[] = [
     enrollmentDeadline: "May 24, 2026",
     enrollmentStatus: "Enrolled",
     commitmentStatus: "Committed",
+    applicationStatus: "COMMITTED",
+    poolApproved: 16,
+    poolCapacity: 20,
+    requirements: [
+      { label: "Jockey role approved", met: true },
+      { label: "Racing passport complete", met: true },
+      { label: "Application window open", met: true },
+      { label: "Not already approved in this championship", met: true },
+    ],
     horse: "Thunder Bolt",
     stable: "Sunrise Stable",
     rank: "#3",
@@ -103,6 +133,15 @@ export const jockeyChampionships: JockeyChampionship[] = [
     enrollmentDeadline: "Aug 18, 2026",
     enrollmentStatus: "Open Enrollment",
     commitmentStatus: "Enrolled",
+    applicationStatus: "NOT_APPLIED",
+    poolApproved: 8,
+    poolCapacity: 20,
+    requirements: [
+      { label: "Jockey role approved", met: true },
+      { label: "Racing passport complete", met: true },
+      { label: "Application window open", met: true },
+      { label: "Not already approved in this championship", met: true },
+    ],
     horse: "Unassigned",
     stable: "Open Pool",
     rank: "Unranked",
@@ -284,12 +323,42 @@ export const careerRecord: CareerRecord = {
   top3Rate: "58.3%",
   championshipsJoined: 5,
   championshipsWon: 1,
+  bestRank: "#1",
+  totalPoints: 131,
+  winRate: "25%",
 };
 
 export const championshipArchive = [
-  { championship: "Summer Championship 2026", rank: "#3", points: 42, horse: "Thunder Bolt", stable: "Sunrise Stable" },
-  { championship: "Spring Cup 2026", rank: "#1", points: 58, horse: "Golden Arrow", stable: "Sunrise Stable" },
-  { championship: "Autumn Cup 2025", rank: "#4", points: 31, horse: "Night Signal", stable: "River Gate Stable" },
+  {
+    championship: "Summer Championship 2026",
+    rank: "#3",
+    points: 42,
+    horse: "Thunder Bolt",
+    stable: "Sunrise Stable",
+    wins: 1,
+    top3Finishes: 3,
+    rounds: 8,
+  },
+  {
+    championship: "Spring Cup 2026",
+    rank: "#1",
+    points: 58,
+    horse: "Golden Arrow",
+    stable: "Sunrise Stable",
+    wins: 2,
+    top3Finishes: 5,
+    rounds: 8,
+  },
+  {
+    championship: "Autumn Cup 2025",
+    rank: "#4",
+    points: 31,
+    horse: "Night Signal",
+    stable: "River Gate Stable",
+    wins: 1,
+    top3Finishes: 3,
+    rounds: 6,
+  },
 ];
 
 export function getRoundsForChampionship(championshipId: string) {
