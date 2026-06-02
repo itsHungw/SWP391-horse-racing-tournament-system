@@ -53,9 +53,13 @@ export type JockeyContract = {
   message: string;
   terms: string[];
   agreementFileName: string;
+  agreementFileSize: string;
+  agreementUpdatedAt: string;
+  activityLabel: string;
   responseDeadline: string;
   status: ContractStatus;
   hasConflict?: boolean;
+  isUnread?: boolean;
 };
 
 export type CareerRecord = {
@@ -226,6 +230,9 @@ export const jockeyContracts: JockeyContract[] = [
     message: "Please confirm availability for the full championship assignment.",
     terms: ["Expected participation: all championship rounds", "Reserve rider allowed: no", "Stable briefing before each race day"],
     agreementFileName: "summer-assignment-agreement.pdf",
+    agreementFileSize: "1.2 MB",
+    agreementUpdatedAt: "May 12, 2026",
+    activityLabel: "Committed May 21",
     responseDeadline: "May 23, 2026",
     status: "COMMITTED",
   },
@@ -241,9 +248,13 @@ export const jockeyContracts: JockeyContract[] = [
     message: "We would like to assign you as the primary rider for Black Storm.",
     terms: ["Expected participation: all championship rounds", "Reserve rider allowed: yes"],
     agreementFileName: "river-gate-summer-terms.pdf",
+    agreementFileSize: "980 KB",
+    agreementUpdatedAt: "May 20, 2026",
+    activityLabel: "Last updated 2h ago",
     responseDeadline: "May 25, 2026",
     status: "PENDING",
     hasConflict: true,
+    isUnread: true,
   },
   {
     id: "contract-3",
@@ -257,8 +268,12 @@ export const jockeyContracts: JockeyContract[] = [
     message: "Open pool invitation for Autumn Cup commitment.",
     terms: ["Expected participation: all championship rounds", "Reserve rider allowed: no"],
     agreementFileName: "autumn-cup-assignment.pdf",
+    agreementFileSize: "1.0 MB",
+    agreementUpdatedAt: "Jun 1, 2026",
+    activityLabel: "Received today",
     responseDeadline: "Aug 20, 2026",
     status: "PENDING",
+    isUnread: true,
   },
 ];
 
