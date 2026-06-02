@@ -6,6 +6,8 @@ export type RaceSummary = {
   code: string;
   distanceMeters: number;
   status: string;
+  scheduledAt?: string;
+  venue?: string;
 };
 
 export async function getAssignedRaces(): Promise<RaceSummary[]> {
