@@ -16,7 +16,14 @@ describe("JockeyLayout", () => {
 
     expect(screen.getByRole("banner", { name: /jockey workspace header/i })).toBeInTheDocument();
     expect(screen.getAllByText(/racing cockpit/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole("region", { name: /current assignment/i })).toBeInTheDocument();
+    const assignment = screen.getByRole("region", { name: /current assignment/i });
+    expect(assignment).toBeInTheDocument();
+    expect(within(assignment).getByRole("img", { name: /thunder bolt horse thumbnail/i })).toBeInTheDocument();
+    expect(within(assignment).getByText(/next race/i)).toBeInTheDocument();
+    expect(within(assignment).getByText(/jun 6/i)).toBeInTheDocument();
+    expect(within(assignment).getByText(/committed/i)).toBeInTheDocument();
+    expect(within(assignment).queryByText(/^rank$/i)).not.toBeInTheDocument();
+    expect(within(assignment).queryByText(/^points$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /career record/i })).not.toBeInTheDocument();
 
     const nav = screen.getByRole("navigation", { name: /jockey workspace/i });

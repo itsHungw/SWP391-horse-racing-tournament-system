@@ -25,6 +25,11 @@ export function JockeyDashboardPage() {
   const rounds = useMemo(() => getRoundsForChampionship(championship.id), [championship.id]);
   const nextRound = getNextRound(championship.id);
   const pendingContracts = jockeyContracts.filter((contract) => contract.status === "PENDING");
+  const leaderGap = Math.abs(Number.parseInt(championship.gapToLeader, 10)) || 0;
+  const leaderPoints = championship.points + leaderGap;
+  const leaderScorePercent = leaderPoints > 0 ? Math.round((championship.points / leaderPoints) * 100) : 0;
+  const currentRoundNumber = nextRound?.roundNumber ?? rounds.filter((round) => round.status === "FINISHED").length;
+  const seasonProgressPercent = Math.round((currentRoundNumber / championship.rounds) * 100);
 
   return (
     <JockeyLayout>
@@ -61,9 +66,37 @@ export function JockeyDashboardPage() {
               <p className="mt-3 text-2xl font-black tracking-tight text-emerald-50">
                 {championship.name}
               </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-emerald-50 ring-1 ring-white/15">
+                  {championship.horse} / {championship.stable}
+                </span>
+                <span className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-emerald-50 ring-1 ring-white/15">
+                  Round {currentRoundNumber} of {championship.rounds}
+                </span>
+                <span className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-emerald-50 ring-1 ring-white/15">
+                  Current Standing {championship.rank}
+                </span>
+                {nextRound && (
+                  <span className="rounded-md bg-white/10 px-3 py-2 text-sm font-black text-emerald-50 ring-1 ring-white/15">
+                    Jun 6 - {nextRound.track}
+                  </span>
+                )}
+              </div>
               <p className="mt-3 max-w-3xl text-base font-bold leading-7 text-emerald-50/85">
                 {championship.horse} with {championship.stable}. Season position, points, and race-day readiness in one cockpit.
               </p>
+              <div className="mt-6 max-w-xl rounded-lg border border-white/15 bg-white/10 p-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">Season Progress</p>
+                  <p className="text-sm font-black text-white">{seasonProgressPercent}%</p>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-white/15">
+                  <div className="h-2 rounded-full bg-emerald-200" style={{ width: `${seasonProgressPercent}%` }} />
+                </div>
+                <p className="mt-3 text-sm font-bold text-emerald-50/85">
+                  {currentRoundNumber} / {championship.rounds} rounds completed
+                </p>
+              </div>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
                   className="inline-flex min-h-11 items-center gap-2 rounded-md bg-white px-5 text-sm font-black text-[#004d3d] hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-100"
@@ -82,23 +115,25 @@ export function JockeyDashboardPage() {
             </div>
 
             <aside aria-label="Current standing" className="rounded-lg border border-white/15 bg-white/10 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">Current Standing</p>
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">Podium Position</p>
               <div className="mt-5">
                 <p className="text-7xl font-black leading-none tracking-tight">{championship.rank}</p>
-                <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-emerald-100">In podium range</p>
+                <p className="mt-3 text-sm font-black uppercase tracking-[0.16em] text-emerald-100">Rank {championship.rank}</p>
               </div>
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <div className="rounded-md border border-white/10 bg-white/10 p-3">
-                  <p className="text-sm font-bold text-emerald-100/80">Points</p>
-                  <p className="mt-1 text-3xl font-black">{championship.points}</p>
-                </div>
-                <div className="rounded-md border border-white/10 bg-white/10 p-3">
-                  <p className="text-sm font-bold text-emerald-100/80">Gap</p>
-                  <p className="mt-1 text-3xl font-black">{championship.gapToLeader}</p>
-                </div>
+              <div className="mt-6 rounded-md border border-white/10 bg-white/10 p-3">
+                <p className="text-sm font-bold text-emerald-100/80">Points</p>
+                <p className="mt-1 text-3xl font-black">{championship.points}</p>
               </div>
+              <div className="mt-5 space-y-2 text-sm font-black text-emerald-50">
+                <p>Leader: {leaderPoints} pts</p>
+                <p>You: {championship.points} pts</p>
+              </div>
+              <div className="mt-3 h-2 rounded-full bg-white/15" aria-hidden="true">
+                <div className="h-2 rounded-full bg-emerald-200" style={{ width: `${leaderScorePercent}%` }} />
+              </div>
+              <p className="mt-3 text-sm font-black text-emerald-50">{leaderScorePercent}% of leader score</p>
               <p className="mt-4 text-sm font-bold text-emerald-50/80">
-                Podium target is within reach after {rounds.filter((round) => round.status === "FINISHED").length} of {championship.rounds} rounds.
+                {leaderGap} pts behind the leader
               </p>
             </aside>
           </div>

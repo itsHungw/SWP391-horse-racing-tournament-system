@@ -4,7 +4,7 @@ import { CalendarDays, FileCheck2, Gauge, LogOut, Search, ShieldCheck, Trophy, U
 
 import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
-import { jockeyChampionships } from "../pages/jockey/jockeyWorkspaceData";
+import { getNextRound, jockeyChampionships } from "../pages/jockey/jockeyWorkspaceData";
 import { useClientSession } from "../hooks/useClientSession";
 
 type JockeyLayoutProps = {
@@ -23,6 +23,7 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
   const navigate = useNavigate();
   const { logout, session } = useClientSession();
   const currentAssignment = jockeyChampionships[0];
+  const nextRound = getNextRound(currentAssignment.id);
 
   const handleLogout = () => {
     logout();
@@ -126,19 +127,28 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
               </div>
               <dl className="mt-4 grid gap-3 text-sm">
                 <div className="border-b border-white/10 pb-3">
-                  <dt className="text-emerald-100/80">Horse</dt>
-                  <dd className="mt-1 text-2xl font-black leading-none">{currentAssignment.horse}</dd>
+                  <div className="flex items-center gap-3">
+                    {/* <img
+                      alt={`${currentAssignment.horse} horse thumbnail`}
+                      className="h-14 w-14 rounded-md border border-white/15 object-cover"
+                      src={racingImage}
+                    /> */}
+                    <div>
+                      <dt className="text-emerald-100/80">Horse</dt>
+                      <dd className="mt-1 text-2xl font-black leading-none">{currentAssignment.horse}</dd>
+                    </div>
+                  </div>
                   <dt className="mt-3 text-emerald-100/80">Championship</dt>
                   <dd className="mt-1 text-sm font-black leading-5">{currentAssignment.name}</dd>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <dt className="text-emerald-100/80">Rank</dt>
-                    <dd className="mt-1 text-3xl font-black leading-none">{currentAssignment.rank}</dd>
+                    <dt className="text-emerald-100/80">Next Race</dt>
+                    <dd className="mt-1 text-sm font-black leading-5">{nextRound ? "Jun 6" : "TBD"}</dd>
                   </div>
                   <div>
-                    <dt className="text-emerald-100/80">Points</dt>
-                    <dd className="mt-1 text-3xl font-black leading-none">{currentAssignment.points}</dd>
+                    <dt className="text-emerald-100/80">Status</dt>
+                    <dd className="mt-1 text-sm font-black leading-5">{currentAssignment.commitmentStatus}</dd>
                   </div>
                 </div>
               </dl>

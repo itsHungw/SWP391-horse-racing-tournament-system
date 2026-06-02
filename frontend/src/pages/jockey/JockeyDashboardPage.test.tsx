@@ -16,12 +16,20 @@ describe("JockeyDashboardPage", () => {
     expect(screen.getByRole("combobox", { name: /select championship/i })).toHaveDisplayValue(
       "Summer Championship 2026",
     );
+    expect(screen.getByText(/thunder bolt \/ sunrise stable/i)).toBeInTheDocument();
+    expect(screen.getByText(/round 4 of 8/i)).toBeInTheDocument();
+    expect(screen.getByText(/jun 6 - belmont park/i)).toBeInTheDocument();
+    expect(screen.getByText(/season progress/i)).toBeInTheDocument();
+    expect(screen.getByText(/50%/i)).toBeInTheDocument();
 
     const standing = screen.getByLabelText(/current standing/i);
     expect(within(standing).getByText("#3")).toBeInTheDocument();
     expect(within(standing).getByText("42")).toBeInTheDocument();
-    expect(within(standing).getByText("-8 pts")).toBeInTheDocument();
-    expect(within(standing).getByText(/in podium range/i)).toBeInTheDocument();
+    expect(within(standing).getByText(/podium position/i)).toBeInTheDocument();
+    expect(within(standing).getByText(/leader: 50 pts/i)).toBeInTheDocument();
+    expect(within(standing).getByText(/you: 42 pts/i)).toBeInTheDocument();
+    expect(within(standing).getByText(/84% of leader score/i)).toBeInTheDocument();
+    expect(within(standing).getByText(/8 pts behind the leader/i)).toBeInTheDocument();
 
     const nextRace = screen.getByRole("region", { name: /next race/i });
     expect(within(nextRace).getByText(/belmont stakes presented/i)).toBeInTheDocument();
@@ -33,7 +41,8 @@ describe("JockeyDashboardPage", () => {
     expect(within(timeline).queryByText(/^next race$/i)).not.toBeInTheDocument();
 
     fireEvent.click(within(timeline).getByRole("button", { name: /round 4/i }));
-    expect(screen.getByRole("dialog", { name: /race detail/i })).toBeInTheDocument();
-    expect(screen.getByText(/round 4 of 8/i)).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: /race detail/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/round 4 of 8/i)).toBeInTheDocument();
   });
 });
