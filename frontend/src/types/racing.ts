@@ -90,6 +90,41 @@ export type Tournament = {
   status: string;
 };
 
+export type RaceStatus =
+  | "SCHEDULED"
+  | "CHECKING"
+  | "READY"
+  | "ONGOING"
+  | "FINISHED"
+  | "RESULT_SUBMITTED"
+  | "RESULT_CONFIRMED"
+  | "PUBLISHED"
+  | "CANCELLED";
+
+export type Race = {
+  id: number;
+  tournamentId: number;
+  tournamentName: string;
+  name: string;
+  code: string;
+  raceDateTime: string;
+  distanceMeters: number;
+  maxParticipants: number;
+  status: RaceStatus | string;
+  creatorName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RacePayload = {
+  tournamentId: number;
+  name: string;
+  code: string;
+  raceDateTime: string;
+  distanceMeters: number;
+  maxParticipants: number;
+};
+
 export type TournamentRegistrationStatus = "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN";
 
 export type TournamentRegistration = {

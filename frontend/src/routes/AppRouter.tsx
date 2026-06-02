@@ -77,6 +77,24 @@ export function AppRouter() {
         <Route path="admin/tournaments" element={adminRoute(<AdminTournamentListPage />)} />
         <Route path="admin/tournaments/:id" element={adminRoute(<AdminTournamentDetailPage />)} />
         <Route
+          path="admin/participants"
+          element={adminRoute(
+            <AdminPlaceholderPage
+              title="Participants"
+              description="Review horse and jockey pairings after registration, pool approval, and assignment contracts."
+            />
+          )}
+        />
+        <Route
+          path="admin/standings"
+          element={adminRoute(
+            <AdminPlaceholderPage
+              title="Standings"
+              description="Monitor championship points after round results are published."
+            />
+          )}
+        />
+        <Route
           path="admin/races"
           element={adminRoute(
             <AdminPlaceholderPage

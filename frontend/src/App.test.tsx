@@ -320,10 +320,23 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByText("PEOPLE")).toBeInTheDocument();
+    expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
+    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournaments",
+    );
     expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
       "href",
       "/admin/horses",
     );
+    expect(screen.getByRole("link", { name: /^participants$/i })).toHaveAttribute(
+      "href",
+      "/admin/participants",
+    );
+    expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
       "href",
       "/admin/tournament-registrations",

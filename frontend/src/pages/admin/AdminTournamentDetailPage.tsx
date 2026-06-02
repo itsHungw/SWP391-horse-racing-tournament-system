@@ -1,15 +1,172 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle2,
+  ChevronDown,
+  ClipboardCheck,
+  Flag,
+  Gauge,
+  Play,
+  Plus,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import {
+  CreateTournamentPayload,
+  deleteTournament,
   getTournamentDetail,
   updateTournament,
-  deleteTournament,
   updateTournamentStatus,
-  CreateTournamentPayload,
 } from "../../api/adminTournamentApi";
-import type { Tournament } from "../../types/racing";
+import type { Race, RaceStatus, Tournament } from "../../types/racing";
+
+type ChampionshipTab = "overview" | "rounds" | "controls";
+
+const championshipTabs: Array<{ key: ChampionshipTab; label: string }> = [
+  { key: "overview", label: "Overview" },
+  { key: "rounds", label: "Rounds" },
+  { key: "controls", label: "Controls" },
+];
+
+const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Racing", "Completed"];
+
+const emptyRoundForm = {
+  name: "",
+  code: "",
+  raceDateTime: "",
+  distanceMeters: "",
+  maxParticipants: "",
+};
+
+const raceStatusMeta: Record<string, { label: string; className: string; helper: string }> = {
+  SCHEDULED: {
+    label: "Scheduled",
+    className: "border-slate-200 bg-slate-50 text-slate-700",
+    helper: "Race card is scheduled and waiting for operational checks.",
+  },
+  CHECKING: {
+    label: "Checking",
+    className: "border-amber-200 bg-amber-50 text-amber-800",
+    helper: "Participant readiness and race-day requirements are being checked.",
+  },
+  READY: {
+    label: "Ready",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    helper: "Race is cleared for start.",
+  },
+  ONGOING: {
+    label: "Ongoing",
+    className: "border-blue-200 bg-blue-50 text-blue-800",
+    helper: "Race is currently in progress.",
+  },
+  FINISHED: {
+    label: "Finished",
+    className: "border-indigo-200 bg-indigo-50 text-indigo-800",
+    helper: "Race is finished and waiting for result submission.",
+  },
+  RESULT_SUBMITTED: {
+    label: "Result submitted",
+    className: "border-violet-200 bg-violet-50 text-violet-800",
+    helper: "Result has been submitted and needs admin confirmation.",
+  },
+  RESULT_CONFIRMED: {
+    label: "Result confirmed",
+    className: "border-cyan-200 bg-cyan-50 text-cyan-800",
+    helper: "Result ready for publishing.",
+  },
+  PUBLISHED: {
+    label: "Published",
+    className: "border-emerald-200 bg-emerald-100 text-emerald-900",
+    helper: "Published to standings and public result surfaces.",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    className: "border-rose-200 bg-rose-50 text-rose-800",
+    helper: "Race has been cancelled.",
+  },
+};
+
+const raceNextActions: Record<string, { label: string; target: RaceStatus; icon: typeof Play } | undefined> = {
+  SCHEDULED: { label: "Start checks", target: "CHECKING", icon: ClipboardCheck },
+  CHECKING: { label: "Mark ready", target: "READY", icon: CheckCircle2 },
+  READY: { label: "Start race", target: "ONGOING", icon: Play },
+  ONGOING: { label: "Finish race", target: "FINISHED", icon: Flag },
+  FINISHED: { label: "Submit results", target: "RESULT_SUBMITTED", icon: Trophy },
+  RESULT_SUBMITTED: { label: "Confirm results", target: "RESULT_CONFIRMED", icon: CheckCircle2 },
+  RESULT_CONFIRMED: { label: "Publish results", target: "PUBLISHED", icon: Trophy },
+};
+
+function formatRaceDate(value: string) {
+  if (!value) {
+    return "Not scheduled";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getRaceStatusMeta(status: string) {
+  return raceStatusMeta[status] ?? {
+    label: status.replace("_", " "),
+    className: "border-slate-200 bg-slate-50 text-slate-700",
+    helper: "Race status is being tracked by operations.",
+  };
+}
+
+function getChampionshipPhase(status: string) {
+  switch (status) {
+    case "DRAFT":
+    case "OPEN_REGISTRATION":
+      return "Registration";
+    case "CLOSED_REGISTRATION":
+      return "Pool Formation";
+    case "ONGOING":
+      return "Racing";
+    case "COMPLETED":
+      return "Completed";
+    default:
+      return "Registration";
+  }
+}
+
+function getBadgeStyle(status: string) {
+  switch (status) {
+    case "OPEN_REGISTRATION":
+      return "border-emerald-200 bg-emerald-100 text-emerald-800";
+    case "ONGOING":
+      return "border-blue-200 bg-blue-100 text-blue-800";
+    case "COMPLETED":
+      return "border-purple-200 bg-purple-100 text-purple-800";
+    case "POSTPONED":
+      return "border-orange-200 bg-orange-100 text-orange-800";
+    case "CLOSED_REGISTRATION":
+      return "border-amber-200 bg-amber-100 text-amber-800";
+    default:
+      return "border-slate-200 bg-slate-100 text-slate-800";
+  }
+}
+
+function getNextActionLabel(race: Race | null) {
+  if (!race) {
+    return "Create Championship Round";
+  }
+
+  if (race.status === "SCHEDULED") {
+    return "Start Operational Checks";
+  }
+
+  return raceNextActions[race.status]?.label ?? "Review Round Status";
+}
 
 export function AdminTournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -18,9 +175,13 @@ export function AdminTournamentDetailPage() {
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"settings" | "races" | "registrations">("settings");
-
-  // Form State
+  const [activeTab, setActiveTab] = useState<ChampionshipTab>("overview");
+  const [races, setRaces] = useState<Race[]>([]);
+  const [raceLoading, setRaceLoading] = useState(false);
+  const [raceError, setRaceError] = useState("");
+  const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
+  const [roundControlOpen, setRoundControlOpen] = useState(false);
+  const [raceActionLoadingId, setRaceActionLoadingId] = useState<number | null>(null);
   const [form, setForm] = useState<CreateTournamentPayload>({
     name: "",
     code: "",
@@ -32,12 +193,9 @@ export function AdminTournamentDetailPage() {
     registrationEndAt: "",
     maxHorses: undefined,
   });
-
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-
-  // Modals
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState<{ show: boolean; targetStatus: string }>({
@@ -45,8 +203,12 @@ export function AdminTournamentDetailPage() {
     targetStatus: "",
   });
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [showCreateRoundModal, setShowCreateRoundModal] = useState(false);
+  const [roundForm, setRoundForm] = useState(emptyRoundForm);
+  const [roundFormError, setRoundFormError] = useState("");
+  const [creatingRound, setCreatingRound] = useState(false);
 
-  useDocumentTitle(tournament ? `${tournament.name} detail` : "Tournament detail");
+  useDocumentTitle(tournament ? `${tournament.name} championship` : "Championship detail");
 
   const loadDetail = async () => {
     try {
@@ -66,9 +228,28 @@ export function AdminTournamentDetailPage() {
         maxHorses: data.maxHorses || undefined,
       });
     } catch (err: any) {
-      setErrorMsg("Failed to load tournament detail.");
+      setErrorMsg(err.response?.data?.message || "Failed to load championship detail.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRaces = async () => {
+    try {
+      setRaceLoading(true);
+      setRaceError("");
+      const data = await getAdminRaces({ tournamentId });
+      setRaces(data);
+      setSelectedRaceId((currentId) => {
+        if (currentId && data.some((race) => race.id === currentId)) {
+          return currentId;
+        }
+        return data[0]?.id ?? null;
+      });
+    } catch (err: any) {
+      setRaceError(err.response?.data?.message || "Failed to load round control.");
+    } finally {
+      setRaceLoading(false);
     }
   };
 
@@ -77,6 +258,12 @@ export function AdminTournamentDetailPage() {
       loadDetail();
     }
   }, [tournamentId]);
+
+  useEffect(() => {
+    if (tournamentId && ["overview", "rounds"].includes(activeTab)) {
+      loadRaces();
+    }
+  }, [activeTab, tournamentId]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,12 +276,12 @@ export function AdminTournamentDetailPage() {
     }
 
     if (new Date(form.endDate) < new Date(form.startDate)) {
-      setErrorMsg("Tournament End Date cannot be before Start Date.");
+      setErrorMsg("Championship end date cannot be before start date.");
       return;
     }
 
     if (new Date(form.registrationEndAt) < new Date(form.registrationStartAt)) {
-      setErrorMsg("Registration End Time cannot be before Start Time.");
+      setErrorMsg("Registration end time cannot be before start time.");
       return;
     }
 
@@ -104,10 +291,10 @@ export function AdminTournamentDetailPage() {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
       });
-      setSuccessMsg("Tournament settings updated successfully.");
+      setSuccessMsg("Championship setup updated successfully.");
       loadDetail();
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to update tournament.");
+      setErrorMsg(err.response?.data?.message || "Failed to update championship.");
     } finally {
       setSaving(false);
     }
@@ -120,7 +307,7 @@ export function AdminTournamentDetailPage() {
       setShowDeleteModal(false);
       navigate("/admin/tournaments");
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to delete tournament.");
+      setErrorMsg(err.response?.data?.message || "Failed to delete championship.");
       setShowDeleteModal(false);
     } finally {
       setDeleting(false);
@@ -136,10 +323,71 @@ export function AdminTournamentDetailPage() {
       setSuccessMsg(`Status updated successfully to ${targetStatus.replace("_", " ")}.`);
       loadDetail();
     } catch (err: any) {
-      setErrorMsg(err.response?.data?.message || "Failed to update tournament status.");
+      setErrorMsg(err.response?.data?.message || "Failed to update championship status.");
       setShowStatusModal({ show: false, targetStatus: "" });
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleRaceStatusTransition = async (race: Race, targetStatus: RaceStatus) => {
+    try {
+      setRaceActionLoadingId(race.id);
+      setRaceError("");
+      const updatedRace = await updateAdminRaceStatus(race.id, targetStatus);
+      setRaces((currentRaces) =>
+        currentRaces.map((currentRace) => (currentRace.id === updatedRace.id ? updatedRace : currentRace)),
+      );
+      setSelectedRaceId(updatedRace.id);
+      setSuccessMsg(`${race.name} moved to ${targetStatus.replace("_", " ").toLowerCase()}.`);
+    } catch (err: any) {
+      setRaceError(err.response?.data?.message || "Failed to update race status.");
+    } finally {
+      setRaceActionLoadingId(null);
+    }
+  };
+
+  const handleCreateRoundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setRoundFormError("");
+
+    const distanceMeters = Number(roundForm.distanceMeters);
+    const maxParticipants = Number(roundForm.maxParticipants);
+
+    if (!roundForm.name || !roundForm.code || !roundForm.raceDateTime || !roundForm.distanceMeters || !roundForm.maxParticipants) {
+      setRoundFormError("Please fill in all required round fields.");
+      return;
+    }
+
+    if (distanceMeters < 1) {
+      setRoundFormError("Distance must be greater than 0.");
+      return;
+    }
+
+    if (maxParticipants < 2) {
+      setRoundFormError("Max participants must be at least 2.");
+      return;
+    }
+
+    try {
+      setCreatingRound(true);
+      const createdRound = await createAdminRace({
+        tournamentId,
+        name: roundForm.name,
+        code: roundForm.code,
+        raceDateTime: roundForm.raceDateTime,
+        distanceMeters,
+        maxParticipants,
+      });
+      setSuccessMsg(`${createdRound.name} created successfully.`);
+      setRoundForm(emptyRoundForm);
+      setShowCreateRoundModal(false);
+      setActiveTab("rounds");
+      await loadRaces();
+    } catch (err: any) {
+      setRoundFormError(err.response?.data?.message || "Failed to create championship round.");
+    } finally {
+      setCreatingRound(false);
     }
   };
 
@@ -157,9 +405,9 @@ export function AdminTournamentDetailPage() {
     return (
       <AdminLayout>
         <div className="rounded-lg border border-slate-200 bg-white p-8 text-center">
-          <p className="text-lg font-bold text-slate-700">Tournament not found</p>
+          <p className="text-lg font-bold text-slate-700">Championship not found</p>
           <Link to="/admin/tournaments" className="mt-4 inline-block font-bold text-[#b3193a] underline">
-            Back to Tournaments
+            Back to Championships
           </Link>
         </div>
       </AdminLayout>
@@ -168,371 +416,950 @@ export function AdminTournamentDetailPage() {
 
   const isLocked = !["DRAFT", "POSTPONED"].includes(tournament.status);
   const isDraft = tournament.status === "DRAFT";
+  const currentPhase = getChampionshipPhase(tournament.status);
+  const currentPhaseIndex = championshipPhases.indexOf(currentPhase);
+  const selectedRace = races.find((race) => race.id === selectedRaceId) ?? races[0] ?? null;
+  const selectedRaceMeta = selectedRace ? getRaceStatusMeta(selectedRace.status) : null;
+  const selectedRaceAction = selectedRace ? raceNextActions[selectedRace.status] : undefined;
+  const SelectedRaceActionIcon = selectedRaceAction?.icon;
+  const publishedRaceCount = races.filter((race) => race.status === "PUBLISHED").length;
+  const resultReadyCount = races.filter((race) => race.status === "RESULT_CONFIRMED").length;
+  const activeRaceCount = races.filter((race) => ["CHECKING", "READY", "ONGOING"].includes(race.status)).length;
+  const nextRound = races.find((race) => !["PUBLISHED", "CANCELLED"].includes(race.status)) ?? races[0] ?? null;
+  const participantCapacity = tournament.maxHorses ?? 0;
+  const mockParticipants = [
+    { horse: "Thunder Bolt", jockey: "Nguyen Van A", stable: "Sunrise Stable", points: 42, status: "ACTIVE" },
+    { horse: "Black Storm", jockey: "Tran Minh K", stable: "River Gate Stable", points: 35, status: "ACTIVE" },
+    { horse: "Golden Arrow", jockey: "Le Hoang P", stable: "Highland Racing", points: 30, status: "ACTIVE" },
+  ];
+  const currentRoundNumber = nextRound ? races.findIndex((race) => race.id === nextRound.id) + 1 : 0;
+  const currentRoundLabel = nextRound ? `Round ${currentRoundNumber} of ${races.length}` : "No round scheduled";
+  const participantsReadyLabel = `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
+  const nextActionLabel = getNextActionLabel(nextRound);
 
-  // Calculate status badge style
-  const getBadgeStyle = (status: string) => {
-    switch (status) {
-      case "OPEN_REGISTRATION":
-        return "bg-emerald-100 text-emerald-800 border-emerald-200";
-      case "ONGOING":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "COMPLETED":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      case "POSTPONED":
-        return "bg-orange-100 text-orange-800 border-orange-200";
-      case "CLOSED_REGISTRATION":
-        return "bg-amber-100 text-amber-800 border-amber-200";
-      default:
-        return "bg-slate-100 text-slate-800 border-slate-200";
+  const openRoundControlCenter = (race: Race | null = nextRound) => {
+    if (race) {
+      setSelectedRaceId(race.id);
     }
+    setActiveTab("rounds");
+    setRoundControlOpen(true);
   };
+
+  const renderStatusActions = () => (
+    <div className="flex flex-wrap gap-2">
+      {tournament.status === "DRAFT" && (
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+        >
+          Open Registration
+        </button>
+      )}
+
+      {tournament.status === "OPEN_REGISTRATION" && (
+        <>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "CLOSED_REGISTRATION" })}
+            className="rounded-md bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
+          >
+            Close Registration
+          </button>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
+            className="rounded-md bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+          >
+            Start Championship
+          </button>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Postpone
+          </button>
+        </>
+      )}
+
+      {tournament.status === "CLOSED_REGISTRATION" && (
+        <>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
+            className="rounded-md bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
+          >
+            Start Championship
+          </button>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Postpone
+          </button>
+        </>
+      )}
+
+      {tournament.status === "ONGOING" && (
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "COMPLETED" })}
+          className="rounded-md bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700"
+        >
+          Complete Championship
+        </button>
+      )}
+
+      {tournament.status === "POSTPONED" && (
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
+          className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
+        >
+          Reopen Registration
+        </button>
+      )}
+    </div>
+  );
+
+  const renderSetupForm = () => (
+    <form onSubmit={handleSave} className="flex flex-col gap-6 rounded-lg border border-slate-200 bg-white p-5">
+      <div>
+        <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Championship setup</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">Championship Setup</h2>
+        <p className="mt-1 text-sm font-medium text-slate-500">
+          Backend entities remain tournament-based, but this workspace presents the season as a championship.
+        </p>
+      </div>
+
+      {isLocked && (
+        <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
+          Championship setup can only be modified in draft or postponed status. Current status is{" "}
+          {tournament.status.replace("_", " ").toLowerCase()}.
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Championship Name *</label>
+          <input
+            type="text"
+            required
+            disabled={isLocked}
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Championship Code *</label>
+          <input
+            type="text"
+            required
+            disabled={isLocked}
+            value={form.code}
+            onChange={(e) => setForm({ ...form, code: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Location *</label>
+          <input
+            type="text"
+            required
+            disabled={isLocked}
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Start Date *</label>
+          <input
+            type="date"
+            required
+            disabled={isLocked}
+            value={form.startDate}
+            onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">End Date *</label>
+          <input
+            type="date"
+            required
+            disabled={isLocked}
+            value={form.endDate}
+            onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Registration Start *</label>
+          <input
+            type="datetime-local"
+            required
+            disabled={isLocked}
+            value={form.registrationStartAt}
+            onChange={(e) => setForm({ ...form, registrationStartAt: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Registration End *</label>
+          <input
+            type="datetime-local"
+            required
+            disabled={isLocked}
+            value={form.registrationEndAt}
+            onChange={(e) => setForm({ ...form, registrationEndAt: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Max Horse Participants</label>
+          <input
+            type="number"
+            disabled={isLocked}
+            value={form.maxHorses || ""}
+            onChange={(e) => setForm({ ...form, maxHorses: e.target.value ? Number(e.target.value) : undefined })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Description</label>
+          <textarea
+            rows={3}
+            disabled={isLocked}
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-slate-100 pt-4">
+        {isDraft ? (
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="rounded-md border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50"
+          >
+            Delete Championship
+          </button>
+        ) : (
+          <div />
+        )}
+
+        {!isLocked && (
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-md bg-[#b3193a] px-5 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
+          >
+            {saving ? "Saving Changes..." : "Save Changes"}
+          </button>
+        )}
+      </div>
+    </form>
+  );
+
+  const renderRoundControlCenter = () => (
+    <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-5">
+      <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Round operations</p>
+          <h2 className="mt-1 text-2xl font-black text-slate-950">Round Control Center</h2>
+          <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500">
+            Operate championship rounds from scheduled checks through result publishing.
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+            <p className="text-lg font-black text-slate-950">{races.length}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Rounds</p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+            <p className="text-lg font-black text-amber-800">{activeRaceCount}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Live ops</p>
+          </div>
+          <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
+            <p className="text-lg font-black text-cyan-800">{resultReadyCount}</p>
+            <p className="text-[11px] font-bold uppercase tracking-wide text-cyan-700">Publish ready</p>
+          </div>
+        </div>
+      </div>
+
+      {raceError && (
+        <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
+          {raceError}
+        </div>
+      )}
+
+      {raceLoading ? (
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
+          <div className="space-y-3">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+            ))}
+          </div>
+          <div className="h-72 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+        </div>
+      ) : races.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+          <Flag className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+          <h3 className="mt-3 text-lg font-black text-slate-900">No race rounds scheduled yet</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+            Create championship rounds before opening race-day operations. Each round can then move through checks,
+            start, finish, result confirmation, and publishing.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-500">Round timeline</p>
+              <p className="text-xs font-bold text-slate-500">{publishedRaceCount} published</p>
+            </div>
+            <div className="space-y-2">
+              {races.map((race, index) => {
+                const meta = getRaceStatusMeta(race.status);
+                const isSelected = selectedRace?.id === race.id;
+                return (
+                  <button
+                    key={race.id}
+                    type="button"
+                    onClick={() => setSelectedRaceId(race.id)}
+                    className={`w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] ${
+                      isSelected ? "border-[#b3193a]/40 bg-white shadow-sm" : "border-transparent bg-white/70"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Round {index + 1}</p>
+                        <p className="mt-1 text-sm font-black text-slate-950">{race.name}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">{formatRaceDate(race.raceDateTime)}</p>
+                        <p className="mt-2 text-xs font-semibold text-slate-500">{meta.helper}</p>
+                      </div>
+                      <span className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${meta.className}`}>
+                        {meta.label}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selectedRace && selectedRaceMeta && (
+            <section aria-labelledby="selected-race-title" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">Selected round</p>
+                  <h3 id="selected-race-title" className="mt-1 text-xl font-black text-slate-950">
+                    {selectedRace.name}
+                  </h3>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">{selectedRace.code}</p>
+                </div>
+                <span className={`w-fit rounded-md border px-3 py-1.5 text-xs font-black uppercase tracking-wide ${selectedRaceMeta.className}`}>
+                  {selectedRaceMeta.label}
+                </span>
+              </div>
+
+              <div className="grid gap-3 border-b border-slate-100 py-5 sm:grid-cols-3">
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Race time</p>
+                  <p className="mt-1 text-sm font-black text-slate-900">{formatRaceDate(selectedRace.raceDateTime)}</p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <Gauge className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Distance</p>
+                  <p className="mt-1 text-sm font-black text-slate-900">{selectedRace.distanceMeters.toLocaleString()} m</p>
+                </div>
+                <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <Trophy className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Field cap</p>
+                  <p className="mt-1 text-sm font-black text-slate-900">{selectedRace.maxParticipants} participants</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 py-5 lg:grid-cols-[1fr_0.9fr]">
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-600" aria-hidden="true" />
+                    <div>
+                      <p className="text-sm font-black text-slate-950">Operational state</p>
+                      <p className="mt-1 text-sm font-medium leading-6 text-slate-600">{selectedRaceMeta.helper}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-black text-slate-950">Next operation</p>
+                  {selectedRaceAction ? (
+                    <div className="mt-3">
+                      <button
+                        type="button"
+                        disabled={raceActionLoadingId === selectedRace.id}
+                        onClick={() => handleRaceStatusTransition(selectedRace, selectedRaceAction.target)}
+                        aria-label={`${selectedRaceAction.label} for ${selectedRace.name}`}
+                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-[#b3193a] px-4 py-2 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2 disabled:opacity-60"
+                      >
+                        {SelectedRaceActionIcon && <SelectedRaceActionIcon className="h-4 w-4" aria-hidden="true" />}
+                        {raceActionLoadingId === selectedRace.id ? "Updating..." : selectedRaceAction.label}
+                      </button>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        This moves the race to {selectedRaceAction.target.replace("_", " ").toLowerCase()}.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm font-semibold text-slate-500">No manual operation is available for this state.</p>
+                  )}
+                </div>
+              </div>
+
+              {selectedRace.status === "RESULT_CONFIRMED" && (
+                <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-cyan-700" aria-hidden="true" />
+                    <div>
+                      <p className="text-sm font-black text-cyan-950">Result ready for publishing</p>
+                      <p className="mt-1 text-sm font-medium text-cyan-800">
+                        Publish only after result sheets and referee confirmation are complete.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <AdminLayout>
       <div className="flex flex-col gap-6">
-        {/* Navigation Breadcrumb */}
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
           <Link to="/admin/tournaments" className="hover:text-[#b3193a]">
-            Tournaments
+            Championships
           </Link>
           <span>/</span>
           <span className="text-slate-800">{tournament.code || tournament.id}</span>
         </div>
 
-        {/* Status Alert Messages */}
         {errorMsg && (
-          <div className="rounded bg-rose-50 p-4 text-sm font-bold text-rose-700 border border-rose-100">
+          <div className="rounded-md border border-rose-100 bg-rose-50 p-4 text-sm font-bold text-rose-700">
             {errorMsg}
           </div>
         )}
         {successMsg && (
-          <div className="rounded bg-emerald-50 p-4 text-sm font-bold text-emerald-700 border border-emerald-100">
+          <div className="rounded-md border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
             {successMsg}
           </div>
         )}
 
-        {/* Main Header / Status Panel */}
-        <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-4">
-            <span className={`rounded border px-3 py-1.5 text-xs font-black tracking-wider uppercase ${getBadgeStyle(tournament.status)}`}>
-              {tournament.status === "POSTPONED" ? "POSTPONED" : tournament.status.replace("_", " ")}
-            </span>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900">{tournament.name}</h1>
-              <p className="text-xs font-bold text-slate-500 mt-0.5">
-                Location: {tournament.location} &bull; Code: {tournament.code}
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0">
+              <button className="inline-flex max-w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-black text-slate-950">
+                <span className="truncate">{tournament.name}</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+              </button>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <span className={`rounded-md border px-3 py-1.5 text-xs font-black uppercase tracking-wider ${getBadgeStyle(tournament.status)}`}>
+                  {tournament.status.replace("_", " ")}
+                </span>
+                <span className="text-xs font-bold text-slate-500">
+                  {tournament.location} - Code {tournament.code}
+                </span>
+              </div>
+              <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">{tournament.name}</h1>
+              <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                Manage the championship by current state, next action, round control, and standings update.
               </p>
+            </div>
+
+            <div className="grid w-full gap-3 sm:grid-cols-2 lg:w-[560px]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Current Phase</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{currentPhase}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Current Round</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{currentRoundLabel}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Participants</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{participantsReadyLabel}</p>
+              </div>
+              <div className="rounded-lg border border-[#b3193a]/25 bg-[#b3193a]/5 p-3">
+                <p className="text-[11px] font-black uppercase tracking-wider text-[#b3193a]">Next Action</p>
+                <p className="mt-1 text-lg font-black text-slate-950">{nextActionLabel}</p>
+              </div>
             </div>
           </div>
 
-          {/* Lifecycle Action Buttons */}
-          <div className="flex flex-wrap gap-2">
-            {tournament.status === "DRAFT" && (
-              <button
-                onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
-                className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-              >
-                Open Registration
-              </button>
-            )}
+          <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-slate-600">
+              Admin should continue from the next required round action, then publish results into standings.
+            </p>
+            <button
+              type="button"
+              onClick={() => openRoundControlCenter()}
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+            >
+              Continue Operations
+            </button>
+          </div>
 
-            {tournament.status === "OPEN_REGISTRATION" && (
-              <>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "CLOSED_REGISTRATION" })}
-                  className="rounded bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700"
-                >
-                  Close Registration
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
-                  className="rounded bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  Start Tournament
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
-                  className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Postpone Tournament
-                </button>
-              </>
-            )}
-
-            {tournament.status === "CLOSED_REGISTRATION" && (
-              <>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
-                  className="rounded bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  Start Tournament
-                </button>
-                <button
-                  onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
-                  className="rounded border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Postpone Tournament
-                </button>
-              </>
-            )}
-
-            {tournament.status === "ONGOING" && (
-              <button
-                onClick={() => setShowStatusModal({ show: true, targetStatus: "COMPLETED" })}
-                className="rounded bg-purple-600 px-4 py-2 text-xs font-bold text-white hover:bg-purple-700"
-              >
-                Complete Tournament
-              </button>
-            )}
-
-            {tournament.status === "POSTPONED" && (
-              <button
-                onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
-                className="rounded bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-700"
-              >
-                Reopen Registration
-              </button>
-            )}
+          <div className="mt-5 grid gap-2 sm:grid-cols-5">
+            {championshipPhases.map((phase, index) => {
+              const isComplete = index < currentPhaseIndex;
+              const isCurrent = index === currentPhaseIndex;
+              return (
+                <div key={phase} className="min-w-0">
+                  <div
+                    className={`h-2 rounded-full ${
+                      isComplete || isCurrent ? "bg-[#b3193a]" : "bg-slate-200"
+                    }`}
+                  />
+                  <p className={`mt-2 truncate text-[11px] font-black uppercase tracking-wide ${isCurrent ? "text-[#b3193a]" : "text-slate-500"}`}>
+                    {phase}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        {/* Tab Navigation */}
         <div className="border-b border-slate-200">
-          <nav className="flex gap-6 text-sm font-bold">
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`pb-3 ${
-                activeTab === "settings"
-                  ? "border-b-2 border-[#b3193a] text-[#b3193a]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Tournament Settings
-            </button>
-            <button
-              onClick={() => setActiveTab("races")}
-              className={`pb-3 ${
-                activeTab === "races"
-                  ? "border-b-2 border-[#b3193a] text-[#b3193a]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Races
-            </button>
-            <button
-              onClick={() => setActiveTab("registrations")}
-              className={`pb-3 ${
-                activeTab === "registrations"
-                  ? "border-b-2 border-[#b3193a] text-[#b3193a]"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
-            >
-              Registrations
-            </button>
+          <nav className="flex gap-2 overflow-x-auto text-sm font-bold" aria-label="Championship workspace tabs">
+            {championshipTabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-t-md px-4 py-3 ${
+                  activeTab === tab.key
+                    ? "border-b-2 border-[#b3193a] bg-white text-[#b3193a]"
+                    : "text-slate-500 hover:bg-white hover:text-slate-800"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </nav>
         </div>
 
-        {/* Tab Contents */}
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          {activeTab === "settings" && (
-            <form onSubmit={handleSave} className="flex flex-col gap-6">
-              {isLocked && (
-                <div className="rounded border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">
-                  Tournament settings can only be modified in DRAFT or POSTPONED status. Currently, it is in {tournament.status.replace("_", " ").toLowerCase()} status.
-                </div>
-              )}
+        {activeTab === "overview" && (
+          <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Championship overview</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">Championship Health</h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                This command center keeps the admin focused on state, readiness, and the next required action.
+              </p>
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Tournament Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isLocked}
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
+              <div className="mt-5 space-y-3">
+                <div className="flex items-start justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" aria-hidden="true" />
+                    <div>
+                      <p className="text-sm font-black text-emerald-950">Current Phase</p>
+                      <p className="mt-1 text-sm font-semibold text-emerald-800">{currentPhase}</p>
+                    </div>
+                  </div>
+                  <span className="rounded-md border border-emerald-200 bg-white px-2 py-1 text-[11px] font-black uppercase text-emerald-800">
+                    On Schedule
+                  </span>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Tournament Code *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isLocked}
-                    value={form.code}
-                    onChange={(e) => setForm({ ...form, code: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <Flag className="h-5 w-5 text-slate-500" aria-hidden="true" />
+                    <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Current Round</p>
+                    <p className="mt-1 text-lg font-black text-slate-950">{currentRoundLabel}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{nextRound?.name ?? "Create a round in Rounds."}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <Users className="h-5 w-5 text-slate-500" aria-hidden="true" />
+                    <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Participants Readiness</p>
+                    <p className="mt-1 text-lg font-black text-slate-950">{participantsReadyLabel}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">Horse and jockey pairings ready for the season.</p>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Location *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    disabled={isLocked}
-                    value={form.location}
-                    onChange={(e) => setForm({ ...form, location: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
+                <div className="rounded-lg border border-cyan-200 bg-cyan-50 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-black text-cyan-950">Result / Publish Readiness</p>
+                      <p className="mt-1 text-sm font-semibold text-cyan-800">
+                        {resultReadyCount} ready to publish, {publishedRaceCount} already published
+                      </p>
+                    </div>
+                    <span className="rounded-md border border-cyan-200 bg-white px-2 py-1 text-[11px] font-black uppercase text-cyan-800">
+                      Standings linked
+                    </span>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Tournament Start Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    disabled={isLocked}
-                    value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Tournament End Date *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    disabled={isLocked}
-                    value={form.endDate}
-                    onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Registration Start Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    disabled={isLocked}
-                    value={form.registrationStartAt}
-                    onChange={(e) => setForm({ ...form, registrationStartAt: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Registration End Time *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    required
-                    disabled={isLocked}
-                    value={form.registrationEndAt}
-                    onChange={(e) => setForm({ ...form, registrationEndAt: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Max Horse Participants (Optional)
-                  </label>
-                  <input
-                    type="number"
-                    disabled={isLocked}
-                    value={form.maxHorses || ""}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        maxHorses: e.target.value ? Number(e.target.value) : undefined,
-                      })
-                    }
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                    Description
-                  </label>
-                  <textarea
-                    rows={3}
-                    disabled={isLocked}
-                    value={form.description}
-                    onChange={(e) => setForm({ ...form, description: e.target.value })}
-                    className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none"
-                  />
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <p className="text-sm font-black text-slate-950">Related Workspaces</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                    Use dedicated admin modules for deep review instead of crowding this command center.
+                  </p>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    <Link
+                      to="/admin/tournament-registrations"
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                    >
+                      View Registrations
+                    </Link>
+                    <Link
+                      to="/admin/participants"
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                    >
+                      View Participants
+                    </Link>
+                    <Link
+                      to="/admin/standings"
+                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                    >
+                      View Standings
+                    </Link>
+                  </div>
                 </div>
               </div>
+            </section>
 
-              {/* Form Buttons */}
-              <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-                {isDraft ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50"
-                  >
-                    Delete Tournament
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                {!isLocked && (
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded bg-[#b3193a] px-5 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
-                  >
-                    {saving ? "Saving Changes..." : "Save Changes"}
-                  </button>
-                )}
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Next action</p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">{nextActionLabel}</h2>
+              <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
+                Continue directly into the current round control center. Controls stays reserved for championship-level
+                lifecycle actions.
+              </p>
+              <button
+                type="button"
+                onClick={() => openRoundControlCenter()}
+                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+              >
+                Continue Operations
+              </button>
+              <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-black text-slate-950">Primary flow</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                  Overview to Round Control Center to Publish Results to Standings Updated.
+                </p>
               </div>
-            </form>
-          )}
+            </section>
+          </div>
+        )}
 
-          {activeTab === "races" && (
-            <div className="flex h-48 flex-col items-center justify-center text-center">
-              <p className="text-base font-bold text-slate-700">Races List</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Race configuration for this tournament will appear here in the next implementation phase.
+        {activeTab === "rounds" && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Season progression</p>
+                <h2 className="text-2xl font-black text-slate-950">Championship Rounds</h2>
+                <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                  Rounds are the season timeline. CRUD is setup; when the championship is ongoing, the primary action is
+                  opening the round control center.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setRoundFormError("");
+                  setShowCreateRoundModal(true);
+                }}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-50"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Create Round
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-lg font-black text-slate-950">Season Timeline</h3>
+              <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                {["Registration Closed", "Pool Approved", "Participants Locked"].map((item) => (
+                  <div key={item} className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+                    <span className="text-sm font-black text-slate-900">{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {raceLoading ? (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-32 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+                ))}
+              </div>
+            ) : races.length === 0 ? (
+              <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <Flag className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+                <h3 className="mt-3 text-lg font-black text-slate-900">No championship rounds yet</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+                  Add rounds before the racing phase starts.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {races.map((race, index) => {
+                  const meta = getRaceStatusMeta(race.status);
+                  const isCurrent = race.id === nextRound?.id;
+                  return (
+                    <article
+                      key={race.id}
+                      className={`rounded-lg border p-4 ${
+                        isCurrent ? "border-[#b3193a]/30 bg-[#b3193a]/5" : "border-slate-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Round {index + 1}</p>
+                          <h3 className="mt-1 text-base font-black text-slate-950">{race.name}</h3>
+                        </div>
+                        <span className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${meta.className}`}>
+                          {meta.label}
+                        </span>
+                      </div>
+                      <p className="mt-3 text-sm font-semibold text-slate-600">{formatRaceDate(race.raceDateTime)}</p>
+                      <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{meta.helper}</p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-md bg-[#b3193a] px-3 py-2 text-xs font-black text-white hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                          onClick={() => openRoundControlCenter(race)}
+                          aria-label={`Open control center for ${race.name}`}
+                        >
+                          Open Control Center
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                        >
+                          Edit Schedule
+                        </button>
+                        {race.status === "SCHEDULED" && (
+                          <button
+                            type="button"
+                            className="rounded-md border border-rose-200 bg-white px-3 py-2 text-xs font-black text-rose-700 hover:bg-rose-50"
+                          >
+                            Delete Draft Round
+                          </button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            {roundControlOpen && <div className="mt-5">{renderRoundControlCenter()}</div>}
+          </section>
+        )}
+
+        {false && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Points table</p>
+              <h2 className="text-2xl font-black text-slate-950">Current Standings</h2>
+              <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                Championship standings update after published results, keeping admin focused on the season table instead
+                of isolated race records.
               </p>
             </div>
-          )}
-
-          {activeTab === "registrations" && (
-            <div className="flex h-48 flex-col items-center justify-center text-center">
-              <p className="text-base font-bold text-slate-700">Registrations Queue</p>
-              <p className="mt-1 text-sm text-slate-500">
-                Horse owner tournament registrations queue will appear here in the next implementation phase.
-              </p>
+            <div className="mt-5 space-y-3">
+              {mockParticipants.map((participant, index) => (
+                <div key={participant.horse} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-lg font-black text-slate-950">
+                      #{index + 1}
+                    </span>
+                    <div>
+                      <p className="font-black text-slate-950">{participant.horse}</p>
+                      <p className="text-sm font-semibold text-slate-500">
+                        {participant.jockey} · {participant.stable}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xl font-black text-slate-950">{participant.points} pts</p>
+                </div>
+              ))}
             </div>
-          )}
-        </div>
+          </section>
+        )}
+
+        {activeTab === "controls" && (
+          <div className="space-y-5">
+            <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Admin actions</p>
+                  <h2 className="mt-1 text-xl font-black text-slate-950">Championship Controls</h2>
+                  <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500">
+                    Controls are championship-level only. Round control starts from Overview or Rounds.
+                  </p>
+                </div>
+                {renderStatusActions()}
+              </div>
+            </section>
+            {renderSetupForm()}
+          </div>
+        )}
       </div>
 
-      {/* Delete Modal */}
+      {showCreateRoundModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div
+            aria-labelledby="create-round-title"
+            className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="border-b border-slate-100 px-6 py-4">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Season setup</p>
+              <h2 id="create-round-title" className="mt-1 text-xl font-black text-slate-950">
+                Create Championship Round
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Add one race event inside this championship season.
+              </p>
+            </div>
+
+            <form onSubmit={handleCreateRoundSubmit}>
+              <div className="grid gap-4 p-6 sm:grid-cols-2">
+                {roundFormError && (
+                  <div className="sm:col-span-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">
+                    {roundFormError}
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="round-name" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Round Name *
+                  </label>
+                  <input
+                    id="round-name"
+                    type="text"
+                    required
+                    value={roundForm.name}
+                    onChange={(e) => setRoundForm({ ...roundForm, name: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                    placeholder="Round 3 - Saigon Sprint"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="round-code" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Round Code *
+                  </label>
+                  <input
+                    id="round-code"
+                    type="text"
+                    required
+                    value={roundForm.code}
+                    onChange={(e) => setRoundForm({ ...roundForm, code: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                    placeholder="SUM_R3"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="round-race-at" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Race Date And Time *
+                  </label>
+                  <input
+                    id="round-race-at"
+                    type="datetime-local"
+                    required
+                    value={roundForm.raceDateTime}
+                    onChange={(e) => setRoundForm({ ...roundForm, raceDateTime: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="round-distance" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Distance *
+                  </label>
+                  <input
+                    id="round-distance"
+                    type="number"
+                    min={1}
+                    required
+                    value={roundForm.distanceMeters}
+                    onChange={(e) => setRoundForm({ ...roundForm, distanceMeters: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                    placeholder="1600"
+                  />
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Meters</p>
+                </div>
+
+                <div>
+                  <label htmlFor="round-max-participants" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Max Participants *
+                  </label>
+                  <input
+                    id="round-max-participants"
+                    type="number"
+                    min={2}
+                    required
+                    value={roundForm.maxParticipants}
+                    onChange={(e) => setRoundForm({ ...roundForm, maxParticipants: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                    placeholder="12"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateRoundModal(false);
+                    setRoundFormError("");
+                  }}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingRound}
+                  className="rounded-md bg-[#b3193a] px-4 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
+                >
+                  {creatingRound ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-black text-rose-600">Delete Tournament</h2>
+            <h2 className="text-xl font-black text-rose-600">Delete Championship</h2>
             <p className="mt-3 text-sm text-slate-600">
-              Are you sure you want to delete <strong>{tournament.name}</strong>? This action will completely remove it from the system.
+              Are you sure you want to delete <strong>{tournament.name}</strong>? This action will completely remove it
+              from the system.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowDeleteModal(false)}
-                className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -540,7 +1367,7 @@ export function AdminTournamentDetailPage() {
                 type="button"
                 disabled={deleting}
                 onClick={handleDeleteConfirm}
-                className="rounded bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50"
+                className="rounded-md bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50"
               >
                 {deleting ? "Deleting..." : "Confirm Delete"}
               </button>
@@ -549,20 +1376,19 @@ export function AdminTournamentDetailPage() {
         </div>
       )}
 
-      {/* Status Transition Modal */}
       {showStatusModal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <h2 className="text-xl font-black text-slate-900">Change Status</h2>
             <p className="mt-3 text-sm text-slate-600">
-              Are you sure you want to transition this tournament status to{" "}
+              Are you sure you want to transition this championship status to{" "}
               <strong>{showStatusModal.targetStatus.replace("_", " ")}</strong>?
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 onClick={() => setShowStatusModal({ show: false, targetStatus: "" })}
-                className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
               </button>
@@ -570,7 +1396,7 @@ export function AdminTournamentDetailPage() {
                 type="button"
                 disabled={updatingStatus}
                 onClick={handleStatusTransition}
-                className="rounded bg-[#b3193a] px-4 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
+                className="rounded-md bg-[#b3193a] px-4 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
               >
                 {updatingStatus ? "Updating..." : "Confirm"}
               </button>
