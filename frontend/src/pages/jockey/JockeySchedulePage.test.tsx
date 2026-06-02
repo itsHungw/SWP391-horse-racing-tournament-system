@@ -26,6 +26,34 @@ describe("JockeySchedulePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^calendar$/i }));
     expect(screen.getByRole("button", { name: /^calendar$/i })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText(/month calendar/i)).toBeInTheDocument();
-    expect(screen.getByText(/next round/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/next race/i).length).toBeGreaterThan(0);
+  });
+
+  it("shows a championship racing calendar with today, legend, and race detail drawer", () => {
+    render(
+      <MemoryRouter>
+        <JockeySchedulePage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^calendar$/i }));
+
+    const calendar = screen.getByLabelText(/month calendar/i);
+    expect(within(calendar).getByText(/summer championship 2026 - 8 rounds - rank #3/i)).toBeInTheDocument();
+    expect(within(calendar).getByRole("status", { name: /today june 2/i })).toBeInTheDocument();
+    expect(within(calendar).getByLabelText(/calendar status legend/i)).toHaveTextContent(/finished/i);
+    expect(within(calendar).getByLabelText(/calendar status legend/i)).toHaveTextContent(/next race/i);
+    expect(within(calendar).getByLabelText(/calendar status legend/i)).toHaveTextContent(/upcoming/i);
+    expect(within(calendar).getByLabelText(/calendar status legend/i)).toHaveTextContent(/locked/i);
+
+    const nextRace = within(calendar).getByRole("button", { name: /round 4 belmont stakes presented next race/i });
+    expect(within(nextRace).getByText(/in 4 days/i)).toBeInTheDocument();
+
+    fireEvent.click(nextRace);
+
+    const detail = screen.getByRole("dialog", { name: /race detail/i });
+    expect(within(detail).getByText(/thunder bolt/i)).toBeInTheDocument();
+    expect(within(detail).getByText(/belmont park/i)).toBeInTheDocument();
+    expect(within(detail).getByText(/next race/i)).toBeInTheDocument();
   });
 });

@@ -15,6 +15,22 @@ function resultLabel(round: JockeyRound) {
   return `${round.position ?? "Placed"} - ${round.points ?? 0} pts`;
 }
 
+function statusLabel(round: JockeyRound) {
+  if (round.status === "NEXT") return "Next Race";
+  if (round.status === "FINISHED") return "Finished";
+  if (round.status === "LOCKED") return "Locked";
+  if (round.status === "CANCELLED") return "Cancelled";
+  return "Upcoming";
+}
+
+function statusClass(round: JockeyRound) {
+  if (round.status === "NEXT") return "border-amber-300 bg-amber-50 text-amber-800";
+  if (round.status === "FINISHED") return "border-emerald-200 bg-emerald-50 text-[#006d5b]";
+  if (round.status === "LOCKED") return "border-slate-200 bg-slate-100 text-slate-500";
+  if (round.status === "CANCELLED") return "border-red-200 bg-red-50 text-red-700";
+  return "border-blue-200 bg-blue-50 text-blue-700";
+}
+
 export function RaceDetailDrawer({ round, totalRounds, onClose }: RaceDetailDrawerProps) {
   if (!round) {
     return null;
@@ -34,7 +50,12 @@ export function RaceDetailDrawer({ round, totalRounds, onClose }: RaceDetailDraw
                 Round {round.roundNumber} of {totalRounds}
               </p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{round.raceName}</h2>
-              <p className="mt-1 text-sm font-bold text-slate-500">{round.championshipId === "summer-2026" ? "Summer Championship 2026" : "Autumn Cup 2026"}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <p className="text-sm font-bold text-slate-500">{round.championshipId === "summer-2026" ? "Summer Championship 2026" : "Autumn Cup 2026"}</p>
+                <span className={`rounded-md border px-2 py-1 text-xs font-black uppercase tracking-[0.12em] ${statusClass(round)}`}>
+                  {statusLabel(round)}
+                </span>
+              </div>
             </div>
             <button
               aria-label="Close race detail"
