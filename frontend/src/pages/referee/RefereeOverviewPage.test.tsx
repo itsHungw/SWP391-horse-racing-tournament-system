@@ -1,8 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { vi, describe, it, expect } from "vitest";
-import { RefereeOverviewPage } from "./RefereeOverviewPage";
+import { describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
+import { RefereeOverviewPage } from "./RefereeOverviewPage";
 
 vi.mock("../../api/refereeApi");
 
@@ -12,54 +12,66 @@ const mockRaces = [
     name: "Royal Ascot Gold Cup - Qualifiers A",
     code: "R-2026-001",
     distanceMeters: 1600,
-    status: "ACTIVE",
+    status: "SCHEDULED",
+    scheduledAt: "2026-06-02T14:00:00+07:00",
+    venue: "Turf Tower C",
   },
 ];
 
 describe("RefereeOverviewPage", () => {
-  it("renders list of assigned races, details, and action links", async () => {
+  it("defaults to timeline view and toggles the month calendar", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
 
     render(
       <MemoryRouter>
-        <RefereeOverviewPage />
+        <RefereeOverviewPage now={new Date("2026-06-02T12:30:00+07:00")} />
       </MemoryRouter>
     );
 
     expect(screen.getByText(/Preparing steward assignments/i)).toBeInTheDocument();
-    expect(await screen.findByText("Assigned Race Desk")).toBeInTheDocument();
-    expect(screen.getByText("REFEREE DESK")).toBeInTheDocument();
-    expect(screen.getByText("Royal Ascot Gold Cup - Qualifiers A")).toBeInTheDocument();
-    expect(screen.getByText("R-2026-001")).toBeInTheDocument();
-    expect(screen.getByText("Step 1: Select a Race Task")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open Pre-Check/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record Results/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /File Incident/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Today's Race Timeline" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Month calendar" }));
+
+    expect(screen.getByRole("heading", { name: "June 2026 Calendar" })).toBeInTheDocument();
   });
 
-  it("filters action buttons when in specific modes", async () => {
+  it("opens the selected race drawer and bypasses only the time guard in demo mode", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
 
-    const { rerender } = render(
+    render(
       <MemoryRouter>
-        <RefereeOverviewPage mode="check" />
+        <RefereeOverviewPage now={new Date("2026-06-02T12:30:00+07:00")} />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Pre-Race Checks")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open Pre-Check/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Record Results/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /File Incident/i })).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /Royal Ascot Gold Cup/i }));
 
-    rerender(
+    expect(screen.getByRole("heading", { name: "Race Details" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Pre-Race Check" })).toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+
+    fireEvent.click(screen.getByRole("switch", { name: "Demo mode" }));
+
+    expect(screen.getByText("Demo Mode Active - Time Guard Bypassed")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Pre-Race Check" })).not.toHaveAttribute(
+      "aria-disabled",
+      "true"
+    );
+  });
+
+  it("shows a retry action when assigned races fail to load", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockRejectedValue(new Error("offline"));
+
+    render(
       <MemoryRouter>
-        <RefereeOverviewPage mode="results" />
+        <RefereeOverviewPage now={new Date("2026-06-02T12:30:00+07:00")} />
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Submit Results" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Open Pre-Check/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Record Results/i })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /File Incident/i })).not.toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Unable to load assigned races.");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 });
