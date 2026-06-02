@@ -35,12 +35,17 @@ public class AdminRaceController {
     }
 
     @GetMapping
-    public List<RaceResponse> listAll() {
-        return raceService.getAdminRaces();
+    public List<RaceResponse> listAll(@RequestParam(required = false) Long tournamentId) {
+        return raceService.getAdminRaces(tournamentId);
     }
 
     @GetMapping("/{id}")
     public RaceResponse getDetail(@PathVariable Long id) {
         return raceService.getRaceDetail(id);
+    }
+
+    @PutMapping("/{id}/status")
+    public RaceResponse updateStatus(@PathVariable Long id, @RequestParam String status) {
+        return raceService.updateRaceStatus(id, status);
     }
 }

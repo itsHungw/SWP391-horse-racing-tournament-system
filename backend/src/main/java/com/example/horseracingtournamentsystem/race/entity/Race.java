@@ -85,6 +85,11 @@ public class Race {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateStatus(String status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
     }
