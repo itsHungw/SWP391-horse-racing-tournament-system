@@ -6,7 +6,7 @@ export function RaceDetailDrawer({ race, now, demoMode }: { race: AssignedRace; 
   const unlocked = canOpenPreRaceCheck(race.scheduledAt, now, demoMode);
 
   return (
-    <aside aria-label="Race details" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <aside aria-label="Race details" className="race-day-drawer-motion rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#007a68]">Selected assignment</p>
       <h3 className="mt-2 text-xl font-black text-slate-950">Race Details</h3>
       <p className="mt-5 text-lg font-black leading-tight text-slate-950">{race.name}</p>

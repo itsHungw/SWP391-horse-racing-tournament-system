@@ -38,7 +38,7 @@ export function LiveRaceWorkspace({
           <div className="mt-3 flex flex-wrap gap-2">
             {state.mode === "RED_FLAGGED" ? (
               <>
-                <button aria-label="Resume race" className="min-h-12 rounded-md bg-emerald-600 px-4 text-xs font-black text-white" onClick={() => onFlag("RACING")} type="button">
+                <button aria-label="Resume race" className="min-h-12 rounded-md bg-emerald-600 px-4 text-xs font-black text-white" onClick={() => onFlag(state.resumeMode ?? "RACING")} type="button">
                   Resume Race
                 </button>
                 <button aria-label="Abort race" className="min-h-12 rounded-md bg-rose-700 px-4 text-xs font-black text-white" onClick={() => onFlag("ABORTED")} type="button">

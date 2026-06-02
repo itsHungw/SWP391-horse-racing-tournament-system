@@ -70,10 +70,17 @@ export function setLiveFlag(
     ABORTED: "Race aborted by referee",
     FINISHED_DRAFT: "Chequered Flag - finished draft captured",
   };
+  const resumeMode =
+    mode === "RED_FLAGGED" && (state.mode === "RACING" || state.mode === "SAFETY_CAR")
+      ? state.mode
+      : mode === "RED_FLAGGED"
+        ? state.resumeMode
+        : undefined;
 
   return {
     ...state,
     mode,
+    resumeMode,
     incidents: [...state.incidents, createIncident("FLAG", occurredAt, messages[mode])],
   };
 }

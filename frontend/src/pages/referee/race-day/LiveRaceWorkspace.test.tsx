@@ -53,6 +53,22 @@ describe("LiveRaceWorkspace", () => {
     expect(screen.getByRole("button", { name: "Abort race" })).toBeInTheDocument();
   });
 
+  it("resumes the safety car state that was active before a red flag", () => {
+    const onFlag = vi.fn();
+    render(
+      <LiveRaceWorkspace
+        onFinish={vi.fn()}
+        onFlag={onFlag}
+        onPenalty={vi.fn()}
+        state={{ ...state, mode: "RED_FLAGGED", resumeMode: "SAFETY_CAR" }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume race" }));
+
+    expect(onFlag).toHaveBeenCalledWith("SAFETY_CAR");
+  });
+
   it("keeps the chequered flag locked until the leader reaches ninety percent", () => {
     render(
       <LiveRaceWorkspace

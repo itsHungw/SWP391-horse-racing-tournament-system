@@ -83,6 +83,13 @@ describe("refereeRaceDayState", () => {
     expect(applyLiveTick(stopped, 1_000).runners).toEqual(stopped.runners);
   });
 
+  it("remembers safety car mode while movement is frozen by a red flag", () => {
+    const safetyCar = setLiveFlag(liveState, "SAFETY_CAR", "2026-06-02T14:08:00+07:00");
+    const stopped = setLiveFlag(safetyCar, "RED_FLAGGED", "2026-06-02T14:09:00+07:00");
+
+    expect(stopped.resumeMode).toBe("SAFETY_CAR");
+  });
+
   it("records five-second penalties without changing physical order", () => {
     const next = applyPenalty(liveState, 3, "PENALTY_5S", "2026-06-02T14:10:00+07:00");
 

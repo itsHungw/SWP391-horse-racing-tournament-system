@@ -76,6 +76,19 @@ describe("RefereeOfficiatePage", () => {
     expect(screen.getByText(/DSQ - Golden Arrow/i)).toBeInTheDocument();
   });
 
+  it("requires confirmation before aborting a red-flagged race", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm Pre-Race Checks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
+    fireEvent.click(screen.getByRole("button", { name: "Red Flag" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abort race" }));
+
+    expect(confirm).toHaveBeenCalledWith("Abort this race? This freezes the current race state.");
+    expect(screen.getByRole("button", { name: "Resume race" })).toBeInTheDocument();
+    confirm.mockRestore();
+  });
+
   it("renders a finished draft snapshot summary", () => {
     render(
       <RaceSummary

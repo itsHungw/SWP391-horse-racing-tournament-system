@@ -51,6 +51,7 @@ export type RaceSnapshot = {
 
 export type LiveRaceState = {
   mode: LiveMode;
+  resumeMode?: Extract<LiveMode, "RACING" | "SAFETY_CAR">;
   elapsedMilliseconds: number;
   runners: LiveRunner[];
   outOfRace: LiveRunner[];

@@ -20,7 +20,7 @@ export function LiveLeaderboard({
 
       <div className="mt-3 space-y-2">
         {runners.map((runner, index) => (
-          <div key={runner.participantId}>
+          <div className="race-day-row-motion" key={runner.participantId}>
             <button
               aria-label={`P${index + 1} ${runner.horseName}`}
               aria-pressed={selectedId === runner.participantId}
@@ -61,7 +61,7 @@ export function LiveLeaderboard({
           <p className="mt-2 text-xs text-slate-400">No runners removed from active competition.</p>
         ) : (
           state.outOfRace.map((runner) => (
-            <p className="mt-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700" key={runner.participantId}>
+            <p className="race-day-row-motion mt-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700" key={runner.participantId}>
               DSQ - {runner.horseName} at {runner.progressPercent.toFixed(1)}%
             </p>
           ))
