@@ -13,6 +13,7 @@ import type {
   OwnerContractPayload,
   PageResponse,
   Tournament,
+  TournamentParticipant,
   TournamentRegistration,
   TournamentRegistrationPayload,
   TournamentRegistrationStatus,
@@ -255,5 +256,10 @@ export async function lockAdminChampionshipParticipants(championshipId: number):
   const response = await httpClient.post<LockParticipantsResponse>(
     `/admin/championships/${championshipId}/lock-participants`,
   );
+  return response.data;
+}
+
+export async function getAdminChampionshipParticipants(championshipId: number): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>(`/admin/championships/${championshipId}/participants`);
   return response.data;
 }

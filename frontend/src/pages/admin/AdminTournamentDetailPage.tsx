@@ -27,13 +27,14 @@ import {
 import {
   approveAdminJockeyPoolApplication,
   approveAdminTournamentRegistration,
+  getAdminChampionshipParticipants,
   getAdminJockeyPoolApplications,
   getAdminTournamentRegistrations,
   lockAdminChampionshipParticipants,
   rejectAdminJockeyPoolApplication,
   rejectAdminTournamentRegistration,
 } from "../../api/racingApi";
-import type { Race, RaceStatus, Tournament, TournamentRegistration } from "../../types/racing";
+import type { Race, RaceStatus, Tournament, TournamentParticipant, TournamentRegistration } from "../../types/racing";
 import type { JockeyPoolApplication } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 
@@ -213,6 +214,9 @@ export function AdminTournamentDetailPage() {
   const [jockeyApplications, setJockeyApplications] = useState<JockeyPoolApplication[]>([]);
   const [jockeyApplicationLoading, setJockeyApplicationLoading] = useState(false);
   const [jockeyApplicationError, setJockeyApplicationError] = useState("");
+  const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
+  const [participantLoading, setParticipantLoading] = useState(false);
+  const [participantError, setParticipantError] = useState("");
   const [applicationView, setApplicationView] = useState<ApplicationView>("horses");
   const [horseProcessingId, setHorseProcessingId] = useState<number | null>(null);
   const [jockeyProcessingId, setJockeyProcessingId] = useState<number | null>(null);
@@ -319,6 +323,19 @@ export function AdminTournamentDetailPage() {
     }
   };
 
+  const loadParticipants = async () => {
+    try {
+      setParticipantLoading(true);
+      setParticipantError("");
+      const data = await getAdminChampionshipParticipants(tournamentId);
+      setParticipants(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setParticipantError(err.response?.data?.message || "Failed to load championship participants.");
+    } finally {
+      setParticipantLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tournamentId) {
       loadDetail();
@@ -335,6 +352,12 @@ export function AdminTournamentDetailPage() {
     if (tournamentId && ["overview", "applications"].includes(activeTab)) {
       loadRegistrations();
       loadJockeyApplications();
+    }
+  }, [activeTab, tournamentId]);
+
+  useEffect(() => {
+    if (tournamentId && ["participants", "standings"].includes(activeTab)) {
+      loadParticipants();
     }
   }, [activeTab, tournamentId]);
 
@@ -546,6 +569,7 @@ export function AdminTournamentDetailPage() {
           : "No new accepted contracts were available for participant lock.",
       );
       setActiveTab("participants");
+      await loadParticipants();
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, "Failed to lock championship participants."));
     } finally {
@@ -589,21 +613,17 @@ export function AdminTournamentDetailPage() {
   const activeRaceCount = races.filter((race) => ["CHECKING", "READY", "ONGOING"].includes(race.status)).length;
   const nextRound = races.find((race) => !["PUBLISHED", "CANCELLED"].includes(race.status)) ?? races[0] ?? null;
   const participantCapacity = tournament.maxHorses ?? 0;
-  const mockParticipants = [
-    { horse: "Thunder Bolt", jockey: "Nguyen Van A", stable: "Sunrise Stable", points: 42, status: "ACTIVE" },
-    { horse: "Black Storm", jockey: "Tran Minh K", stable: "River Gate Stable", points: 35, status: "ACTIVE" },
-    { horse: "Golden Arrow", jockey: "Le Hoang P", stable: "Highland Racing", points: 30, status: "ACTIVE" },
-  ];
   const pendingRegistrations = registrations.filter((registration) => registration.status === "PENDING");
   const approvedRegistrations = registrations.filter((registration) => registration.status === "APPROVED");
   const pendingJockeyApplications = jockeyApplications.filter((application) => application.status === "PENDING");
   const approvedJockeyPool = jockeyApplications.filter((application) => application.status === "APPROVED_FOR_POOL");
+  const sortedParticipants = [...participants].sort((first, second) => second.points - first.points);
   const currentRoundNumber = nextRound ? races.findIndex((race) => race.id === nextRound.id) + 1 : 0;
   const currentRoundLabel = nextRound ? `Round ${currentRoundNumber} of ${races.length}` : "No round scheduled";
   const participantsReadyLabel =
     tournament.status === "CLOSED_REGISTRATION"
       ? "Ready to lock"
-      : `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
+      : `${participants.length} / ${participantCapacity || "Unset"}`;
   const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
 
@@ -1542,30 +1562,98 @@ export function AdminTournamentDetailPage() {
 
         {activeTab === "participants" && (
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
-              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Horse and jockey pairs</p>
-              <h2 className="text-2xl font-black text-slate-950">Championship Participants</h2>
-              <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
-                Participants are locked horse and jockey combinations for this championship season.
-              </p>
+            <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Official horse and jockey pairs</p>
+                <h2 className="text-2xl font-black text-slate-950">Championship Participants</h2>
+                <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                  This is the official participant source of truth. Accepted contracts only become season participants after admin lock.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handleLockParticipants()}
+                disabled={lockingParticipants}
+                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#92122d] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <UserCheck className="h-4 w-4" aria-hidden="true" />
+                {lockingParticipants ? "Locking..." : "Lock Accepted Contracts"}
+              </button>
             </div>
-            <div className="mt-5 grid gap-3">
-              {mockParticipants.map((participant) => (
-                <article key={participant.horse} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Locked pairs</p>
+                <p className="mt-2 text-2xl font-black text-slate-950">{participants.length}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Capacity</p>
+                <p className="mt-2 text-2xl font-black text-slate-950">{participantCapacity || "Unset"}</p>
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Accepted contract lock</p>
+                <p className="mt-2 text-sm font-black text-slate-950">
+                  {participants.length > 0 ? "Participant roster established" : "Waiting for admin lock"}
+                </p>
+              </div>
+            </div>
+
+            {participantError && (
+              <div className="mt-5 rounded-md border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">
+                {participantError}
+              </div>
+            )}
+
+            {participantLoading ? (
+              <div className="mt-5 grid gap-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-24 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+                ))}
+              </div>
+            ) : participants.length === 0 ? (
+              <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <Users className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+                <h3 className="mt-3 text-lg font-black text-slate-900">No official participants locked yet</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+                  Approve horse registrations, approve jockey pool applications, wait for accepted contracts, then lock participants.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+                <div className="grid grid-cols-[1.2fr_1fr_1fr_96px_120px] bg-slate-50 px-4 py-3 text-[11px] font-black uppercase tracking-wider text-slate-500">
+                  <span>Horse</span>
+                  <span>Jockey</span>
+                  <span>Owner / Stable</span>
+                  <span>Points</span>
+                  <span>Status</span>
+                </div>
+                {participants.map((participant) => (
+                  <article
+                    key={participant.id}
+                    className="grid grid-cols-1 gap-3 border-t border-slate-100 px-4 py-4 md:grid-cols-[1.2fr_1fr_1fr_96px_120px] md:items-center"
+                  >
                     <div>
-                      <p className="text-base font-black text-slate-950">{participant.horse}</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-500">
-                        {participant.jockey} / {participant.stable}
-                      </p>
+                      <p className="text-sm font-black text-slate-950">{participant.horseName}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Registration #{participant.horseRegistrationId}</p>
                     </div>
-                    <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
-                      {participant.status}
+                    <p className="text-sm font-bold text-slate-700">{participant.jockeyName}</p>
+                    <p className="text-sm font-bold text-slate-700">{participant.ownerName}</p>
+                    <p className="text-sm font-black text-slate-950">{participant.points} pts</p>
+                    <span
+                      className={`w-fit rounded-md border px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
+                        participant.status === "ACTIVE"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                          : participant.status === "DISQUALIFIED"
+                            ? "border-rose-200 bg-rose-50 text-rose-800"
+                            : "border-slate-200 bg-slate-50 text-slate-700"
+                      }`}
+                    >
+                      {participant.status.replaceAll("_", " ")}
                     </span>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+            )}
           </section>
         )}
 
@@ -1687,16 +1775,16 @@ export function AdminTournamentDetailPage() {
               </p>
             </div>
             <div className="mt-5 space-y-3">
-              {mockParticipants.map((participant, index) => (
-                <div key={participant.horse} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4">
+              {sortedParticipants.map((participant, index) => (
+                <div key={participant.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-center gap-4">
                     <span className="flex h-10 w-10 items-center justify-center rounded-md bg-white text-lg font-black text-slate-950">
                       #{index + 1}
                     </span>
                     <div>
-                      <p className="font-black text-slate-950">{participant.horse}</p>
+                      <p className="font-black text-slate-950">{participant.horseName}</p>
                       <p className="text-sm font-semibold text-slate-500">
-                        {participant.jockey} · {participant.stable}
+                        {participant.jockeyName} / {participant.ownerName}
                       </p>
                     </div>
                   </div>

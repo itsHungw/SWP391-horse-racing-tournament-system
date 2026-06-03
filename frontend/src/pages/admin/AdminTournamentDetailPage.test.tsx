@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import { getTournamentDetail, updateTournamentStatus } from "../../api/adminTournamentApi";
 import {
+  getAdminChampionshipParticipants,
   getAdminJockeyPoolApplications,
   getAdminTournamentRegistrations,
   lockAdminChampionshipParticipants,
@@ -27,6 +28,7 @@ vi.mock("../../api/adminRaceApi", () => ({
 vi.mock("../../api/racingApi", () => ({
   approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
+  getAdminChampionshipParticipants: vi.fn(),
   getAdminJockeyPoolApplications: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
   lockAdminChampionshipParticipants: vi.fn(),
@@ -139,6 +141,24 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
         jockeyName: "Tran Minh K",
         jockeyEmail: "approved@example.com",
         status: "APPROVED_FOR_POOL",
+      },
+    ]);
+    vi.mocked(getAdminChampionshipParticipants).mockResolvedValue([
+      {
+        id: 51,
+        championshipId: 7,
+        championshipName: "Summer Championship 2026",
+        horseRegistrationId: 11,
+        horseId: 8,
+        horseName: "Thunder Bolt",
+        ownerId: 5,
+        ownerName: "Sunrise Stable",
+        jockeyId: 14,
+        jockeyName: "Nguyen Van A",
+        jockeyInvitationId: 61,
+        status: "ACTIVE",
+        points: 0,
+        createdAt: "2026-06-04T03:00:00",
       },
     ]);
     vi.mocked(updateTournamentStatus).mockResolvedValue(undefined);
@@ -295,5 +315,22 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       expect(screen.queryByRole("dialog", { name: /create championship round/i })).not.toBeInTheDocument();
     });
     expect(getAdminRaces).toHaveBeenCalledWith({ tournamentId: 7 });
+  });
+
+  it("loads official participants from the championship participant source of truth", async () => {
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^participants$/i }));
+
+    expect(await screen.findByRole("heading", { name: /championship participants/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getAdminChampionshipParticipants).toHaveBeenCalledWith(7);
+    });
+    expect(screen.getByText("Thunder Bolt")).toBeInTheDocument();
+    expect(screen.getByText("Nguyen Van A")).toBeInTheDocument();
+    expect(screen.getByText("Sunrise Stable")).toBeInTheDocument();
+    expect(screen.getByText("0 pts")).toBeInTheDocument();
   });
 });

@@ -234,6 +234,24 @@ export type LockParticipantsResponse = {
   createdParticipants: number;
 };
 
+export type TournamentParticipant = {
+  id: number;
+  championshipId: number;
+  championshipName: string;
+  horseRegistrationId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId: number;
+  jockeyName: string;
+  jockeyInvitationId?: number;
+  status: "ACTIVE" | "WITHDRAWN" | "DISQUALIFIED" | string;
+  points: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   number: number;
