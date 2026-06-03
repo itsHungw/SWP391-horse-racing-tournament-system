@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.championship.controller;
 
 import com.example.horseracingtournamentsystem.championship.dto.request.JockeyPoolApplicationRequest;
 import com.example.horseracingtournamentsystem.championship.dto.request.RejectJockeyPoolApplicationRequest;
+import com.example.horseracingtournamentsystem.championship.dto.response.JockeyChampionshipResponse;
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyPoolApplicationResponse;
 import com.example.horseracingtournamentsystem.championship.service.JockeyPoolApplicationService;
 import jakarta.validation.Valid;
@@ -21,6 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 public class JockeyPoolApplicationController {
 
     private final JockeyPoolApplicationService applicationService;
+
+    @GetMapping("/api/v1/jockey/championships")
+    public List<JockeyChampionshipResponse> listChampionshipsForJockey(Authentication authentication) {
+        return applicationService.listChampionshipsForJockey(authentication.getName());
+    }
+
+    @GetMapping("/api/v1/jockey/championships/applications")
+    public List<JockeyPoolApplicationResponse> listOwnApplications(Authentication authentication) {
+        return applicationService.listOwnApplications(authentication.getName());
+    }
 
     @PostMapping("/api/v1/jockey/championships/{championshipId}/pool-applications")
     public JockeyPoolApplicationResponse apply(

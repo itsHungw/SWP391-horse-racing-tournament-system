@@ -1,6 +1,8 @@
 package com.example.horseracingtournamentsystem.championship.service;
 
 import com.example.horseracingtournamentsystem.championship.dto.response.ChampionshipWorkspaceResponse;
+import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
+import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -29,6 +31,7 @@ public class AdminChampionshipWorkspaceService {
     private final TournamentRepository tournamentRepository;
     private final RaceRepository raceRepository;
     private final TournamentRegistrationRepository registrationRepository;
+    private final JockeyTournamentApplicationRepository jockeyApplicationRepository;
 
     public ChampionshipWorkspaceResponse getWorkspace(Long championshipId) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(championshipId)
@@ -39,6 +42,14 @@ public class AdminChampionshipWorkspaceService {
         long publishedRounds = rounds.stream().filter(round -> "PUBLISHED".equals(round.getStatus())).count();
         long pendingRegistrations = registrationRepository.countByTournament_IdAndStatus(championshipId, "PENDING");
         long approvedRegistrations = registrationRepository.countByTournament_IdAndStatus(championshipId, "APPROVED");
+        long pendingJockeyApplications = jockeyApplicationRepository.countByTournament_IdAndStatus(
+                championshipId,
+                JockeyTournamentApplication.STATUS_PENDING
+        );
+        long approvedJockeyPool = jockeyApplicationRepository.countByTournament_IdAndStatus(
+                championshipId,
+                JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL
+        );
         boolean officialSchedule = isOfficialSchedule(tournament);
 
         return new ChampionshipWorkspaceResponse(
@@ -50,10 +61,12 @@ public class AdminChampionshipWorkspaceService {
                 tournament.getStatus(),
                 phaseLabel(tournament.getStatus()),
                 currentRound == null ? null : mapCurrentRound(currentRound, officialSchedule),
-                nextAction(tournament, currentRound, rounds, pendingRegistrations),
+                nextAction(tournament, currentRound, rounds, pendingRegistrations, pendingJockeyApplications),
                 new ChampionshipWorkspaceResponse.Counts(
                         pendingRegistrations,
                         approvedRegistrations,
+                        pendingJockeyApplications,
+                        approvedJockeyPool,
                         0,
                         rounds.size(),
                         publishedRounds
@@ -90,17 +103,18 @@ public class AdminChampionshipWorkspaceService {
             Tournament tournament,
             Race currentRound,
             List<Race> rounds,
-            long pendingRegistrations
+            long pendingRegistrations,
+            long pendingJockeyApplications
     ) {
         return switch (tournament.getStatus()) {
             case "DRAFT" -> rounds.isEmpty()
                     ? action("CREATE_ROUND", "Create Round", "ROUNDS", null)
                     : action("OPEN_REGISTRATION", "Open Registration", "CONTROLS", null);
-            case "OPEN_REGISTRATION" -> pendingRegistrations > 0
-                    ? action("REVIEW_REGISTRATIONS", "Review Registrations", "REGISTRATIONS", null)
+            case "OPEN_REGISTRATION" -> pendingRegistrations > 0 || pendingJockeyApplications > 0
+                    ? action("REVIEW_APPLICATIONS", "Review Applications", "APPLICATIONS", null)
                     : action("CLOSE_REGISTRATION", "Close Registration", "CONTROLS", null);
-            case "CLOSED_REGISTRATION" -> pendingRegistrations > 0
-                    ? action("REVIEW_REMAINING_REGISTRATIONS", "Review Remaining Registrations", "REGISTRATIONS", null)
+            case "CLOSED_REGISTRATION" -> pendingRegistrations > 0 || pendingJockeyApplications > 0
+                    ? action("REVIEW_REMAINING_APPLICATIONS", "Review Remaining Applications", "APPLICATIONS", null)
                     : action("LOCK_PARTICIPANTS", "Lock Participants", "PARTICIPANTS", null);
             case "PARTICIPANTS_LOCKED" -> action("START_RACING", "Start Racing", "CONTROLS", null);
             case "ONGOING" -> nextRoundAction(currentRound);

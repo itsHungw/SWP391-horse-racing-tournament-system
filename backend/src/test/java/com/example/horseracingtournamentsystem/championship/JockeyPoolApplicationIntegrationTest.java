@@ -133,6 +133,72 @@ class JockeyPoolApplicationIntegrationTest {
                 .andExpect(status().isConflict());
     }
 
+    @Test
+    void jockeyCanListChampionshipsWithOwnApplicationState() throws Exception {
+        mockMvc.perform(get("/api/v1/jockey/championships")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(openTournament.getId()))
+                .andExpect(jsonPath("$[0].name").value("Spring Cup 2026"))
+                .andExpect(jsonPath("$[0].applicationStatus").value("NOT_APPLIED"))
+                .andExpect(jsonPath("$[0].applicationId").doesNotExist())
+                .andExpect(jsonPath("$[0].canApply").value(true))
+                .andExpect(jsonPath("$[0].applicationWindowOpen").value(true))
+                .andExpect(jsonPath("$[0].approvedPoolCount").value(0));
+
+        Long applicationId = submitJockeyApplication();
+
+        mockMvc.perform(get("/api/v1/jockey/championships")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(openTournament.getId()))
+                .andExpect(jsonPath("$[0].applicationStatus").value("PENDING"))
+                .andExpect(jsonPath("$[0].applicationId").value(applicationId))
+                .andExpect(jsonPath("$[0].applicationMessage").value("Available for the full championship."))
+                .andExpect(jsonPath("$[0].canApply").value(false));
+    }
+
+    @Test
+    void jockeyCanListOwnPoolApplications() throws Exception {
+        Long applicationId = submitJockeyApplication();
+
+        mockMvc.perform(get("/api/v1/jockey/championships/applications")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(applicationId))
+                .andExpect(jsonPath("$[0].championshipId").value(openTournament.getId()))
+                .andExpect(jsonPath("$[0].championshipName").value("Spring Cup 2026"))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].message").value("Available for the full championship."));
+    }
+
+    @Test
+    void jockeyCanReapplyAfterRejectedApplicationWithoutCreatingDuplicateRow() throws Exception {
+        Long applicationId = submitJockeyApplication();
+
+        mockMvc.perform(post("/api/v1/admin/championships/{championshipId}/jockey-pool-applications/{applicationId}/reject",
+                        openTournament.getId(), applicationId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"reason":"Need clearer availability note."}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"));
+
+        mockMvc.perform(post("/api/v1/jockey/championships/{id}/pool-applications", openTournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message":"Updated availability for all rounds."}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(applicationId))
+                .andExpect(jsonPath("$.status").value("PENDING"))
+                .andExpect(jsonPath("$.message").value("Updated availability for all rounds."))
+                .andExpect(jsonPath("$.rejectionReason").doesNotExist());
+    }
+
     private Long submitJockeyApplication() throws Exception {
         String location = mockMvc.perform(post("/api/v1/jockey/championships/{id}/pool-applications", openTournament.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken)

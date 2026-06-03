@@ -4,6 +4,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
+import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
@@ -42,6 +44,9 @@ class AdminChampionshipWorkspaceIntegrationTest {
     private RaceRepository raceRepository;
 
     @Autowired
+    private JockeyTournamentApplicationRepository jockeyApplicationRepository;
+
+    @Autowired
     private TournamentRepository tournamentRepository;
 
     @Autowired
@@ -58,6 +63,7 @@ class AdminChampionshipWorkspaceIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        jockeyApplicationRepository.deleteAll();
         raceRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
@@ -127,5 +133,45 @@ class AdminChampionshipWorkspaceIntegrationTest {
                 .andExpect(jsonPath("$.readiness.registrationsClosed").value(true))
                 .andExpect(jsonPath("$.readiness.participantsLocked").value(true))
                 .andExpect(jsonPath("$.readiness.standingsReady").value(true));
+    }
+
+    @Test
+    void workspaceCountsHorseAndJockeyApplications() throws Exception {
+        Role jockeyRole = roleRepository.save(Role.of("JOCKEY", "Jockey"));
+        User firstJockey = saveActiveUser("First Jockey", "first-jockey@example.com");
+        User secondJockey = saveActiveUser("Second Jockey", "second-jockey@example.com");
+        userRoleRepository.save(UserRole.active(firstJockey, jockeyRole, adminUser));
+        userRoleRepository.save(UserRole.active(secondJockey, jockeyRole, adminUser));
+
+        Tournament tournament = Tournament.create(
+                "Spring Cup 2026", "SPRING_APPS_2026", "Applications championship", "Saigon Track",
+                LocalDate.of(2026, 3, 1), LocalDate.of(2026, 5, 30),
+                LocalDateTime.of(2026, 2, 1, 9, 0), LocalDateTime.of(2026, 2, 20, 18, 0),
+                20, adminUser
+        );
+        tournament.openRegistration();
+        tournament = tournamentRepository.save(tournament);
+
+        jockeyApplicationRepository.save(JockeyTournamentApplication.pending(tournament, firstJockey, "Ready."));
+        JockeyTournamentApplication approved = JockeyTournamentApplication.pending(tournament, secondJockey, "Full season.");
+        approved.approve(adminUser);
+        jockeyApplicationRepository.save(approved);
+
+        mockMvc.perform(get("/api/v1/admin/championships/{id}/workspace", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.counts.pendingRegistrations").value(0))
+                .andExpect(jsonPath("$.counts.approvedRegistrations").value(0))
+                .andExpect(jsonPath("$.counts.pendingJockeyApplications").value(1))
+                .andExpect(jsonPath("$.counts.approvedJockeyPool").value(1))
+                .andExpect(jsonPath("$.nextAction.code").value("REVIEW_APPLICATIONS"))
+                .andExpect(jsonPath("$.nextAction.label").value("Review Applications"))
+                .andExpect(jsonPath("$.nextAction.target").value("APPLICATIONS"));
+    }
+
+    private User saveActiveUser(String fullName, String email) {
+        User user = User.pending(fullName, email, "hash");
+        user.verifyEmail();
+        return userRepository.save(user);
     }
 }

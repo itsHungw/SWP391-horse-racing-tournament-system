@@ -110,6 +110,20 @@ public class JockeyTournamentApplication {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void resubmit(String message) {
+        if (!STATUS_REJECTED.equals(this.status) && !STATUS_WITHDRAWN.equals(this.status)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only rejected or withdrawn pool applications can be resubmitted");
+        }
+        this.status = STATUS_PENDING;
+        this.message = message;
+        this.reviewedBy = null;
+        this.reviewedAt = null;
+        this.rejectionReason = null;
+        this.withdrawnAt = null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     private void ensurePendingForReview() {
         if (!STATUS_PENDING.equals(this.status)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending pool applications can be reviewed");

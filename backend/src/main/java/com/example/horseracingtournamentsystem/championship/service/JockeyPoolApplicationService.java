@@ -1,13 +1,17 @@
 package com.example.horseracingtournamentsystem.championship.service;
 
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyPoolApplicationResponse;
+import com.example.horseracingtournamentsystem.championship.dto.response.JockeyChampionshipResponse;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import java.util.Map;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +31,42 @@ public class JockeyPoolApplicationService {
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
 
+    @Transactional(readOnly = true)
+    public List<JockeyChampionshipResponse> listChampionshipsForJockey(String jockeyEmail) {
+        User jockey = getUserWithRoles(jockeyEmail);
+        requireRole(jockey, "JOCKEY", "Only approved jockeys can view jockey championships");
+
+        Map<Long, JockeyTournamentApplication> applicationsByTournament = applicationRepository
+                .findAllByJockey_IdOrderByCreatedAtDesc(jockey.getId())
+                .stream()
+                .collect(Collectors.toMap(
+                        application -> application.getTournament().getId(),
+                        Function.identity(),
+                        (first, ignored) -> first
+                ));
+
+        return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
+                        List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "ONGOING", "COMPLETED")
+                )
+                .stream()
+                .map(tournament -> mapToJockeyChampionshipResponse(
+                        tournament,
+                        applicationsByTournament.get(tournament.getId())
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<JockeyPoolApplicationResponse> listOwnApplications(String jockeyEmail) {
+        User jockey = getUserWithRoles(jockeyEmail);
+        requireRole(jockey, "JOCKEY", "Only approved jockeys can view jockey pool applications");
+
+        return applicationRepository.findAllByJockey_IdOrderByCreatedAtDesc(jockey.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     @Transactional
     public JockeyPoolApplicationResponse apply(Long championshipId, String jockeyEmail, String message) {
         Tournament tournament = getOpenTournament(championshipId);
@@ -42,7 +82,13 @@ public class JockeyPoolApplicationService {
                     "You already have an active application for this championship pool");
         }
 
-        JockeyTournamentApplication application = JockeyTournamentApplication.pending(tournament, jockey, message);
+        JockeyTournamentApplication application = applicationRepository
+                .findByTournament_IdAndJockey_Id(championshipId, jockey.getId())
+                .map(existing -> {
+                    existing.resubmit(message);
+                    return existing;
+                })
+                .orElseGet(() -> JockeyTournamentApplication.pending(tournament, jockey, message));
         return mapToResponse(applicationRepository.save(application));
     }
 
@@ -132,6 +178,45 @@ public class JockeyPoolApplicationService {
         if (!user.getActiveRoleNames().contains(role)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, message);
         }
+    }
+
+    private JockeyChampionshipResponse mapToJockeyChampionshipResponse(
+            Tournament tournament,
+            JockeyTournamentApplication application
+    ) {
+        String applicationStatus = application == null ? "NOT_APPLIED" : application.getStatus();
+        boolean applicationWindowOpen = "OPEN_REGISTRATION".equals(tournament.getStatus());
+        boolean canApply = applicationWindowOpen && (
+                application == null
+                        || JockeyTournamentApplication.STATUS_REJECTED.equals(application.getStatus())
+                        || JockeyTournamentApplication.STATUS_WITHDRAWN.equals(application.getStatus())
+        );
+
+        return JockeyChampionshipResponse.builder()
+                .id(tournament.getId())
+                .name(tournament.getName())
+                .code(tournament.getCode())
+                .description(tournament.getDescription())
+                .location(tournament.getLocation())
+                .startDate(tournament.getStartDate())
+                .endDate(tournament.getEndDate())
+                .registrationStartAt(tournament.getRegistrationStartAt())
+                .registrationEndAt(tournament.getRegistrationEndAt())
+                .maxHorses(tournament.getMaxHorses())
+                .status(tournament.getStatus())
+                .applicationStatus(applicationStatus)
+                .applicationId(application == null ? null : application.getId())
+                .applicationMessage(application == null ? null : application.getMessage())
+                .rejectionReason(application == null ? null : application.getRejectionReason())
+                .applicationCreatedAt(application == null ? null : application.getCreatedAt())
+                .reviewedAt(application == null ? null : application.getReviewedAt())
+                .approvedPoolCount(applicationRepository.countByTournament_IdAndStatus(
+                        tournament.getId(),
+                        JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL
+                ))
+                .applicationWindowOpen(applicationWindowOpen)
+                .canApply(canApply)
+                .build();
     }
 
     private JockeyPoolApplicationResponse mapToResponse(JockeyTournamentApplication application) {

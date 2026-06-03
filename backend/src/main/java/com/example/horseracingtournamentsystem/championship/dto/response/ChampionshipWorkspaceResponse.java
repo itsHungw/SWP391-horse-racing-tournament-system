@@ -36,6 +36,8 @@ public record ChampionshipWorkspaceResponse(
     public record Counts(
             long pendingRegistrations,
             long approvedRegistrations,
+            long pendingJockeyApplications,
+            long approvedJockeyPool,
             long participants,
             long rounds,
             long publishedRounds
