@@ -195,6 +195,45 @@ export type JockeyChampionship = {
   canApply: boolean;
 };
 
+export type JockeyInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+
+export type JockeyInvitation = {
+  id: number;
+  championshipId: number;
+  championshipName: string;
+  horseRegistrationId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId: number;
+  jockeyName: string;
+  jockeyApplicationId: number;
+  message?: string;
+  agreementUrl?: string;
+  agreementFileName?: string;
+  status: JockeyInvitationStatus;
+  readAt?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OwnerContractPayload = {
+  horseRegistrationId: number;
+  jockeyApplicationId: number;
+  message?: string;
+  agreementUrl?: string;
+  agreementFileName?: string;
+};
+
+export type LockParticipantsResponse = {
+  championshipId: number;
+  createdParticipants: number;
+};
+
 export type PageResponse<T> = {
   content: T[];
   number: number;

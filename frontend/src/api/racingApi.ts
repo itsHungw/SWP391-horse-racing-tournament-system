@@ -6,8 +6,11 @@ import type {
   HorseMultipartPayload,
   HorseStatus,
   JockeyChampionship,
+  JockeyInvitation,
   JockeyPoolApplication,
   JockeyPoolApplicationStatus,
+  LockParticipantsResponse,
+  OwnerContractPayload,
   PageResponse,
   Tournament,
   TournamentRegistration,
@@ -213,6 +216,44 @@ export async function rejectAdminJockeyPoolApplication(
 export async function getOwnerAvailableJockeys(championshipId: number): Promise<JockeyPoolApplication[]> {
   const response = await httpClient.get<JockeyPoolApplication[]>(
     `/owner/championships/${championshipId}/jockey-pool`,
+  );
+  return response.data;
+}
+
+export async function sendOwnerContract(
+  championshipId: number,
+  payload: OwnerContractPayload,
+): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(
+    `/owner/championships/${championshipId}/contracts`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function getOwnerContracts(championshipId: number): Promise<JockeyInvitation[]> {
+  const response = await httpClient.get<JockeyInvitation[]>(`/owner/championships/${championshipId}/contracts`);
+  return response.data;
+}
+
+export async function getJockeyContracts(): Promise<JockeyInvitation[]> {
+  const response = await httpClient.get<JockeyInvitation[]>("/jockey/contracts");
+  return response.data;
+}
+
+export async function acceptJockeyContract(contractId: number): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(`/jockey/contracts/${contractId}/accept`);
+  return response.data;
+}
+
+export async function rejectJockeyContract(contractId: number, reason: string): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(`/jockey/contracts/${contractId}/reject`, { reason });
+  return response.data;
+}
+
+export async function lockAdminChampionshipParticipants(championshipId: number): Promise<LockParticipantsResponse> {
+  const response = await httpClient.post<LockParticipantsResponse>(
+    `/admin/championships/${championshipId}/lock-participants`,
   );
   return response.data;
 }

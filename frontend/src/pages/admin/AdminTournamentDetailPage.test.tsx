@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import { getTournamentDetail, updateTournamentStatus } from "../../api/adminTournamentApi";
-import { getAdminJockeyPoolApplications, getAdminTournamentRegistrations } from "../../api/racingApi";
+import {
+  getAdminJockeyPoolApplications,
+  getAdminTournamentRegistrations,
+  lockAdminChampionshipParticipants,
+} from "../../api/racingApi";
 import { AdminTournamentDetailPage } from "./AdminTournamentDetailPage";
 
 vi.mock("../../api/adminTournamentApi", () => ({
@@ -25,6 +29,7 @@ vi.mock("../../api/racingApi", () => ({
   approveAdminTournamentRegistration: vi.fn(),
   getAdminJockeyPoolApplications: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
+  lockAdminChampionshipParticipants: vi.fn(),
   rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
 }));
@@ -137,6 +142,10 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       },
     ]);
     vi.mocked(updateTournamentStatus).mockResolvedValue(undefined);
+    vi.mocked(lockAdminChampionshipParticipants).mockResolvedValue({
+      championshipId: 7,
+      createdParticipants: 1,
+    });
   });
 
   function renderPage() {

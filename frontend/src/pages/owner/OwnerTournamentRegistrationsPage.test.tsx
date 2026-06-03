@@ -5,18 +5,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createOwnerTournamentRegistration,
   getOwnerHorses,
+  getOwnerAvailableJockeys,
   getOwnerTournamentRegistrationsPage,
   getPublicTournaments,
   getOwnerHorseDocuments,
+  sendOwnerContract,
 } from "../../api/racingApi";
 import { OwnerTournamentRegistrationsPage } from "./OwnerTournamentRegistrationsPage";
 
 vi.mock("../../api/racingApi", () => ({
   createOwnerTournamentRegistration: vi.fn(),
   getOwnerHorses: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn(),
   getPublicTournaments: vi.fn(),
   getOwnerHorseDocuments: vi.fn(),
+  sendOwnerContract: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
@@ -31,7 +35,22 @@ describe("OwnerTournamentRegistrationsPage", () => {
       { id: 3, name: "Approved Horse", gender: "MALE", status: "APPROVED" },
       { id: 4, name: "Pending Horse", gender: "FEMALE", status: "PENDING" },
     ]);
+    vi.mocked(getOwnerAvailableJockeys).mockResolvedValue([]);
     vi.mocked(getOwnerTournamentRegistrationsPage).mockResolvedValue(pageOf([]));
+    vi.mocked(sendOwnerContract).mockResolvedValue({
+      id: 99,
+      championshipId: 1,
+      championshipName: "Spring Cup",
+      horseRegistrationId: 8,
+      horseId: 3,
+      horseName: "Approved Horse",
+      ownerId: 2,
+      ownerName: "Owner",
+      jockeyId: 7,
+      jockeyName: "Jockey",
+      jockeyApplicationId: 5,
+      status: "PENDING",
+    });
     vi.mocked(getOwnerHorseDocuments).mockResolvedValue([
       {
         id: 10,

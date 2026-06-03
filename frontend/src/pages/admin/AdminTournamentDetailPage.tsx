@@ -29,6 +29,7 @@ import {
   approveAdminTournamentRegistration,
   getAdminJockeyPoolApplications,
   getAdminTournamentRegistrations,
+  lockAdminChampionshipParticipants,
   rejectAdminJockeyPoolApplication,
   rejectAdminTournamentRegistration,
 } from "../../api/racingApi";
@@ -245,6 +246,7 @@ export function AdminTournamentDetailPage() {
   const [roundForm, setRoundForm] = useState(emptyRoundForm);
   const [roundFormError, setRoundFormError] = useState("");
   const [creatingRound, setCreatingRound] = useState(false);
+  const [lockingParticipants, setLockingParticipants] = useState(false);
 
   useDocumentTitle(tournament ? `${tournament.name} championship` : "Championship detail");
 
@@ -532,6 +534,25 @@ export function AdminTournamentDetailPage() {
     }
   };
 
+  const handleLockParticipants = async () => {
+    try {
+      setLockingParticipants(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+      const response = await lockAdminChampionshipParticipants(tournamentId);
+      setSuccessMsg(
+        response.createdParticipants > 0
+          ? `${response.createdParticipants} participant pair${response.createdParticipants === 1 ? "" : "s"} locked from accepted contracts.`
+          : "No new accepted contracts were available for participant lock.",
+      );
+      setActiveTab("participants");
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, "Failed to lock championship participants."));
+    } finally {
+      setLockingParticipants(false);
+    }
+  };
+
   if (loading && !tournament) {
     return (
       <AdminLayout>
@@ -579,7 +600,10 @@ export function AdminTournamentDetailPage() {
   const approvedJockeyPool = jockeyApplications.filter((application) => application.status === "APPROVED_FOR_POOL");
   const currentRoundNumber = nextRound ? races.findIndex((race) => race.id === nextRound.id) + 1 : 0;
   const currentRoundLabel = nextRound ? `Round ${currentRoundNumber} of ${races.length}` : "No round scheduled";
-  const participantsReadyLabel = `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
+  const participantsReadyLabel =
+    tournament.status === "CLOSED_REGISTRATION"
+      ? "Ready to lock"
+      : `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
   const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
 
@@ -598,7 +622,7 @@ export function AdminTournamentDetailPage() {
     }
 
     if (tournament.status === "CLOSED_REGISTRATION") {
-      setActiveTab("participants");
+      void handleLockParticipants();
       return;
     }
 
@@ -653,6 +677,13 @@ export function AdminTournamentDetailPage() {
 
       {tournament.status === "CLOSED_REGISTRATION" && (
         <>
+          <button
+            onClick={() => void handleLockParticipants()}
+            disabled={lockingParticipants}
+            className="rounded-md bg-[#b3193a] px-4 py-2 text-xs font-bold text-white hover:bg-[#92122d] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {lockingParticipants ? "Locking..." : "Lock Participants"}
+          </button>
           <button
             onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
             className="rounded-md bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
@@ -1084,9 +1115,10 @@ export function AdminTournamentDetailPage() {
             <button
               type="button"
               onClick={handleContinueOperations}
+              disabled={lockingParticipants}
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
             >
-              Continue Operations
+              {lockingParticipants ? "Locking Participants..." : "Continue Operations"}
             </button>
           </div>
 
@@ -1242,9 +1274,10 @@ export function AdminTournamentDetailPage() {
               <button
                 type="button"
                 onClick={handleContinueOperations}
-                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                disabled={lockingParticipants}
+                className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] disabled:cursor-not-allowed disabled:bg-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
               >
-                Continue Operations
+                {lockingParticipants ? "Locking Participants..." : "Continue Operations"}
               </button>
               <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-black text-slate-950">Primary flow</p>
