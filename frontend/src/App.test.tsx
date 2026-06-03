@@ -23,13 +23,16 @@ vi.mock("./api/adminUserApi", () => ({
 
 vi.mock("./api/racingApi", () => ({
   approveAdminHorse: vi.fn(),
+  approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
   createOwnerHorse: vi.fn(),
   createOwnerTournamentRegistration: vi.fn(),
+  getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getAdminHorses: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
   getOwnerTournamentRegistrations: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn().mockResolvedValue({
     content: [],
@@ -40,6 +43,7 @@ vi.mock("./api/racingApi", () => ({
   }),
   getPublicTournaments: vi.fn(),
   rejectAdminHorse: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
@@ -320,14 +324,22 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByText("PEOPLE")).toBeInTheDocument();
+    expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
+    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournaments",
+    );
     expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
       "href",
       "/admin/horses",
     );
-    expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
-      "href",
-      "/admin/tournament-registrations",
-    );
+    expect(screen.queryByRole("link", { name: /^participants$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^registrations$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^standings$/i })).not.toBeInTheDocument();
   });
 
   it("keeps admin user management inside the admin shell", async () => {

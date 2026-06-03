@@ -9,6 +9,7 @@ import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.HorseOwnerProfileRepository;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
+import com.example.horseracingtournamentsystem.user.repository.RoleRequestRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
 import java.util.Set;
@@ -42,12 +43,16 @@ class OwnerProfileIntegrationTest {
     @Autowired
     private HorseOwnerProfileRepository horseOwnerProfileRepository;
 
+    @Autowired
+    private RoleRequestRepository roleRequestRepository;
+
     private String token;
     private User user;
 
     @BeforeEach
     void setUp() {
         horseOwnerProfileRepository.deleteAll();
+        roleRequestRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
         userRepository.deleteAll();

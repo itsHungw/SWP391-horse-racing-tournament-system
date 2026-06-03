@@ -5,6 +5,8 @@ import type {
   HorseDocumentPayload,
   HorseMultipartPayload,
   HorseStatus,
+  JockeyPoolApplication,
+  JockeyPoolApplicationStatus,
   PageResponse,
   Tournament,
   TournamentRegistration,
@@ -150,5 +152,45 @@ export async function rejectAdminTournamentRegistration(
   const response = await httpClient.post<TournamentRegistration>(`/admin/tournament-registrations/${id}/reject`, {
     reason,
   });
+  return response.data;
+}
+
+export async function getAdminJockeyPoolApplications(
+  championshipId: number,
+  status?: JockeyPoolApplicationStatus,
+): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/admin/championships/${championshipId}/jockey-pool-applications`,
+    { params: { status: status || undefined } },
+  );
+  return response.data;
+}
+
+export async function approveAdminJockeyPoolApplication(
+  championshipId: number,
+  applicationId: number,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/admin/championships/${championshipId}/jockey-pool-applications/${applicationId}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectAdminJockeyPoolApplication(
+  championshipId: number,
+  applicationId: number,
+  reason: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/admin/championships/${championshipId}/jockey-pool-applications/${applicationId}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+export async function getOwnerAvailableJockeys(championshipId: number): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/owner/championships/${championshipId}/jockey-pool`,
+  );
   return response.data;
 }

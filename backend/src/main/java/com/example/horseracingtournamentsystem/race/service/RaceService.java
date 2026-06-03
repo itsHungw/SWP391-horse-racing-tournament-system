@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,6 +26,17 @@ public class RaceService {
     private final RaceRepository raceRepository;
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
+
+    private static final Map<String, Set<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
+            "SCHEDULED", Set.of("CHECKING", "CANCELLED"),
+            "CHECKING", Set.of("READY", "CANCELLED"),
+            "READY", Set.of("ONGOING", "CANCELLED"),
+            "ONGOING", Set.of("FINISHED", "CANCELLED"),
+            "FINISHED", Set.of("RESULT_SUBMITTED"),
+            "RESULT_SUBMITTED", Set.of("RESULT_CONFIRMED"),
+            "RESULT_CONFIRMED", Set.of("PUBLISHED"),
+            "PUBLISHED", Set.of()
+    );
 
     @Transactional
     public RaceResponse createRace(RaceRequest req, String creatorEmail) {
@@ -78,10 +91,37 @@ public class RaceService {
         return mapToResponse(race);
     }
 
-    public List<RaceResponse> getAdminRaces() {
-        return raceRepository.findAllByDeletedAtIsNull().stream()
+    public List<RaceResponse> getAdminRaces(Long tournamentId) {
+        List<Race> races = tournamentId == null
+                ? raceRepository.findAllByDeletedAtIsNullOrderByRaceAtAsc()
+                : raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(tournamentId);
+
+        return races.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public RaceResponse updateRaceStatus(Long id, String targetStatus) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+
+        String normalizedStatus = targetStatus == null ? "" : targetStatus.trim().toUpperCase();
+        if (!ALLOWED_STATUS_TRANSITIONS.containsKey(normalizedStatus) && !"CANCELLED".equals(normalizedStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported race status");
+        }
+
+        Set<String> allowedTargets = ALLOWED_STATUS_TRANSITIONS.getOrDefault(race.getStatus(), Set.of());
+        if (!allowedTargets.contains(normalizedStatus)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Race status cannot move from " + race.getStatus() + " to " + normalizedStatus
+            );
+        }
+
+        race.updateStatus(normalizedStatus);
+        raceRepository.save(race);
+        return mapToResponse(race);
     }
 
     public List<RaceResponse> getPublicRaces(Long tournamentId) {

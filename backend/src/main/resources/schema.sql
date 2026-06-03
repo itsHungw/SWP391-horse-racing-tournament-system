@@ -375,3 +375,70 @@ IF COL_LENGTH('horse_owner_profiles', 'created_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD created_at DATETIME2 NULL;
 IF COL_LENGTH('horse_owner_profiles', 'updated_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD updated_at DATETIME2 NULL;
+
+IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.jockey_tournament_applications (
+        id bigint IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        tournament_id bigint NOT NULL,
+        jockey_id bigint NOT NULL,
+        status nvarchar(30) NOT NULL,
+        message nvarchar(max) NULL,
+        reviewed_by bigint NULL,
+        reviewed_at datetime2 NULL,
+        rejection_reason nvarchar(max) NULL,
+        created_at datetime2 NOT NULL CONSTRAINT DF_jockey_tournament_applications_created_at DEFAULT SYSUTCDATETIME(),
+        updated_at datetime2 NULL,
+        withdrawn_at datetime2 NULL
+    )
+END;
+
+IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_jockey_tournament_applications_tournament'
+         AND parent_object_id = OBJECT_ID(N'dbo.jockey_tournament_applications')
+   )
+BEGIN
+    ALTER TABLE dbo.jockey_tournament_applications
+    ADD CONSTRAINT FK_jockey_tournament_applications_tournament
+    FOREIGN KEY (tournament_id) REFERENCES dbo.tournaments(id)
+END;
+
+IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_jockey_tournament_applications_jockey'
+         AND parent_object_id = OBJECT_ID(N'dbo.jockey_tournament_applications')
+   )
+BEGIN
+    ALTER TABLE dbo.jockey_tournament_applications
+    ADD CONSTRAINT FK_jockey_tournament_applications_jockey
+    FOREIGN KEY (jockey_id) REFERENCES dbo.users(id)
+END;
+
+IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_jockey_tournament_applications_reviewed_by'
+         AND parent_object_id = OBJECT_ID(N'dbo.jockey_tournament_applications')
+   )
+BEGIN
+    ALTER TABLE dbo.jockey_tournament_applications
+    ADD CONSTRAINT FK_jockey_tournament_applications_reviewed_by
+    FOREIGN KEY (reviewed_by) REFERENCES dbo.users(id)
+END;
+
+IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.indexes
+       WHERE name = N'uq_jockey_tournament_applications_tournament_jockey'
+         AND object_id = OBJECT_ID(N'dbo.jockey_tournament_applications')
+   )
+BEGIN
+    CREATE UNIQUE INDEX uq_jockey_tournament_applications_tournament_jockey
+    ON dbo.jockey_tournament_applications(tournament_id, jockey_id)
+END;
