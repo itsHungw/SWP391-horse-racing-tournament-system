@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
+import com.example.horseracingtournamentsystem.point.repository.PointSettingRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -42,6 +44,9 @@ class AdminPointSettingsIntegrationTest {
 
     @Autowired
     private UserRoleRepository userRoleRepository;
+
+    @Autowired
+    private PointSettingRepository pointSettingRepository;
 
     private String adminToken;
     private String spectatorToken;
@@ -99,6 +104,12 @@ class AdminPointSettingsIntegrationTest {
                 .andExpect(jsonPath("$.DAILY_BLOG_REWARD_LIMIT").value(3))
                 .andExpect(jsonPath("$.PREDICTION_ENTRY_COST").value(4))
                 .andExpect(jsonPath("$.PREDICTION_CORRECT_REWARD").value(5));
+
+        assertSettingValue(PointSettingKey.FIRST_LOGIN_BONUS, 1);
+        assertSettingValue(PointSettingKey.BLOG_REWARD_POINTS, 2);
+        assertSettingValue(PointSettingKey.DAILY_BLOG_REWARD_LIMIT, 3);
+        assertSettingValue(PointSettingKey.PREDICTION_ENTRY_COST, 4);
+        assertSettingValue(PointSettingKey.PREDICTION_CORRECT_REWARD, 5);
     }
 
     @Test
@@ -123,5 +134,12 @@ class AdminPointSettingsIntegrationTest {
         mockMvc.perform(get("/api/v1/admin/point-settings")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken))
                 .andExpect(status().isForbidden());
+    }
+
+    private void assertSettingValue(PointSettingKey key, int expectedValue) {
+        org.assertj.core.api.Assertions.assertThat(pointSettingRepository.findById(key))
+                .get()
+                .extracting("value")
+                .isEqualTo(expectedValue);
     }
 }

@@ -432,3 +432,5 @@ BEGIN
     INSERT INTO dbo.point_settings (setting_key, setting_value, description)
     VALUES ('PREDICTION_CORRECT_REWARD', 0, N'Points awarded for a correct race prediction.')
 END;
+SELECT DB_NAME() AS current_db;
+
