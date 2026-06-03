@@ -23,13 +23,16 @@ import {
   updateTournament,
   updateTournamentStatus,
 } from "../../api/adminTournamentApi";
-import type { Race, RaceStatus, Tournament } from "../../types/racing";
+import { getAdminTournamentRegistrations } from "../../api/racingApi";
+import type { Race, RaceStatus, Tournament, TournamentRegistration } from "../../types/racing";
 
-type ChampionshipTab = "overview" | "rounds" | "controls";
+type ChampionshipTab = "overview" | "registrations" | "participants" | "rounds" | "standings" | "controls";
 
-const championshipTabs: Array<{ key: ChampionshipTab; label: string }> = [
-  { key: "overview", label: "Overview" },
+const secondaryChampionshipTabs: Array<{ key: Exclude<ChampionshipTab, "overview">; label: string }> = [
+  { key: "registrations", label: "Registrations" },
+  { key: "participants", label: "Participants" },
   { key: "rounds", label: "Rounds" },
+  { key: "standings", label: "Standings" },
   { key: "controls", label: "Controls" },
 ];
 
@@ -168,6 +171,19 @@ function getNextActionLabel(race: Race | null) {
   return raceNextActions[race.status]?.label ?? "Review Round Status";
 }
 
+function getChampionshipNextActionLabel(tournament: Tournament, race: Race | null) {
+  switch (tournament.status) {
+    case "OPEN_REGISTRATION":
+      return "Review Registrations";
+    case "CLOSED_REGISTRATION":
+      return "Lock Participants";
+    case "COMPLETED":
+      return "Review Standings";
+    default:
+      return getNextActionLabel(race);
+  }
+}
+
 export function AdminTournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -179,6 +195,9 @@ export function AdminTournamentDetailPage() {
   const [races, setRaces] = useState<Race[]>([]);
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState("");
+  const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
+  const [registrationLoading, setRegistrationLoading] = useState(false);
+  const [registrationError, setRegistrationError] = useState("");
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
   const [roundControlOpen, setRoundControlOpen] = useState(false);
   const [raceActionLoadingId, setRaceActionLoadingId] = useState<number | null>(null);
@@ -253,6 +272,19 @@ export function AdminTournamentDetailPage() {
     }
   };
 
+  const loadRegistrations = async () => {
+    try {
+      setRegistrationLoading(true);
+      setRegistrationError("");
+      const data = await getAdminTournamentRegistrations();
+      setRegistrations(data.filter((registration) => registration.tournamentId === tournamentId));
+    } catch (err: any) {
+      setRegistrationError(err.response?.data?.message || "Failed to load championship registrations.");
+    } finally {
+      setRegistrationLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tournamentId) {
       loadDetail();
@@ -262,6 +294,12 @@ export function AdminTournamentDetailPage() {
   useEffect(() => {
     if (tournamentId && ["overview", "rounds"].includes(activeTab)) {
       loadRaces();
+    }
+  }, [activeTab, tournamentId]);
+
+  useEffect(() => {
+    if (tournamentId && ["overview", "registrations"].includes(activeTab)) {
+      loadRegistrations();
     }
   }, [activeTab, tournamentId]);
 
@@ -432,10 +470,13 @@ export function AdminTournamentDetailPage() {
     { horse: "Black Storm", jockey: "Tran Minh K", stable: "River Gate Stable", points: 35, status: "ACTIVE" },
     { horse: "Golden Arrow", jockey: "Le Hoang P", stable: "Highland Racing", points: 30, status: "ACTIVE" },
   ];
+  const pendingRegistrations = registrations.filter((registration) => registration.status === "PENDING");
+  const approvedRegistrations = registrations.filter((registration) => registration.status === "APPROVED");
   const currentRoundNumber = nextRound ? races.findIndex((race) => race.id === nextRound.id) + 1 : 0;
   const currentRoundLabel = nextRound ? `Round ${currentRoundNumber} of ${races.length}` : "No round scheduled";
   const participantsReadyLabel = `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
-  const nextActionLabel = getNextActionLabel(nextRound);
+  const registrationReadinessLabel = `${approvedRegistrations.length} approved, ${pendingRegistrations.length} pending`;
+  const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
 
   const openRoundControlCenter = (race: Race | null = nextRound) => {
     if (race) {
@@ -443,6 +484,32 @@ export function AdminTournamentDetailPage() {
     }
     setActiveTab("rounds");
     setRoundControlOpen(true);
+  };
+
+  const handleContinueOperations = () => {
+    if (tournament.status === "OPEN_REGISTRATION") {
+      setActiveTab("registrations");
+      return;
+    }
+
+    if (tournament.status === "CLOSED_REGISTRATION") {
+      setActiveTab("participants");
+      return;
+    }
+
+    if (tournament.status === "COMPLETED") {
+      setActiveTab("standings");
+      return;
+    }
+
+    if (races.length === 0) {
+      setActiveTab("rounds");
+      setRoundFormError("");
+      setShowCreateRoundModal(true);
+      return;
+    }
+
+    openRoundControlCenter();
   };
 
   const renderStatusActions = () => (
@@ -911,7 +978,7 @@ export function AdminTournamentDetailPage() {
             </p>
             <button
               type="button"
-              onClick={() => openRoundControlCenter()}
+              onClick={handleContinueOperations}
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
             >
               Continue Operations
@@ -938,35 +1005,75 @@ export function AdminTournamentDetailPage() {
           </div>
         </div>
 
-        <div className="border-b border-slate-200">
-          <nav className="flex gap-2 overflow-x-auto text-sm font-bold" aria-label="Championship workspace tabs">
-            {championshipTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`rounded-t-md px-4 py-3 ${
-                  activeTab === tab.key
-                    ? "border-b-2 border-[#b3193a] bg-white text-[#b3193a]"
-                    : "text-slate-500 hover:bg-white hover:text-slate-800"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <div className="rounded-lg border border-slate-200 bg-white p-2 shadow-sm">
+          <nav
+            className="flex flex-col gap-2 text-sm font-bold lg:flex-row lg:items-center"
+            aria-label="Championship secondary navigation"
+          >
+            <button
+              type="button"
+              onClick={() => setActiveTab("overview")}
+              className={`min-h-11 rounded-md px-4 text-left text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2 ${
+                activeTab === "overview"
+                  ? "bg-slate-950 text-white shadow-sm"
+                  : "bg-slate-50 text-slate-800 hover:bg-slate-100"
+              }`}
+            >
+              Overview
+            </button>
+            <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto">
+              {secondaryChampionshipTabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`min-h-11 shrink-0 rounded-md px-4 text-sm font-black transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2 ${
+                    activeTab === tab.key
+                      ? "bg-[#b3193a] text-white"
+                      : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </nav>
         </div>
 
         {activeTab === "overview" && (
-          <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+          <section
+            aria-label="Primary championship overview"
+            className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]"
+          >
             <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Championship overview</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Championship Health</h2>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">Command Center</h2>
               <p className="mt-2 text-sm font-medium leading-6 text-slate-500">
-                This command center keeps the admin focused on state, readiness, and the next required action.
+                Start from the championship state, then continue to the one action that moves operations forward.
               </p>
 
               <div className="mt-5 space-y-3">
+                {pendingRegistrations.length > 0 && (
+                  <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" aria-hidden="true" />
+                      <div>
+                        <p className="text-sm font-black text-amber-950">Needs attention</p>
+                        <p className="mt-1 text-sm font-semibold text-amber-800">
+                          {pendingRegistrations.length} registration{pendingRegistrations.length === 1 ? "" : "s"} pending review.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("registrations")}
+                      className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-700 px-4 text-xs font-black text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
+                    >
+                      Review Registrations
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between gap-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="mt-0.5 h-5 w-5 text-emerald-700" aria-hidden="true" />
@@ -991,7 +1098,7 @@ export function AdminTournamentDetailPage() {
                     <Users className="h-5 w-5 text-slate-500" aria-hidden="true" />
                     <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Participants Readiness</p>
                     <p className="mt-1 text-lg font-black text-slate-950">{participantsReadyLabel}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">Horse and jockey pairings ready for the season.</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{registrationReadinessLabel}</p>
                   </div>
                 </div>
 
@@ -1010,30 +1117,11 @@ export function AdminTournamentDetailPage() {
                 </div>
 
                 <div className="rounded-lg border border-slate-200 bg-white p-4">
-                  <p className="text-sm font-black text-slate-950">Related Workspaces</p>
-                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-                    Use dedicated admin modules for deep review instead of crowding this command center.
+                  <p className="text-sm font-black text-slate-950">Secondary workspaces</p>
+                  <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+                    Use the navigation above for registration review, participant formation, round setup, standings, and
+                    championship-level controls.
                   </p>
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
-                    <Link
-                      to="/admin/tournament-registrations"
-                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
-                    >
-                      View Registrations
-                    </Link>
-                    <Link
-                      to="/admin/participants"
-                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
-                    >
-                      View Participants
-                    </Link>
-                    <Link
-                      to="/admin/standings"
-                      className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs font-black text-slate-700 hover:border-[#b3193a]/30 hover:bg-[#b3193a]/5 hover:text-[#b3193a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
-                    >
-                      View Standings
-                    </Link>
-                  </div>
                 </div>
               </div>
             </section>
@@ -1047,7 +1135,7 @@ export function AdminTournamentDetailPage() {
               </p>
               <button
                 type="button"
-                onClick={() => openRoundControlCenter()}
+                onClick={handleContinueOperations}
                 className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
               >
                 Continue Operations
@@ -1059,7 +1147,105 @@ export function AdminTournamentDetailPage() {
                 </p>
               </div>
             </section>
-          </div>
+          </section>
+        )}
+
+        {activeTab === "registrations" && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Horse entry review</p>
+              <h2 className="text-2xl font-black text-slate-950">Championship Registrations</h2>
+              <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                Review horse registrations scoped to this championship before participants are locked.
+              </p>
+            </div>
+
+            {registrationError && (
+              <div role="alert" className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
+                {registrationError}
+              </div>
+            )}
+
+            {registrationLoading ? (
+              <div className="mt-5 space-y-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-20 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+                ))}
+              </div>
+            ) : registrations.length === 0 ? (
+              <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <ClipboardCheck className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+                <h3 className="mt-3 text-lg font-black text-slate-900">No registrations for this championship</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+                  Approved horses will appear here once owners register them for this championship.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+                <div className="grid grid-cols-[1.2fr_0.9fr_0.7fr] gap-4 bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                  <span>Horse</span>
+                  <span>Owner</span>
+                  <span>Status</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {registrations.map((registration) => (
+                    <article
+                      key={registration.id}
+                      className="grid grid-cols-[1.2fr_0.9fr_0.7fr] gap-4 px-4 py-4 text-sm"
+                    >
+                      <div>
+                        <p className="font-black text-slate-950">{registration.horseName}</p>
+                        {registration.note && (
+                          <p className="mt-1 text-xs font-semibold text-slate-500">{registration.note}</p>
+                        )}
+                      </div>
+                      <p className="font-semibold text-slate-600">{registration.ownerName || "Owner not assigned"}</p>
+                      <span
+                        className={`w-fit rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+                          registration.status === "PENDING"
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : registration.status === "APPROVED"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-rose-200 bg-rose-50 text-rose-800"
+                        }`}
+                      >
+                        {registration.status.replace("_", " ")}
+                      </span>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {activeTab === "participants" && (
+          <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Horse and jockey pairs</p>
+              <h2 className="text-2xl font-black text-slate-950">Championship Participants</h2>
+              <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
+                Participants are locked horse and jockey combinations for this championship season.
+              </p>
+            </div>
+            <div className="mt-5 grid gap-3">
+              {mockParticipants.map((participant) => (
+                <article key={participant.horse} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-base font-black text-slate-950">{participant.horse}</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-500">
+                        {participant.jockey} / {participant.stable}
+                      </p>
+                    </div>
+                    <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-800">
+                      {participant.status}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
         )}
 
         {activeTab === "rounds" && (
@@ -1169,11 +1355,11 @@ export function AdminTournamentDetailPage() {
           </section>
         )}
 
-        {false && (
+        {activeTab === "standings" && (
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
               <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Points table</p>
-              <h2 className="text-2xl font-black text-slate-950">Current Standings</h2>
+              <h2 className="text-2xl font-black text-slate-950">Championship Standings</h2>
               <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
                 Championship standings update after published results, keeping admin focused on the season table instead
                 of isolated race records.

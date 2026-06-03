@@ -5,12 +5,9 @@ import {
   UserCheck, 
   Users, 
   Trophy, 
-  ClipboardList,
   Compass, 
   FileText, 
   Settings,
-  UserRoundCheck,
-  BarChart3,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -26,9 +23,6 @@ const adminNavGroups = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
       { label: "Championships", href: "/admin/tournaments", icon: Trophy },
-      { label: "Registrations", href: "/admin/tournament-registrations", icon: ClipboardList },
-      { label: "Participants", href: "/admin/participants", icon: UserRoundCheck },
-      { label: "Standings", href: "/admin/standings", icon: BarChart3 },
     ],
   },
   {

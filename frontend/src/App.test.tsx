@@ -332,15 +332,10 @@ describe("App", () => {
       "href",
       "/admin/horses",
     );
-    expect(screen.getByRole("link", { name: /^participants$/i })).toHaveAttribute(
-      "href",
-      "/admin/participants",
-    );
+    expect(screen.queryByRole("link", { name: /^participants$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
-      "href",
-      "/admin/tournament-registrations",
-    );
+    expect(screen.queryByRole("link", { name: /^registrations$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^standings$/i })).not.toBeInTheDocument();
   });
 
   it("keeps admin user management inside the admin shell", async () => {
