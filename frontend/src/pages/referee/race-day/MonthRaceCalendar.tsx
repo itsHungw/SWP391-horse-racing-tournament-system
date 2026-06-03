@@ -11,7 +11,6 @@ export function MonthRaceCalendar({ races, referenceDate, onRaceSelect }: MonthR
   const month = referenceDate.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthName = referenceDate.toLocaleDateString("en-US", { month: "long" });
-  const today = new Date();
 
   return (
     <section aria-label="Month calendar" className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -20,20 +19,13 @@ export function MonthRaceCalendar({ races, referenceDate, onRaceSelect }: MonthR
       <div className="mt-6 grid grid-cols-7 gap-2">
         {Array.from({ length: daysInMonth }, (_, index) => {
           const day = index + 1;
-          const isToday =
-            today.getFullYear() === year &&
-            today.getMonth() === month &&
-            today.getDate() === day;
           const dayRaces = races.filter((race) => {
             const scheduledAt = new Date(race.scheduledAt);
             return scheduledAt.getFullYear() === year && scheduledAt.getMonth() === month && scheduledAt.getDate() === day;
           });
 
           return (
-            <div
-              className={`min-h-24 rounded-lg border p-2 ${isToday ? "border-[#007a68] bg-[#eefbf7]" : "border-slate-200 bg-[#fbfdfe]"}`}
-              key={day}
-            >
+            <div className="min-h-20 rounded-lg border border-slate-200 bg-[#fbfdfe] p-2" key={day}>
               <span className="text-xs font-black text-slate-500">{day}</span>
               <div className="mt-2 flex flex-col gap-1.5">
                 {dayRaces.map((race) =>

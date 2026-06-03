@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { getAssignedRaces } from "../../api/refereeApi";
 import { AssignedRaceTimeline } from "./race-day/AssignedRaceTimeline";
-import { MonthRaceCalendar } from "./race-day/MonthRaceCalendar";
 import { RaceDetailDrawer } from "./race-day/RaceDetailDrawer";
 import { normalizeAssignedRace } from "./race-day/refereeRaceDayAdapter";
 import { AssignedRace } from "./race-day/refereeRaceDayModels";
@@ -22,10 +22,11 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
   const referenceNow = useMemo(() => now ?? new Date(), [now]);
   const [races, setRaces] = useState<AssignedRace[]>([]);
   const [selectedRace, setSelectedRace] = useState<AssignedRace>();
-  const [view, setView] = useState<"timeline" | "month">("timeline");
   const [demoMode, setDemoMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const raceIdParam = searchParams.get("raceId");
   const [queueLabel, title] = modeCopy[mode];
 
   const loadRaces = useCallback(async () => {
@@ -44,6 +45,39 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
   useEffect(() => {
     void loadRaces();
   }, [loadRaces]);
+
+  useEffect(() => {
+    if (!raceIdParam || races.length === 0) {
+      return;
+    }
+
+    const raceId = Number(raceIdParam);
+    if (!Number.isFinite(raceId)) {
+      return;
+    }
+
+    const matchingRace = races.find((race) => race.id === raceId);
+    if (matchingRace) {
+      setSelectedRace(matchingRace);
+    }
+  }, [raceIdParam, races]);
+
+  const handleSelectRace = useCallback(
+    (race: AssignedRace) => {
+      setSelectedRace(race);
+      if (raceIdParam) {
+        setSearchParams({}, { replace: true });
+      }
+    },
+    [raceIdParam, setSearchParams]
+  );
+
+  const handleCloseDrawer = useCallback(() => {
+    setSelectedRace(undefined);
+    if (raceIdParam) {
+      setSearchParams({}, { replace: true });
+    }
+  }, [raceIdParam, setSearchParams]);
 
   if (loading) {
     return (
@@ -101,33 +135,10 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
         </label>
       </header>
 
-      <div className="mt-7 flex flex-wrap gap-2">
-        <button
-          aria-pressed={view === "timeline"}
-          className={`min-h-11 rounded-md px-4 text-sm font-black ${view === "timeline" ? "bg-[#007a68] text-white" : "border border-slate-200 bg-white text-slate-600"}`}
-          onClick={() => setView("timeline")}
-          type="button"
-        >
-          Day timeline
-        </button>
-        <button
-          aria-pressed={view === "month"}
-          className={`min-h-11 rounded-md px-4 text-sm font-black ${view === "month" ? "bg-[#007a68] text-white" : "border border-slate-200 bg-white text-slate-600"}`}
-          onClick={() => setView("month")}
-          type="button"
-        >
-          Month calendar
-        </button>
-      </div>
-
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        {view === "timeline" ? (
-          <AssignedRaceTimeline races={races} now={referenceNow} onSelectRace={setSelectedRace} selectedRaceId={selectedRace?.id} />
-        ) : (
-          <MonthRaceCalendar races={races} referenceDate={referenceNow} />
-        )}
+      <div className="mt-7 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <AssignedRaceTimeline races={races} now={referenceNow} onSelectRace={handleSelectRace} selectedRaceId={selectedRace?.id} />
         {selectedRace ? (
-          <RaceDetailDrawer demoMode={demoMode} now={referenceNow} race={selectedRace} />
+          <RaceDetailDrawer demoMode={demoMode} now={referenceNow} onClose={handleCloseDrawer} race={selectedRace} />
         ) : (
           <aside className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm leading-6 text-slate-500">
             Select a timeline card to inspect the assigned race and check its pre-race activation guard.

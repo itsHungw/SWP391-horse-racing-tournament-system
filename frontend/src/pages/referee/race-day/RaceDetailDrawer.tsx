@@ -2,13 +2,40 @@ import { Link } from "react-router-dom";
 import { AssignedRace } from "./refereeRaceDayModels";
 import { canOpenPreRaceCheck } from "./refereeRaceDayState";
 
-export function RaceDetailDrawer({ race, now, demoMode }: { race: AssignedRace; now: Date; demoMode: boolean }) {
+export function RaceDetailDrawer({
+  race,
+  now,
+  demoMode,
+  onClose,
+}: {
+  race: AssignedRace;
+  now: Date;
+  demoMode: boolean;
+  onClose?: () => void;
+}) {
   const unlocked = canOpenPreRaceCheck(race.scheduledAt, now, demoMode);
 
   return (
     <aside aria-label="Race details" className="race-day-drawer-motion rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#007a68]">Selected assignment</p>
-      <h3 className="mt-2 text-xl font-black text-slate-950">Race Details</h3>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#007a68]">Selected assignment</p>
+          <h3 className="mt-2 text-xl font-black text-slate-950">Race Details</h3>
+        </div>
+        {onClose ? (
+          <button
+            aria-label="Close race details"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+            onClick={onClose}
+            type="button"
+          >
+            <svg aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+          </button>
+        ) : null}
+      </div>
       <p className="mt-5 text-lg font-black leading-tight text-slate-950">{race.name}</p>
       <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">{race.code}</p>
 

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
 import { RefereeOverviewPage } from "./RefereeOverviewPage";
@@ -18,8 +18,13 @@ const mockRaces = [
   },
 ];
 
+function LocationProbe() {
+  const location = useLocation();
+  return <p data-testid="location">{location.pathname}{location.search}</p>;
+}
+
 describe("RefereeOverviewPage", () => {
-  it("defaults to timeline view and toggles the month calendar", async () => {
+  it("renders the day timeline without the month calendar toggle", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
 
     render(
@@ -30,10 +35,8 @@ describe("RefereeOverviewPage", () => {
 
     expect(screen.getByText(/Preparing steward assignments/i)).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Today's Race Timeline" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Month calendar" }));
-
-    expect(screen.getByRole("heading", { name: "June 2026 Calendar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Month calendar" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "June 2026 Calendar" })).not.toBeInTheDocument();
   });
 
   it("opens the selected race drawer and bypasses only the time guard in demo mode", async () => {
@@ -60,6 +63,35 @@ describe("RefereeOverviewPage", () => {
       "aria-disabled",
       "true"
     );
+  });
+
+  it("opens the matching race drawer from the raceId query param", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+
+    render(
+      <MemoryRouter initialEntries={["/referee/assigned-races?raceId=1"]}>
+        <RefereeOverviewPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Race Details" })).toBeInTheDocument();
+    expect(within(screen.getByRole("complementary", { name: "Race details" })).getByText("Royal Ascot Gold Cup - Qualifiers A")).toBeInTheDocument();
+  });
+
+  it("clears raceId from the URL when the selected drawer is closed", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+
+    render(
+      <MemoryRouter initialEntries={["/referee/assigned-races?raceId=1"]}>
+        <RefereeOverviewPage now={new Date("2026-06-02T12:30:00+07:00")} />
+        <LocationProbe />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Close race details" }));
+
+    expect(screen.queryByRole("heading", { name: "Race Details" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("location")).toHaveTextContent("/referee/assigned-races");
   });
 
   it("shows a retry action when assigned races fail to load", async () => {
