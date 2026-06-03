@@ -24,6 +24,11 @@ import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
 import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
+import { JockeyChampionshipsPage } from "../pages/jockey/JockeyChampionshipsPage";
+import { JockeyContractsPage } from "../pages/jockey/JockeyContractsPage";
+import { JockeyDashboardPage } from "../pages/jockey/JockeyDashboardPage";
+import { JockeyProfilePage } from "../pages/jockey/JockeyProfilePage";
+import { JockeySchedulePage } from "../pages/jockey/JockeySchedulePage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 
@@ -59,10 +64,14 @@ export function AppRouter() {
         <Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
         <Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
         <Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
-        <Route path="jockey" element={<Navigate to="/jockey/dashboard" replace />} />
-        <Route path="jockey/dashboard" element={<RoleDashboardPage role="Jockey" />} />
-        <Route path="jockey/invitations" element={<RoleDashboardPage role="Jockey" />} />
-        <Route path="jockey/races" element={<RoleDashboardPage role="Jockey" />} />
+        <Route path="jockey" element={authRoute(<Navigate to="/jockey/dashboard" replace />)} />
+        <Route path="jockey/dashboard" element={authRoute(<JockeyDashboardPage />)} />
+        <Route path="jockey/championships" element={authRoute(<JockeyChampionshipsPage />)} />
+        <Route path="jockey/contracts" element={authRoute(<JockeyContractsPage />)} />
+        <Route path="jockey/schedule" element={authRoute(<JockeySchedulePage />)} />
+        <Route path="jockey/profile" element={authRoute(<JockeyProfilePage />)} />
+        <Route path="jockey/invitations" element={authRoute(<Navigate to="/jockey/contracts" replace />)} />
+        <Route path="jockey/races" element={authRoute(<Navigate to="/jockey/schedule" replace />)} />
         <Route path="referee" element={<Navigate to="/referee/dashboard" replace />} />
         <Route path="referee/dashboard" element={<RoleDashboardPage role="Referee" />} />
         <Route path="referee/races" element={<RoleDashboardPage role="Referee" />} />
