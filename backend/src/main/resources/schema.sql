@@ -375,3 +375,61 @@ IF COL_LENGTH('horse_owner_profiles', 'created_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD created_at DATETIME2 NULL;
 IF COL_LENGTH('horse_owner_profiles', 'updated_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD updated_at DATETIME2 NULL;
+
+IF OBJECT_ID(N'dbo.point_settings', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.point_settings (
+        setting_key VARCHAR(80) NOT NULL,
+        setting_value INT NOT NULL CONSTRAINT DF_point_settings_value DEFAULT 0,
+        description NVARCHAR(255) NULL,
+        updated_at DATETIME2 NOT NULL CONSTRAINT DF_point_settings_updated_at DEFAULT SYSUTCDATETIME(),
+        updated_by BIGINT NULL,
+        CONSTRAINT pk_point_settings PRIMARY KEY (setting_key),
+        CONSTRAINT chk_point_settings_value CHECK (setting_value >= 0)
+    )
+END;
+
+IF OBJECT_ID(N'dbo.point_settings', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.point_settings', N'updated_by') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.foreign_keys
+       WHERE name = N'FK_point_settings_updated_by'
+         AND parent_object_id = OBJECT_ID(N'dbo.point_settings')
+   )
+BEGIN
+    ALTER TABLE dbo.point_settings
+    ADD CONSTRAINT FK_point_settings_updated_by
+    FOREIGN KEY (updated_by) REFERENCES dbo.users(id)
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'FIRST_LOGIN_BONUS')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('FIRST_LOGIN_BONUS', 0, N'Points granted on first successful login when enabled.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'BLOG_REWARD_POINTS')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('BLOG_REWARD_POINTS', 0, N'Points awarded when an eligible blog reward is claimed.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'DAILY_BLOG_REWARD_LIMIT')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('DAILY_BLOG_REWARD_LIMIT', 0, N'Maximum blog reward points a user can earn per day.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'PREDICTION_ENTRY_COST')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('PREDICTION_ENTRY_COST', 0, N'Points spent to submit one race prediction.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'PREDICTION_CORRECT_REWARD')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('PREDICTION_CORRECT_REWARD', 0, N'Points awarded for a correct race prediction.')
+END;
