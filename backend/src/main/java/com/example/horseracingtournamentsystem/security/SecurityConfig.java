@@ -50,7 +50,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html"
                         ).permitAll()
-                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/horses/**", "/api/v1/tournaments/**", "/api/v1/races/**").permitAll()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/horses/**", "/api/v1/tournaments/**", "/api/v1/races/**", "/api/v1/blogs/**").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/owner/**").hasRole("HORSE_OWNER")
                         .requestMatchers("/api/v1/jockey/**").hasRole("JOCKEY")

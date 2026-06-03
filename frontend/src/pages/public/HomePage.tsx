@@ -1,5 +1,10 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
+import { blogApi } from "../../api/blogApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import type { Blog } from "../../types/blog";
 import heroImage from "../../assets/slide.jpg";
 
 const newsImage =
@@ -27,7 +32,7 @@ const quickLinks = [
   },
   {
     label: "Blog Posts",
-    href: "#blog",
+    href: "/blogs",
     path: "M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z",
   },
   {
@@ -44,27 +49,6 @@ const quickLinks = [
     label: "Spectator Dashboard",
     href: "/spectator",
     path: "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z",
-  },
-];
-
-const news = [
-  {
-    category: "Tournament Guide",
-    title: "How to prepare your profile before requesting a specialist role",
-    author: "Tournament Team",
-    date: "May 19 2026",
-  },
-  {
-    category: "Role Access",
-    title: "Owner, jockey, and referee role requests explained",
-    author: "Operations Team",
-    date: "May 16 2026",
-  },
-  {
-    category: "Point Rewards",
-    title: "Earn virtual points by reading approved tournament blog posts",
-    author: "Product Team",
-    date: "May 15 2026",
   },
 ];
 
@@ -110,8 +94,51 @@ function SocialIcon({ label }: { label: string }) {
   );
 }
 
+function formatBlogDate(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 export function HomePage() {
   useDocumentTitle("Aqueduct Racetrack | Thoroughbred Horse Racing in NYC");
+  const [latestBlogs, setLatestBlogs] = useState<Blog[]>([]);
+  const [blogsLoading, setBlogsLoading] = useState(true);
+  const [blogsError, setBlogsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadLatestBlogs() {
+      setBlogsLoading(true);
+      setBlogsError(null);
+
+      try {
+        const data = await blogApi.getPublishedBlogs(undefined, 0, 3);
+        if (isMounted) {
+          setLatestBlogs(Array.isArray(data.content) ? data.content : []);
+        }
+      } catch (err) {
+        console.error("Public blog preview unavailable.", err);
+        if (isMounted) {
+          setLatestBlogs([]);
+          setBlogsError("Could not load published blog posts.");
+        }
+      } finally {
+        if (isMounted) {
+          setBlogsLoading(false);
+        }
+      }
+    }
+
+    loadLatestBlogs();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="bg-white font-sans text-gray-900">
@@ -198,30 +225,55 @@ export function HomePage() {
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-end justify-between">
             <h2 className="text-4xl font-black uppercase tracking-tight text-nyraDark">Latest Tournament Blog</h2>
-            <a className="flex items-center text-sm font-bold uppercase tracking-widest text-nyraGreen hover:underline" href="#blog">
+            <Link className="flex items-center text-sm font-bold uppercase tracking-widest text-nyraGreen hover:underline" to="/blogs">
               More Blog Posts <span className="ml-2">&rarr;</span>
-            </a>
+            </Link>
           </div>
-          <div className="grid gap-8 md:grid-cols-3">
-            {news.map((article) => (
-              <article className="group" key={article.title}>
-                <div className="mb-4 aspect-video overflow-hidden">
-                  <img
-                    alt={article.title}
-                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
-                    src={newsImage}
-                  />
+          {blogsLoading ? (
+            <div className="grid gap-8 md:grid-cols-3" aria-label="Loading latest blog posts">
+              {[0, 1, 2].map((item) => (
+                <div className="animate-pulse" key={item}>
+                  <div className="mb-4 aspect-video bg-gray-200" />
+                  <div className="h-3 w-28 bg-gray-200" />
+                  <div className="mt-3 h-7 w-11/12 bg-gray-200" />
+                  <div className="mt-2 h-7 w-8/12 bg-gray-200" />
                 </div>
-                <span className="text-xs font-bold uppercase tracking-widest text-nyraGreen">{article.category}</span>
-                <h3 className="mt-2 text-2xl font-bold leading-tight transition group-hover:text-nyraGreen">
-                  {article.title}
-                </h3>
-                <div className="mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                  <span>{article.author}</span> <span className="mx-2">&bull;</span> <span>{article.date}</span>
-                </div>
-              </article>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : blogsError ? (
+            <div className="border-l-4 border-red-500 bg-red-50 p-5 text-sm font-bold text-red-700">
+              {blogsError}
+            </div>
+          ) : latestBlogs.length === 0 ? (
+            <div className="border-l-4 border-nyraGreen bg-gray-50 p-5 text-sm font-bold text-gray-700">
+              No published blog posts are available yet.
+            </div>
+          ) : (
+            <div className="grid gap-8 md:grid-cols-3">
+              {latestBlogs.map((article) => (
+                <article className="group" key={article.id}>
+                  <Link aria-label={`Read ${article.title}`} to={`/blogs/${article.slug}`}>
+                    <div className="mb-4 aspect-video overflow-hidden bg-gray-100">
+                      <img
+                        alt={article.title}
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                        src={article.thumbnail || newsImage}
+                      />
+                    </div>
+                    <span className="text-xs font-bold uppercase tracking-widest text-nyraGreen">Tournament Blog</span>
+                    <h3 className="mt-2 text-2xl font-bold leading-tight transition group-hover:text-nyraGreen">
+                      {article.title}
+                    </h3>
+                  </Link>
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-gray-600">{article.summary}</p>
+                  <div className="mt-4 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                    <span>{article.authorName}</span> <span className="mx-2">&bull;</span>{" "}
+                    <span>{formatBlogDate(article.createdAt)}</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -294,7 +346,7 @@ export function HomePage() {
           </div>
           <div>
             <div className="mb-8 flex justify-end gap-5">
-              <a className="rounded-md border-2 border-lime-400 px-8 py-4 font-bold text-lime-400" href="#blog">
+              <a className="rounded-md border-2 border-lime-400 px-8 py-4 font-bold text-lime-400" href="/blogs">
                 Read Blog
               </a>
               <a className="rounded-md bg-lime-400 px-8 py-4 font-bold text-black" href="/register">

@@ -1,51 +1,50 @@
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'resume_url') IS NULL
+-- Migration Script: Create/update blogs table
+IF OBJECT_ID('dbo.blogs', 'U') IS NULL
 BEGIN
-    ALTER TABLE dbo.role_requests ADD resume_url nvarchar(500) NULL
+    CREATE TABLE dbo.blogs (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        title NVARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL UNIQUE,
+        summary NVARCHAR(500) NULL,
+        content NVARCHAR(MAX) NOT NULL,
+        thumbnail VARCHAR(255) NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+        created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+        updated_at DATETIME2 NULL,
+        author_id BIGINT NOT NULL,
+        CONSTRAINT FK_blogs_users FOREIGN KEY (author_id) REFERENCES dbo.users(id)
+    );
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'evidence_url') IS NOT NULL
+IF COL_LENGTH('dbo.blogs', 'thumbnail') IS NULL
 BEGIN
-    EXEC(N'UPDATE dbo.role_requests SET resume_url = evidence_url WHERE resume_url IS NULL AND evidence_url IS NOT NULL')
+    ALTER TABLE dbo.blogs ADD thumbnail VARCHAR(255) NULL;
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_status') IS NULL
+IF COL_LENGTH('dbo.blogs', 'thumbnail_url') IS NOT NULL
+   AND COL_LENGTH('dbo.blogs', 'thumbnail') IS NOT NULL
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_review_status nvarchar(30) NOT NULL CONSTRAINT DF_role_requests_cv_review_status DEFAULT N'NOT_REVIEWED'
+    EXEC('UPDATE dbo.blogs SET thumbnail = COALESCE(thumbnail, thumbnail_url) WHERE thumbnail IS NULL AND thumbnail_url IS NOT NULL');
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_note') IS NULL
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_blogs_slug'
+      AND object_id = OBJECT_ID('dbo.blogs')
+)
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_review_note nvarchar(max) NULL
+    CREATE INDEX IX_blogs_slug ON dbo.blogs(slug);
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_by') IS NULL
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_blogs_status'
+      AND object_id = OBJECT_ID('dbo.blogs')
+)
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_reviewed_by bigint NULL
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_at') IS NULL
-BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_reviewed_at datetime2 NULL
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_status') IS NOT NULL
-BEGIN
-    EXEC(N'UPDATE dbo.role_requests SET cv_review_status = N''NOT_REVIEWED'' WHERE cv_review_status IS NULL')
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL
-   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
-   AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_by') IS NOT NULL
-   AND NOT EXISTS (
-       SELECT 1
-       FROM sys.foreign_keys
-       WHERE name = N'FK_role_requests_cv_reviewed_by'
-         AND parent_object_id = OBJECT_ID(N'dbo.role_requests')
-   )
-BEGIN
-    ALTER TABLE dbo.role_requests
-    ADD CONSTRAINT FK_role_requests_cv_reviewed_by
-    FOREIGN KEY (cv_reviewed_by) REFERENCES dbo.users(id)
+    CREATE INDEX IX_blogs_status ON dbo.blogs(status);
 END;
 
 IF OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horses', N'image_url') IS NULL
