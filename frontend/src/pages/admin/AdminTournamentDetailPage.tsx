@@ -12,6 +12,7 @@ import {
   Plus,
   Trophy,
   Users,
+  UserCheck,
 } from "lucide-react";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -23,13 +24,23 @@ import {
   updateTournament,
   updateTournamentStatus,
 } from "../../api/adminTournamentApi";
-import { getAdminTournamentRegistrations } from "../../api/racingApi";
+import {
+  approveAdminJockeyPoolApplication,
+  approveAdminTournamentRegistration,
+  getAdminJockeyPoolApplications,
+  getAdminTournamentRegistrations,
+  rejectAdminJockeyPoolApplication,
+  rejectAdminTournamentRegistration,
+} from "../../api/racingApi";
 import type { Race, RaceStatus, Tournament, TournamentRegistration } from "../../types/racing";
+import type { JockeyPoolApplication } from "../../types/racing";
+import { getApiErrorMessage } from "../../utils/apiError";
 
-type ChampionshipTab = "overview" | "registrations" | "participants" | "rounds" | "standings" | "controls";
+type ChampionshipTab = "overview" | "applications" | "participants" | "rounds" | "standings" | "controls";
+type ApplicationView = "horses" | "jockeys";
 
 const secondaryChampionshipTabs: Array<{ key: Exclude<ChampionshipTab, "overview">; label: string }> = [
-  { key: "registrations", label: "Registrations" },
+  { key: "applications", label: "Applications" },
   { key: "participants", label: "Participants" },
   { key: "rounds", label: "Rounds" },
   { key: "standings", label: "Standings" },
@@ -174,7 +185,7 @@ function getNextActionLabel(race: Race | null) {
 function getChampionshipNextActionLabel(tournament: Tournament, race: Race | null) {
   switch (tournament.status) {
     case "OPEN_REGISTRATION":
-      return "Review Registrations";
+      return "Review Applications";
     case "CLOSED_REGISTRATION":
       return "Lock Participants";
     case "COMPLETED":
@@ -198,6 +209,14 @@ export function AdminTournamentDetailPage() {
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
   const [registrationLoading, setRegistrationLoading] = useState(false);
   const [registrationError, setRegistrationError] = useState("");
+  const [jockeyApplications, setJockeyApplications] = useState<JockeyPoolApplication[]>([]);
+  const [jockeyApplicationLoading, setJockeyApplicationLoading] = useState(false);
+  const [jockeyApplicationError, setJockeyApplicationError] = useState("");
+  const [applicationView, setApplicationView] = useState<ApplicationView>("horses");
+  const [horseProcessingId, setHorseProcessingId] = useState<number | null>(null);
+  const [jockeyProcessingId, setJockeyProcessingId] = useState<number | null>(null);
+  const [horseRejectReasons, setHorseRejectReasons] = useState<Record<number, string>>({});
+  const [jockeyRejectReasons, setJockeyRejectReasons] = useState<Record<number, string>>({});
   const [selectedRaceId, setSelectedRaceId] = useState<number | null>(null);
   const [roundControlOpen, setRoundControlOpen] = useState(false);
   const [raceActionLoadingId, setRaceActionLoadingId] = useState<number | null>(null);
@@ -279,9 +298,22 @@ export function AdminTournamentDetailPage() {
       const data = await getAdminTournamentRegistrations();
       setRegistrations(data.filter((registration) => registration.tournamentId === tournamentId));
     } catch (err: any) {
-      setRegistrationError(err.response?.data?.message || "Failed to load championship registrations.");
+      setRegistrationError(err.response?.data?.message || "Failed to load horse registrations.");
     } finally {
       setRegistrationLoading(false);
+    }
+  };
+
+  const loadJockeyApplications = async () => {
+    try {
+      setJockeyApplicationLoading(true);
+      setJockeyApplicationError("");
+      const data = await getAdminJockeyPoolApplications(tournamentId);
+      setJockeyApplications(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setJockeyApplicationError(err.response?.data?.message || "Failed to load jockey pool applications.");
+    } finally {
+      setJockeyApplicationLoading(false);
     }
   };
 
@@ -298,8 +330,9 @@ export function AdminTournamentDetailPage() {
   }, [activeTab, tournamentId]);
 
   useEffect(() => {
-    if (tournamentId && ["overview", "registrations"].includes(activeTab)) {
+    if (tournamentId && ["overview", "applications"].includes(activeTab)) {
       loadRegistrations();
+      loadJockeyApplications();
     }
   }, [activeTab, tournamentId]);
 
@@ -382,6 +415,76 @@ export function AdminTournamentDetailPage() {
       setRaceError(err.response?.data?.message || "Failed to update race status.");
     } finally {
       setRaceActionLoadingId(null);
+    }
+  };
+
+  const handleApproveHorseRegistration = async (registration: TournamentRegistration) => {
+    try {
+      setHorseProcessingId(registration.id);
+      setRegistrationError("");
+      await approveAdminTournamentRegistration(registration.id);
+      setSuccessMsg(`${registration.horseName} approved for this championship.`);
+      await loadRegistrations();
+    } catch (err) {
+      setRegistrationError(getApiErrorMessage(err, "Failed to approve horse registration."));
+    } finally {
+      setHorseProcessingId(null);
+    }
+  };
+
+  const handleRejectHorseRegistration = async (registration: TournamentRegistration) => {
+    const reason = horseRejectReasons[registration.id]?.trim();
+    if (!reason) {
+      setRegistrationError("Enter a rejection reason before rejecting this horse registration.");
+      return;
+    }
+
+    try {
+      setHorseProcessingId(registration.id);
+      setRegistrationError("");
+      await rejectAdminTournamentRegistration(registration.id, reason);
+      setHorseRejectReasons((current) => ({ ...current, [registration.id]: "" }));
+      setSuccessMsg(`${registration.horseName} registration rejected.`);
+      await loadRegistrations();
+    } catch (err) {
+      setRegistrationError(getApiErrorMessage(err, "Failed to reject horse registration."));
+    } finally {
+      setHorseProcessingId(null);
+    }
+  };
+
+  const handleApproveJockeyApplication = async (application: JockeyPoolApplication) => {
+    try {
+      setJockeyProcessingId(application.id);
+      setJockeyApplicationError("");
+      await approveAdminJockeyPoolApplication(tournamentId, application.id);
+      setSuccessMsg(`${application.jockeyName} approved for the championship pool.`);
+      await loadJockeyApplications();
+    } catch (err) {
+      setJockeyApplicationError(getApiErrorMessage(err, "Failed to approve jockey pool application."));
+    } finally {
+      setJockeyProcessingId(null);
+    }
+  };
+
+  const handleRejectJockeyApplication = async (application: JockeyPoolApplication) => {
+    const reason = jockeyRejectReasons[application.id]?.trim();
+    if (!reason) {
+      setJockeyApplicationError("Enter a rejection reason before rejecting this jockey application.");
+      return;
+    }
+
+    try {
+      setJockeyProcessingId(application.id);
+      setJockeyApplicationError("");
+      await rejectAdminJockeyPoolApplication(tournamentId, application.id, reason);
+      setJockeyRejectReasons((current) => ({ ...current, [application.id]: "" }));
+      setSuccessMsg(`${application.jockeyName} jockey pool application rejected.`);
+      await loadJockeyApplications();
+    } catch (err) {
+      setJockeyApplicationError(getApiErrorMessage(err, "Failed to reject jockey pool application."));
+    } finally {
+      setJockeyProcessingId(null);
     }
   };
 
@@ -472,10 +575,12 @@ export function AdminTournamentDetailPage() {
   ];
   const pendingRegistrations = registrations.filter((registration) => registration.status === "PENDING");
   const approvedRegistrations = registrations.filter((registration) => registration.status === "APPROVED");
+  const pendingJockeyApplications = jockeyApplications.filter((application) => application.status === "PENDING");
+  const approvedJockeyPool = jockeyApplications.filter((application) => application.status === "APPROVED_FOR_POOL");
   const currentRoundNumber = nextRound ? races.findIndex((race) => race.id === nextRound.id) + 1 : 0;
   const currentRoundLabel = nextRound ? `Round ${currentRoundNumber} of ${races.length}` : "No round scheduled";
   const participantsReadyLabel = `${mockParticipants.length} / ${participantCapacity || "Unset"}`;
-  const registrationReadinessLabel = `${approvedRegistrations.length} approved, ${pendingRegistrations.length} pending`;
+  const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
 
   const openRoundControlCenter = (race: Race | null = nextRound) => {
@@ -488,7 +593,7 @@ export function AdminTournamentDetailPage() {
 
   const handleContinueOperations = () => {
     if (tournament.status === "OPEN_REGISTRATION") {
-      setActiveTab("registrations");
+      setActiveTab("applications");
       return;
     }
 
@@ -1053,23 +1158,24 @@ export function AdminTournamentDetailPage() {
               </p>
 
               <div className="mt-5 space-y-3">
-                {pendingRegistrations.length > 0 && (
+                {(pendingRegistrations.length > 0 || pendingJockeyApplications.length > 0) && (
                   <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-start gap-3">
                       <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-700" aria-hidden="true" />
                       <div>
                         <p className="text-sm font-black text-amber-950">Needs attention</p>
                         <p className="mt-1 text-sm font-semibold text-amber-800">
-                          {pendingRegistrations.length} registration{pendingRegistrations.length === 1 ? "" : "s"} pending review.
+                          {pendingRegistrations.length} horse registration{pendingRegistrations.length === 1 ? "" : "s"} and{" "}
+                          {pendingJockeyApplications.length} jockey pool application{pendingJockeyApplications.length === 1 ? "" : "s"} pending review.
                         </p>
                       </div>
                     </div>
                     <button
                       type="button"
-                      onClick={() => setActiveTab("registrations")}
+                      onClick={() => setActiveTab("applications")}
                       className="inline-flex min-h-10 items-center justify-center rounded-md bg-amber-700 px-4 text-xs font-black text-white hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700 focus-visible:ring-offset-2"
                     >
-                      Review Registrations
+                      Review Applications
                     </button>
                   </div>
                 )}
@@ -1119,7 +1225,7 @@ export function AdminTournamentDetailPage() {
                 <div className="rounded-lg border border-slate-200 bg-white p-4">
                   <p className="text-sm font-black text-slate-950">Secondary workspaces</p>
                   <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-                    Use the navigation above for registration review, participant formation, round setup, standings, and
+                    Use the navigation above for applications review, participant formation, round setup, standings, and
                     championship-level controls.
                   </p>
                 </div>
@@ -1150,48 +1256,85 @@ export function AdminTournamentDetailPage() {
           </section>
         )}
 
-        {activeTab === "registrations" && (
+        {activeTab === "applications" && (
           <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-2 border-b border-slate-100 pb-5">
-              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Horse entry review</p>
-              <h2 className="text-2xl font-black text-slate-950">Championship Registrations</h2>
+              <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Entry review</p>
+              <h2 className="text-2xl font-black text-slate-950">Championship Applications</h2>
               <p className="max-w-2xl text-sm font-medium leading-6 text-slate-500">
-                Review horse registrations scoped to this championship before participants are locked.
+                Review both entry streams before participant pairs are locked: owner-submitted horses and jockeys applying
+                to become selectable in this championship pool.
               </p>
             </div>
 
-            {registrationError && (
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ["Pending Horses", pendingRegistrations.length, "border-amber-200 bg-amber-50 text-amber-900"],
+                ["Approved Horses", approvedRegistrations.length, "border-emerald-200 bg-emerald-50 text-emerald-900"],
+                ["Pending Jockeys", pendingJockeyApplications.length, "border-amber-200 bg-amber-50 text-amber-900"],
+                ["Approved Pool", approvedJockeyPool.length, "border-emerald-200 bg-emerald-50 text-emerald-900"],
+              ].map(([label, value, className]) => (
+                <div key={label} className={`rounded-lg border p-4 ${className}`}>
+                  <p className="text-[11px] font-black uppercase tracking-wider opacity-75">{label}</p>
+                  <p className="mt-2 text-2xl font-black">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-1">
+              {[
+                { key: "horses" as const, label: "Horse Registrations", Icon: ClipboardCheck },
+                { key: "jockeys" as const, label: "Jockey Pool", Icon: UserCheck },
+              ].map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setApplicationView(key)}
+                  className={`inline-flex min-h-10 items-center gap-2 rounded-md px-4 text-sm font-black ${
+                    applicationView === key
+                      ? "bg-white text-[#b3193a] shadow-sm"
+                      : "text-slate-600 hover:bg-white/70"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {(registrationError || jockeyApplicationError) && (
               <div role="alert" className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
-                {registrationError}
+                {registrationError || jockeyApplicationError}
               </div>
             )}
 
-            {registrationLoading ? (
+            {applicationView === "horses" && registrationLoading ? (
               <div className="mt-5 space-y-3">
                 {[1, 2, 3].map((item) => (
                   <div key={item} className="h-20 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
                 ))}
               </div>
-            ) : registrations.length === 0 ? (
+            ) : applicationView === "horses" && registrations.length === 0 ? (
               <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
                 <ClipboardCheck className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
-                <h3 className="mt-3 text-lg font-black text-slate-900">No registrations for this championship</h3>
+                <h3 className="mt-3 text-lg font-black text-slate-900">No horse registrations for this championship</h3>
                 <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
                   Approved horses will appear here once owners register them for this championship.
                 </p>
               </div>
-            ) : (
+            ) : applicationView === "horses" ? (
               <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
-                <div className="grid grid-cols-[1.2fr_0.9fr_0.7fr] gap-4 bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500">
+                <div className="hidden bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 md:grid md:grid-cols-[1.05fr_0.72fr_0.42fr_1.25fr] md:gap-4">
                   <span>Horse</span>
                   <span>Owner</span>
                   <span>Status</span>
+                  <span>Review</span>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {registrations.map((registration) => (
                     <article
                       key={registration.id}
-                      className="grid grid-cols-[1.2fr_0.9fr_0.7fr] gap-4 px-4 py-4 text-sm"
+                      className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[1.05fr_0.72fr_0.42fr_1.25fr] md:items-center md:gap-4"
                     >
                       <div>
                         <p className="font-black text-slate-950">{registration.horseName}</p>
@@ -1201,7 +1344,7 @@ export function AdminTournamentDetailPage() {
                       </div>
                       <p className="font-semibold text-slate-600">{registration.ownerName || "Owner not assigned"}</p>
                       <span
-                        className={`w-fit rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+                        className={`inline-flex h-7 w-fit items-center rounded-md border px-2 text-[11px] font-black uppercase tracking-wide ${
                           registration.status === "PENDING"
                             ? "border-amber-200 bg-amber-50 text-amber-800"
                             : registration.status === "APPROVED"
@@ -1211,6 +1354,151 @@ export function AdminTournamentDetailPage() {
                       >
                         {registration.status.replace("_", " ")}
                       </span>
+                      <div>
+                        {registration.status === "PENDING" ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="min-w-[180px] flex-1">
+                              <span className="sr-only">Horse rejection reason</span>
+                              <input
+                                value={horseRejectReasons[registration.id] || ""}
+                                placeholder="Reason if rejecting"
+                                onChange={(event) =>
+                                  setHorseRejectReasons((current) => ({
+                                    ...current,
+                                    [registration.id]: event.target.value,
+                                  }))
+                                }
+                                className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                              />
+                            </label>
+                          <button
+                            type="button"
+                            disabled={horseProcessingId === registration.id}
+                            onClick={() => handleApproveHorseRegistration(registration)}
+                            className="h-9 rounded-md bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={horseProcessingId === registration.id}
+                            onClick={() => handleRejectHorseRegistration(registration)}
+                            className="h-9 rounded-md border border-[#b3193a] px-3 text-xs font-black text-[#b3193a] hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                            {registration.status === "APPROVED" ? "Ready for pairing" : "Review closed"}
+                          </p>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ) : jockeyApplicationLoading ? (
+              <div className="mt-5 space-y-3">
+                {[1, 2, 3].map((item) => (
+                  <div key={item} className="h-20 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+                ))}
+              </div>
+            ) : jockeyApplications.length === 0 ? (
+              <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                <UserCheck className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+                <h3 className="mt-3 text-lg font-black text-slate-900">No jockey pool applications yet</h3>
+                <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+                  Jockeys must apply to this championship pool before owners can select them for assignment contracts.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
+                <div className="hidden bg-slate-50 px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-500 md:grid md:grid-cols-[0.95fr_0.55fr_0.9fr_1.25fr] md:gap-4">
+                  <span>Jockey</span>
+                  <span>Pool Status</span>
+                  <span>Message</span>
+                  <span>Review</span>
+                </div>
+                <div className="divide-y divide-slate-100">
+                  {jockeyApplications.map((application) => (
+                    <article
+                      key={application.id}
+                      className="grid gap-3 px-4 py-3 text-sm md:grid-cols-[0.95fr_0.55fr_0.9fr_1.25fr] md:items-center md:gap-4"
+                    >
+                      <div className="flex items-center gap-3">
+                        {application.jockeyAvatarUrl ? (
+                          <img
+                            alt=""
+                            src={application.jockeyAvatarUrl}
+                            className="h-11 w-11 rounded-md border border-slate-200 object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-11 w-11 items-center justify-center rounded-md border border-slate-200 bg-slate-50 text-sm font-black text-slate-500">
+                            {application.jockeyName?.slice(0, 1) || "J"}
+                          </div>
+                        )}
+                        <div>
+                          <p className="font-black text-slate-950">{application.jockeyName}</p>
+                          {application.jockeyEmail && (
+                            <p className="mt-1 text-xs font-semibold text-slate-500">{application.jockeyEmail}</p>
+                          )}
+                        </div>
+                      </div>
+                      <span
+                        className={`inline-flex h-7 w-fit items-center rounded-md border px-2 text-[11px] font-black uppercase tracking-wide ${
+                          application.status === "PENDING"
+                            ? "border-amber-200 bg-amber-50 text-amber-800"
+                            : application.status === "APPROVED_FOR_POOL"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-rose-200 bg-rose-50 text-rose-800"
+                        }`}
+                      >
+                        {application.status.replaceAll("_", " ")}
+                      </span>
+                      <p className="truncate text-sm font-semibold text-slate-600" title={application.message || "No application message"}>
+                        {application.message || "No application message"}
+                      </p>
+                      <div>
+                        {application.status === "PENDING" ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="min-w-[180px] flex-1">
+                              <span className="sr-only">Jockey rejection reason</span>
+                              <input
+                                value={jockeyRejectReasons[application.id] || ""}
+                                placeholder="Reason if rejecting"
+                                onChange={(event) =>
+                                  setJockeyRejectReasons((current) => ({
+                                    ...current,
+                                    [application.id]: event.target.value,
+                                  }))
+                                }
+                                className="h-9 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                              />
+                            </label>
+                          <button
+                            type="button"
+                            disabled={jockeyProcessingId === application.id}
+                            onClick={() => handleApproveJockeyApplication(application)}
+                            className="h-9 rounded-md bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Approve Pool
+                          </button>
+                          <button
+                            type="button"
+                            disabled={jockeyProcessingId === application.id}
+                            onClick={() => handleRejectJockeyApplication(application)}
+                            className="h-9 rounded-md border border-[#b3193a] px-3 text-xs font-black text-[#b3193a] hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Reject
+                          </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                            {application.status === "APPROVED_FOR_POOL" ? "Visible to owners" : "Review closed"}
+                          </p>
+                        )}
+                      </div>
                     </article>
                   ))}
                 </div>

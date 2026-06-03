@@ -150,6 +150,26 @@ export type TournamentRegistrationPayload = {
   note?: string;
 };
 
+export type JockeyPoolApplicationStatus = "PENDING" | "APPROVED_FOR_POOL" | "REJECTED" | "WITHDRAWN";
+
+export type JockeyPoolApplication = {
+  id: number;
+  championshipId: number;
+  championshipName: string;
+  jockeyId: number;
+  jockeyName: string;
+  jockeyEmail?: string;
+  jockeyAvatarUrl?: string;
+  message?: string;
+  status: JockeyPoolApplicationStatus;
+  reviewedBy?: number;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  withdrawnAt?: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   number: number;

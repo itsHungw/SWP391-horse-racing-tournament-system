@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import { getTournamentDetail, updateTournamentStatus } from "../../api/adminTournamentApi";
-import { getAdminTournamentRegistrations } from "../../api/racingApi";
+import { getAdminJockeyPoolApplications, getAdminTournamentRegistrations } from "../../api/racingApi";
 import { AdminTournamentDetailPage } from "./AdminTournamentDetailPage";
 
 vi.mock("../../api/adminTournamentApi", () => ({
@@ -21,7 +21,12 @@ vi.mock("../../api/adminRaceApi", () => ({
 }));
 
 vi.mock("../../api/racingApi", () => ({
+  approveAdminJockeyPoolApplication: vi.fn(),
+  approveAdminTournamentRegistration: vi.fn(),
+  getAdminJockeyPoolApplications: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
+  rejectAdminTournamentRegistration: vi.fn(),
 }));
 
 describe("AdminTournamentDetailPage championship lifecycle UX", () => {
@@ -110,6 +115,27 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
         status: "PENDING",
       },
     ]);
+    vi.mocked(getAdminJockeyPoolApplications).mockResolvedValue([
+      {
+        id: 31,
+        championshipId: 7,
+        championshipName: "Summer Championship 2026",
+        jockeyId: 14,
+        jockeyName: "Nguyen Van A",
+        jockeyEmail: "jockey@example.com",
+        status: "PENDING",
+        message: "Available for the full championship.",
+      },
+      {
+        id: 32,
+        championshipId: 7,
+        championshipName: "Summer Championship 2026",
+        jockeyId: 15,
+        jockeyName: "Tran Minh K",
+        jockeyEmail: "approved@example.com",
+        status: "APPROVED_FOR_POOL",
+      },
+    ]);
     vi.mocked(updateTournamentStatus).mockResolvedValue(undefined);
   });
 
@@ -128,7 +154,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
 
     expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^overview$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^registrations$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^applications$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^participants$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^rounds$/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^standings$/i })).toBeInTheDocument();
@@ -184,7 +210,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(screen.queryByRole("button", { name: /start checks for round 1 - belmont stakes/i })).not.toBeInTheDocument();
   });
 
-  it("routes continue operations to registrations during registration phase", async () => {
+  it("routes continue operations to applications during registration phase", async () => {
     vi.mocked(getTournamentDetail).mockResolvedValueOnce({
       id: 7,
       name: "Summer Championship 2026",
@@ -201,13 +227,21 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
-    expect(screen.getAllByText(/review registrations/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/review applications/i).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
 
-    expect(await screen.findByRole("heading", { name: /championship registrations/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /championship applications/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /horse registrations/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /jockey pool/i })).toBeInTheDocument();
     expect(screen.getByText("Storm Signal")).toBeInTheDocument();
     expect(screen.queryByText("Wrong Context")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /jockey pool/i }));
+
+    expect(await screen.findByText("Nguyen Van A")).toBeInTheDocument();
+    expect(screen.getByText(/available for the full championship/i)).toBeInTheDocument();
+    expect(screen.getByText("Tran Minh K")).toBeInTheDocument();
   });
 
   it("creates a championship round from the rounds tab", async () => {

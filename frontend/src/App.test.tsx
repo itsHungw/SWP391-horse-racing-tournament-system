@@ -23,13 +23,16 @@ vi.mock("./api/adminUserApi", () => ({
 
 vi.mock("./api/racingApi", () => ({
   approveAdminHorse: vi.fn(),
+  approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
   createOwnerHorse: vi.fn(),
   createOwnerTournamentRegistration: vi.fn(),
+  getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getAdminHorses: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
   getOwnerTournamentRegistrations: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn().mockResolvedValue({
     content: [],
@@ -40,6 +43,7 @@ vi.mock("./api/racingApi", () => ({
   }),
   getPublicTournaments: vi.fn(),
   rejectAdminHorse: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
