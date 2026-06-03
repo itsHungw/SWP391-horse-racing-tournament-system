@@ -1,104 +1,165 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   Clock3,
   Compass,
-  FileCheck2,
   History,
+  Loader2,
   Search,
   ShieldCheck,
   Trophy,
   X,
 } from "lucide-react";
 
+import {
+  applyToJockeyChampionship,
+  getJockeyChampionships,
+  getJockeyPoolApplications,
+} from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { JockeyLayout } from "../../layouts/JockeyLayout";
-import racingImage from "../../assets/slide.jpg";
-import {
-  careerRecord,
-  championshipArchive,
-  getNextRound,
-  getRoundsForChampionship,
+import type {
   JockeyChampionship,
-  jockeyChampionships,
-} from "./jockeyWorkspaceData";
+  JockeyChampionshipApplicationStatus,
+  JockeyPoolApplication,
+} from "../../types/racing";
+import { getApiErrorMessage } from "../../utils/apiError";
+import racingImage from "../../assets/slide.jpg";
 
-type ChampionshipTab = "overview" | "open" | "history";
-type OpenFilter = "Open" | "Closing Soon" | "Approved for Pool" | "Committed";
+type ChampionshipTab = "current" | "open" | "history";
+type OpenFilter = "Open" | "Pending" | "Approved for Pool" | "Rejected";
 
 const tabs: Array<{ id: ChampionshipTab; label: string; icon: typeof Trophy }> = [
-  { id: "overview", label: "Overview", icon: Trophy },
+  { id: "current", label: "Current", icon: Trophy },
   { id: "open", label: "Open Championships", icon: Compass },
-  { id: "history", label: "Championship History", icon: History },
+  { id: "history", label: "History", icon: History },
 ];
 
-const filters: OpenFilter[] = ["Open", "Closing Soon", "Approved for Pool", "Committed"];
+const filters: OpenFilter[] = ["Open", "Pending", "Approved for Pool", "Rejected"];
 
-function archiveYear(championship: string) {
-  return championship.match(/\d{4}/)?.[0] ?? "Career";
+const journeySteps = [
+  "Application Submitted",
+  "Review In Progress",
+  "Approved For Pool",
+  "Assignment Contract",
+  "Participant Locked",
+  "Championship Racing",
+];
+
+function formatDate(value?: string) {
+  if (!value) return "TBD";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
 }
 
-function rankTone(rank: string) {
-  if (rank === "#1") return "border-amber-300 bg-amber-50 text-amber-800";
-  if (rank === "#2") return "border-slate-300 bg-slate-100 text-slate-700";
-  if (rank === "#3") return "border-orange-300 bg-orange-50 text-orange-800";
-  return "border-slate-200 bg-white text-slate-700";
-}
-
-function statusLabel(championship: JockeyChampionship) {
-  switch (championship.applicationStatus) {
-    case "COMMITTED":
-      return "Committed";
+function statusLabel(status: JockeyChampionshipApplicationStatus) {
+  switch (status) {
+    case "PENDING":
+      return "Pending Review";
     case "APPROVED_FOR_POOL":
       return "Approved for Pool";
-    case "PENDING_REVIEW":
-      return "Pending Review";
     case "REJECTED":
       return "Rejected";
     case "WITHDRAWN":
       return "Withdrawn";
     default:
-      return "Open";
+      return "Not Applied";
   }
 }
 
-function applicationHelp(championship: JockeyChampionship) {
-  switch (championship.applicationStatus) {
-    case "PENDING_REVIEW":
-      return "Admin will review your racing passport and application eligibility before adding you to the jockey pool.";
-    case "APPROVED_FOR_POOL":
-      return "You are visible in the approved jockey pool and can receive assignment contracts from stable owners.";
-    case "COMMITTED":
-      return "You already have a committed horse-jockey assignment for this championship.";
-    case "REJECTED":
-      return "This application was rejected. Review the reason before applying again.";
-    default:
-      return "Apply to join the reviewed jockey pool before stable owners can send assignment contracts.";
-  }
+function statusTone(status: JockeyChampionshipApplicationStatus) {
+  if (status === "APPROVED_FOR_POOL") return "border-emerald-200 bg-emerald-50 text-[#006d5b]";
+  if (status === "PENDING") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "REJECTED") return "border-rose-200 bg-rose-50 text-rose-800";
+  return "border-slate-200 bg-slate-50 text-slate-600";
 }
 
 function filterMatches(championship: JockeyChampionship, filter: OpenFilter) {
+  if (filter === "Pending") return championship.applicationStatus === "PENDING";
   if (filter === "Approved for Pool") return championship.applicationStatus === "APPROVED_FOR_POOL";
-  if (filter === "Committed") return championship.applicationStatus === "COMMITTED";
-  if (filter === "Closing Soon") return championship.applicationStatus === "NOT_APPLIED";
-  return championship.applicationStatus === "NOT_APPLIED" || championship.applicationStatus === "PENDING_REVIEW";
+  if (filter === "Rejected") return championship.applicationStatus === "REJECTED";
+  return championship.applicationStatus === "NOT_APPLIED" || championship.canApply;
+}
+
+function progressIndex(status?: JockeyChampionshipApplicationStatus) {
+  if (status === "APPROVED_FOR_POOL") return 2;
+  if (status === "PENDING") return 1;
+  if (status === "REJECTED" || status === "WITHDRAWN") return 0;
+  return -1;
+}
+
+function pickCurrentChampionship(championships: JockeyChampionship[]) {
+  return (
+    championships.find((championship) => championship.applicationStatus === "APPROVED_FOR_POOL") ??
+    championships.find((championship) => championship.applicationStatus === "PENDING") ??
+    championships.find((championship) => championship.applicationStatus === "REJECTED") ??
+    null
+  );
+}
+
+function currentTitle(championship?: JockeyChampionship | null) {
+  if (!championship) return "No Active Championship";
+  if (championship.applicationStatus === "PENDING") return "Application Under Review";
+  if (championship.applicationStatus === "APPROVED_FOR_POOL") return "Approved for Pool";
+  if (championship.applicationStatus === "REJECTED") return "Application Needs Revision";
+  if (championship.applicationStatus === "WITHDRAWN") return "Application Withdrawn";
+  return "No Active Championship";
+}
+
+function overviewMessage(championship?: JockeyChampionship | null) {
+  if (!championship) {
+    return "Apply to an open championship pool to become visible to stable owners and receive assignment contracts.";
+  }
+
+  switch (championship.applicationStatus) {
+    case "PENDING":
+      return `Your pool application is waiting for admin review. Submitted ${formatDate(
+        championship.applicationCreatedAt,
+      )}.`;
+    case "APPROVED_FOR_POOL":
+      return "You are visible to owners in this championship pool. Assignment contracts unlock after owners choose approved jockeys.";
+    case "REJECTED":
+      return "This pool application needs revision before you can become visible to owners.";
+    case "WITHDRAWN":
+      return "Your application was withdrawn. You can apply again while the application window is open.";
+    default:
+      return "Apply to an open championship pool to become visible to stable owners.";
+  }
+}
+
+function cardHelp(championship: JockeyChampionship) {
+  switch (championship.applicationStatus) {
+    case "PENDING":
+      return "Admin will review your championship pool application before owners can see you.";
+    case "APPROVED_FOR_POOL":
+      return "You are visible in the approved jockey pool for owner assignment contracts.";
+    case "REJECTED":
+      return championship.rejectionReason || "This application was rejected. Review feedback before applying again.";
+    case "WITHDRAWN":
+      return "You withdrew this application. You can apply again while the application window is open.";
+    default:
+      return "Apply to join the reviewed jockey pool for this championship.";
+  }
 }
 
 export function JockeyChampionshipsPage() {
   useDocumentTitle("Jockey championships");
-  const [activeTab, setActiveTab] = useState<ChampionshipTab>("overview");
+
+  const [activeTab, setActiveTab] = useState<ChampionshipTab>("current");
   const [activeFilter, setActiveFilter] = useState<OpenFilter>("Open");
   const [searchQuery, setSearchQuery] = useState("");
-  const [championships, setChampionships] = useState(jockeyChampionships);
+  const [championships, setChampionships] = useState<JockeyChampionship[]>([]);
+  const [applications, setApplications] = useState<JockeyPoolApplication[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
   const [applicationTarget, setApplicationTarget] = useState<JockeyChampionship | null>(null);
-  const [historyTarget, setHistoryTarget] = useState<(typeof championshipArchive)[number] | null>(null);
+  const [applicationNote, setApplicationNote] = useState("");
+  const [submitError, setSubmitError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const activeChampionship =
-    championships.find((championship) => championship.applicationStatus === "COMMITTED") ?? championships[0];
-  const activeNextRound = getNextRound(activeChampionship.id);
-  const activeRounds = getRoundsForChampionship(activeChampionship.id);
+  const currentChampionship = pickCurrentChampionship(championships);
+  const activeProgressIndex = progressIndex(currentChampionship?.applicationStatus);
 
   const visibleChampionships = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -107,40 +168,79 @@ export function JockeyChampionshipsPage() {
       const matchesSearch =
         !query ||
         championship.name.toLowerCase().includes(query) ||
-        championship.track.toLowerCase().includes(query) ||
-        championship.location.toLowerCase().includes(query);
+        championship.location?.toLowerCase().includes(query) ||
+        championship.code?.toLowerCase().includes(query);
 
       return matchesSearch && filterMatches(championship, activeFilter);
     });
   }, [activeFilter, championships, searchQuery]);
 
-  const submitApplication = () => {
+  const applicationSummary = useMemo(
+    () => ({
+      pending: applications.filter((application) => application.status === "PENDING").length,
+      approved: applications.filter((application) => application.status === "APPROVED_FOR_POOL").length,
+      rejected: applications.filter((application) => application.status === "REJECTED").length,
+    }),
+    [applications],
+  );
+
+  const loadChampionships = async () => {
+    setIsLoading(true);
+    setError("");
+    try {
+      const [championshipData, applicationData] = await Promise.all([
+        getJockeyChampionships(),
+        getJockeyPoolApplications(),
+      ]);
+      setChampionships(championshipData);
+      setApplications(applicationData);
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Could not load jockey championships."));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadChampionships();
+  }, []);
+
+  const openApplication = (championship: JockeyChampionship) => {
+    setApplicationTarget(championship);
+    setApplicationNote(championship.applicationMessage || "");
+    setSubmitError("");
+  };
+
+  const submitApplication = async () => {
     if (!applicationTarget) return;
 
-    setChampionships((current) =>
-      current.map((championship) =>
-        championship.id === applicationTarget.id
-          ? {
-              ...championship,
-              applicationStatus: "PENDING_REVIEW",
-              applicationSubmittedAt: "Jun 2, 2026",
-            }
-          : championship,
-      ),
-    );
-    setApplicationTarget(null);
+    setIsSubmitting(true);
+    setSubmitError("");
+    try {
+      await applyToJockeyChampionship(applicationTarget.id, applicationNote.trim() || undefined);
+      setApplicationTarget(null);
+      setApplicationNote("");
+      await loadChampionships();
+      setActiveTab("current");
+    } catch (err) {
+      setSubmitError(getApiErrorMessage(err, "Could not submit championship application."));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <JockeyLayout>
       <section aria-labelledby="championships-title" className="space-y-5">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Championship Operations</p>
+          <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">
+            Championship Pool
+          </p>
           <h1 id="championships-title" className="mt-2 text-4xl font-black tracking-tight text-slate-950">
             Championships
           </h1>
           <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-500">
-            Manage your active championship, apply to reviewed jockey pools, and track completed seasons.
+            Apply to championship pools, track admin review, and become eligible for owner assignment contracts.
           </p>
         </div>
 
@@ -157,7 +257,9 @@ export function JockeyChampionshipsPage() {
               <button
                 aria-selected={isActive}
                 className={`inline-flex min-h-11 items-center gap-2 rounded-md px-4 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] ${
-                  isActive ? "bg-[#006d5b] text-white shadow-sm" : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
+                  isActive
+                    ? "bg-[#006d5b] text-white shadow-sm"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
                 }`}
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -171,509 +273,275 @@ export function JockeyChampionshipsPage() {
           })}
         </div>
 
-        {activeTab === "overview" && (
-          <section aria-label="Championship overview" className="space-y-5">
-            <div className="overflow-hidden rounded-lg border border-emerald-900/20 bg-[#082f2a] text-white shadow-sm">
-              <div className="grid gap-0 lg:grid-cols-[1.45fr_0.85fr]">
-                <div className="relative p-6">
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-0 bg-cover bg-center opacity-15"
-                    style={{ backgroundImage: `url(${racingImage})` }}
-                  />
-                  <div className="relative">
-                    <span className="inline-flex rounded-md bg-white/10 px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 ring-1 ring-white/20">
-                      Current Championship
-                    </span>
-                    <h2 className="mt-4 text-3xl font-black tracking-tight">{activeChampionship.name}</h2>
-                    <p className="mt-2 max-w-2xl text-sm font-bold leading-6 text-emerald-50/80">
-                      Committed Assignment
-                    </p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-md bg-white/10 p-3 ring-1 ring-white/15">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-100">Horse</p>
-                        <p className="mt-1 text-lg font-black">{activeChampionship.horse}</p>
-                      </div>
-                      <div className="rounded-md bg-white/10 p-3 ring-1 ring-white/15">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-100">Stable</p>
-                        <p className="mt-1 text-lg font-black">{activeChampionship.stable}</p>
-                      </div>
-                      <div className="rounded-md bg-white/10 p-3 ring-1 ring-white/15">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-emerald-100">Season</p>
-                        <p className="mt-1 text-lg font-black">{activeChampionship.rounds} rounds</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <aside className="border-t border-white/10 bg-white/8 p-6 lg:border-l lg:border-t-0">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-100">Current Standing</p>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-4xl font-black">{activeChampionship.rank}</p>
-                      <p className="mt-1 text-sm font-black text-emerald-100">Rank {activeChampionship.rank}</p>
-                    </div>
-                    <div>
-                      <p className="text-4xl font-black">{activeChampionship.points}</p>
-                      <p className="mt-1 text-sm font-black text-emerald-100">{activeChampionship.points} pts</p>
-                    </div>
-                  </div>
-                  <p className="mt-5 rounded-md bg-white/10 px-3 py-2 text-sm font-black text-emerald-50">
-                    Gap to leader: {activeChampionship.gapToLeader}
-                  </p>
-                </aside>
-              </div>
-            </div>
-
-            <div className="grid gap-5 xl:grid-cols-[0.9fr_1.1fr]">
-              <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Contract Status</p>
-                    <h3 className="mt-2 text-2xl font-black text-slate-950">Assignment confirmed</h3>
-                  </div>
-                  <FileCheck2 className="h-6 w-6 text-[#006d5b]" aria-hidden="true" />
-                </div>
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-500">
-                  This contract forms the horse-jockey participant pair for the full championship season.
-                </p>
-                <div className="mt-5 rounded-md border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-black text-[#006d5b]">summer-assignment-agreement.pdf</p>
-                  <p className="mt-1 text-sm font-bold text-emerald-900/70">Accepted May 21, 2026</p>
-                </div>
-                <div className="mt-5 flex flex-wrap gap-2">
-                  <Link
-                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-4 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                    to="/jockey/contracts"
-                  >
-                    Open contract
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                  </Link>
-                  <Link
-                    className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                    to="/jockey/schedule"
-                  >
-                    Open schedule
-                  </Link>
-                </div>
-              </article>
-
-              <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Next Round</p>
-                    <h3 className="mt-2 text-2xl font-black text-slate-950">
-                      {activeNextRound?.raceName ?? "No scheduled round"}
-                    </h3>
-                  </div>
-                  <Clock3 className="h-6 w-6 text-orange-600" aria-hidden="true" />
-                </div>
-                {activeNextRound && (
-                  <dl className="mt-5 grid gap-3 text-sm sm:grid-cols-3">
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                      <dt className="font-bold text-slate-500">Date</dt>
-                      <dd className="mt-1 font-black text-slate-950">{activeNextRound.date}</dd>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                      <dt className="font-bold text-slate-500">Time</dt>
-                      <dd className="mt-1 font-black text-slate-950">{activeNextRound.time}</dd>
-                    </div>
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                      <dt className="font-bold text-slate-500">Track</dt>
-                      <dd className="mt-1 font-black text-slate-950">{activeNextRound.track}</dd>
-                    </div>
-                  </dl>
-                )}
-              </article>
-            </div>
-
-            <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Championship Journey</p>
-                  <h3 className="mt-2 text-2xl font-black text-slate-950">From application to current round</h3>
-                </div>
-                <span className="rounded-md bg-slate-100 px-3 py-2 text-sm font-black text-slate-600">
-                  {activeRounds.length} rounds loaded
-                </span>
-              </div>
-              <div aria-label="Championship journey" className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Season Tracker</p>
-                <ol className="mt-4 flex min-w-max items-stretch">
-                  {[
-                    { title: "Application Approved", detail: "Pool approved", state: "done" },
-                    { title: "Contract Committed", detail: "Participant formed", state: "done" },
-                    ...activeRounds.map((round) => ({
-                      title: `Round ${round.roundNumber}`,
-                      detail:
-                        round.status === "FINISHED"
-                          ? `${round.position} - ${round.points} pts`
-                          : round.status === "NEXT"
-                            ? "Current Round"
-                            : round.raceName,
-                      state: round.status === "NEXT" ? "current" : round.status === "FINISHED" ? "done" : "upcoming",
-                    })),
-                  ].map((step, index, steps) => (
-                    <li className="flex items-center" key={`${step.title}-${step.detail}`}>
-                      <div
-                        className={`min-h-28 w-36 rounded-md border p-3 ${
-                          step.state === "current"
-                            ? "border-orange-300 bg-orange-50"
-                            : step.state === "done"
-                              ? "border-emerald-200 bg-white"
-                              : "border-slate-200 bg-white"
-                        }`}
-                      >
-                        <span
-                          className={`grid h-8 w-8 place-items-center rounded-full ${
-                            step.state === "current"
-                              ? "bg-orange-600 text-white"
-                              : step.state === "done"
-                                ? "bg-[#006d5b] text-white"
-                                : "bg-slate-200 text-slate-500"
-                          }`}
-                        >
-                          {step.state === "done" ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
-                        </span>
-                        <p className="mt-3 text-sm font-black leading-5 text-slate-950">{step.title}</p>
-                        <p className="mt-2 text-xs font-bold leading-4 text-slate-500">{step.detail}</p>
-                      </div>
-                      {index < steps.length - 1 && <div className="h-px w-10 bg-slate-300" aria-hidden="true" />}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            </article>
-          </section>
+        {error && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700" role="alert">
+            {error}
+          </div>
         )}
 
-        {activeTab === "open" && (
-          <section aria-label="Open championships" className="space-y-5">
-            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-950">Open Championships</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Apply to reviewed pools before stable owners can send assignment contracts.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {filters.map((filter) => (
-                    <button
-                      className={`min-h-10 rounded-md px-3 text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] ${
-                        activeFilter === filter
-                          ? "bg-[#006d5b] text-white"
-                          : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                      }`}
-                      key={filter}
-                      onClick={() => setActiveFilter(filter)}
-                      type="button"
-                    >
-                      {filter}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <label className="mt-4 flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 focus-within:border-[#006d5b] focus-within:ring-2 focus-within:ring-emerald-100">
-                <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
-                <span className="sr-only">Search championships</span>
-                <input
-                  className="h-11 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400"
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search championship, track, location..."
-                  type="search"
-                  value={searchQuery}
-                />
-              </label>
-            </div>
-
-            <div className="grid gap-4">
-              {visibleChampionships.map((championship) => {
-                const canApply = championship.applicationStatus === "NOT_APPLIED";
-                const isPending = championship.applicationStatus === "PENDING_REVIEW";
-
-                return (
-                  <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={championship.id}>
-                    <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
+        {isLoading ? (
+          <div className="grid gap-4">
+            {[1, 2, 3].map((item) => (
+              <div className="h-36 animate-pulse rounded-lg border border-slate-200 bg-white" key={item} />
+            ))}
+          </div>
+        ) : (
+          <>
+            {activeTab === "current" && (
+              <section aria-label="Current championship state" className="space-y-5">
+                <div className="overflow-hidden rounded-lg border border-emerald-900/20 bg-[#082f2a] text-white shadow-sm">
+                  <div className="relative p-6">
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-0 bg-cover bg-center opacity-15"
+                      style={{ backgroundImage: `url(${racingImage})` }}
+                    />
+                    <div className="relative max-w-4xl">
+                      <span className="inline-flex rounded-md bg-white/10 px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-emerald-100 ring-1 ring-white/20">
+                        Current State
+                      </span>
+                      <h2 className="mt-4 text-3xl font-black tracking-tight">
+                        {currentTitle(currentChampionship)}
+                      </h2>
+                      {currentChampionship && (
+                        <p className="mt-2 text-xl font-black tracking-tight text-emerald-50">
+                          {currentChampionship.name}
+                        </p>
+                      )}
+                      <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-emerald-50/85">
+                        {overviewMessage(currentChampionship)}
+                      </p>
+                      <div className="mt-6 flex flex-wrap gap-2">
+                        {currentChampionship && (
                           <span
-                            className={`rounded-md px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] ${
-                              isPending
-                                ? "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
-                                : "bg-emerald-50 text-[#006d5b] ring-1 ring-emerald-200"
-                            }`}
+                            className={`inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-black ${statusTone(
+                              currentChampionship.applicationStatus,
+                            )}`}
                           >
-                            {statusLabel(championship)}
-                          </span>
-                          <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-                            {championship.rounds} rounds
-                          </span>
-                        </div>
-                        <h3 className="mt-3 text-2xl font-black text-slate-950">{championship.name}</h3>
-                        <p className="mt-1 text-sm font-bold text-slate-500">
-                          {championship.track} - {championship.location} - {championship.season}
-                        </p>
-                        <p className="mt-3 text-sm font-black text-slate-700">
-                          Jockey Pool: {championship.poolApproved} / {championship.poolCapacity}
-                        </p>
-                        {championship.applicationStatus === "NOT_APPLIED" && (
-                          <p className="mt-2 text-sm font-black text-amber-700">Applications close in 14 days</p>
-                        )}
-                        <p className="mt-2 max-w-3xl text-sm font-bold leading-6 text-slate-500">
-                          {applicationHelp(championship)}
-                        </p>
-                      </div>
-
-                      <div className="shrink-0">
-                        {canApply ? (
-                          <button
-                            aria-label={`Apply for Championship ${championship.name}`}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                            onClick={() => setApplicationTarget(championship)}
-                            type="button"
-                          >
-                            Apply for Championship
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                          </button>
-                        ) : (
-                          <span className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-black text-slate-600">
-                            {isPending ? "Submitted" : statusLabel(championship)}
+                            {statusLabel(currentChampionship.applicationStatus)}
                           </span>
                         )}
+                        {currentChampionship?.applicationStatus === "APPROVED_FOR_POOL" && (
+                          <span className="inline-flex min-h-10 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm font-black text-white">
+                            Visible to Owners
+                          </span>
+                        )}
+                        <button
+                          className="inline-flex min-h-10 items-center gap-2 rounded-md bg-white px-4 text-sm font-black text-[#006d5b] hover:bg-emerald-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                          onClick={() => setActiveTab("open")}
+                          type="button"
+                        >
+                          Browse Championships
+                          <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                        </button>
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      {championship.requirements.map((requirement) => (
-                        <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={requirement.label}>
-                          <div className="flex items-center gap-2">
-                            {requirement.met ? (
-                              <CheckCircle2 className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
-                            ) : (
-                              <X className="h-4 w-4 text-red-600" aria-hidden="true" />
+                {currentChampionship?.applicationStatus === "REJECTED" && currentChampionship.rejectionReason && (
+                  <div className="rounded-lg border border-rose-200 bg-rose-50 p-5">
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">Review Feedback</p>
+                    <p className="mt-2 text-sm font-bold leading-6 text-rose-900">
+                      {currentChampionship.rejectionReason}
+                    </p>
+                    {currentChampionship.canApply && (
+                      <button
+                        className="mt-4 inline-flex min-h-10 items-center rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#8f1230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                        onClick={() => openApplication(currentChampionship)}
+                        type="button"
+                      >
+                        Apply Again
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <section className="grid gap-4 md:grid-cols-3" aria-label="Application summary">
+                  <SummaryTile label="Pending Review" value={applicationSummary.pending} tone="amber" />
+                  <SummaryTile label="Approved Pool" value={applicationSummary.approved} tone="emerald" />
+                  <SummaryTile label="Rejected" value={applicationSummary.rejected} tone="rose" />
+                </section>
+
+                <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">
+                        Championship Journey
+                      </p>
+                      <h3 className="mt-2 text-2xl font-black text-slate-950">From pool application to racing</h3>
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        Contract, participant lock, and standings stay locked until backend source data exists.
+                      </p>
+                    </div>
+                    <span className="rounded-md bg-slate-100 px-3 py-2 text-sm font-black text-slate-600">
+                      Truth First
+                    </span>
+                  </div>
+                  <div
+                    aria-label="Championship journey"
+                    className="mt-5 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <ol className="flex min-w-max items-stretch">
+                      {journeySteps.map((step, index) => {
+                        const done = index <= activeProgressIndex;
+                        const current = index === activeProgressIndex;
+                        const locked = index > activeProgressIndex;
+
+                        return (
+                          <li className="flex items-center" key={step}>
+                            <div
+                              className={`min-h-24 w-36 rounded-md border p-3 ${
+                                current
+                                  ? "border-emerald-300 bg-emerald-50"
+                                  : done
+                                    ? "border-emerald-200 bg-white"
+                                    : "border-slate-200 bg-white"
+                              }`}
+                            >
+                              <span
+                                className={`grid h-8 w-8 place-items-center rounded-full text-sm font-black ${
+                                  done ? "bg-[#006d5b] text-white" : "bg-slate-200 text-slate-500"
+                                }`}
+                              >
+                                {done ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                              </span>
+                              <p className="mt-3 text-sm font-black leading-5 text-slate-950">{step}</p>
+                              <p className="mt-1 text-xs font-bold text-slate-500">
+                                {current ? "Current step" : locked ? "Waiting" : "Completed"}
+                              </p>
+                            </div>
+                            {index < journeySteps.length - 1 && (
+                              <div className="h-px w-10 bg-slate-300" aria-hidden="true" />
                             )}
-                            <p className="text-sm font-black text-slate-800">{requirement.label}</p>
-                          </div>
-                        </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                </article>
+              </section>
+            )}
+
+            {activeTab === "open" && (
+              <section aria-label="Open championships" className="space-y-5">
+                <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-950">Open Championships</h2>
+                      <p className="mt-1 text-sm font-bold text-slate-500">
+                        Apply to reviewed pools before stable owners can send assignment contracts.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {filters.map((filter) => (
+                        <button
+                          className={`min-h-10 rounded-md px-3 text-sm font-black focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] ${
+                            activeFilter === filter
+                              ? "bg-[#006d5b] text-white"
+                              : "border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                          key={filter}
+                          onClick={() => setActiveFilter(filter)}
+                          type="button"
+                        >
+                          {filter}
+                        </button>
                       ))}
                     </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {activeTab === "history" && (
-          <section aria-label="Championship history" className="space-y-5">
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-              <div className="grid gap-0 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="relative p-6">
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-0 bg-cover bg-center opacity-[0.08]"
-                    style={{ backgroundImage: `url(${racingImage})` }}
-                  />
-                  <div className="relative">
-                    <span className="inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">
-                      Career Summary
-                    </span>
-                    <h2 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Professional Jockey</h2>
-                    <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-slate-500">
-                      A championship rider profile built around stable assignments, season results, and repeatable race-day credibility.
-                    </p>
-                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                      <div className="rounded-md border border-slate-200 bg-white/85 p-3">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Currently riding</p>
-                        <p className="mt-1 text-lg font-black text-slate-950">{activeChampionship.horse}</p>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-white/85 p-3">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Stable</p>
-                        <p className="mt-1 text-lg font-black text-slate-950">{activeChampionship.stable}</p>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-white/85 p-3">
-                        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Current standing</p>
-                        <p className="mt-1 text-lg font-black text-slate-950">
-                          Current Standing: {activeChampionship.rank} Summer Championship
-                        </p>
-                      </div>
-                    </div>
                   </div>
+                  <label className="mt-4 flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 focus-within:border-[#006d5b] focus-within:ring-2 focus-within:ring-emerald-100">
+                    <Search className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                    <span className="sr-only">Search championships</span>
+                    <input
+                      className="h-11 flex-1 bg-transparent text-sm font-bold text-slate-900 outline-none placeholder:text-slate-400"
+                      onChange={(event) => setSearchQuery(event.target.value)}
+                      placeholder="Search championship, code, location..."
+                      type="search"
+                      value={searchQuery}
+                    />
+                  </label>
                 </div>
-                <aside className="border-t border-slate-200 bg-[#082f2a] p-6 text-white lg:border-l lg:border-t-0">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-100">Career Story</p>
-                  <p className="mt-4 text-5xl font-black leading-none">{careerRecord.officialStarts}</p>
-                  <p className="mt-2 text-sm font-black text-emerald-100">Official Starts</p>
-                  <div className="mt-6 grid grid-cols-2 gap-3">
-                    <div className="rounded-md bg-white/10 p-3 ring-1 ring-white/15">
-                      <p className="text-2xl font-black">{careerRecord.wins}</p>
-                      <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-100">Wins</p>
-                    </div>
-                    <div className="rounded-md bg-white/10 p-3 ring-1 ring-white/15">
-                      <p className="text-2xl font-black">{careerRecord.top3Finishes}</p>
-                      <p className="mt-1 text-xs font-black uppercase tracking-[0.12em] text-emerald-100">Top 3</p>
-                    </div>
-                  </div>
-                </aside>
-              </div>
-            </div>
 
-            <section aria-label="Career Record" className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Career Record</p>
-                    <h2 className="mt-2 text-2xl font-black text-slate-950">
-                      {careerRecord.championshipsJoined} Championships
-                    </h2>
-                    <p className="mt-1 text-sm font-bold text-slate-500">
-                      {careerRecord.championshipsWon} Championship Win across official seasons.
+                {visibleChampionships.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center">
+                    <Clock3 className="mx-auto h-9 w-9 text-slate-400" aria-hidden="true" />
+                    <h3 className="mt-3 text-lg font-black text-slate-950">No championships match this view</h3>
+                    <p className="mx-auto mt-2 max-w-xl text-sm font-bold leading-6 text-slate-500">
+                      Try a different status filter or search term.
                     </p>
                   </div>
-                  <Trophy className="h-6 w-6 text-[#006d5b]" aria-hidden="true" />
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {[
-                  ["Best Rank", careerRecord.bestRank],
-                  ["Win Rate", careerRecord.winRate],
-                  ["Top 3 Rate", careerRecord.top3Rate],
-                ].map(([label, value]) => (
-                  <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" key={label}>
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
-                    <p className="mt-2 text-3xl font-black text-slate-950">{value}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
+                ) : (
+                  <div className="grid gap-4">
+                    {visibleChampionships.map((championship) => (
+                      <article
+                        className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-emerald-200 hover:shadow-md"
+                        key={championship.id}
+                      >
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`rounded-md border px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] ${statusTone(
+                                  championship.applicationStatus,
+                                )}`}
+                              >
+                                {statusLabel(championship.applicationStatus)}
+                              </span>
+                              <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+                                {championship.status.replaceAll("_", " ")}
+                              </span>
+                            </div>
+                            <h3 className="mt-3 text-2xl font-black text-slate-950">{championship.name}</h3>
+                            <p className="mt-1 text-sm font-bold text-slate-500">
+                              {championship.location || "Track TBD"} - {formatDate(championship.startDate)} to{" "}
+                              {formatDate(championship.endDate)}
+                            </p>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                              <InfoBlock label="Approved Pool" value={`${championship.approvedPoolCount}`} />
+                              <InfoBlock
+                                label="Pool Capacity"
+                                value={championship.maxHorses ? `${championship.maxHorses} riders` : "Open"}
+                              />
+                              <InfoBlock label="Apply By" value={formatDate(championship.registrationEndAt)} />
+                            </div>
+                            <p className="mt-4 max-w-3xl text-sm font-bold leading-6 text-slate-500">
+                              {cardHelp(championship)}
+                            </p>
+                          </div>
 
-            <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-950">Championship History</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Career timeline by season, horse, stable, and final result.
-                  </p>
-                </div>
-                <ShieldCheck className="h-6 w-6 text-[#006d5b]" aria-hidden="true" />
-              </div>
-              <ol aria-label="Career timeline" className="mt-6 space-y-5">
-                {[...new Set(championshipArchive.map((item) => archiveYear(item.championship)))].map((year) => (
-                  <li className="grid gap-4 md:grid-cols-[84px_1fr]" key={year}>
-                    <div className="text-2xl font-black text-slate-950">{year}</div>
-                    <div className="space-y-3 border-l border-slate-200 pl-4">
-                      {championshipArchive
-                        .filter((item) => archiveYear(item.championship) === year)
-                        .map((item) => (
-                          <article className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={item.championship}>
-                            <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="text-lg font-black text-slate-950">{item.championship}</h3>
-                                  <span
-                                    className={`rounded-md border px-2 py-1 text-xs font-black uppercase tracking-[0.12em] ${rankTone(
-                                      item.rank,
-                                    )}`}
-                                  >
-                                    Rank {item.rank}
-                                  </span>
-                                </div>
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                  <div className="rounded-md bg-white p-3 ring-1 ring-slate-200">
-                                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Horse</p>
-                                    <p className="mt-1 text-base font-black text-slate-950">{item.horse}</p>
-                                  </div>
-                                  <div className="rounded-md bg-white p-3 ring-1 ring-slate-200">
-                                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Stable</p>
-                                    <p className="mt-1 text-base font-black text-slate-950">{item.stable}</p>
-                                  </div>
-                                </div>
-                                <p className="mt-3 text-sm font-black text-slate-700">
-                                  {item.wins} wins - {item.top3Finishes} top 3 finishes - {item.points} points
-                                </p>
-                              </div>
+                          <div className="shrink-0">
+                            {championship.canApply ? (
                               <button
-                                aria-label={`View ${item.championship} details`}
-                                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                                onClick={() => setHistoryTarget(item)}
+                                aria-label={`Apply for Championship ${championship.name}`}
+                                className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                                onClick={() => openApplication(championship)}
                                 type="button"
                               >
-                                View details
+                                {championship.applicationStatus === "REJECTED" ||
+                                championship.applicationStatus === "WITHDRAWN"
+                                  ? "Apply Again"
+                                  : "Apply for Championship"}
+                                <ArrowRight className="h-4 w-4" aria-hidden="true" />
                               </button>
-                            </div>
-                          </article>
-                        ))}
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          </section>
-        )}
+                            ) : (
+                              <span className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-black text-slate-600">
+                                {championship.applicationStatus === "PENDING"
+                                  ? "Submitted"
+                                  : statusLabel(championship.applicationStatus)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
 
-        {historyTarget && (
-          <div
-            aria-label="Championship result detail"
-            aria-modal="true"
-            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 sm:items-center"
-            role="dialog"
-          >
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Championship Result</p>
-                  <h2 className="mt-2 text-2xl font-black text-slate-950">{historyTarget.championship}</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Season result for {historyTarget.horse} with {historyTarget.stable}.
-                  </p>
-                </div>
-                <button
-                  aria-label="Close championship result detail"
-                  className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                  onClick={() => setHistoryTarget(null)}
-                  type="button"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-              <div className="space-y-5 p-5">
-                <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {[
-                    ["Final Rank", historyTarget.rank],
-                    ["Points", historyTarget.points],
-                    ["Rounds", historyTarget.rounds],
-                    ["Top 3", historyTarget.top3Finishes],
-                  ].map(([label, value]) => (
-                    <div className="rounded-md border border-slate-200 bg-slate-50 p-3" key={label}>
-                      <dt className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</dt>
-                      <dd className="mt-1 text-lg font-black text-slate-950">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <section aria-labelledby="race-breakdown-title" className="rounded-lg border border-slate-200 p-4">
-                  <h3 id="race-breakdown-title" className="text-lg font-black text-slate-950">
-                    Race Breakdown
-                  </h3>
-                  <ol className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {Array.from({ length: historyTarget.rounds }).map((_, index) => {
-                      const roundNumber = index + 1;
-                      const isWin = roundNumber <= historyTarget.wins;
-                      const isTop3 = roundNumber <= historyTarget.top3Finishes;
-
-                      return (
-                        <li
-                          className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-black text-slate-700"
-                          key={roundNumber}
-                        >
-                          Round {roundNumber} - {isWin ? "Win" : isTop3 ? "Top 3" : "Finished"}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                </section>
-              </div>
-            </div>
-          </div>
+            {activeTab === "history" && <HistorySection />}
+          </>
         )}
 
         {applicationTarget && (
@@ -686,10 +554,12 @@ export function JockeyChampionshipsPage() {
             <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
               <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Championship Application</p>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">
+                    Championship Application
+                  </p>
                   <h2 className="mt-2 text-2xl font-black text-slate-950">{applicationTarget.name}</h2>
                   <p className="mt-1 text-sm font-bold text-slate-500">
-                    Submit your application for admin review before joining the available jockey pool.
+                    Submit your pool application for admin review before owners can see you.
                   </p>
                 </div>
                 <button
@@ -702,19 +572,22 @@ export function JockeyChampionshipsPage() {
                 </button>
               </div>
               <div className="space-y-5 p-5">
+                {submitError && (
+                  <div
+                    className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700"
+                    role="alert"
+                  >
+                    {submitError}
+                  </div>
+                )}
+
                 <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Season</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">{applicationTarget.season}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Rounds</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">{applicationTarget.rounds}</p>
-                  </div>
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">Deadline</p>
-                    <p className="mt-1 text-sm font-black text-slate-950">{applicationTarget.enrollmentDeadline}</p>
-                  </div>
+                  <InfoBlock
+                    label="Season"
+                    value={`${formatDate(applicationTarget.startDate)} - ${formatDate(applicationTarget.endDate)}`}
+                  />
+                  <InfoBlock label="Approved Pool" value={`${applicationTarget.approvedPoolCount} riders`} />
+                  <InfoBlock label="Apply By" value={formatDate(applicationTarget.registrationEndAt)} />
                 </div>
 
                 <section aria-labelledby="eligibility-title" className="rounded-lg border border-slate-200 p-4">
@@ -722,10 +595,14 @@ export function JockeyChampionshipsPage() {
                     Eligibility Checklist
                   </h3>
                   <div className="mt-4 grid gap-3">
-                    {applicationTarget.requirements.map((requirement) => (
-                      <div className="flex items-center gap-3" key={requirement.label}>
+                    {[
+                      "Jockey role approved",
+                      "Application window open",
+                      "Not already approved in this championship",
+                    ].map((label) => (
+                      <div className="flex items-center gap-3" key={label}>
                         <CheckCircle2 className="h-5 w-5 text-[#006d5b]" aria-hidden="true" />
-                        <p className="text-sm font-black text-slate-800">{requirement.label}</p>
+                        <p className="text-sm font-black text-slate-800">{label}</p>
                       </div>
                     ))}
                   </div>
@@ -735,7 +612,9 @@ export function JockeyChampionshipsPage() {
                   <span className="text-sm font-black text-slate-800">Application note</span>
                   <textarea
                     className="mt-2 min-h-28 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
+                    onChange={(event) => setApplicationNote(event.target.value)}
                     placeholder="Add availability notes or racing context for admin review."
+                    value={applicationNote}
                   />
                 </label>
               </div>
@@ -748,12 +627,14 @@ export function JockeyChampionshipsPage() {
                   Cancel
                 </button>
                 <button
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                  disabled={isSubmitting}
                   onClick={submitApplication}
                   type="button"
                 >
-                  Submit Application
-                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                  {isSubmitting ? "Submitting..." : "Submit Application"}
+                  {!isSubmitting && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
                 </button>
               </div>
             </div>
@@ -761,5 +642,72 @@ export function JockeyChampionshipsPage() {
         )}
       </section>
     </JockeyLayout>
+  );
+}
+
+function SummaryTile({ label, value, tone }: { label: string; value: number; tone: "amber" | "emerald" | "rose" }) {
+  const toneClass =
+    tone === "emerald"
+      ? "border-emerald-200 bg-emerald-50 text-[#006d5b]"
+      : tone === "amber"
+        ? "border-amber-200 bg-amber-50 text-amber-800"
+        : "border-rose-200 bg-rose-50 text-rose-800";
+
+  return (
+    <div className={`rounded-lg border p-4 ${toneClass}`}>
+      <p className="text-xs font-black uppercase tracking-[0.12em] opacity-80">{label}</p>
+      <p className="mt-2 text-3xl font-black leading-none">{value}</p>
+    </div>
+  );
+}
+
+function InfoBlock({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
+    </div>
+  );
+}
+
+function HistorySection() {
+  return (
+    <section aria-label="Championship history" className="space-y-5">
+      <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
+        <div className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-emerald-50 text-[#006d5b]">
+          <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+        </div>
+        <h2 className="mt-4 text-2xl font-black text-slate-950">No official championship history yet</h2>
+        <p className="mx-auto mt-2 max-w-2xl text-sm font-bold leading-6 text-slate-500">
+          History will unlock after a contract becomes an official participant and published standings exist. Until then,
+          this page avoids showing fake rank, points, horse, or stable data.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Future-ready fields</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {["Final Rank", "Total Points", "Committed Horse", "Stable"].map((item) => (
+            <div className="rounded-md border border-slate-200 bg-slate-50 p-4" key={item}>
+              <p className="text-sm font-black text-slate-700">{item}</p>
+              <p className="mt-2 text-xs font-bold text-slate-500">Waiting for official standings API</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-amber-200 bg-amber-50 p-5">
+        <div className="flex gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" aria-hidden="true" />
+          <div>
+            <h3 className="text-sm font-black text-amber-900">Truth-first display</h3>
+            <p className="mt-1 text-sm font-bold leading-6 text-amber-800">
+              Current backend supports pool applications. Career standings should appear only after TournamentParticipant
+              and published result data are available.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

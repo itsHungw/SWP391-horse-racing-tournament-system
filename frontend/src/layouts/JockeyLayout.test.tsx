@@ -16,14 +16,15 @@ describe("JockeyLayout", () => {
 
     expect(screen.getByRole("banner", { name: /jockey workspace header/i })).toBeInTheDocument();
     expect(screen.getAllByText(/racing cockpit/i).length).toBeGreaterThan(0);
-    const assignment = screen.getByRole("region", { name: /current assignment/i });
-    expect(assignment).toBeInTheDocument();
-    expect(within(assignment).getByRole("img", { name: /thunder bolt horse thumbnail/i })).toBeInTheDocument();
-    expect(within(assignment).getByText(/next race/i)).toBeInTheDocument();
-    expect(within(assignment).getByText(/jun 6/i)).toBeInTheDocument();
-    expect(within(assignment).getByText(/committed/i)).toBeInTheDocument();
-    expect(within(assignment).queryByText(/^rank$/i)).not.toBeInTheDocument();
-    expect(within(assignment).queryByText(/^points$/i)).not.toBeInTheDocument();
+    const workflow = screen.getByRole("region", { name: /pool workflow/i });
+    expect(workflow).toBeInTheDocument();
+    expect(within(workflow).getByText(/apply to pool/i)).toBeInTheDocument();
+    expect(within(workflow).getByText(/admin review/i)).toBeInTheDocument();
+    expect(within(workflow).getByText(/owner contract/i)).toBeInTheDocument();
+    expect(within(workflow).getByText(/participant lock/i)).toBeInTheDocument();
+    expect(within(workflow).queryByText(/thunder bolt/i)).not.toBeInTheDocument();
+    expect(within(workflow).queryByText(/^rank$/i)).not.toBeInTheDocument();
+    expect(within(workflow).queryByText(/^points$/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /career record/i })).not.toBeInTheDocument();
 
     const nav = screen.getByRole("navigation", { name: /jockey workspace/i });

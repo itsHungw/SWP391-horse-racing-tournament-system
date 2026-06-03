@@ -1,102 +1,163 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  applyToJockeyChampionship,
+  getJockeyChampionships,
+  getJockeyPoolApplications,
+} from "../../api/racingApi";
 import { JockeyChampionshipsPage } from "./JockeyChampionshipsPage";
 
+vi.mock("../../api/racingApi", () => ({
+  applyToJockeyChampionship: vi.fn(),
+  getJockeyChampionships: vi.fn(),
+  getJockeyPoolApplications: vi.fn(),
+}));
+
+const openChampionship = {
+  id: 7,
+  name: "Spring Cup 2026",
+  code: "SPRING-2026",
+  location: "Belmont Park",
+  startDate: "2026-06-01",
+  endDate: "2026-08-20",
+  registrationEndAt: "2026-06-15",
+  maxHorses: 20,
+  status: "OPEN_REGISTRATION",
+  applicationStatus: "NOT_APPLIED" as const,
+  approvedPoolCount: 12,
+  applicationWindowOpen: true,
+  canApply: true,
+};
+
 describe("JockeyChampionshipsPage", () => {
-  it("defaults to overview with active championship, contract status, and journey", () => {
-    render(
-      <MemoryRouter>
-        <JockeyChampionshipsPage />
-      </MemoryRouter>,
-    );
-
-    const tabs = screen.getByRole("tablist", { name: /championship sections/i });
-    expect(within(tabs).getByRole("tab", { name: /^overview$/i })).toHaveAttribute("aria-selected", "true");
-
-    const overview = screen.getByRole("region", { name: /championship overview/i });
-    expect(within(overview).getByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
-    expect(within(overview).getByText(/committed assignment/i)).toBeInTheDocument();
-    expect(within(overview).getByText(/thunder bolt/i)).toBeInTheDocument();
-    expect(within(overview).getByText(/sunrise stable/i)).toBeInTheDocument();
-    expect(within(overview).getByText(/rank #3/i)).toBeInTheDocument();
-    expect(within(overview).getByText(/42 pts/i)).toBeInTheDocument();
-    expect(within(overview).getByText(/belmont stakes presented/i)).toBeInTheDocument();
-
-    const journey = within(overview).getByLabelText(/championship journey/i);
-    expect(within(journey).getByText(/season tracker/i)).toBeInTheDocument();
-    expect(within(journey).getByText(/application approved/i)).toBeInTheDocument();
-    expect(within(journey).getByText(/contract committed/i)).toBeInTheDocument();
-    expect(within(journey).getByText(/current round/i)).toBeInTheDocument();
-    expect(within(journey).getByText(/round 4/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^enroll$/i })).not.toBeInTheDocument();
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getJockeyChampionships).mockResolvedValue([openChampionship]);
+    vi.mocked(getJockeyPoolApplications).mockResolvedValue([]);
   });
 
-  it("lets jockey review open championships and submit an application", () => {
+  it("shows a truth-first empty current state instead of fake standings", async () => {
     render(
       <MemoryRouter>
         <JockeyChampionshipsPage />
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: /open championships/i }));
+    const current = await screen.findByRole("region", { name: /current championship state/i });
+    expect(within(current).getByRole("heading", { name: /no active championship/i })).toBeInTheDocument();
+    expect(within(current).getByText(/apply to an open championship pool/i)).toBeInTheDocument();
+    expect(screen.queryByText(/thunder bolt/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rank #3/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/42 pts/i)).not.toBeInTheDocument();
+
+    fireEvent.click(within(current).getByRole("button", { name: /browse championships/i }));
 
     const open = screen.getByRole("region", { name: /open championships/i });
-    expect(within(open).getByPlaceholderText(/search championship, track, location/i)).toBeInTheDocument();
-    expect(within(open).getByRole("button", { name: /closing soon/i })).toBeInTheDocument();
-    expect(within(open).getByRole("heading", { name: /autumn cup 2026/i })).toBeInTheDocument();
-    expect(within(open).getByText(/jockey pool: 8 \/ 20/i)).toBeInTheDocument();
-    expect(within(open).getByText(/applications close in 14 days/i)).toBeInTheDocument();
-    expect(within(open).getByText(/jockey role approved/i)).toBeInTheDocument();
-    expect(within(open).getByText(/racing passport complete/i)).toBeInTheDocument();
-
-    fireEvent.click(within(open).getByRole("button", { name: /apply for championship autumn cup 2026/i }));
-
-    const drawer = screen.getByRole("dialog", { name: /championship application/i });
-    expect(within(drawer).getByText(/eligibility checklist/i)).toBeInTheDocument();
-    expect(within(drawer).getByRole("button", { name: /submit application/i })).toBeInTheDocument();
-
-    fireEvent.click(within(drawer).getByRole("button", { name: /submit application/i }));
-
-    expect(within(open).getByText(/pending review/i)).toBeInTheDocument();
-    expect(within(open).getByText(/admin will review your racing passport/i)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^enroll$/i })).not.toBeInTheDocument();
+    expect(within(open).getByRole("heading", { name: /spring cup 2026/i })).toBeInTheDocument();
   });
 
-  it("shows championship history with career credibility summary", () => {
+  it("submits a championship pool application through the API", async () => {
+    vi.mocked(applyToJockeyChampionship).mockResolvedValue({
+      id: 31,
+      championshipId: 7,
+      championshipName: "Spring Cup 2026",
+      jockeyId: 4,
+      jockeyName: "Jockey",
+      status: "PENDING",
+    });
+    vi.mocked(getJockeyChampionships)
+      .mockResolvedValueOnce([openChampionship])
+      .mockResolvedValueOnce([
+        {
+          ...openChampionship,
+          applicationStatus: "PENDING",
+          applicationId: 31,
+          applicationCreatedAt: "2026-06-03T10:00:00Z",
+          canApply: false,
+        },
+      ]);
+    vi.mocked(getJockeyPoolApplications)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 31,
+          championshipId: 7,
+          championshipName: "Spring Cup 2026",
+          jockeyId: 4,
+          jockeyName: "Jockey",
+          status: "PENDING",
+        },
+      ]);
+
     render(
       <MemoryRouter>
         <JockeyChampionshipsPage />
       </MemoryRouter>,
     );
 
-    fireEvent.click(screen.getByRole("tab", { name: /championship history/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /browse championships/i }));
+    const open = screen.getByRole("region", { name: /open championships/i });
+    fireEvent.click(within(open).getByRole("button", { name: /apply for championship spring cup 2026/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /championship application/i });
+    fireEvent.change(within(dialog).getByLabelText(/application note/i), {
+      target: { value: "Available for all championship rounds." },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /submit application/i }));
+
+    expect(applyToJockeyChampionship).toHaveBeenCalledWith(7, "Available for all championship rounds.");
+    expect(await screen.findByRole("heading", { name: /application under review/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/pending review/i).length).toBeGreaterThan(0);
+  });
+
+  it("uses approved-for-pool as the current hero state when available", async () => {
+    vi.mocked(getJockeyChampionships).mockResolvedValue([
+      {
+        ...openChampionship,
+        applicationStatus: "APPROVED_FOR_POOL",
+        applicationId: 31,
+        approvedPoolCount: 13,
+        canApply: false,
+      },
+    ]);
+    vi.mocked(getJockeyPoolApplications).mockResolvedValue([
+      {
+        id: 31,
+        championshipId: 7,
+        championshipName: "Spring Cup 2026",
+        jockeyId: 4,
+        jockeyName: "Jockey",
+        status: "APPROVED_FOR_POOL",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <JockeyChampionshipsPage />
+      </MemoryRouter>,
+    );
+
+    const current = await screen.findByRole("region", { name: /current championship state/i });
+    expect(within(current).getByRole("heading", { name: /approved for pool/i })).toBeInTheDocument();
+    expect(within(current).getAllByText(/visible to owners/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/current rank/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/42 pts/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps history future-ready until official standings exist", async () => {
+    render(
+      <MemoryRouter>
+        <JockeyChampionshipsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("tab", { name: /history/i }));
 
     const history = screen.getByRole("region", { name: /championship history/i });
-    expect(within(history).getByRole("heading", { name: /professional jockey/i })).toBeInTheDocument();
-    expect(within(history).getByText(/currently riding/i)).toBeInTheDocument();
-    expect(within(history).getByText(/current standing: #3 summer championship/i)).toBeInTheDocument();
-
-    const record = within(history).getByRole("region", { name: /career record/i });
-    expect(within(record).getByText(/5 championships/i)).toBeInTheDocument();
-    expect(within(record).getByText(/1 championship win/i)).toBeInTheDocument();
-    expect(within(history).getByText(/best rank/i)).toBeInTheDocument();
-    expect(within(history).getByText(/win rate/i)).toBeInTheDocument();
-    expect(within(history).getByText(/top 3 rate/i)).toBeInTheDocument();
-
-    const timeline = within(history).getByRole("list", { name: /career timeline/i });
-    expect(within(timeline).getByText("2026")).toBeInTheDocument();
-    expect(within(timeline).getByText(/spring cup 2026/i)).toBeInTheDocument();
-    expect(within(timeline).getByText(/golden arrow/i)).toBeInTheDocument();
-    expect(within(timeline).getByText(/rank #1/i)).toBeInTheDocument();
-
-    fireEvent.click(within(timeline).getByRole("button", { name: /view spring cup 2026 details/i }));
-
-    const dialog = screen.getByRole("dialog", { name: /championship result detail/i });
-    expect(within(dialog).getByRole("heading", { name: /spring cup 2026/i })).toBeInTheDocument();
-    expect(within(dialog).getByText(/final rank/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/race breakdown/i)).toBeInTheDocument();
-    expect(within(dialog).getByText(/round 1/i)).toBeInTheDocument();
+    expect(within(history).getByRole("heading", { name: /no official championship history yet/i })).toBeInTheDocument();
+    expect(within(history).getAllByText(/waiting for official standings api/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/career record/i)).not.toBeInTheDocument();
   });
 });

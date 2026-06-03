@@ -1,10 +1,9 @@
 import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { CalendarDays, FileCheck2, Gauge, LogOut, Search, ShieldCheck, Trophy, UserRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, FileCheck2, Gauge, LogOut, Search, ShieldCheck, Trophy, UserRound } from "lucide-react";
 
 import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
-import { getNextRound, jockeyChampionships } from "../pages/jockey/jockeyWorkspaceData";
 import { useClientSession } from "../hooks/useClientSession";
 
 type JockeyLayoutProps = {
@@ -22,8 +21,13 @@ const jockeyNavItems = [
 export function JockeyLayout({ children }: JockeyLayoutProps) {
   const navigate = useNavigate();
   const { logout, session } = useClientSession();
-  const currentAssignment = jockeyChampionships[0];
-  const nextRound = getNextRound(currentAssignment.id);
+  const displayName = session?.fullName || "Jockey";
+  const initials = displayName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("") || "J";
 
   const handleLogout = () => {
     logout();
@@ -65,7 +69,7 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
           <div className="flex flex-wrap items-center gap-3">
             <span className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700">
               <ShieldCheck className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
-              <span className="max-w-[190px] truncate">{session?.fullName || "Nguyen Van A"}</span>
+              <span className="max-w-[190px] truncate">{displayName}</span>
             </span>
             <button
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-[#006d5b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
@@ -88,10 +92,10 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Racing Cockpit</p>
               <div className="mt-4 flex items-center gap-3">
                 <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-100 text-xl font-black text-[#004d3d]">
-                  NA
+                  {initials}
                 </div>
                 <div>
-                  <p className="font-black">Nguyen Van A</p>
+                  <p className="font-black">{displayName}</p>
                   <p className="text-sm font-bold text-emerald-100">Professional Jockey</p>
                   <span className="mt-2 inline-flex rounded-md bg-emerald-400/15 px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-100">
                     Active
@@ -120,38 +124,24 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
               ))}
             </nav>
 
-            <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Current Assignment">
+            <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Pool workflow">
               <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Current Assignment</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Pool Workflow</p>
                 <Trophy className="h-4 w-4 text-emerald-100" aria-hidden="true" />
               </div>
-              <dl className="mt-4 grid gap-3 text-sm">
-                <div className="border-b border-white/10 pb-3">
-                  <div className="flex items-center gap-3">
-                    {/* <img
-                      alt={`${currentAssignment.horse} horse thumbnail`}
-                      className="h-14 w-14 rounded-md border border-white/15 object-cover"
-                      src={racingImage}
-                    /> */}
-                    <div>
-                      <dt className="text-emerald-100/80">Horse</dt>
-                      <dd className="mt-1 text-2xl font-black leading-none">{currentAssignment.horse}</dd>
-                    </div>
-                  </div>
-                  <dt className="mt-3 text-emerald-100/80">Championship</dt>
-                  <dd className="mt-1 text-sm font-black leading-5">{currentAssignment.name}</dd>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <dt className="text-emerald-100/80">Next Race</dt>
-                    <dd className="mt-1 text-sm font-black leading-5">{nextRound ? "Jun 6" : "TBD"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-emerald-100/80">Status</dt>
-                    <dd className="mt-1 text-sm font-black leading-5">{currentAssignment.commitmentStatus}</dd>
-                  </div>
-                </div>
-              </dl>
+              <ol className="mt-4 grid gap-3 text-sm">
+                {["Apply to pool", "Admin review", "Owner contract", "Participant lock"].map((step, index) => (
+                  <li className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-b-0 last:pb-0" key={step}>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-emerald-100">
+                      {index < 2 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                    </span>
+                    <span className="font-black leading-5 text-emerald-50">{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-4 text-xs font-bold leading-5 text-emerald-100/80">
+                Horse, rank, and points appear after an official participant and standings exist.
+              </p>
             </section>
           </div>
         </aside>

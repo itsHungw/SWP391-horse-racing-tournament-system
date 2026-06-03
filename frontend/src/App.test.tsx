@@ -22,6 +22,7 @@ vi.mock("./api/adminUserApi", () => ({
 }));
 
 vi.mock("./api/racingApi", () => ({
+  applyToJockeyChampionship: vi.fn(),
   approveAdminHorse: vi.fn(),
   approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
@@ -30,6 +31,8 @@ vi.mock("./api/racingApi", () => ({
   getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getAdminHorses: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
+  getJockeyChampionships: vi.fn().mockResolvedValue([]),
+  getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
   getOwnerAvailableJockeys: vi.fn(),

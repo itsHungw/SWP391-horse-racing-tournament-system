@@ -5,6 +5,7 @@ import type {
   HorseDocumentPayload,
   HorseMultipartPayload,
   HorseStatus,
+  JockeyChampionship,
   JockeyPoolApplication,
   JockeyPoolApplicationStatus,
   PageResponse,
@@ -162,6 +163,27 @@ export async function getAdminJockeyPoolApplications(
   const response = await httpClient.get<JockeyPoolApplication[]>(
     `/admin/championships/${championshipId}/jockey-pool-applications`,
     { params: { status: status || undefined } },
+  );
+  return response.data;
+}
+
+export async function getJockeyChampionships(): Promise<JockeyChampionship[]> {
+  const response = await httpClient.get<JockeyChampionship[]>("/jockey/championships");
+  return response.data;
+}
+
+export async function getJockeyPoolApplications(): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>("/jockey/championships/applications");
+  return response.data;
+}
+
+export async function applyToJockeyChampionship(
+  championshipId: number,
+  message?: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/jockey/championships/${championshipId}/pool-applications`,
+    { message },
   );
   return response.data;
 }

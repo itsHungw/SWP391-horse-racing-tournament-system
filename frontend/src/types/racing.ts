@@ -170,6 +170,31 @@ export type JockeyPoolApplication = {
   withdrawnAt?: string;
 };
 
+export type JockeyChampionshipApplicationStatus = JockeyPoolApplicationStatus | "NOT_APPLIED";
+
+export type JockeyChampionship = {
+  id: number;
+  name: string;
+  code?: string;
+  description?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  registrationStartAt?: string;
+  registrationEndAt?: string;
+  maxHorses?: number;
+  status: string;
+  applicationStatus: JockeyChampionshipApplicationStatus;
+  applicationId?: number;
+  applicationMessage?: string;
+  rejectionReason?: string;
+  applicationCreatedAt?: string;
+  reviewedAt?: string;
+  approvedPoolCount: number;
+  applicationWindowOpen: boolean;
+  canApply: boolean;
+};
+
 export type PageResponse<T> = {
   content: T[];
   number: number;
