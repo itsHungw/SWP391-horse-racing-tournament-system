@@ -77,7 +77,13 @@ export function RefereeOfficiatePage() {
   }, [live.mode, stage]);
 
   const confirmPreRace = async () => {
-    if (participants.some((participant) => participant.status === "CHECK_HEALTH")) {
+    if (
+      participants.some(
+        (participant) =>
+          participant.status === "CHECK_HEALTH" ||
+          (participant.status === "SCRATCHED" && !participant.scratchedReason?.trim())
+      )
+    ) {
       return;
     }
 
@@ -124,15 +130,13 @@ export function RefereeOfficiatePage() {
     }
   };
 
-  const finish = () => {
-    const flagged = setLiveFlag(live, "FINISHED_DRAFT", new Date().toISOString());
-    const nextSnapshot = createFinishedSnapshot(flagged);
+  const proceedToPostRace = () => {
+    const nextSnapshot = createFinishedSnapshot(live);
 
-    if (!nextSnapshot || !window.confirm("Finish this race and store the current draft snapshot?")) {
+    if (!nextSnapshot) {
       return;
     }
 
-    setLive(flagged);
     setSnapshot(nextSnapshot);
     setStage("FINISHED_DRAFT");
   };
@@ -167,7 +171,7 @@ export function RefereeOfficiatePage() {
   if (stage === "ONGOING") {
     return (
       <LiveRaceWorkspace
-        onFinish={finish}
+        onFinish={proceedToPostRace}
         onFlag={changeFlag}
         onPenalty={(participantId: number, action: PenaltyAction) =>
           setLive((current) => applyPenalty(current, participantId, action, new Date().toISOString()))
@@ -197,7 +201,11 @@ export function RefereeOfficiatePage() {
           <PreRaceChecklist onChange={setParticipants} participants={participants} />
           <button
             className="mt-4 min-h-12 w-full rounded-md bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-            disabled={participants.some((participant) => participant.status === "CHECK_HEALTH")}
+            disabled={participants.some(
+              (participant) =>
+                participant.status === "CHECK_HEALTH" ||
+                (participant.status === "SCRATCHED" && !participant.scratchedReason?.trim())
+            )}
             onClick={() => void confirmPreRace()}
             type="button"
           >

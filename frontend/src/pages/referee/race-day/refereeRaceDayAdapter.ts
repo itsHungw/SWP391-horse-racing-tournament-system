@@ -28,6 +28,8 @@ export function normalizeParticipant(participant: ParticipantVerification): PreR
     jockeyWeight: participant.jockeyWeight,
     equipmentOk: participant.gearOk,
     healthOk: participant.healthOk,
+    equipmentDecision: scratched ? (participant.gearOk ? "PASSED" : "SCRATCHED") : participant.status === "PASSED" ? "PASSED" : "PENDING",
+    healthDecision: scratched ? (participant.healthOk ? "PASSED" : "SCRATCHED") : participant.status === "PASSED" ? "PASSED" : "PENDING",
     status: scratched ? "SCRATCHED" : participant.status === "PASSED" ? "PASSED" : "CHECK_HEALTH",
     scratchedReason: scratched
       ? participant.healthOk

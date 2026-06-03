@@ -31,9 +31,10 @@ describe("RefereeLayout", () => {
     expect(screen.getByRole("searchbox", { name: /Search referee workspace/i })).toBeInTheDocument();
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
     expect(screen.getByText("Logout")).toBeInTheDocument();
-    expect(screen.getByText(/Assigned Races/i)).toBeInTheDocument();
-    expect(screen.getByText(/Pre-Race Checks/i)).toBeInTheDocument();
-    expect(screen.getByText(/Submit Results/i)).toBeInTheDocument();
-    expect(screen.getByText(/Reports & Violations/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Assigned Races/i })).toHaveAttribute("href", "/referee");
+    expect(screen.getByRole("link", { name: /Result History/i })).toHaveAttribute("href", "/referee/result-history");
+    expect(screen.queryByText(/Pre-Race Checks/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Submit Results/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Reports & Violations/i)).not.toBeInTheDocument();
   });
 });

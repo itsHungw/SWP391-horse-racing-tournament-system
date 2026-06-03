@@ -9,19 +9,9 @@ const refereeNavItems = [
     end: true,
   },
   {
-    label: "Pre-Race Checks",
-    href: "/referee/pre-checks",
-    icon: "clipboard",
-  },
-  {
-    label: "Submit Results",
-    href: "/referee/results",
-    icon: "trophy",
-  },
-  {
-    label: "Reports & Violations",
-    href: "/referee/reports",
-    icon: "report",
+    label: "Result History",
+    href: "/referee/result-history",
+    icon: "history",
   },
 ];
 
@@ -68,6 +58,16 @@ function NavIcon({ type }: { type: string }) {
         <path d="M15 4v4h4" />
         <path d="M9 12h6" />
         <path d="M9 16h4" />
+      </svg>
+    );
+  }
+
+  if (type === "history") {
+    return (
+      <svg aria-hidden="true" {...common}>
+        <path d="M4 7v5h5" />
+        <path d="M5.5 17a8 8 0 1 0 .5-10" />
+        <path d="M12 8v5l3 2" />
       </svg>
     );
   }
@@ -124,7 +124,7 @@ export function RefereeLayout() {
             <input
               className="h-14 w-full rounded-md border border-slate-300 bg-[#fbfbff] pl-12 pr-4 text-base font-semibold text-slate-800 outline-none transition focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20"
               id="referee-workspace-search"
-              placeholder="Search races, checks, reports..."
+              placeholder="Search assigned races..."
               type="search"
             />
           </form>

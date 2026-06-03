@@ -280,4 +280,28 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: /users/i })).toBeInTheDocument();
     expect(screen.getByText(/this admin section is reserved/i)).toBeInTheDocument();
   });
+
+  it("renders referee result history as a read-only published results table", () => {
+    window.history.pushState({}, "", "/referee/result-history");
+    localStorage.setItem("accessToken", createTokenWithRoles(["REFEREE"]));
+    localStorage.setItem("fullName", "Julian Sterling");
+    localStorage.setItem("email", "referee@equine.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /result history/i })).toHaveAttribute(
+      "href",
+      "/referee/result-history",
+    );
+    expect(screen.getByRole("heading", { name: /result history/i })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: /published race results/i })).toBeInTheDocument();
+    expect(screen.getAllByText("PUBLISHED")).toHaveLength(2);
+    expect(screen.getByText("June Stakes - Heat 2")).toBeInTheDocument();
+    expect(screen.getByText(/Golden Arrow, Night Bloom, River Comet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Track Hazard - Caution Period Enabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/Warning: Lane drift/i)).toBeInTheDocument();
+    expect(screen.queryByText("DRAFT")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /update|publish|save|edit/i })).not.toBeInTheDocument();
+  });
 });

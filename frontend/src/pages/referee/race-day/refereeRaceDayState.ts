@@ -64,8 +64,8 @@ export function setLiveFlag(
 ): LiveRaceState {
   const messages: Record<LiveRaceState["mode"], string> = {
     IDLE: "Race controls reset",
-    RACING: "Green Flag - race speed restored",
-    SAFETY_CAR: "Yellow Flag - Safety Car deployed",
+    RACING: "Track Cleared - Race Resumed",
+    SAFETY_CAR: "Track Hazard - Caution Period Enabled",
     RED_FLAGGED: "Red Flag - race movement frozen",
     ABORTED: "Race aborted by referee",
     FINISHED_DRAFT: "Chequered Flag - finished draft captured",
@@ -90,23 +90,44 @@ export function applyLiveTick(state: LiveRaceState, elapsedMilliseconds: number)
     return state;
   }
 
+  const nextElapsedMilliseconds = state.elapsedMilliseconds + elapsedMilliseconds;
   const progressPerSecond =
     state.mode === "SAFETY_CAR"
       ? REFEREE_RACE_DAY_CONFIG.safetyCarProgressPerSecond
       : REFEREE_RACE_DAY_CONFIG.normalProgressPerSecond;
   const seconds = elapsedMilliseconds / 1_000;
-  const runners = state.runners.map((runner) => ({
-    ...runner,
-    progressPercent: Math.min(
+  const runners = state.runners.map((runner) => {
+    if (runner.status === "DSQ" || runner.finishMilliseconds !== undefined) {
+      return runner;
+    }
+
+    const nextProgress = Math.min(
       100,
       runner.progressPercent +
         progressPerSecond * seconds * (state.mode === "SAFETY_CAR" ? 1 : runner.speedMultiplier)
-    ),
-  }));
+    );
+
+    if (nextProgress >= 100) {
+      return {
+        ...runner,
+        progressPercent: 100,
+        finishMilliseconds: nextElapsedMilliseconds,
+      };
+    }
+
+    return {
+      ...runner,
+      progressPercent: nextProgress,
+    };
+  });
+  const activeRunners = runners.filter((runner) => runner.status !== "DSQ");
+  const allActiveRunnersFinished =
+    activeRunners.length > 0 && activeRunners.every((runner) => runner.finishMilliseconds !== undefined);
 
   return {
     ...state,
-    elapsedMilliseconds: state.elapsedMilliseconds + elapsedMilliseconds,
+    mode: allActiveRunnersFinished ? "FINISHED_DRAFT" : state.mode,
+    elapsedMilliseconds: nextElapsedMilliseconds,
     runners,
   };
 }
@@ -154,15 +175,21 @@ export function applyPenalty(
 }
 
 export function createFinishedSnapshot(state: LiveRaceState): RaceSnapshot | null {
-  const leaderProgress = Math.max(0, ...state.runners.map((runner) => runner.progressPercent));
+  const activeRunners = state.runners.filter((runner) => runner.status !== "DSQ");
 
-  if (leaderProgress < REFEREE_RACE_DAY_CONFIG.chequeredFlagUnlockPercent) {
+  if (
+    activeRunners.length === 0 ||
+    activeRunners.some((runner) => runner.finishMilliseconds === undefined)
+  ) {
     return null;
   }
 
   return {
     elapsedMilliseconds: state.elapsedMilliseconds,
-    leaderboard: [...state.runners].sort((a, b) => b.progressPercent - a.progressPercent),
+    leaderboard: [...state.runners].sort((a, b) => {
+      const finishDelta = (a.finishMilliseconds ?? Number.POSITIVE_INFINITY) - (b.finishMilliseconds ?? Number.POSITIVE_INFINITY);
+      return finishDelta || b.progressPercent - a.progressPercent;
+    }),
     outOfRace: [...state.outOfRace],
     incidents: [...state.incidents],
   };

@@ -49,8 +49,8 @@ describe("LiveRaceWorkspace", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Resume race" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Abort race" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "START / RESUME" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "STOP RACE" })).toBeInTheDocument();
   });
 
   it("resumes the safety car state that was active before a red flag", () => {
@@ -64,12 +64,12 @@ describe("LiveRaceWorkspace", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Resume race" }));
+    fireEvent.click(screen.getByRole("button", { name: "START / RESUME" }));
 
     expect(onFlag).toHaveBeenCalledWith("SAFETY_CAR");
   });
 
-  it("keeps the chequered flag locked until the leader reaches ninety percent", () => {
+  it("does not expose post-race proceed before every active runner finishes", () => {
     render(
       <LiveRaceWorkspace
         onFinish={vi.fn()}
@@ -79,6 +79,66 @@ describe("LiveRaceWorkspace", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: "Chequered Flag" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "CHEQUERED FLAG" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "PROCEED TO POST-RACE" })).not.toBeInTheDocument();
+  });
+
+  it("uses horse-racing labels for live control buttons", () => {
+    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} state={state} />);
+
+    expect(screen.getByRole("button", { name: "START / RESUME" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "TRACK HAZARD" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "STOP RACE" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "CHEQUERED FLAG" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Green Flag" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yellow Flag / Safety Car" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Red Flag" })).not.toBeInTheDocument();
+  });
+
+  it("shows a large proceed action once the simulator freezes the finished draft", () => {
+    const onFinish = vi.fn();
+    render(
+      <LiveRaceWorkspace
+        onFinish={onFinish}
+        onFlag={vi.fn()}
+        onPenalty={vi.fn()}
+        state={{
+          ...state,
+          mode: "FINISHED_DRAFT",
+          runners: state.runners.map((runner, index) => ({
+            ...runner,
+            progressPercent: 100,
+            finishMilliseconds: index === 0 ? 64_235 : 66_120,
+          })),
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "PROCEED TO POST-RACE" }));
+
+    expect(onFinish).toHaveBeenCalledOnce();
+  });
+
+  it("shows locked finish time for completed runners while active runners keep the stopwatch", () => {
+    render(
+      <LiveRaceWorkspace
+        onFinish={vi.fn()}
+        onFlag={vi.fn()}
+        onPenalty={vi.fn()}
+        state={{
+          ...state,
+          elapsedMilliseconds: 66_000,
+          runners: [
+            { ...state.runners[0], progressPercent: 100, finishMilliseconds: 64_235 },
+            { ...state.runners[1], progressPercent: 94 },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText("64.235s")).toBeInTheDocument();
+    expect(screen.getByText("66.000s")).toBeInTheDocument();
+    expect(screen.getByText("FINISHED")).toBeInTheDocument();
+    expect(screen.getByText("RUNNING")).toBeInTheDocument();
   });
 });

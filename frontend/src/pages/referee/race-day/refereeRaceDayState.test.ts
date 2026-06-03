@@ -77,6 +77,14 @@ describe("refereeRaceDayState", () => {
     expect(next.runners[0].progressPercent).toBeGreaterThan(next.runners[1].progressPercent);
   });
 
+  it("uses horse-racing steward wording for green and caution flag logs", () => {
+    const green = setLiveFlag(liveState, "RACING", "2026-06-02T14:07:00+07:00");
+    const caution = setLiveFlag(green, "SAFETY_CAR", "2026-06-02T14:08:00+07:00");
+
+    expect(green.incidents.at(-1)?.message).toBe("Track Cleared - Race Resumed");
+    expect(caution.incidents.at(-1)?.message).toBe("Track Hazard - Caution Period Enabled");
+  });
+
   it("freezes runner progress during a red flag", () => {
     const stopped = setLiveFlag(liveState, "RED_FLAGGED", "2026-06-02T14:09:00+07:00");
 
@@ -104,13 +112,50 @@ describe("refereeRaceDayState", () => {
     expect(next.outOfRace[0]).toMatchObject({ participantId: 3, progressPercent: 60, status: "DSQ" });
   });
 
-  it("only creates a finished snapshot once the leader reaches ninety percent", () => {
+  it("auto-captures finish times and freezes once all active runners finish", () => {
+    const nearlyFinished: LiveRaceState = {
+      ...liveState,
+      runners: liveState.runners.map((runner) => ({ ...runner, progressPercent: 99, speedMultiplier: 1 })),
+    };
+    const next = applyLiveTick(nearlyFinished, 1_000);
+
+    expect(next.mode).toBe("FINISHED_DRAFT");
+    expect(next.runners).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ participantId: 7, progressPercent: 100, finishMilliseconds: 9_000 }),
+        expect.objectContaining({ participantId: 3, progressPercent: 100, finishMilliseconds: 9_000 }),
+      ])
+    );
+  });
+
+  it("ignores disqualified runners when deciding whether every active runner has finished", () => {
+    const oneActiveOneDisqualified: LiveRaceState = {
+      ...liveState,
+      runners: [
+        { ...liveState.runners[0], progressPercent: 99, speedMultiplier: 1 },
+        { ...liveState.runners[1], progressPercent: 60, status: "DSQ" },
+      ],
+    };
+    const next = applyLiveTick(oneActiveOneDisqualified, 1_000);
+
+    expect(next.mode).toBe("FINISHED_DRAFT");
+    expect(next.runners.find((runner) => runner.participantId === 7)).toMatchObject({
+      finishMilliseconds: 9_000,
+      progressPercent: 100,
+    });
+    expect(next.runners.find((runner) => runner.participantId === 3)).not.toHaveProperty("finishMilliseconds");
+  });
+
+  it("only creates a finished snapshot once all active runners have locked finish times", () => {
     expect(createFinishedSnapshot(liveState)).toBeNull();
     const eligible = {
       ...liveState,
-      runners: liveState.runners.map((runner, index) =>
-        index === 0 ? { ...runner, progressPercent: 92 } : runner
-      ),
+      mode: "FINISHED_DRAFT" as const,
+      runners: liveState.runners.map((runner, index) => ({
+        ...runner,
+        progressPercent: 100,
+        finishMilliseconds: index === 0 ? 8_000 : 9_000,
+      })),
     };
 
     expect(createFinishedSnapshot(eligible)).toMatchObject({ elapsedMilliseconds: 8_000 });

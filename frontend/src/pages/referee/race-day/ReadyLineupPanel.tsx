@@ -8,6 +8,9 @@ export function ReadyLineupPanel({
   onEnterLive: () => void;
 }) {
   const eligible = participants.filter((participant) => participant.status === "PASSED");
+  const hasUnresolvedScratch = participants.some(
+    (participant) => participant.status === "SCRATCHED" && !participant.scratchedReason?.trim()
+  );
 
   return (
     <section className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -26,12 +29,17 @@ export function ReadyLineupPanel({
 
       <button
         className="mt-6 min-h-12 rounded-md bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-        disabled={eligible.length === 0}
+        disabled={eligible.length === 0 || hasUnresolvedScratch}
         onClick={onEnterLive}
         type="button"
       >
         Confirm & Enter Live Control
       </button>
+      {hasUnresolvedScratch ? (
+        <p className="mt-3 text-xs font-bold text-rose-700" role="alert">
+          Add audit reasons for all scratched horses before opening Live Control.
+        </p>
+      ) : null}
     </section>
   );
 }

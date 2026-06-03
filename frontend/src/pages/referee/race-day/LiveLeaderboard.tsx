@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { LiveRaceState, PenaltyAction } from "./refereeRaceDayModels";
 
+function formatSeconds(milliseconds: number) {
+  return `${(milliseconds / 1_000).toFixed(3)}s`;
+}
+
 export function LiveLeaderboard({
   state,
   onPenalty,
@@ -19,40 +23,55 @@ export function LiveLeaderboard({
       </div>
 
       <div className="mt-3 space-y-2">
-        {runners.map((runner, index) => (
-          <div className="race-day-row-motion" key={runner.participantId}>
-            <button
-              aria-label={`P${index + 1} ${runner.horseName}`}
-              aria-pressed={selectedId === runner.participantId}
-              className={`flex min-h-14 w-full items-center gap-3 rounded-lg border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] ${
-                selectedId === runner.participantId ? "border-[#007a68] bg-[#eefbf7]" : "border-slate-200 bg-white hover:bg-slate-50"
-              }`}
-              onClick={() => setSelectedId(runner.participantId)}
-              type="button"
-            >
-              <span className="w-8 font-mono text-sm font-black text-[#007a68]">P{index + 1}</span>
-              <span className="min-w-0 flex-1">
-                <strong className="block truncate text-sm text-slate-950">{runner.horseName}</strong>
-                <span className="text-[10px] font-bold text-slate-400">Gate {runner.gateNumber}</span>
-              </span>
-              <span className="text-xs font-black text-slate-500">{runner.progressPercent.toFixed(1)}%</span>
-            </button>
+        {runners.map((runner, index) => {
+          const isFinished = runner.finishMilliseconds !== undefined;
 
-            {selectedId === runner.participantId ? (
-              <div className="mt-2 flex flex-wrap gap-2 rounded-lg bg-slate-50 p-2">
-                <button aria-label={`Warn ${runner.horseName}`} className="min-h-11 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-800" onClick={() => onPenalty(runner.participantId, "WARNING")} type="button">
-                  Warning
-                </button>
-                <button aria-label={`Add five-second penalty to ${runner.horseName}`} className="min-h-11 rounded-md border border-orange-300 bg-orange-50 px-3 text-xs font-black text-orange-800" onClick={() => onPenalty(runner.participantId, "PENALTY_5S")} type="button">
-                  +5s
-                </button>
-                <button aria-label={`Disqualify ${runner.horseName}`} className="min-h-11 rounded-md border border-rose-300 bg-rose-50 px-3 text-xs font-black text-rose-800" onClick={() => onPenalty(runner.participantId, "DSQ")} type="button">
-                  DSQ
-                </button>
-              </div>
-            ) : null}
-          </div>
-        ))}
+          return (
+            <div className="race-day-row-motion" key={runner.participantId}>
+              <button
+                aria-label={`P${index + 1} ${runner.horseName}`}
+                aria-pressed={selectedId === runner.participantId}
+                className={`flex min-h-14 w-full items-center gap-3 rounded-lg border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] ${
+                  selectedId === runner.participantId
+                    ? "border-[#007a68] bg-[#eefbf7]"
+                    : isFinished
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+                onClick={() => setSelectedId(runner.participantId)}
+                type="button"
+              >
+                <span className="w-8 font-mono text-sm font-black text-[#007a68]">P{index + 1}</span>
+                <span className="min-w-0 flex-1">
+                  <strong className="block truncate text-sm text-slate-950">{runner.horseName}</strong>
+                  <span className="text-[10px] font-bold text-slate-400">Gate {runner.gateNumber}</span>
+                </span>
+                <span className="flex flex-col items-end gap-1">
+                  <span className={isFinished ? "font-mono text-sm font-black text-emerald-700" : "font-mono text-sm font-black text-slate-600"}>
+                    {formatSeconds(runner.finishMilliseconds ?? state.elapsedMilliseconds)}
+                  </span>
+                  <span className={isFinished ? "text-[10px] font-black text-emerald-700" : "text-[10px] font-black text-slate-400"}>
+                    {isFinished ? "FINISHED" : "RUNNING"}
+                  </span>
+                </span>
+              </button>
+
+              {selectedId === runner.participantId ? (
+                <div className="mt-2 flex flex-wrap gap-2 rounded-lg bg-slate-50 p-2">
+                  <button aria-label={`Warn ${runner.horseName}`} className="min-h-11 rounded-md border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-800" onClick={() => onPenalty(runner.participantId, "WARNING")} type="button">
+                    Warning
+                  </button>
+                  <button aria-label={`Add five-second penalty to ${runner.horseName}`} className="min-h-11 rounded-md border border-orange-300 bg-orange-50 px-3 text-xs font-black text-orange-800" onClick={() => onPenalty(runner.participantId, "PENALTY_5S")} type="button">
+                    +5s
+                  </button>
+                  <button aria-label={`Disqualify ${runner.horseName}`} className="min-h-11 rounded-md border border-rose-300 bg-rose-50 px-3 text-xs font-black text-rose-800" onClick={() => onPenalty(runner.participantId, "DSQ")} type="button">
+                    DSQ
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-5 border-t border-slate-100 pt-4">
