@@ -3,10 +3,15 @@ import { useClientSession } from "../hooks/useClientSession";
 
 const refereeNavItems = [
   {
-    label: "Assigned Races",
+    label: "Profile",
     href: "/referee",
-    icon: "gauge",
+    icon: "profile",
     end: true,
+  },
+  {
+    label: "Assigned Races",
+    href: "/referee/assigned-races",
+    icon: "gauge",
   },
   {
     label: "Result History",
@@ -25,6 +30,15 @@ function NavIcon({ type }: { type: string }) {
     strokeWidth: 2,
     viewBox: "0 0 24 24",
   };
+
+  if (type === "profile") {
+    return (
+      <svg aria-hidden="true" {...common}>
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    );
+  }
 
   if (type === "clipboard") {
     return (
