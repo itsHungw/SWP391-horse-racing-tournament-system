@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.championship.dto.request.OwnerCon
 import com.example.horseracingtournamentsystem.championship.dto.request.RejectJockeyContractRequest;
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyInvitationResponse;
 import com.example.horseracingtournamentsystem.championship.dto.response.LockParticipantsResponse;
+import com.example.horseracingtournamentsystem.championship.dto.response.TournamentParticipantResponse;
 import com.example.horseracingtournamentsystem.championship.service.JockeyInvitationContractService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -66,5 +67,10 @@ public class JockeyInvitationContractController {
     @PostMapping("/api/v1/admin/championships/{championshipId}/lock-participants")
     public LockParticipantsResponse lockParticipants(@PathVariable Long championshipId) {
         return contractService.lockParticipants(championshipId);
+    }
+
+    @GetMapping("/api/v1/admin/championships/{championshipId}/participants")
+    public List<TournamentParticipantResponse> listParticipants(@PathVariable Long championshipId) {
+        return contractService.listParticipants(championshipId);
     }
 }

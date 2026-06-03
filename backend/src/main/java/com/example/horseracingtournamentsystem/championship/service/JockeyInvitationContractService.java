@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.championship.dto.request.OwnerCon
 import com.example.horseracingtournamentsystem.championship.dto.request.RejectJockeyContractRequest;
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyInvitationResponse;
 import com.example.horseracingtournamentsystem.championship.dto.response.LockParticipantsResponse;
+import com.example.horseracingtournamentsystem.championship.dto.response.TournamentParticipantResponse;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyInvitation;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
@@ -136,6 +137,15 @@ public class JockeyInvitationContractService {
         return new LockParticipantsResponse(championshipId, createdParticipants);
     }
 
+    @Transactional(readOnly = true)
+    public List<TournamentParticipantResponse> listParticipants(Long championshipId) {
+        ensureTournamentExists(championshipId);
+        return participantRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId)
+                .stream()
+                .map(this::mapParticipantToResponse)
+                .toList();
+    }
+
     private void validateHorseRegistration(
             Long championshipId,
             String ownerEmail,
@@ -257,6 +267,30 @@ public class JockeyInvitationContractService {
                 .rejectionReason(invitation.getRejectionReason())
                 .createdAt(invitation.getCreatedAt())
                 .updatedAt(invitation.getUpdatedAt())
+                .build();
+    }
+
+    private TournamentParticipantResponse mapParticipantToResponse(TournamentParticipant participant) {
+        Tournament tournament = participant.getTournament();
+        TournamentRegistration registration = participant.getTournamentRegistration();
+        User owner = participant.getOwner();
+        User jockey = participant.getJockey();
+        return TournamentParticipantResponse.builder()
+                .id(participant.getId())
+                .championshipId(tournament.getId())
+                .championshipName(tournament.getName())
+                .horseRegistrationId(registration.getId())
+                .horseId(participant.getHorse().getId())
+                .horseName(participant.getHorse().getName())
+                .ownerId(owner.getId())
+                .ownerName(owner.getFullName())
+                .jockeyId(jockey.getId())
+                .jockeyName(jockey.getFullName())
+                .jockeyInvitationId(participant.getJockeyInvitationId())
+                .status(participant.getStatus())
+                .points(participant.getPoints())
+                .createdAt(participant.getCreatedAt())
+                .updatedAt(participant.getUpdatedAt())
                 .build();
     }
 }

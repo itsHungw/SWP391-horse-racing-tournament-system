@@ -232,6 +232,28 @@ class JockeyInvitationContractIntegrationTest {
         assertTrue(participantRepository.existsByTournament_IdAndJockey_Id(tournament.getId(), jockey.getId()));
     }
 
+    @Test
+    void adminListsOfficialParticipantsAfterLockingAcceptedContracts() throws Exception {
+        long contractId = createContract();
+        mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/admin/championships/{id}/participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].championshipId").value(tournament.getId()))
+                .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"))
+                .andExpect(jsonPath("$[0].ownerName").value("Sunrise Stable"))
+                .andExpect(jsonPath("$[0].jockeyName").value("Nguyen Van A"))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$[0].points").value(0));
+    }
+
     private long createContract() throws Exception {
         String json = mockMvc.perform(post("/api/v1/owner/championships/{id}/contracts", tournament.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
