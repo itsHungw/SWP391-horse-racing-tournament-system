@@ -78,4 +78,21 @@ public class UserRole {
         this.removedAt = LocalDateTime.now();
         this.removedBy = removedBy;
     }
+
+    public void reactivate(User assignedBy) {
+        this.status = STATUS_ACTIVE;
+        this.assignedAt = LocalDateTime.now();
+        this.assignedBy = assignedBy;
+        this.removedAt = null;
+        this.removedBy = null;
+    }
+
+    public void changeRole(Role role, User assignedBy) {
+        this.role = role;
+        this.assignedAt = LocalDateTime.now();
+        this.assignedBy = assignedBy;
+        this.status = STATUS_ACTIVE;
+        this.removedAt = null;
+        this.removedBy = null;
+    }
 }

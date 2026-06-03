@@ -8,6 +8,6 @@ describe("RoleDashboardPage", () => {
     render(<RoleDashboardPage role="Spectator" />);
 
     expect(screen.getByRole("heading", { name: /spectator dashboard/i })).toBeInTheDocument();
-    expect(screen.getByText(/reserved for the spectator workflow/i)).toBeInTheDocument();
+    expect(screen.getByText(/coming soon/i)).toBeInTheDocument();
   });
 });

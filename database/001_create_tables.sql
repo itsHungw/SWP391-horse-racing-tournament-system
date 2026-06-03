@@ -157,6 +157,7 @@ CREATE TABLE horse_owner_profiles (
     experience_years INT NOT NULL DEFAULT 0,
     bio NVARCHAR(MAX) NULL,
     evidence_url VARCHAR(500) NULL,
+    logo_url VARCHAR(500) NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- PENDING / APPROVED / REJECTED / SUSPENDED
     rejection_reason NVARCHAR(MAX) NULL,
     approved_by BIGINT NULL,
@@ -312,7 +313,7 @@ CREATE TABLE tournaments (
             'CLOSED_REGISTRATION',
             'ONGOING',
             'COMPLETED',
-            'CANCELLED'
+            'POSTPONED'
         )
     )
 );

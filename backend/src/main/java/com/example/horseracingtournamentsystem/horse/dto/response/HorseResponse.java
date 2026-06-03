@@ -18,7 +18,17 @@ public class HorseResponse {
     private String gender;
     private LocalDate dateOfBirth;
     private String color;
+    private Integer heightCm;
+    private Integer weightKg;
+    private String healthStatus;
+    private String imageUrl;
+    private String evidenceUrl;
+    private String medicalNote;
+    private String description;
     private String status;
+    private String rejectionReason;
+    private Long approvedBy;
+    private LocalDateTime approvedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

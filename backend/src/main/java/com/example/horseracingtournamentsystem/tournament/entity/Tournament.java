@@ -92,8 +92,8 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void cancel() {
-        this.status = "CANCELLED";
+    public void postpone() {
+        this.status = "POSTPONED";
         this.updatedAt = LocalDateTime.now();
     }
 
@@ -104,6 +104,16 @@ public class Tournament {
 
     public void closeRegistration() {
         this.status = "CLOSED_REGISTRATION";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void startOngoing() {
+        this.status = "ONGOING";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void completeTournament() {
+        this.status = "COMPLETED";
         this.updatedAt = LocalDateTime.now();
     }
 
