@@ -21,6 +21,17 @@ vi.mock("./api/adminUserApi", () => ({
   }),
 }));
 
+vi.mock("./api/pointSettingsApi", () => ({
+  getPointSettings: vi.fn().mockResolvedValue({
+    FIRST_LOGIN_BONUS: 0,
+    BLOG_REWARD_POINTS: 0,
+    DAILY_BLOG_REWARD_LIMIT: 0,
+    PREDICTION_ENTRY_COST: 0,
+    PREDICTION_CORRECT_REWARD: 0,
+  }),
+  updatePointSettings: vi.fn(),
+}));
+
 vi.mock("./api/racingApi", () => ({
   approveAdminHorse: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
@@ -370,5 +381,18 @@ describe("App", () => {
     expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
+  });
+
+  it("renders admin point settings inside the admin shell", async () => {
+    window.history.pushState({}, "", "/admin/points");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /point settings/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/blog reward points/i)).toBeInTheDocument();
   });
 });

@@ -19,6 +19,7 @@ import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
 import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
+import { AdminPointSettingsPage } from "../pages/admin/AdminPointSettingsPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
 import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
@@ -105,12 +106,7 @@ export function AppRouter() {
         />
         <Route
           path="admin/points"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Points"
-              description="Audit virtual point activity and prepare reward rule controls."
-            />
-          )}
+          element={adminRoute(<AdminPointSettingsPage />)}
         />
         <Route
           path="admin/settings"
