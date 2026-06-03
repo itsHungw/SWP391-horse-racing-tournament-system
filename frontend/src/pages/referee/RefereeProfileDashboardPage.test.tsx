@@ -68,7 +68,7 @@ describe("RefereeProfileDashboardPage", () => {
     expect(screen.getByText(/Preparing referee profile dashboard/i)).toBeInTheDocument();
     
     // Wait for loading to finish
-    expect(await screen.findByRole("heading", { name: "Referee Profile" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Julian Sterling" })).toBeInTheDocument();
     
     // Verify Bento items exist
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
