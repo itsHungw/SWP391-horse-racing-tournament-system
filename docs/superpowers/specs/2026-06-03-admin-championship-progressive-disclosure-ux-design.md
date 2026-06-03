@@ -54,7 +54,7 @@ Round 4 of 8
 Next Action: Publish Results
 ```
 
-Admin is not primarily managing global tables. Admin is operating one championship season, then drilling into registrations, participants, rounds, standings, and controls within that season.
+Admin is not primarily managing global tables. Admin is operating one championship season, then drilling into applications, participants, rounds, standings, and controls within that season.
 
 ## Information Architecture
 
@@ -75,7 +75,7 @@ Recommended sidebar:
 
 Remove from primary sidebar when the championship workspace is implemented:
 
-- Registrations
+- Registrations / Applications
 - Participants
 - Standings
 
@@ -101,13 +101,13 @@ Primary surface:
 
 Secondary navigation:
 
-- Registrations
+- Applications
 - Participants
 - Rounds
 - Standings
 - Controls
 
-Overview should not look like just another equal tab. It is the default command surface. Registrations, Participants, Rounds, Standings, and Controls are secondary workspaces for deeper review.
+Overview should not look like just another equal tab. It is the default command surface. Applications, Participants, Rounds, Standings, and Controls are secondary workspaces for deeper review.
 
 ## First Viewport Priority
 
@@ -130,9 +130,10 @@ Publish Results
 [ Continue Operations ]
 
 3 Registrations Pending
+2 Jockey Pool Applications Pending
 1 Result Waiting
 
-Overview | Registrations | Participants | Rounds | Standings | Controls
+Overview | Applications | Participants | Rounds | Standings | Controls
 ```
 
 If there are no issues, the alert strip should not render. Do not replace it with a decorative success card.
@@ -167,7 +168,7 @@ Expected behavior:
 
 - `Continue Operations` routes or scrolls to the correct workflow surface.
 - If current action is race-level, it opens the current round control center.
-- If current action is registration-level, it opens the scoped registrations review.
+- If current action is application-level, it opens the scoped Applications workspace.
 - If current action is participant-level, it opens participant readiness or lock flow.
 - If current action is setup-level, it opens the relevant setup form.
 
@@ -180,7 +181,8 @@ Recommended routing:
 | Championship state | Example next action | Continue Operations target |
 | --- | --- | --- |
 | No rounds | Create Round | Rounds tab and Create Round modal |
-| Registration phase | Review registrations | Registrations tab |
+| Registration phase | Review horse registrations | Applications tab, Horse Registrations section |
+| Registration phase | Review jockey pool applications | Applications tab, Jockey Pool section |
 | Registration closing | Close registration | Controls tab or confirmation modal |
 | Pool formation | Lock participants | Participants tab or lock participant flow |
 | Racing phase | Start operational checks | Current Round Control Center |
@@ -190,7 +192,8 @@ Recommended routing:
 
 The button label can remain `Continue Operations`, but the supporting next-action text must be specific:
 
-- `Review Registrations`
+- `Review Horse Registrations`
+- `Review Jockey Pool`
 - `Lock Participants`
 - `Start Operational Checks`
 - `Publish Results`
@@ -203,14 +206,16 @@ The alert strip appears only when something needs admin attention.
 
 Examples:
 
-- `3 registrations pending review`
+- `3 horse registrations pending review`
+- `2 jockey pool applications pending review`
 - `1 result waiting for publish`
 - `Participants not locked`
 - `No rounds created yet`
 
 Each alert should include a direct action:
 
-- `Review Registrations`
+- `Review Horse Registrations`
+- `Review Jockey Pool`
 - `Publish Results`
 - `Lock Participants`
 - `Create Round`
@@ -257,7 +262,7 @@ Examples:
 
 The CTA should be visually primary and written as a command:
 
-- `Review Registrations`
+- `Review Horse Registrations`
 - `Continue Operations`
 - `Open Control Center`
 - `Publish Results`
@@ -291,7 +296,7 @@ Recommended visual hierarchy:
 ```txt
 [Overview command surface]
 
-Registrations  Participants  Rounds  Standings  Controls
+Applications  Participants  Rounds  Standings  Controls
 ```
 
 or:
@@ -299,7 +304,7 @@ or:
 ```txt
 Overview
 ---------
-Registrations | Participants | Rounds | Standings | Controls
+Applications | Participants | Rounds | Standings | Controls
 ```
 
 The exact component can follow existing Tailwind patterns, but the hierarchy should be clear.
@@ -310,9 +315,19 @@ Command center and workflow guidance.
 
 Do not place long tables here.
 
-### Registrations
+### Applications
 
-Championship-scoped horse registration review.
+Championship-scoped entry review. This section contains both sides of the entry flow:
+
+```txt
+Applications
+├─ Horse Registrations
+└─ Jockey Pool Applications
+```
+
+It should be visually clear that these are not official participants yet.
+
+#### Horse Registrations
 
 Content:
 
@@ -326,6 +341,23 @@ Content:
 Primary user question:
 
 Which horse registrations still need admin review for this championship?
+
+#### Jockey Pool Applications
+
+Content:
+
+- Search and status filter
+- Pending jockey applications
+- Approved pool members
+- Rejected applications
+- Jockey profile summary
+- Experience / weight / height if available
+- Review actions
+- Rejection reason display
+
+Primary user question:
+
+Which jockeys are allowed to appear in the owner-facing pool for this championship?
 
 ### Participants
 
@@ -343,6 +375,13 @@ Content:
 Primary user question:
 
 Which horse and jockey pairs are competing in this championship?
+
+Important rule:
+
+```txt
+Approved horse registration + approved jockey pool application + accepted assignment contract
+does not become official until participants are locked.
+```
 
 ### Rounds
 
@@ -552,7 +591,8 @@ Empty states should include next action when relevant.
 Examples:
 
 - No rounds: `Create Round`
-- No participants: `Review approved registrations and lock participants`
+- No participants: `Review applications, confirm accepted contracts, and lock participants`
+- No jockey pool members: `Review jockey pool applications`
 - No standings: `Publish a round result to generate standings`
 
 ## Testing And Verification
@@ -560,7 +600,8 @@ Examples:
 Focused tests should assert:
 
 - Sidebar no longer duplicates championship-scoped modules once implementation switches to championship-centric IA.
-- Championship detail exposes `Overview`, `Registrations`, `Participants`, `Rounds`, `Standings`, and `Controls`.
+- Championship detail exposes `Overview`, `Applications`, `Participants`, `Rounds`, `Standings`, and `Controls`.
+- Applications exposes `Horse Registrations` and `Jockey Pool Applications` as distinct review surfaces.
 - Header shows current phase, current round, next action, and `Continue Operations`.
 - `Continue Operations` opens the correct workflow.
 - Round Control Center is not rendered inside Controls.
