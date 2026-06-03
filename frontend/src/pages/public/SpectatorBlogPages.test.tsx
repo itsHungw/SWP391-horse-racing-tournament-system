@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,6 +12,7 @@ vi.mock("../../api/blogApi", () => ({
   blogApi: {
     getPublishedBlogs: vi.fn(),
     getPublishedBlogBySlug: vi.fn(),
+    claimBlogReward: vi.fn(),
   },
 }));
 
@@ -46,6 +47,7 @@ describe("public blog pages", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -133,5 +135,137 @@ describe("public blog pages", () => {
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
     expect(screen.getByText(/final track notes for spectators/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to blogs/i })).toHaveAttribute("href", "/blogs");
+  });
+
+  it("tracks reward eligibility without rendering timer or progress values", async () => {
+    vi.useFakeTimers();
+    vi.mocked(blogApi.getPublishedBlogBySlug).mockResolvedValue(blog);
+
+    render(
+      <MemoryRouter initialEntries={[`/blogs/${blog.slug}`]}>
+        <Routes>
+          <Route path="/blogs/:slug" element={<SpectatorBlogDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Read the article and scroll to unlock reward.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /claim reward/i })).toBeDisabled();
+    expect(screen.queryByText(/^Time$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Scroll$/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    Object.defineProperty(window, "scrollY", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 200, configurable: true });
+    Object.defineProperty(document.documentElement, "scrollHeight", { value: 1_000, configurable: true });
+    act(() => {
+      fireEvent.scroll(window);
+    });
+
+    expect(screen.queryByText("30s")).not.toBeInTheDocument();
+    expect(screen.queryByText("100%")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /claim reward/i })).toBeEnabled();
+  });
+
+  it("shows and submits the blog reward claim after reading and scrolling enough", async () => {
+    vi.useFakeTimers();
+    vi.mocked(blogApi.getPublishedBlogBySlug).mockResolvedValue(blog);
+    vi.mocked(blogApi.claimBlogReward).mockResolvedValue({
+      outcome: "CLAIMED",
+      pointsAwarded: 10,
+      balance: 25,
+    });
+
+    render(
+      <MemoryRouter initialEntries={[`/blogs/${blog.slug}`]}>
+        <Routes>
+          <Route path="/blogs/:slug" element={<SpectatorBlogDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: blog.title })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /claim reward/i })).toBeDisabled();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    Object.defineProperty(window, "scrollY", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 200, configurable: true });
+    Object.defineProperty(document.documentElement, "scrollHeight", { value: 1_000, configurable: true });
+    act(() => {
+      fireEvent.scroll(window);
+    });
+
+    const claimButton = screen.getByRole("button", { name: /claim reward/i });
+    await act(async () => {
+      fireEvent.click(claimButton);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(blogApi.claimBlogReward).toHaveBeenCalledWith(blog.slug, {
+      readingSeconds: 30,
+      scrollPercent: 100,
+    });
+    expect(screen.getByText("You earned 10 points.")).toBeInTheDocument();
+  });
+
+  it("shows already claimed and daily limit reward responses", async () => {
+    vi.useFakeTimers();
+    vi.mocked(blogApi.getPublishedBlogBySlug).mockResolvedValue(blog);
+    vi.mocked(blogApi.claimBlogReward)
+      .mockResolvedValueOnce({ outcome: "ALREADY_CLAIMED", pointsAwarded: 0, balance: 15 })
+      .mockResolvedValueOnce({ outcome: "DAILY_LIMIT_REACHED", pointsAwarded: 0, balance: 15 });
+
+    render(
+      <MemoryRouter initialEntries={[`/blogs/${blog.slug}`]}>
+        <Routes>
+          <Route path="/blogs/:slug" element={<SpectatorBlogDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: blog.title })).toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    Object.defineProperty(window, "scrollY", { value: 800, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 200, configurable: true });
+    Object.defineProperty(document.documentElement, "scrollHeight", { value: 1_000, configurable: true });
+    act(() => {
+      fireEvent.scroll(window);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /claim reward/i }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Reward already claimed.")).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /claim reward/i }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText("Daily reward limit reached.")).toBeInTheDocument();
   });
 });

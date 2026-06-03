@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Gift } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
 import { blogApi } from "../../api/blogApi";
@@ -17,11 +18,28 @@ function formatBlogDate(value: string) {
   }).format(new Date(value));
 }
 
+function calculateScrollPercent() {
+  const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+
+  if (scrollHeight <= viewportHeight) {
+    return 100;
+  }
+
+  return Math.min(100, Math.floor(((scrollTop + viewportHeight) / scrollHeight) * 100));
+}
+
 export function SpectatorBlogDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [readingSeconds, setReadingSeconds] = useState(0);
+  const [scrollPercent, setScrollPercent] = useState(0);
+  const [claiming, setClaiming] = useState(false);
+  const [claimMessage, setClaimMessage] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
 
   useDocumentTitle(blog?.title || "Tournament blog");
 
@@ -42,6 +60,10 @@ export function SpectatorBlogDetailPage() {
         const data = await blogApi.getPublishedBlogBySlug(slug);
         if (isMounted) {
           setBlog(data);
+          setReadingSeconds(0);
+          setScrollPercent(0);
+          setClaimMessage(null);
+          setClaimError(null);
         }
       } catch (err) {
         console.error("Public blog article unavailable.", err);
@@ -62,6 +84,69 @@ export function SpectatorBlogDetailPage() {
       isMounted = false;
     };
   }, [slug]);
+
+  useEffect(() => {
+    if (!blog) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setReadingSeconds(30);
+    }, 30_000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [blog]);
+
+  useEffect(() => {
+    if (!blog) {
+      return;
+    }
+
+    function updateScrollProgress() {
+      setScrollPercent((current) => Math.max(current, calculateScrollPercent()));
+    }
+
+    window.addEventListener("scroll", updateScrollProgress, { passive: true });
+    window.addEventListener("resize", updateScrollProgress);
+    updateScrollProgress();
+
+    return () => {
+      window.removeEventListener("scroll", updateScrollProgress);
+      window.removeEventListener("resize", updateScrollProgress);
+    };
+  }, [blog]);
+
+  async function handleClaimReward() {
+    if (!blog || claiming) {
+      return;
+    }
+
+    setClaiming(true);
+    setClaimError(null);
+    setClaimMessage(null);
+
+    try {
+      const response = await blogApi.claimBlogReward(blog.slug, {
+        readingSeconds: Math.floor(readingSeconds),
+        scrollPercent: Math.floor(Math.min(100, scrollPercent)),
+      });
+
+      if (response.outcome === "CLAIMED") {
+        setClaimMessage(`You earned ${response.pointsAwarded} points.`);
+      } else if (response.outcome === "ALREADY_CLAIMED") {
+        setClaimMessage("Reward already claimed.");
+      } else {
+        setClaimMessage("Daily reward limit reached.");
+      }
+    } catch (err) {
+      console.error("Blog reward claim failed.", err);
+      setClaimError("Could not claim reward. Please sign in and try again.");
+    } finally {
+      setClaiming(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -101,6 +186,11 @@ export function SpectatorBlogDetailPage() {
       </div>
     );
   }
+
+  const rewardUnlocked = readingSeconds >= 30 && scrollPercent >= 80;
+  const rewardButtonClass = rewardUnlocked
+    ? "bg-nyraGreen text-white hover:bg-nyraDark focus-visible:outline-nyraGreen"
+    : "cursor-not-allowed border border-slate-300 bg-slate-200 text-slate-500";
 
   return (
     <div className="min-h-screen bg-white font-sans text-nyraDark">
@@ -152,6 +242,38 @@ export function SpectatorBlogDetailPage() {
                     <dd className="mt-1 text-base font-black text-nyraDark">{formatBlogDate(blog.createdAt)}</dd>
                   </div>
                 </dl>
+
+                <section aria-labelledby="blog-reward-heading" className="mt-8 border-t border-slate-200 pt-6">
+                  <h2 id="blog-reward-heading" className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">
+                    Blog reward
+                  </h2>
+                  {!rewardUnlocked ? (
+                    <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
+                      Read the article and scroll to unlock reward.
+                    </p>
+                  ) : null}
+
+                  <button
+                    className={`mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-black uppercase tracking-widest transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed ${rewardButtonClass}`}
+                    disabled={!rewardUnlocked || claiming}
+                    onClick={handleClaimReward}
+                    type="button"
+                  >
+                    <Gift aria-hidden="true" size={18} strokeWidth={2.5} />
+                    {claiming ? "Claiming..." : "Claim Reward"}
+                  </button>
+
+                  {claimMessage ? (
+                    <p className="mt-4 text-sm font-bold text-nyraGreen" role="status" aria-live="polite">
+                      {claimMessage}
+                    </p>
+                  ) : null}
+                  {claimError ? (
+                    <p className="mt-4 text-sm font-bold text-red-700" role="alert">
+                      {claimError}
+                    </p>
+                  ) : null}
+                </section>
               </aside>
 
               <div>
