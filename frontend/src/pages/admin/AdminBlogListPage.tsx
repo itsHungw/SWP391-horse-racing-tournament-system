@@ -23,6 +23,11 @@ function formatDate(value: string) {
   }).format(date);
 }
 
+type PendingStatusChange = {
+  blog: Blog;
+  targetStatus: Blog["status"];
+};
+
 export function AdminBlogListPage() {
   useDocumentTitle("Admin blog");
 
@@ -31,6 +36,8 @@ export function AdminBlogListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [blogPendingStatusChange, setBlogPendingStatusChange] = useState<PendingStatusChange | null>(null);
+  const [blogPendingDelete, setBlogPendingDelete] = useState<Blog | null>(null);
 
   const loadBlogs = useCallback(async () => {
     try {
@@ -51,12 +58,30 @@ export function AdminBlogListPage() {
     loadBlogs();
   }, [loadBlogs]);
 
-  const handleToggleStatus = async (blog: Blog) => {
+  const handleToggleStatus = (blog: Blog) => {
     const targetStatus = blog.status === "PUBLISHED" ? "DRAFT" : "PUBLISHED";
+    setBlogPendingStatusChange({ blog, targetStatus });
+  };
+
+  const handleCancelStatusChange = () => {
+    if (processingId !== null) {
+      return;
+    }
+
+    setBlogPendingStatusChange(null);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!blogPendingStatusChange) {
+      return;
+    }
+
+    const { blog, targetStatus } = blogPendingStatusChange;
     setProcessingId(blog.id);
     try {
       const updated = await blogApi.updateBlogStatus(blog.id, targetStatus);
       setBlogs((current) => current.map((item) => (item.id === blog.id ? updated : item)));
+      setBlogPendingStatusChange(null);
     } catch (err) {
       console.error("Blog status update failed.", err);
       setError("Could not update this blog post status.");
@@ -65,15 +90,29 @@ export function AdminBlogListPage() {
     }
   };
 
-  const handleDelete = async (blog: Blog) => {
-    if (!window.confirm(`Delete "${blog.title}"?`)) {
+  const handleDelete = (blog: Blog) => {
+    setBlogPendingDelete(blog);
+  };
+
+  const handleCancelDelete = () => {
+    if (processingId !== null) {
       return;
     }
 
+    setBlogPendingDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!blogPendingDelete) {
+      return;
+    }
+
+    const blog = blogPendingDelete;
     setProcessingId(blog.id);
     try {
       await blogApi.deleteBlog(blog.id);
       setBlogs((current) => current.filter((item) => item.id !== blog.id));
+      setBlogPendingDelete(null);
     } catch (err) {
       console.error("Blog delete failed.", err);
       setError("Could not delete this blog post.");
@@ -224,6 +263,95 @@ export function AdminBlogListPage() {
           </div>
         )}
       </section>
+
+      {blogPendingStatusChange && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <section
+            aria-labelledby="status-blog-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-lg border border-[#d8d8d8] bg-white p-6 shadow-xl"
+            role="dialog"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#006d5b]">
+              Publishing action
+            </p>
+            <h2 id="status-blog-title" className="mt-2 text-2xl font-black text-[#171717]">
+              {blogPendingStatusChange.targetStatus === "PUBLISHED" ? "Publish Blog Post" : "Unpublish Blog Post"}
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              {blogPendingStatusChange.targetStatus === "PUBLISHED"
+                ? `This post will become visible on public blog pages: "${blogPendingStatusChange.blog.title}".`
+                : `This post will move back to draft and disappear from public blog pages: "${blogPendingStatusChange.blog.title}".`}
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={processingId === blogPendingStatusChange.blog.id}
+                onClick={handleCancelStatusChange}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="min-h-11 rounded-md bg-[#006d5b] px-4 text-sm font-black text-white hover:bg-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={processingId === blogPendingStatusChange.blog.id}
+                onClick={handleConfirmStatusChange}
+                type="button"
+              >
+                {processingId === blogPendingStatusChange.blog.id
+                  ? blogPendingStatusChange.targetStatus === "PUBLISHED"
+                    ? "Publishing..."
+                    : "Unpublishing..."
+                  : blogPendingStatusChange.targetStatus === "PUBLISHED"
+                    ? "Confirm Publish"
+                    : "Confirm Unpublish"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {blogPendingDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+          <section
+            aria-labelledby="delete-blog-title"
+            aria-modal="true"
+            className="w-full max-w-md rounded-lg border border-[#d8d8d8] bg-white p-6 shadow-xl"
+            role="dialog"
+          >
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#b3193a]">
+              Destructive action
+            </p>
+            <h2 id="delete-blog-title" className="mt-2 text-2xl font-black text-[#171717]">
+              Delete Blog Post
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              This action cannot be undone. The blog post "{blogPendingDelete.title}" will be removed from the admin
+              workspace and public blog pages.
+            </p>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                className="min-h-11 rounded-md border border-[#070f4f] bg-white px-4 text-sm font-black text-[#070f4f] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={processingId === blogPendingDelete.id}
+                onClick={handleCancelDelete}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="min-h-11 rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#8f1430] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] disabled:cursor-not-allowed disabled:opacity-60"
+                disabled={processingId === blogPendingDelete.id}
+                onClick={handleConfirmDelete}
+                type="button"
+              >
+                {processingId === blogPendingDelete.id ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </AdminLayout>
   );
 }

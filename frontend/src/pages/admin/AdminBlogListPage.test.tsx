@@ -88,7 +88,7 @@ describe("AdminBlogListPage", () => {
     }
   });
 
-  it("toggles a blog status through the API", async () => {
+  it("asks for confirmation before publishing a blog post", async () => {
     vi.mocked(blogApi.getAllBlogsForAdmin).mockResolvedValue(page([blog]));
     vi.mocked(blogApi.updateBlogStatus).mockResolvedValue({ ...blog, status: "PUBLISHED" });
 
@@ -100,8 +100,49 @@ describe("AdminBlogListPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /publish derby preview/i }));
 
+    expect(screen.getByRole("dialog", { name: /publish blog post/i })).toBeInTheDocument();
+    expect(screen.getByText(/this post will become visible/i)).toBeInTheDocument();
+    expect(blogApi.updateBlogStatus).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(screen.queryByRole("dialog", { name: /publish blog post/i })).not.toBeInTheDocument();
+    expect(blogApi.updateBlogStatus).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /publish derby preview/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm publish/i }));
+
     await waitFor(() => {
       expect(blogApi.updateBlogStatus).toHaveBeenCalledWith(1, "PUBLISHED");
+    });
+  });
+
+  it("asks for confirmation before deleting a blog post", async () => {
+    vi.mocked(blogApi.getAllBlogsForAdmin).mockResolvedValue(page([blog]));
+    vi.mocked(blogApi.deleteBlog).mockResolvedValue(undefined);
+
+    renderPage();
+
+    await waitFor(() => {
+      expect(screen.getByText("Derby preview")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    expect(screen.getByRole("dialog", { name: /delete blog post/i })).toBeInTheDocument();
+    expect(screen.getByText(/this action cannot be undone/i)).toBeInTheDocument();
+    expect(blogApi.deleteBlog).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(screen.queryByRole("dialog", { name: /delete blog post/i })).not.toBeInTheDocument();
+    expect(blogApi.deleteBlog).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    await waitFor(() => {
+      expect(blogApi.deleteBlog).toHaveBeenCalledWith(1);
     });
   });
 });

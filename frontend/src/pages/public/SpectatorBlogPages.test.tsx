@@ -82,6 +82,7 @@ describe("public blog pages", () => {
       "href",
       `/blogs/${blog.slug}`,
     );
+    expect(screen.getByRole("link", { name: /back to home/i })).toHaveTextContent("\u2190 Back to home");
 
     fireEvent.change(screen.getByRole("searchbox", { name: /search blog posts/i }), {
       target: { value: "derby" },

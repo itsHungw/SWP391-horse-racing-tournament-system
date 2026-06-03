@@ -122,7 +122,7 @@ export function SpectatorBlogListPage() {
                 className="inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-nyraGreen hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
                 to="/"
               >
-                Back to home <span className="ml-2">&rarr;</span>
+                <span className="mr-2">&larr;</span> Back to home
               </Link>
             </div>
 
