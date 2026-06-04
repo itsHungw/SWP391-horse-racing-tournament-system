@@ -14,6 +14,7 @@ import com.example.horseracingtournamentsystem.championship.repository.Tournamen
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -67,6 +68,9 @@ class JockeyInvitationContractIntegrationTest {
 
     @Autowired
     private RaceRepository raceRepository;
+
+    @Autowired
+    private RaceParticipantRepository raceParticipantRepository;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -357,6 +361,33 @@ class JockeyInvitationContractIntegrationTest {
                 .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"))
                 .andExpect(jsonPath("$[0].ownerName").value("Sunrise Stable"))
                 .andExpect(jsonPath("$[0].participantStatus").value("REGISTERED"));
+    }
+
+    @Test
+    void publishingScheduleRepairsMissingRaceParticipantProjection() throws Exception {
+        long contractId = createContract();
+        mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        raceParticipantRepository.deleteAll();
+        assertTrue(raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(openingRound.getId()).isEmpty());
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/{id}/status", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "SCHEDULE_PUBLISHED"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/jockey/schedule")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].raceName").value("Round 1 - Opening Sprint"))
+                .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"));
     }
 
     private long createContract() throws Exception {

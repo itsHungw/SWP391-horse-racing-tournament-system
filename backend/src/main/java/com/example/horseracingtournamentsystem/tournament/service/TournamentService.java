@@ -1,5 +1,11 @@
 package com.example.horseracingtournamentsystem.tournament.service;
 
+import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
+import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.dto.request.TournamentRequest;
 import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentResponse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -21,6 +27,9 @@ public class TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
+    private final RaceRepository raceRepository;
+    private final RaceParticipantRepository raceParticipantRepository;
+    private final TournamentParticipantRepository tournamentParticipantRepository;
 
     @Transactional
     public TournamentResponse createTournament(TournamentRequest req, String creatorEmail) {
@@ -128,6 +137,7 @@ public class TournamentService {
                             "Schedule can only be published after participants are locked"
                     );
                 }
+                syncOfficialScheduleParticipants(tournament);
                 tournament.publishSchedule();
                 break;
             case "ONGOING":
@@ -143,6 +153,34 @@ public class TournamentService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament status: " + status);
         }
         tournamentRepository.save(tournament);
+    }
+
+    private void syncOfficialScheduleParticipants(Tournament tournament) {
+        List<Race> races = raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(tournament.getId());
+        if (races.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Create at least one championship round before publishing the schedule"
+            );
+        }
+
+        List<TournamentParticipant> participants =
+                tournamentParticipantRepository.findAllByTournament_IdOrderByCreatedAtDesc(tournament.getId());
+        if (participants.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lock accepted contracts into official participants before publishing the schedule"
+            );
+        }
+
+        for (TournamentParticipant participant : participants) {
+            for (Race race : races) {
+                if (raceParticipantRepository.existsByRace_IdAndHorse_Id(race.getId(), participant.getHorse().getId())) {
+                    continue;
+                }
+                raceParticipantRepository.save(RaceParticipant.registered(race, participant, null));
+            }
+        }
     }
 
     private TournamentResponse mapToResponse(Tournament t) {
