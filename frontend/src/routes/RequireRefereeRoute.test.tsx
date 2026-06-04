@@ -10,6 +10,7 @@ describe("RequireRefereeRoute Guard", () => {
   it("redirects to home if user is not authenticated", () => {
     vi.spyOn(authSessionModule, "useClientSession").mockReturnValue({
       isAuthenticated: false,
+      isInitializing: false,
       logout: () => {},
       session: null,
     });
@@ -37,6 +38,7 @@ describe("RequireRefereeRoute Guard", () => {
   it("redirects to home if user is authenticated but does not have REFEREE role", () => {
     vi.spyOn(authSessionModule, "useClientSession").mockReturnValue({
       isAuthenticated: true,
+      isInitializing: false,
       logout: () => {},
       session: {
         accessToken: "mock-token",
@@ -68,6 +70,7 @@ describe("RequireRefereeRoute Guard", () => {
   it("renders children if user has REFEREE role", () => {
     vi.spyOn(authSessionModule, "useClientSession").mockReturnValue({
       isAuthenticated: true,
+      isInitializing: false,
       logout: () => {},
       session: {
         accessToken: "mock-token",

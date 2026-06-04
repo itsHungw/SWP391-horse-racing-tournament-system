@@ -24,7 +24,7 @@ function LocationProbe() {
 }
 
 describe("RefereeOverviewPage", () => {
-  it("renders the day timeline without the month calendar toggle", async () => {
+  it("renders the assigned race queue with calendar as a secondary view", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
 
     render(
@@ -34,12 +34,13 @@ describe("RefereeOverviewPage", () => {
     );
 
     expect(screen.getByText(/Preparing steward assignments/i)).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Today's Race Timeline" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Month calendar" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Assigned race queue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Work Queue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Calendar" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "June 2026 Calendar" })).not.toBeInTheDocument();
   });
 
-  it("opens the selected race drawer and bypasses only the time guard in demo mode", async () => {
+  it("opens the selected race drawer with the status-driven next action", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
 
     render(
@@ -50,18 +51,10 @@ describe("RefereeOverviewPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: /Royal Ascot Gold Cup/i }));
 
-    expect(screen.getByRole("heading", { name: "Race Details" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Pre-Race Check" })).toHaveAttribute(
-      "aria-disabled",
-      "true"
-    );
-
-    fireEvent.click(screen.getByRole("switch", { name: "Demo mode" }));
-
-    expect(screen.getByText("Demo Mode Active - Time Guard Bypassed")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open Pre-Race Check" })).not.toHaveAttribute(
-      "aria-disabled",
-      "true"
+    expect(screen.getByRole("heading", { name: "Race brief" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Start checks" })).toHaveAttribute(
+      "href",
+      "/referee/races/1/officiate"
     );
   });
 
@@ -74,7 +67,7 @@ describe("RefereeOverviewPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole("heading", { name: "Race Details" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Race brief" })).toBeInTheDocument();
     expect(within(screen.getByRole("complementary", { name: "Race details" })).getByText("Royal Ascot Gold Cup - Qualifiers A")).toBeInTheDocument();
   });
 
@@ -90,7 +83,7 @@ describe("RefereeOverviewPage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Close race details" }));
 
-    expect(screen.queryByRole("heading", { name: "Race Details" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Race brief" })).not.toBeInTheDocument();
     expect(screen.getByTestId("location")).toHaveTextContent("/referee/assigned-races");
   });
 

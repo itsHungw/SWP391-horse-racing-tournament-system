@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { getAssignedRaces, getRaceParticipants, savePreRaceChecks } from "../../api/refereeApi";
-import { AssignedRaceTimeline } from "./race-day/AssignedRaceTimeline";
-import { LiveRaceWorkspace } from "./race-day/LiveRaceWorkspace";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  ClipboardCheck,
+  Flag,
+  Play,
+  ShieldAlert,
+} from "lucide-react";
+import {
+  finishRace,
+  getAssignedRace,
+  getRaceParticipants,
+  savePreRaceChecks,
+  startRace,
+} from "../../api/refereeApi";
 import { normalizeAssignedRace, normalizeParticipant } from "./race-day/refereeRaceDayAdapter";
 import { REFEREE_RACE_DAY_CONFIG } from "./race-day/refereeRaceDayConfig";
 import {
@@ -20,9 +32,17 @@ import {
   createFinishedSnapshot,
   setLiveFlag,
 } from "./race-day/refereeRaceDayState";
+import { LiveRaceWorkspace } from "./race-day/LiveRaceWorkspace";
 import { PreRaceChecklist } from "./race-day/PreRaceChecklist";
 import { RaceSummary } from "./race-day/RaceSummary";
 import { ReadyLineupPanel } from "./race-day/ReadyLineupPanel";
+import {
+  formatRaceDate,
+  formatRaceTime,
+  getRaceAction,
+  getRaceStatusMeta,
+  statusChipClasses,
+} from "./refereeUi";
 
 const EMPTY_LIVE_STATE: LiveRaceState = {
   mode: "IDLE",
@@ -32,29 +52,79 @@ const EMPTY_LIVE_STATE: LiveRaceState = {
   incidents: [],
 };
 
+function stageFromRaceStatus(status?: string): WorkspaceStage {
+  if (status === "READY") return "READY";
+  if (status === "ONGOING") return "ONGOING";
+  if (status === "FINISHED" || status === "RESULT_SUBMITTED" || status === "RESULT_CONFIRMED" || status === "PUBLISHED") {
+    return "FINISHED_DRAFT";
+  }
+  return "PRE_CHECKING";
+}
+
+function ActionStep({
+  active,
+  done,
+  label,
+}: {
+  active?: boolean;
+  done?: boolean;
+  label: string;
+}) {
+  return (
+    <div
+      className={[
+        "flex min-h-12 items-center gap-3 rounded-lg border px-4 text-sm font-black",
+        active ? "border-[#007a68] bg-[#effbf7] text-[#006f5f]" : "",
+        done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "",
+        !active && !done ? "border-slate-200 bg-white text-slate-500" : "",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "flex h-7 w-7 items-center justify-center rounded-full text-xs",
+          active ? "bg-[#007a68] text-white" : "",
+          done ? "bg-emerald-600 text-white" : "",
+          !active && !done ? "bg-slate-100 text-slate-500" : "",
+        ].join(" ")}
+      >
+        {done ? "✓" : active ? "•" : ""}
+      </span>
+      {label}
+    </div>
+  );
+}
+
 export function RefereeOfficiatePage() {
   const raceId = Number(useParams<{ id: string }>().id);
   const referenceNow = useMemo(() => new Date(), []);
   const [stage, setStage] = useState<WorkspaceStage>("PRE_CHECKING");
-  const [races, setRaces] = useState<AssignedRace[]>([]);
+  const [race, setRace] = useState<AssignedRace>();
   const [participants, setParticipants] = useState<PreRaceParticipant[]>([]);
   const [live, setLive] = useState<LiveRaceState>(EMPTY_LIVE_STATE);
   const [snapshot, setSnapshot] = useState<RaceSnapshot>();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
 
   const load = useCallback(async () => {
     try {
       setLoading(true);
       setError(undefined);
-      const [raceRows, participantRows] = await Promise.all([
-        getAssignedRaces(),
+      const [raceRow, participantRows] = await Promise.all([
+        getAssignedRace(raceId),
         getRaceParticipants(raceId),
       ]);
-      setRaces(raceRows.map((race) => normalizeAssignedRace(race, referenceNow)));
-      setParticipants(participantRows.map(normalizeParticipant));
+      const normalizedRace = normalizeAssignedRace(raceRow, referenceNow);
+      const normalizedParticipants = participantRows.map(normalizeParticipant);
+      setRace(normalizedRace);
+      setParticipants(normalizedParticipants);
+      setStage(stageFromRaceStatus(normalizedRace.status));
+
+      if (normalizedRace.status === "ONGOING") {
+        setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners: buildLiveRunners(normalizedParticipants) }, "RACING", new Date().toISOString()));
+      }
     } catch {
-      setError("Unable to load race-day operations.");
+      setError("Unable to load race control.");
     } finally {
       setLoading(false);
     }
@@ -76,18 +146,18 @@ export function RefereeOfficiatePage() {
     return () => window.clearInterval(timer);
   }, [live.mode, stage]);
 
+  const checksBlocked = participants.some(
+    (participant) =>
+      participant.status === "CHECK_HEALTH" ||
+      (participant.status === "SCRATCHED" && !participant.scratchedReason?.trim())
+  );
+
   const confirmPreRace = async () => {
-    if (
-      participants.some(
-        (participant) =>
-          participant.status === "CHECK_HEALTH" ||
-          (participant.status === "SCRATCHED" && !participant.scratchedReason?.trim())
-      )
-    ) {
-      return;
-    }
+    if (checksBlocked) return;
 
     try {
+      setSaving(true);
+      setError(undefined);
       await savePreRaceChecks(
         raceId,
         participants.map((participant) => ({
@@ -97,16 +167,19 @@ export function RefereeOfficiatePage() {
           jockeyWeight: participant.jockeyWeight ?? 0,
           gearOk: participant.equipmentOk,
           healthOk: participant.healthOk,
-          status: participant.status === "SCRATCHED" ? "FAILED" as const : "PASSED" as const,
+          status: participant.status === "SCRATCHED" ? ("FAILED" as const) : ("PASSED" as const),
         }))
       );
+      setRace((current) => (current ? { ...current, status: "READY" } : current));
       setStage("READY");
     } catch {
-      setError("Unable to save pre-race verification.");
+      setError("Unable to save pre-race checks.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const enterLive = () => {
+  const enterLive = async () => {
     const runners = buildLiveRunners(participants);
 
     if (runners.length === 0) {
@@ -114,8 +187,18 @@ export function RefereeOfficiatePage() {
       return;
     }
 
-    setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners }, "RACING", new Date().toISOString()));
-    setStage("ONGOING");
+    try {
+      setSaving(true);
+      setError(undefined);
+      await startRace(raceId);
+      setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners }, "RACING", new Date().toISOString()));
+      setRace((current) => (current ? { ...current, status: "ONGOING" } : current));
+      setStage("ONGOING");
+    } catch {
+      setError("Unable to start this race.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const changeFlag = (mode: LiveRaceState["mode"]) => {
@@ -130,89 +213,204 @@ export function RefereeOfficiatePage() {
     }
   };
 
-  const proceedToPostRace = () => {
+  const proceedToPostRace = async () => {
     const nextSnapshot = createFinishedSnapshot(live);
 
-    if (!nextSnapshot) {
-      return;
-    }
+    if (!nextSnapshot) return;
 
-    setSnapshot(nextSnapshot);
-    setStage("FINISHED_DRAFT");
+    try {
+      setSaving(true);
+      setError(undefined);
+      await finishRace(raceId);
+      setSnapshot(nextSnapshot);
+      setRace((current) => (current ? { ...current, status: "FINISHED" } : current));
+      setStage("FINISHED_DRAFT");
+    } catch {
+      setError("Unable to finish this race.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
-    return <p className="text-sm font-black text-slate-500">Loading race-day operations...</p>;
+    return (
+      <section className="max-w-[1486px] space-y-5" aria-label="Loading race control">
+        <div className="h-40 animate-pulse rounded-xl border border-slate-200 bg-white" />
+        <div className="h-96 animate-pulse rounded-xl border border-slate-200 bg-white" />
+      </section>
+    );
   }
 
-  if (error) {
+  if (!race) {
     return (
       <div className="rounded-xl border border-rose-200 bg-rose-50 p-6" role="alert">
-        <p className="font-black text-rose-800">{error}</p>
-        <button className="mt-4 min-h-11 rounded-md bg-rose-700 px-5 text-sm font-black text-white" onClick={() => void load()} type="button">Retry</button>
+        <p className="font-black text-rose-800">{error || "Race control is unavailable."}</p>
+        <button className="mt-4 min-h-11 rounded-lg bg-rose-700 px-5 text-sm font-black text-white" onClick={() => void load()} type="button">
+          Retry
+        </button>
       </div>
     );
   }
 
-  if (stage === "FINISHED_DRAFT" && snapshot) {
-    return <RaceSummary snapshot={snapshot} />;
-  }
+  const meta = getRaceStatusMeta(race.status);
+  const StatusIcon = meta.icon;
+  const action = getRaceAction(race);
 
   if (stage === "ABORTED") {
     return (
-      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-6">
-        <p className="text-xs font-black uppercase tracking-widest text-rose-700">Red Flag Decision</p>
-        <h2 className="mt-2 text-3xl font-black text-slate-950">Race Aborted</h2>
+      <section className="max-w-[1486px] rounded-xl border border-rose-200 bg-rose-50 p-6">
+        <p className="text-xs font-black uppercase tracking-widest text-rose-700">Red flag decision</p>
+        <h2 className="mt-2 text-3xl font-black text-slate-950">Race aborted</h2>
         <p className="mt-2 text-sm text-slate-600">The final live telemetry has been frozen for review.</p>
       </section>
     );
   }
 
-  if (stage === "ONGOING") {
-    return (
-      <LiveRaceWorkspace
-        onFinish={proceedToPostRace}
-        onFlag={changeFlag}
-        onPenalty={(participantId: number, action: PenaltyAction) =>
-          setLive((current) => applyPenalty(current, participantId, action, new Date().toISOString()))
-        }
-        state={live}
-      />
-    );
-  }
-
-  if (stage === "READY") {
-    return <ReadyLineupPanel onEnterLive={enterLive} participants={participants} />;
-  }
-
   return (
-    <div>
-      <header className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Race safety gate</p>
-          <h2 className="mt-2 text-3xl font-black text-slate-950">Pre-Race Operations</h2>
+    <section className="max-w-[1486px] space-y-5" aria-labelledby="race-control-title">
+      <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div>
+            <Link
+              className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              to="/referee/assigned-races"
+            >
+              <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+              Assigned races
+            </Link>
+            <p className="mt-5 text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Race control</p>
+            <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950" id="race-control-title">
+              {race.name}
+            </h1>
+            <p className="mt-2 text-sm font-semibold text-slate-500">
+              {formatRaceDate(race.scheduledAt)} at {formatRaceTime(race.scheduledAt)} | {race.venue} | {race.distanceMeters}m
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <span className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm font-black uppercase ${statusChipClasses(race.status)}`}>
+              <StatusIcon aria-hidden="true" className="h-5 w-5" />
+              {meta.label}
+            </span>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Next action</p>
+              <p className="mt-1 text-sm font-black text-slate-950">{action.label}</p>
+            </div>
+          </div>
         </div>
-        <Link className="text-sm font-black text-[#007a68] underline-offset-4 hover:underline" to="/referee">Back to Assigned Races</Link>
+
+        <div className="mt-5 grid gap-2 lg:grid-cols-5">
+          <ActionStep active={stage === "PRE_CHECKING"} done={stage !== "PRE_CHECKING"} label="Checks" />
+          <ActionStep active={stage === "READY"} done={stage === "ONGOING" || stage === "FINISHED_DRAFT"} label="Ready" />
+          <ActionStep active={stage === "ONGOING"} done={stage === "FINISHED_DRAFT"} label="Live" />
+          <ActionStep active={stage === "FINISHED_DRAFT"} label="Results" />
+          <ActionStep done={race.status === "RESULT_CONFIRMED" || race.status === "PUBLISHED"} label="Confirmed" />
+        </div>
       </header>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.9fr)]">
-        <AssignedRaceTimeline races={races} now={referenceNow} onSelectRace={() => {}} selectedRaceId={raceId} />
-        <div>
-          <PreRaceChecklist onChange={setParticipants} participants={participants} />
-          <button
-            className="mt-4 min-h-12 w-full rounded-md bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-            disabled={participants.some(
-              (participant) =>
-                participant.status === "CHECK_HEALTH" ||
-                (participant.status === "SCRATCHED" && !participant.scratchedReason?.trim())
-            )}
-            onClick={() => void confirmPreRace()}
-            type="button"
-          >
-            Confirm Pre-Race Checks
-          </button>
+      {error ? (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4" role="alert">
+          <p className="font-black text-rose-800">{error}</p>
         </div>
-      </div>
-    </div>
+      ) : null}
+
+      {stage === "ONGOING" ? (
+        <LiveRaceWorkspace
+          onFinish={() => void proceedToPostRace()}
+          onFlag={changeFlag}
+          onPenalty={(participantId: number, penaltyAction: PenaltyAction) =>
+            setLive((current) => applyPenalty(current, participantId, penaltyAction, new Date().toISOString()))
+          }
+          state={live}
+        />
+      ) : null}
+
+      {stage === "READY" ? (
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center gap-3">
+            <CheckCircle2 aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
+            <div>
+              <h2 className="text-2xl font-black text-slate-950">Field cleared</h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                All required checks are complete. Start the race when the venue is cleared.
+              </p>
+            </div>
+          </div>
+          <ReadyLineupPanel onEnterLive={() => void enterLive()} participants={participants} />
+          {saving ? <p className="mt-3 text-sm font-black text-slate-500">Starting race...</p> : null}
+        </div>
+      ) : null}
+
+      {stage === "PRE_CHECKING" ? (
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center gap-3">
+              <ClipboardCheck aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
+              <div>
+                <h2 className="text-2xl font-black text-slate-950">Pre-race checks</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Verify gear and health before clearing the field.
+                </p>
+              </div>
+            </div>
+            <PreRaceChecklist onChange={setParticipants} participants={participants} />
+            <button
+              className="mt-4 min-h-12 w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              disabled={checksBlocked || saving}
+              onClick={() => void confirmPreRace()}
+              type="button"
+            >
+              {saving ? "Saving checks..." : "Mark race ready"}
+            </button>
+          </div>
+          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+              <ShieldAlert aria-hidden="true" className="h-6 w-6" />
+            </div>
+            <h2 className="mt-4 text-xl font-black text-slate-950">Clear only what is verified</h2>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+              Scratch a participant when health or equipment cannot be cleared. The race can move forward only when every row has a final decision.
+            </p>
+          </aside>
+        </div>
+      ) : null}
+
+      {stage === "FINISHED_DRAFT" ? (
+        snapshot ? (
+          <RaceSummary snapshot={snapshot} />
+        ) : (
+          <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Flag aria-hidden="true" className="h-6 w-6 text-slate-600" />
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Race finished</p>
+                <h2 className="mt-1 text-2xl font-black text-slate-950">Result package is the next step</h2>
+              </div>
+            </div>
+            <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
+              Record finish order, elapsed times, and any referee notes. Escalate to admin review only when there is a dispute or serious incident.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link
+                className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+                to={`/referee/races/${raceId}/results`}
+              >
+                Submit results
+              </Link>
+              <Link
+                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-300 px-5 text-sm font-black text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+                to={`/referee/races/${raceId}/report`}
+              >
+                Add incident report
+              </Link>
+            </div>
+          </article>
+        )
+      ) : null}
+
+      {saving && stage === "ONGOING" ? (
+        <p className="text-sm font-black text-slate-500">Updating race state...</p>
+      ) : null}
+    </section>
   );
 }

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { vi, describe, it, expect } from "vitest";
 import { RefereeLayout } from "./RefereeLayout";
@@ -26,22 +26,26 @@ describe("RefereeLayout", () => {
 
     expect(screen.getByRole("banner", { name: /Referee workspace header/i })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /Referee workspace/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Referee Workspace" })).toBeInTheDocument();
-    expect(screen.getByText("RACE OPERATIONS")).toBeInTheDocument();
+    expect(screen.getAllByText("Race Control").length).toBeGreaterThan(0);
+    expect(screen.getByText("Referee Workspace")).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: /Search referee workspace/i })).toBeInTheDocument();
-    expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
+    expect(screen.getAllByText("Julian Sterling").length).toBeGreaterThan(0);
     expect(screen.getByText("Logout")).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Profile|Assigned Races|Result History/i }).map((link) => link.textContent)).toEqual([
-      "Profile",
+    const nav = screen.getByRole("navigation", { name: /Referee workspace/i });
+    expect(within(nav).getAllByRole("link", { name: /Dashboard|Assigned Races|Result Packages|Profile/i }).map((link) => link.textContent)).toEqual([
+      "Dashboard",
       "Assigned Races",
-      "Result History",
+      "Result Packages",
+      "Profile",
     ]);
-    expect(screen.getByRole("link", { name: /Profile/i })).toHaveAttribute("href", "/referee");
-    expect(screen.getByRole("link", { name: /Assigned Races/i })).toHaveAttribute(
+    expect(within(nav).getByRole("link", { name: /Dashboard/i })).toHaveAttribute("href", "/referee/dashboard");
+    expect(within(nav).getByRole("link", { name: /^Profile$/i })).toHaveAttribute("href", "/referee/profile");
+    expect(within(nav).getByRole("link", { name: /Assigned Races/i })).toHaveAttribute(
       "href",
       "/referee/assigned-races"
     );
-    expect(screen.getByRole("link", { name: /Result History/i })).toHaveAttribute("href", "/referee/result-history");
+    expect(within(nav).queryByRole("link", { name: /Race Control/i })).not.toBeInTheDocument();
+    expect(within(nav).getByRole("link", { name: /Result Packages/i })).toHaveAttribute("href", "/referee/result-history");
     expect(screen.queryByText(/Pre-Race Checks/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Submit Results/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Reports & Violations/i)).not.toBeInTheDocument();
@@ -54,7 +58,7 @@ describe("RefereeLayout", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("link", { name: /Assigned Races/i })).toHaveClass("bg-[#007a68]");
-    expect(screen.getByRole("link", { name: /Profile/i })).not.toHaveClass("bg-[#007a68]");
+    expect(screen.getByRole("link", { name: /Assigned Races/i })).toHaveClass("bg-[#00806d]");
+    expect(screen.getByRole("link", { name: /^Profile$/i })).not.toHaveClass("bg-[#00806d]");
   });
 });

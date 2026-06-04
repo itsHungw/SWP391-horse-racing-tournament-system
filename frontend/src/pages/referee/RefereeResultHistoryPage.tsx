@@ -47,21 +47,21 @@ const publishedRaceResults: PublishedRaceResult[] = [
 export function RefereeResultHistoryPage() {
   return (
     <section className="max-w-[1486px]" aria-labelledby="result-history-title">
-      <header className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006f5f]">Published Archive</p>
+      <header className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006f5f]">Result packages</p>
         <h2 className="text-4xl font-black tracking-tight text-slate-950" id="result-history-title">
-          Result History
+          Confirmed race results
         </h2>
         <p className="max-w-3xl text-base leading-7 text-slate-600">
-          Review locked race outcomes, confirmed incidents, and final penalties after the official result has been published.
+          Review confirmed finish orders, incidents, and penalties after a referee result package has been accepted.
         </p>
       </header>
 
-      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+      <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-2 border-b border-slate-100 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Read-only table</p>
-            <h3 className="mt-1 text-lg font-black text-slate-950">Published Race Results</h3>
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">Read-only archive</p>
+            <h3 className="mt-1 text-lg font-black text-slate-950">Race result packages</h3>
           </div>
           <span className="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase tracking-wider text-emerald-700">
             {publishedRaceResults.length} published

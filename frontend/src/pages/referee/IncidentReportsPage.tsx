@@ -77,18 +77,18 @@ export function IncidentReportsPage() {
     <div className="max-w-5xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 m-0">Incident Reporting & Officiating Log</h2>
-          <p className="text-xs text-slate-500 mt-1">Log rules violations or submit the officiating race report.</p>
+          <h2 className="text-xl font-bold text-slate-900 m-0">Incident report</h2>
+          <p className="text-xs text-slate-500 mt-1">Log rules violations or submit the race-day officiating report.</p>
         </div>
-        <Link to="/referee" className="text-xs text-slate-500 hover:text-slate-800 underline">
-          Back to Races
+        <Link to={`/referee/races/${raceId}/officiate`} className="text-xs text-slate-500 hover:text-slate-800 underline">
+          Back to race control
         </Link>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Violation Section */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-          <h4 className="text-red-600 font-bold text-sm mb-4 flex items-center gap-2">🚨 File New Infraction</h4>
+          <h4 className="text-red-600 font-bold text-sm mb-4 flex items-center gap-2">File new infraction</h4>
           {violationMsg && (
             <div className="mb-3 bg-red-50 border border-red-200 text-red-800 p-2.5 rounded text-xs font-semibold">
               {violationMsg}
@@ -146,7 +146,7 @@ export function IncidentReportsPage() {
 
         {/* Referee Report Section */}
         <div className="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
-          <h4 className="text-[#004d3d] font-bold text-sm mb-4 flex items-center gap-2">📝 Official Referee Report</h4>
+          <h4 className="text-[#004d3d] font-bold text-sm mb-4 flex items-center gap-2">Official referee report</h4>
           {reportMsg && (
             <div className="mb-3 bg-emerald-50 border border-emerald-200 text-emerald-800 p-2.5 rounded text-xs font-semibold">
               {reportMsg}

@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { getAssignedRaces } from "../../api/refereeApi";
 import { AssignedRaceTimeline } from "./race-day/AssignedRaceTimeline";
+import { MonthRaceCalendar } from "./race-day/MonthRaceCalendar";
 import { RaceDetailDrawer } from "./race-day/RaceDetailDrawer";
 import { normalizeAssignedRace } from "./race-day/refereeRaceDayAdapter";
 import { AssignedRace } from "./race-day/refereeRaceDayModels";
+import { countRaceStatuses } from "./refereeUi";
 
 interface RefereeOverviewPageProps {
   mode?: "all" | "check" | "results" | "reports";
@@ -12,22 +14,23 @@ interface RefereeOverviewPageProps {
 }
 
 const modeCopy = {
-  all: ["Assigned Race Desk", "Race-Day Operations"],
-  check: ["Pre-Race Verification", "Pre-Race Checks"],
-  results: ["Results Desk", "Submit Results"],
-  reports: ["Incident Review", "Reports & Violations"],
+  all: ["Assigned races", "Race Desk"],
+  check: ["Race control", "Active Operations"],
+  results: ["Result packages", "Submit Results"],
+  reports: ["Incident review", "Reports and Incidents"],
 } as const;
 
 export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPageProps) {
   const referenceNow = useMemo(() => now ?? new Date(), [now]);
   const [races, setRaces] = useState<AssignedRace[]>([]);
   const [selectedRace, setSelectedRace] = useState<AssignedRace>();
-  const [demoMode, setDemoMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [viewMode, setViewMode] = useState<"queue" | "calendar">("queue");
   const raceIdParam = searchParams.get("raceId");
   const [queueLabel, title] = modeCopy[mode];
+  const queue = countRaceStatuses(races);
 
   const loadRaces = useCallback(async () => {
     try {
@@ -110,38 +113,63 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
       <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006f5f]">{queueLabel}</p>
-          <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950">{title}</h2>
-          <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
-            Track today&apos;s assignments, inspect race cards, and open the safety workflow when its operational guard allows.
+          <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">{title}</h2>
+          <p className="mt-3 max-w-3xl text-sm font-semibold leading-6 text-slate-600 sm:text-base sm:leading-7">
+            Work through assigned race cards as operational items. Open the race that needs checks, live control, results, or incident reporting.
           </p>
         </div>
 
-        <label className={`flex min-h-14 items-center gap-3 rounded-xl border px-4 py-3 text-xs font-black ${
-          demoMode ? "border-amber-300 bg-amber-50 text-amber-900" : "border-slate-200 bg-white text-slate-600"
-        }`}>
-          <span>{demoMode ? "Demo Mode Active - Time Guard Bypassed" : "Production Mode"}</span>
-          <button
-            aria-checked={demoMode}
-            aria-label="Demo mode"
-            className={`relative h-7 w-12 rounded-full transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#06145f] ${
-              demoMode ? "bg-amber-500" : "bg-slate-300"
-            }`}
-            onClick={() => setDemoMode((value) => !value)}
-            role="switch"
-            type="button"
-          >
-            <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${demoMode ? "translate-x-5" : "translate-x-0"}`} />
-          </button>
-        </label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+          {[
+            ["Checks", queue.checks],
+            ["Ready", queue.ready],
+            ["Live", queue.live],
+            ["Results", queue.results],
+            ["Review", queue.review],
+          ].map(([label, value]) => (
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-3 text-center shadow-sm sm:px-4" key={String(label)}>
+              <p className="text-2xl font-black text-slate-950">{value}</p>
+              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
+            </div>
+          ))}
+        </div>
       </header>
 
+      <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-black text-slate-950">Assigned Races View</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">Use queue for work, calendar for date planning.</p>
+        </div>
+        <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">
+          {[
+            ["queue", "Work Queue"],
+            ["calendar", "Calendar"],
+          ].map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setViewMode(key as "queue" | "calendar")}
+              className={`min-h-10 rounded-md px-4 text-sm font-black transition ${
+                viewMode === key ? "bg-white text-[#007a68] shadow-sm" : "text-slate-600 hover:text-slate-950"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="mt-7 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <AssignedRaceTimeline races={races} now={referenceNow} onSelectRace={handleSelectRace} selectedRaceId={selectedRace?.id} />
-        {selectedRace ? (
-          <RaceDetailDrawer demoMode={demoMode} now={referenceNow} onClose={handleCloseDrawer} race={selectedRace} />
+        {viewMode === "queue" ? (
+          <AssignedRaceTimeline races={races} now={referenceNow} onSelectRace={handleSelectRace} selectedRaceId={selectedRace?.id} />
         ) : (
-          <aside className="rounded-2xl border border-dashed border-slate-300 bg-white p-5 text-sm leading-6 text-slate-500">
-            Select a timeline card to inspect the assigned race and check its pre-race activation guard.
+          <MonthRaceCalendar races={races} referenceDate={referenceNow} onRaceSelect={handleSelectRace} />
+        )}
+        {selectedRace ? (
+          <RaceDetailDrawer onClose={handleCloseDrawer} race={selectedRace} />
+        ) : (
+          <aside className="hidden rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm leading-6 text-slate-500 xl:block">
+            Select a race card to inspect the assignment brief and continue the next officiating action.
           </aside>
         )}
       </div>

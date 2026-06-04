@@ -15,6 +15,11 @@ export async function getAssignedRaces(): Promise<RaceSummary[]> {
   return response.data;
 }
 
+export async function getAssignedRace(raceId: number): Promise<RaceSummary> {
+  const response = await httpClient.get<RaceSummary>(`/referee/races/${raceId}`);
+  return response.data;
+}
+
 export type ParticipantVerification = {
   participantId: number;
   horseName: string;
@@ -52,6 +57,19 @@ export async function submitRaceResults(raceId: number, results: ParticipantResu
   await httpClient.post(`/referee/races/${raceId}/results`, results);
 }
 
+export type SubmitRaceResultPackageRequest = {
+  results: ParticipantResultEntry[];
+  requiresAdminReview: boolean;
+  reviewReason?: string | null;
+};
+
+export async function submitRaceResultPackage(
+  raceId: number,
+  payload: SubmitRaceResultPackageRequest
+): Promise<void> {
+  await httpClient.post(`/referee/races/${raceId}/results/submit`, payload);
+}
+
 export type ViolationEntry = {
   offenderId: number;
   severity: "LOW" | "MEDIUM" | "HIGH";
@@ -76,3 +94,12 @@ export async function transitionRaceState(raceId: number): Promise<string> {
   return response.data.status;
 }
 
+export async function startRace(raceId: number): Promise<string> {
+  const response = await httpClient.post<{ status: string }>(`/referee/races/${raceId}/start`);
+  return response.data.status;
+}
+
+export async function finishRace(raceId: number): Promise<string> {
+  const response = await httpClient.post<{ status: string }>(`/referee/races/${raceId}/finish`);
+  return response.data.status;
+}
