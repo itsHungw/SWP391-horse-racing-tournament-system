@@ -8,7 +8,9 @@ import java.util.Optional;
 public interface RaceRepository extends JpaRepository<Race, Long> {
     Optional<Race> findByIdAndDeletedAtIsNull(Long id);
     List<Race> findAllByDeletedAtIsNull();
+    List<Race> findAllByDeletedAtIsNullOrderByRaceAtAsc();
     List<Race> findAllByTournamentIdAndDeletedAtIsNull(Long tournamentId);
+    List<Race> findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(Long tournamentId);
     boolean existsByCodeAndDeletedAtIsNull(String code);
     boolean existsByCodeAndIdNotAndDeletedAtIsNull(String code, Long id);
 }

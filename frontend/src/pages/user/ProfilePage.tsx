@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ArrowRight, CheckCircle2, Circle, ShieldCheck, UploadCloud, UserRound } from "lucide-react";
 
 import { getMyProfile, updateMyProfile, uploadAvatar } from "../../api/profileApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
@@ -46,12 +47,9 @@ function getInitials(name: string) {
 
 function ReadinessMark({ ready }: { ready: boolean }) {
   return (
-    <span
-      aria-hidden="true"
-      className={`mt-1 h-4 w-4 shrink-0 rounded-full border-4 ${
-        ready ? "border-nyraGreen bg-nyraGreen" : "border-slate-300 bg-white"
-      }`}
-    />
+    <span aria-hidden="true" className={`mt-0.5 shrink-0 ${ready ? "text-[#006d5b]" : "text-amber-600"}`}>
+      {ready ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+    </span>
   );
 }
 
@@ -153,6 +151,7 @@ export function ProfilePage() {
 
   const readyCount = readinessItems.filter((item) => item.ready).length;
   const readinessLabel = `${readyCount} of ${readinessItems.length} ready`;
+  const readinessPercent = Math.round((readyCount / readinessItems.length) * 100);
   const avatarLabel = avatarPreview ? "Profile avatar" : "Profile initials";
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,14 +224,26 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white text-[#171717]">
+      <div className="min-h-dvh bg-[#f3f6f4] text-slate-950">
         <ClientHeader />
-        <section className="mx-auto max-w-[1536px] px-6 py-20 md:px-11">
-          <div className="border-l-4 border-nyraGreen bg-slate-50 px-6 py-8">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Loading profile</p>
-            <p className="mt-3 text-3xl font-black uppercase tracking-tight text-nyraDark">
-              Preparing your credentials...
-            </p>
+        <section className="mx-auto max-w-[1536px] px-5 py-8 sm:px-7 lg:px-8">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#006d5b]">Loading profile</p>
+            <div className="mt-5 grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
+                <div className="h-24 w-24 rounded-full bg-slate-200" />
+                <div className="mt-5 h-7 w-56 rounded-md bg-slate-200" />
+                <div className="mt-3 h-4 w-64 rounded-md bg-slate-100" />
+              </div>
+              <div className="rounded-lg border border-slate-200 bg-white p-5">
+                <div className="h-7 w-72 rounded-md bg-slate-200" />
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {[1, 2, 3, 4].map((item) => (
+                    <div className="h-12 rounded-md bg-slate-100" key={item} />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -240,41 +251,45 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-white text-[#171717]">
+    <div className="min-h-dvh bg-[#f3f6f4] text-slate-950">
       <ClientHeader />
 
-      <section className="border-b border-slate-200 bg-nyraDark text-white">
-        <div className="mx-auto grid max-w-[1536px] gap-10 px-6 py-14 md:px-11 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-lime-400">Member profile</p>
-            <h1 className="mt-4 text-5xl font-black uppercase leading-tight tracking-tight md:text-6xl">
-              Member Credentials
-            </h1>
-            <p className="mt-5 max-w-2xl text-lg font-bold leading-8 text-white/70">
-              Keep your profile ready for tournament applications, specialist role requests, and admin review.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[
-              ["Status", profileComplete ? "Profile Complete" : "Needs Update"],
-              ["Readiness", readinessLabel],
-              ["Next step", profileComplete ? "Apply for role" : "Save profile"],
-            ].map(([label, value]) => (
-              <div className="border-t-4 border-lime-400 bg-white px-5 py-4 text-nyraDark" key={label}>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-                <p className="mt-2 text-xl font-black uppercase tracking-tight">{value}</p>
+      <section className="mx-auto max-w-[1536px] px-5 py-8 sm:px-7 lg:px-8">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Credential workspace</p>
+              <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Member Credentials</h1>
+              <p className="mt-3 max-w-2xl text-base font-bold leading-7 text-slate-600">
+                Keep your account ready for tournament applications, specialist role requests, and admin review.
+              </p>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Profile completion</p>
+                  <p className="mt-2 text-4xl font-black text-slate-950">{readinessPercent}%</p>
+                </div>
+                <ShieldCheck className="h-10 w-10 text-[#006d5b]" aria-hidden="true" />
               </div>
-            ))}
+              <div className="mt-4 h-2 rounded-full bg-white">
+                <div
+                  aria-hidden="true"
+                  className="h-full rounded-full bg-[#006d5b] transition-all"
+                  style={{ width: `${readinessPercent}%` }}
+                />
+              </div>
+              <p className="mt-3 text-sm font-bold text-emerald-900">{readinessLabel}</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-[1536px] gap-8 px-6 py-12 md:px-11 lg:grid-cols-[0.78fr_1.22fr]">
+      <section className="mx-auto grid max-w-[1536px] gap-8 px-5 pb-12 sm:px-7 lg:grid-cols-[0.78fr_1.22fr] lg:px-8">
         <aside className="space-y-6">
-          <div className="border border-slate-200 bg-white p-7 shadow-sm">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-5">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-nyraGreen text-3xl font-black uppercase text-white">
+              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#006d5b] text-3xl font-black uppercase text-white ring-4 ring-emerald-50">
                 {avatarPreview ? (
                   <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
                 ) : (
@@ -282,10 +297,10 @@ export function ProfilePage() {
                 )}
               </div>
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">
+                <p className={`text-xs font-black uppercase tracking-[0.16em] ${profileComplete ? "text-[#006d5b]" : "text-amber-700"}`}>
                   {profileComplete ? "Profile Complete" : "Needs Update"}
                 </p>
-                <h2 className="mt-2 text-3xl font-black uppercase tracking-tight text-nyraDark">
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
                   {fullName.trim() || "Unnamed Member"}
                 </h2>
                 <p className="mt-2 text-sm font-bold text-slate-500">
@@ -296,42 +311,43 @@ export function ProfilePage() {
               </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-2 gap-3">
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <a
-                className="inline-flex min-h-12 items-center justify-center rounded-sm bg-nyraDark px-4 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-nyraGreen focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
+                className="inline-flex min-h-12 items-center justify-center rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-[#006d5b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
                 href="/join-us"
               >
                 Go to Join Us
               </a>
               <a
-                className={`inline-flex min-h-12 items-center justify-center rounded-sm px-4 py-3 text-center text-sm font-black uppercase tracking-widest transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen ${
+                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-4 py-3 text-center text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b] ${
                   profileComplete
-                    ? "bg-lime-400 text-black hover:bg-[#b7ff4a]"
-                    : "border border-slate-300 bg-white text-slate-500"
+                    ? "bg-[#006d5b] text-white hover:bg-[#004d3d]"
+                    : "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
                 }`}
                 href={profileComplete ? "/my-role-requests" : "#profile-form"}
               >
                 {profileComplete ? "Continue to Role Application" : "Complete Required Fields"}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </a>
             </div>
           </div>
 
-          <div className="border border-slate-200 bg-slate-50 p-7">
+          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">Application readiness</p>
-                <h2 className="mt-2 text-3xl font-black uppercase tracking-tight text-nyraDark">{readinessLabel}</h2>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Application readiness</p>
+                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{readinessLabel}</h2>
               </div>
-              <div className="text-right text-5xl font-black tracking-tight text-nyraGreen">
-                {Math.round((readyCount / readinessItems.length) * 100)}%
+              <div className="text-right text-5xl font-black tracking-tight text-[#006d5b]">
+                {readinessPercent}%
               </div>
             </div>
 
-            <div className="mt-6 h-2 bg-slate-200">
+            <div className="mt-6 h-2 rounded-full bg-slate-200">
               <div
                 aria-hidden="true"
-                className="h-full bg-nyraGreen transition-all"
-                style={{ width: `${(readyCount / readinessItems.length) * 100}%` }}
+                className="h-full rounded-full bg-[#006d5b] transition-all"
+                style={{ width: `${readinessPercent}%` }}
               />
             </div>
 
@@ -340,7 +356,7 @@ export function ProfilePage() {
                 <li className="flex gap-3" key={item.label}>
                   <ReadinessMark ready={item.ready} />
                   <div>
-                    <p className="text-sm font-black uppercase tracking-wider text-nyraDark">{item.label}</p>
+                    <p className="text-sm font-black text-slate-950">{item.label}</p>
                     <p className="mt-1 text-sm font-bold leading-6 text-slate-500">{item.helper}</p>
                   </div>
                 </li>
@@ -349,11 +365,11 @@ export function ProfilePage() {
           </div>
         </aside>
 
-        <section id="profile-form" className="border border-slate-200 bg-white p-7 shadow-sm" aria-labelledby="profile-form-title">
+        <section id="profile-form" className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="profile-form-title">
           <div className="mb-8 flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Profile details</p>
-              <h2 id="profile-form-title" className="mt-2 text-4xl font-black uppercase tracking-tight text-nyraDark">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Profile details</p>
+              <h2 id="profile-form-title" className="mt-2 text-4xl font-black tracking-tight text-slate-950">
                 Review Your Information
               </h2>
             </div>
@@ -363,12 +379,12 @@ export function ProfilePage() {
           </div>
 
           {error && (
-            <div className="mb-6 border-l-4 border-nyraRed bg-red-50 px-4 py-3 text-sm font-bold text-red-700" role="alert">
+            <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800" role="alert">
               {error}
             </div>
           )}
           {success && (
-            <div className="mb-6 border-l-4 border-nyraGreen bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800" role="status">
+            <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800" role="status">
               {success}
             </div>
           )}
@@ -376,12 +392,12 @@ export function ProfilePage() {
           <form className="space-y-7" onSubmit={handleSubmit}>
             <div className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
               <div>
-                <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="avatar">
+                <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="avatar">
                   Avatar
                 </label>
-                <div className="mt-3 border border-dashed border-slate-300 bg-slate-50 p-5">
+                <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
                   <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-nyraGreen text-xl font-black uppercase text-white">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#006d5b] text-xl font-black uppercase text-white">
                       {avatarPreview ? (
                         <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
                       ) : (
@@ -389,13 +405,16 @@ export function ProfilePage() {
                       )}
                     </div>
                     <div>
-                      <p className="text-sm font-black uppercase tracking-wider text-nyraDark">Upload profile image</p>
+                      <p className="flex items-center gap-2 text-sm font-black text-slate-950">
+                        <UploadCloud className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
+                        Upload profile image
+                      </p>
                       <p className="mt-1 text-xs font-bold leading-5 text-slate-500">JPG or PNG, up to 2MB.</p>
                     </div>
                   </div>
                   <input
                     accept="image/jpeg,image/jpg,image/png"
-                    className="mt-4 block w-full text-sm font-bold text-slate-600 file:mr-4 file:min-h-11 file:cursor-pointer file:border-0 file:bg-nyraDark file:px-4 file:py-2 file:text-xs file:font-black file:uppercase file:tracking-widest file:text-white hover:file:bg-nyraGreen"
+                    className="mt-4 block w-full text-sm font-bold text-slate-600 file:mr-4 file:min-h-11 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-xs file:font-black file:text-white hover:file:bg-[#006d5b]"
                     id="avatar"
                     onChange={handleFileChange}
                     type="file"
@@ -405,11 +424,11 @@ export function ProfilePage() {
 
               <div className="grid gap-6">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="fullName">
+                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="fullName">
                     Full name
                   </label>
                   <input
-                    className="mt-2 block min-h-12 w-full border border-slate-300 px-4 py-3 text-base font-bold text-nyraDark outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                    className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                     id="fullName"
                     onChange={(event) => setFullName(event.target.value)}
                     placeholder="Nguyen Van A"
@@ -420,11 +439,11 @@ export function ProfilePage() {
 
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="gender">
+                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="gender">
                       Gender
                     </label>
                     <select
-                      className="mt-2 block min-h-12 w-full border border-slate-300 bg-white px-4 py-3 text-base font-bold text-nyraDark outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                       id="gender"
                       onChange={(event) => setGender(event.target.value)}
                       value={gender}
@@ -438,11 +457,11 @@ export function ProfilePage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="dateOfBirth">
+                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="dateOfBirth">
                       Date of birth
                     </label>
                     <input
-                      className="mt-2 block min-h-12 w-full border border-slate-300 px-4 py-3 text-base font-bold text-nyraDark outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                       id="dateOfBirth"
                       max={new Date().toISOString().slice(0, 10)}
                       onChange={(event) => setDateOfBirth(event.target.value)}
@@ -453,7 +472,7 @@ export function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="phone">
+                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="phone">
                     Phone number
                   </label>
                   <div className="mt-2 grid grid-cols-[112px_1fr]">
@@ -461,7 +480,7 @@ export function ProfilePage() {
                       Country code
                     </label>
                     <select
-                      className="min-h-12 border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-black text-nyraDark outline-none focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      className="min-h-12 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-black text-slate-950 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                       id="countryCode"
                       onChange={(event) => setCountryCode(event.target.value)}
                       value={countryCode}
@@ -471,7 +490,7 @@ export function ProfilePage() {
                       <option value="+81">JP +81</option>
                     </select>
                     <input
-                      className="min-h-12 border border-slate-300 px-4 py-3 text-base font-bold text-nyraDark outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      className="min-h-12 rounded-r-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                       id="phone"
                       inputMode="tel"
                       onChange={(event) => setPhone(event.target.value)}
@@ -486,11 +505,11 @@ export function ProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="address">
+              <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="address">
                 Address
               </label>
               <textarea
-                className="mt-2 block min-h-28 w-full border border-slate-300 px-4 py-3 text-base font-bold leading-7 text-nyraDark outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                className="mt-2 block min-h-28 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold leading-7 text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
                 id="address"
                 onChange={(event) => setAddress(event.target.value)}
                 placeholder="District 1, Ho Chi Minh City"
@@ -503,10 +522,11 @@ export function ProfilePage() {
                 Saving updates your application readiness immediately.
               </p>
               <button
-                className="inline-flex min-h-12 items-center justify-center rounded-sm bg-nyraGreen px-8 py-4 text-sm font-black uppercase tracking-widest text-white shadow-[0_16px_34px_rgba(0,77,61,0.18)] transition hover:bg-nyraLightGreen disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#006d5b] px-8 py-4 text-sm font-black text-white shadow-[0_16px_34px_rgba(0,77,61,0.18)] transition hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
                 disabled={saving}
                 type="submit"
               >
+                <UserRound className="h-4 w-4" aria-hidden="true" />
                 {saving ? "Saving Profile..." : "Save Profile"}
               </button>
             </div>

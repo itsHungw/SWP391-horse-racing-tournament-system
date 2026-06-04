@@ -12,6 +12,45 @@ vi.mock("./api/authApi", async (importOriginal) => {
   };
 });
 
+vi.mock("./api/adminUserApi", () => ({
+  createAdminUser: vi.fn(),
+  getAdminUsers: vi.fn().mockResolvedValue({
+    content: [],
+    totalPages: 0,
+    totalElements: 0,
+  }),
+}));
+
+vi.mock("./api/racingApi", () => ({
+  applyToJockeyChampionship: vi.fn(),
+  approveAdminHorse: vi.fn(),
+  approveAdminJockeyPoolApplication: vi.fn(),
+  approveAdminTournamentRegistration: vi.fn(),
+  createOwnerHorse: vi.fn(),
+  createOwnerTournamentRegistration: vi.fn(),
+  getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
+  getAdminHorses: vi.fn(),
+  getAdminTournamentRegistrations: vi.fn(),
+  getJockeyChampionships: vi.fn().mockResolvedValue([]),
+  getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
+  getOwnerHorses: vi.fn(),
+  getOwnerHorsesPage: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
+  getOwnerTournamentRegistrations: vi.fn(),
+  getOwnerTournamentRegistrationsPage: vi.fn().mockResolvedValue({
+    content: [],
+    number: 0,
+    size: 8,
+    totalElements: 0,
+    totalPages: 1,
+  }),
+  getPublicTournaments: vi.fn(),
+  rejectAdminHorse: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
+  rejectAdminTournamentRegistration: vi.fn(),
+  withdrawOwnerTournamentRegistration: vi.fn(),
+}));
+
 function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
   const encode = (value: object) =>
     btoa(JSON.stringify(value))
@@ -123,7 +162,7 @@ describe("App", () => {
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
-      "/spectator",
+      "/spectator/dashboard",
     );
     expect(screen.getByRole("link", { name: /^profile$/i })).toHaveAttribute(
       "href",
@@ -221,9 +260,33 @@ describe("App", () => {
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
-      "/spectator",
+      "/spectator/dashboard",
     );
     expect(localStorage.getItem("accessToken")).not.toBeNull();
+  });
+
+  it("routes horse owner dashboard link to the owner workspace", () => {
+    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
+    localStorage.setItem("fullName", "Owner User");
+    localStorage.setItem("email", "owner@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
+      "href",
+      "/owner/dashboard",
+    );
+  });
+
+  it("redirects owner base route to owner dashboard for authenticated owners", async () => {
+    window.history.pushState({}, "", "/owner");
+    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
+    localStorage.setItem("fullName", "Owner User");
+    localStorage.setItem("email", "owner@example.com");
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: /owner dashboard/i })).toBeInTheDocument();
   });
 
   it("renders a polished forbidden page for authenticated non-admin users", () => {
@@ -264,9 +327,25 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByText("PEOPLE")).toBeInTheDocument();
+    expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
+    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournaments",
+    );
+    expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
+      "href",
+      "/admin/horses",
+    );
+    expect(screen.queryByRole("link", { name: /^participants$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^registrations$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^standings$/i })).not.toBeInTheDocument();
   });
 
-  it("keeps future admin sections inside the admin shell", () => {
+  it("keeps admin user management inside the admin shell", async () => {
     window.history.pushState({}, "", "/admin/users");
     localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
     localStorage.setItem("fullName", "Admin Operator");
@@ -277,8 +356,35 @@ describe("App", () => {
     expect(
       screen.getByRole("banner", { name: /admin operations header/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /users/i })).toBeInTheDocument();
-    expect(screen.getByText(/this admin section is reserved/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /user management/i })).toBeInTheDocument();
+    expect(screen.getByText(/manage accounts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no users found/i)).toBeInTheDocument();
+  });
+
+  it("keeps admin horse approvals inside the admin shell", async () => {
+    window.history.pushState({}, "", "/admin/horses");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /horse approvals/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no horses match this filter/i)).toBeInTheDocument();
+  });
+
+  it("keeps admin tournament registrations inside the admin shell", async () => {
+    window.history.pushState({}, "", "/admin/tournament-registrations");
+    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
+    localStorage.setItem("fullName", "Admin Operator");
+    localStorage.setItem("email", "admin@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
+    expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
   it("renders referee result history as a read-only published results table", () => {

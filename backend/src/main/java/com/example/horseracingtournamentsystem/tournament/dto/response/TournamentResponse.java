@@ -19,6 +19,7 @@ public class TournamentResponse {
     private LocalDateTime registrationStartAt;
     private LocalDateTime registrationEndAt;
     private Integer maxHorses;
+    private Integer maxHorsesPerOwner;
     private String status;
     private String creatorName;
     private LocalDateTime createdAt;
