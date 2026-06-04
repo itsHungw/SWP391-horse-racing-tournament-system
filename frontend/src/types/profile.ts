@@ -3,6 +3,7 @@ export interface RefereeProfileInfo {
   certification: string;
   experienceYears: number;
   bio: string;
+  evidenceUrl?: string;
   status: "PENDING" | "ACTIVE" | "REJECTED" | "SUSPENDED" | "INACTIVE";
   approvedAt?: string;
 }
@@ -28,4 +29,12 @@ export interface UpdateProfileRequest {
   dateOfBirth: string;
   address: string;
   avatarUrl?: string;
+}
+
+export interface UpdateRefereeProfileRequest {
+  licenseNumber?: string;
+  certification?: string;
+  experienceYears: number;
+  bio?: string;
+  evidenceUrl?: string;
 }

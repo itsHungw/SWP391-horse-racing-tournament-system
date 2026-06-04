@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -51,11 +51,16 @@ const mockProfile = {
 
 function LocationProbe() {
   const location = useLocation();
-  return <p data-testid="location">{location.pathname}{location.search}</p>;
+  return (
+    <p data-testid="location">
+      {location.pathname}
+      {location.search}
+    </p>
+  );
 }
 
 describe("RefereeProfileDashboardPage", () => {
-  it("renders referee bento grid profile details and calendar", async () => {
+  it("renders referee credential center details", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
     vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
 
@@ -65,31 +70,29 @@ describe("RefereeProfileDashboardPage", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Preparing referee profile dashboard/i)).toBeInTheDocument();
-    
-    // Wait for loading to finish
-    expect(await screen.findByRole("heading", { name: "Julian Sterling" })).toBeInTheDocument();
-    
-    // Verify Bento items exist
+    expect(screen.getByText(/Preparing credential center/i)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Professional race official profile" })).toBeInTheDocument();
+
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
     expect(screen.getByText("referee@equine.com")).toBeInTheDocument();
     expect(screen.getByText("+84 0909123456")).toBeInTheDocument();
     expect(screen.getByText("123 Turf Tower Road")).toBeInTheDocument();
-    
-    // Badges
-    expect(screen.getByText("✓ Profile Completed")).toBeInTheDocument();
-    
-    // Credentials
+
+    expect(screen.getByText("Certified Race Official")).toBeInTheDocument();
     expect(screen.getByText("FEI Certified Steward")).toBeInTheDocument();
     expect(screen.getByText("REF-2026-X89")).toBeInTheDocument();
     expect(screen.getByText("8 years")).toBeInTheDocument();
-    
-    // Status badge check
+    expect(screen.getByText("Veteran steward bio details.")).toBeInTheDocument();
+
+    expect(screen.getByText("Account profile completed")).toBeInTheDocument();
+    expect(screen.getByText("Phone verified")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /Calendar/i })).not.toBeInTheDocument();
+
     const statusBadge = screen.getByText("ACTIVE");
     expect(statusBadge).toHaveClass("bg-emerald-50");
   });
 
-  it("redirects to profile settings on Manage Account Settings click", async () => {
+  it("keeps editing inside the referee profile page", async () => {
     vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
     vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
 
@@ -102,7 +105,7 @@ describe("RefereeProfileDashboardPage", () => {
       </MemoryRouter>
     );
 
-    const manageBtn = await screen.findByRole("link", { name: /Manage Account Settings/i });
-    expect(manageBtn).toHaveAttribute("href", "/profile");
+    const manageBtn = await screen.findByRole("link", { name: /Edit referee profile/i });
+    expect(manageBtn).toHaveAttribute("href", "#edit-referee-profile");
   });
 });

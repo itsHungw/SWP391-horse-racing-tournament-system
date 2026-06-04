@@ -73,7 +73,7 @@ function ActionStep({
   return (
     <div
       className={[
-        "flex min-h-12 items-center gap-3 rounded-lg border px-4 text-sm font-black",
+        "flex min-h-12 min-w-[132px] items-center gap-3 rounded-lg border px-4 text-sm font-black lg:min-w-0",
         active ? "border-[#007a68] bg-[#effbf7] text-[#006f5f]" : "",
         done ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "",
         !active && !done ? "border-slate-200 bg-white text-slate-500" : "",
@@ -255,6 +255,29 @@ export function RefereeOfficiatePage() {
   const meta = getRaceStatusMeta(race.status);
   const StatusIcon = meta.icon;
   const action = getRaceAction(race);
+  const mobilePrimaryAction =
+    stage === "PRE_CHECKING"
+      ? {
+          label: saving ? "Saving checks..." : "Mark race ready",
+          disabled: checksBlocked || saving,
+          onClick: () => void confirmPreRace(),
+          to: undefined,
+        }
+      : stage === "READY"
+        ? {
+            label: saving ? "Starting race..." : "Start race",
+            disabled: saving,
+            onClick: () => void enterLive(),
+            to: undefined,
+          }
+        : stage === "FINISHED_DRAFT"
+          ? {
+              label: "Submit results",
+              disabled: false,
+              onClick: undefined,
+              to: `/referee/races/${raceId}/results`,
+            }
+          : undefined;
 
   if (stage === "ABORTED") {
     return (
@@ -267,7 +290,7 @@ export function RefereeOfficiatePage() {
   }
 
   return (
-    <section className="max-w-[1486px] space-y-5" aria-labelledby="race-control-title">
+    <section className="max-w-[1486px] space-y-5 pb-20 lg:pb-0" aria-labelledby="race-control-title">
       <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
           <div>
@@ -279,7 +302,7 @@ export function RefereeOfficiatePage() {
               Assigned races
             </Link>
             <p className="mt-5 text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Race control</p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950" id="race-control-title">
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl" id="race-control-title">
               {race.name}
             </h1>
             <p className="mt-2 text-sm font-semibold text-slate-500">
@@ -299,7 +322,7 @@ export function RefereeOfficiatePage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-2 lg:grid-cols-5">
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-1 lg:grid lg:grid-cols-5 lg:overflow-visible lg:pb-0">
           <ActionStep active={stage === "PRE_CHECKING"} done={stage !== "PRE_CHECKING"} label="Checks" />
           <ActionStep active={stage === "READY"} done={stage === "ONGOING" || stage === "FINISHED_DRAFT"} label="Ready" />
           <ActionStep active={stage === "ONGOING"} done={stage === "FINISHED_DRAFT"} label="Live" />
@@ -355,7 +378,7 @@ export function RefereeOfficiatePage() {
             </div>
             <PreRaceChecklist onChange={setParticipants} participants={participants} />
             <button
-              className="mt-4 min-h-12 w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              className="mt-4 hidden min-h-12 w-full items-center justify-center rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] lg:inline-flex"
               disabled={checksBlocked || saving}
               onClick={() => void confirmPreRace()}
               type="button"
@@ -410,6 +433,28 @@ export function RefereeOfficiatePage() {
 
       {saving && stage === "ONGOING" ? (
         <p className="text-sm font-black text-slate-500">Updating race state...</p>
+      ) : null}
+
+      {mobilePrimaryAction ? (
+        <div className="fixed inset-x-3 bottom-24 z-40 rounded-2xl border border-emerald-900/15 bg-white/95 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.22)] backdrop-blur-md lg:hidden">
+          {mobilePrimaryAction.to ? (
+            <Link
+              className="inline-flex min-h-13 w-full items-center justify-center rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              to={mobilePrimaryAction.to}
+            >
+              {mobilePrimaryAction.label}
+            </Link>
+          ) : (
+            <button
+              className="min-h-13 w-full rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              disabled={mobilePrimaryAction.disabled}
+              onClick={mobilePrimaryAction.onClick}
+              type="button"
+            >
+              {mobilePrimaryAction.label}
+            </button>
+          )}
+        </div>
       ) : null}
     </section>
   );
