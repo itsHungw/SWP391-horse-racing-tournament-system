@@ -146,6 +146,8 @@ function getChampionshipPhase(status: string) {
       return "Registration";
     case "CLOSED_REGISTRATION":
       return "Pool Formation";
+    case "PARTICIPANTS_LOCKED":
+      return "Assignment";
     case "ONGOING":
       return "Racing";
     case "COMPLETED":
@@ -167,6 +169,8 @@ function getBadgeStyle(status: string) {
       return "border-orange-200 bg-orange-100 text-orange-800";
     case "CLOSED_REGISTRATION":
       return "border-amber-200 bg-amber-100 text-amber-800";
+    case "PARTICIPANTS_LOCKED":
+      return "border-[#b3193a]/25 bg-[#b3193a]/10 text-[#b3193a]";
     default:
       return "border-slate-200 bg-slate-100 text-slate-800";
   }
@@ -190,6 +194,8 @@ function getChampionshipNextActionLabel(tournament: Tournament, race: Race | nul
       return "Review Applications";
     case "CLOSED_REGISTRATION":
       return "Lock Participants";
+    case "PARTICIPANTS_LOCKED":
+      return "Start Championship";
     case "COMPLETED":
       return "Review Standings";
     default:
@@ -235,6 +241,7 @@ export function AdminTournamentDetailPage() {
     registrationStartAt: "",
     registrationEndAt: "",
     maxHorses: undefined,
+    maxHorsesPerOwner: 2,
   });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -270,6 +277,7 @@ export function AdminTournamentDetailPage() {
         registrationStartAt: data.registrationStartAt || "",
         registrationEndAt: data.registrationEndAt || "",
         maxHorses: data.maxHorses || undefined,
+        maxHorsesPerOwner: data.maxHorsesPerOwner ?? 2,
       });
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || "Failed to load championship detail.");
@@ -386,6 +394,7 @@ export function AdminTournamentDetailPage() {
       await updateTournament(tournamentId, {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
+        maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
       });
       setSuccessMsg("Championship setup updated successfully.");
       loadDetail();
@@ -563,6 +572,9 @@ export function AdminTournamentDetailPage() {
       setErrorMsg("");
       setSuccessMsg("");
       const response = await lockAdminChampionshipParticipants(tournamentId);
+      if (response.createdParticipants > 0 || participants.length > 0) {
+        await updateTournamentStatus(tournamentId, "PARTICIPANTS_LOCKED");
+      }
       setSuccessMsg(
         response.createdParticipants > 0
           ? `${response.createdParticipants} participant pair${response.createdParticipants === 1 ? "" : "s"} locked from accepted contracts.`
@@ -570,6 +582,7 @@ export function AdminTournamentDetailPage() {
       );
       setActiveTab("participants");
       await loadParticipants();
+      await loadDetail();
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, "Failed to lock championship participants."));
     } finally {
@@ -623,8 +636,10 @@ export function AdminTournamentDetailPage() {
   const participantsReadyLabel =
     tournament.status === "CLOSED_REGISTRATION"
       ? "Ready to lock"
+      : tournament.status === "PARTICIPANTS_LOCKED"
+        ? "Locked"
       : `${participants.length} / ${participantCapacity || "Unset"}`;
-  const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool`;
+  const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool, ${tournament.maxHorsesPerOwner ?? 2} horses per owner`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
 
   const openRoundControlCenter = (race: Race | null = nextRound) => {
@@ -681,12 +696,6 @@ export function AdminTournamentDetailPage() {
             Close Registration
           </button>
           <button
-            onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
-            className="rounded-md bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-          >
-            Start Championship
-          </button>
-          <button
             onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
           >
@@ -704,6 +713,17 @@ export function AdminTournamentDetailPage() {
           >
             {lockingParticipants ? "Locking..." : "Lock Participants"}
           </button>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Postpone
+          </button>
+        </>
+      )}
+
+      {tournament.status === "PARTICIPANTS_LOCKED" && (
+        <>
           <button
             onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
             className="rounded-md bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
@@ -850,6 +870,26 @@ export function AdminTournamentDetailPage() {
             onChange={(e) => setForm({ ...form, maxHorses: e.target.value ? Number(e.target.value) : undefined })}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
           />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Max Horses Per Owner</label>
+          <input
+            type="number"
+            min={1}
+            disabled={isLocked}
+            value={form.maxHorsesPerOwner || ""}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                maxHorsesPerOwner: e.target.value ? Number(e.target.value) : undefined,
+              })
+            }
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            Counts active pending and approved horse applications from the same owner.
+          </p>
         </div>
 
         <div className="sm:col-span-2">

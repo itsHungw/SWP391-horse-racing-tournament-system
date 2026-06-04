@@ -87,6 +87,7 @@ export type Tournament = {
   registrationStartAt?: string;
   registrationEndAt?: string;
   maxHorses?: number;
+  maxHorsesPerOwner?: number;
   status: string;
 };
 
@@ -183,6 +184,7 @@ export type JockeyChampionship = {
   registrationStartAt?: string;
   registrationEndAt?: string;
   maxHorses?: number;
+  maxHorsesPerOwner?: number;
   status: string;
   applicationStatus: JockeyChampionshipApplicationStatus;
   applicationId?: number;

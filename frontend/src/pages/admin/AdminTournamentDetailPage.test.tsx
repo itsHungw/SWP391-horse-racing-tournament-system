@@ -49,6 +49,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       registrationStartAt: "2026-05-01T09:00",
       registrationEndAt: "2026-05-25T18:00",
       maxHorses: 20,
+      maxHorsesPerOwner: 2,
       status: "ONGOING",
     });
     vi.mocked(getAdminRaces).mockResolvedValue([
@@ -250,6 +251,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       registrationStartAt: "2026-05-01T09:00",
       registrationEndAt: "2026-05-25T18:00",
       maxHorses: 20,
+      maxHorsesPerOwner: 2,
       status: "OPEN_REGISTRATION",
     });
 
@@ -271,6 +273,36 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(await screen.findByText("Nguyen Van A")).toBeInTheDocument();
     expect(screen.getByText(/available for the full championship/i)).toBeInTheDocument();
     expect(screen.getByText("Tran Minh K")).toBeInTheDocument();
+  });
+
+  it("locks participants before allowing championship racing", async () => {
+    vi.mocked(getTournamentDetail).mockResolvedValueOnce({
+      id: 7,
+      name: "Summer Championship 2026",
+      code: "SUMMER_2026",
+      location: "Belmont Park",
+      startDate: "2026-06-01",
+      endDate: "2026-08-20",
+      registrationStartAt: "2026-05-01T09:00",
+      registrationEndAt: "2026-05-25T18:00",
+      maxHorses: 20,
+      maxHorsesPerOwner: 2,
+      status: "CLOSED_REGISTRATION",
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/lock participants/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
+
+    await waitFor(() => {
+      expect(lockAdminChampionshipParticipants).toHaveBeenCalledWith(7);
+    });
+    await waitFor(() => {
+      expect(updateTournamentStatus).toHaveBeenCalledWith(7, "PARTICIPANTS_LOCKED");
+    });
   });
 
   it("creates a championship round from the rounds tab", async () => {

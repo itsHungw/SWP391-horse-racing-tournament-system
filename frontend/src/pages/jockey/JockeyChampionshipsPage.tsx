@@ -16,6 +16,8 @@ import {
 import {
   applyToJockeyChampionship,
   getJockeyChampionships,
+  getJockeyContracts,
+  getJockeyParticipants,
   getJockeyPoolApplications,
 } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -23,13 +25,20 @@ import { JockeyLayout } from "../../layouts/JockeyLayout";
 import type {
   JockeyChampionship,
   JockeyChampionshipApplicationStatus,
+  JockeyInvitation,
   JockeyPoolApplication,
+  TournamentParticipant,
 } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 import racingImage from "../../assets/slide.jpg";
 
 type ChampionshipTab = "current" | "open" | "history";
 type OpenFilter = "Open" | "Pending" | "Approved for Pool" | "Rejected";
+type CurrentState =
+  | { kind: "participant"; participant: TournamentParticipant }
+  | { kind: "contract"; contract: JockeyInvitation }
+  | { kind: "application"; championship: JockeyChampionship }
+  | { kind: "empty" };
 
 const tabs: Array<{ id: ChampionshipTab; label: string; icon: typeof Trophy }> = [
   { id: "current", label: "Current", icon: Trophy },
@@ -82,40 +91,74 @@ function filterMatches(championship: JockeyChampionship, filter: OpenFilter) {
   return championship.applicationStatus === "NOT_APPLIED" || championship.canApply;
 }
 
-function progressIndex(status?: JockeyChampionshipApplicationStatus) {
-  if (status === "APPROVED_FOR_POOL") return 2;
-  if (status === "PENDING") return 1;
-  if (status === "REJECTED" || status === "WITHDRAWN") return 0;
+function progressIndex(state: CurrentState) {
+  if (state.kind === "participant") return 4;
+  if (state.kind === "contract") return 3;
+  if (state.kind === "application" && state.championship.applicationStatus === "APPROVED_FOR_POOL") return 2;
+  if (state.kind === "application" && state.championship.applicationStatus === "PENDING") return 1;
+  if (
+    state.kind === "application" &&
+    (state.championship.applicationStatus === "REJECTED" || state.championship.applicationStatus === "WITHDRAWN")
+  ) {
+    return 0;
+  }
   return -1;
 }
 
-function pickCurrentChampionship(championships: JockeyChampionship[]) {
-  return (
-    championships.find((championship) => championship.applicationStatus === "APPROVED_FOR_POOL") ??
-    championships.find((championship) => championship.applicationStatus === "PENDING") ??
-    championships.find((championship) => championship.applicationStatus === "REJECTED") ??
-    null
-  );
+function pickCurrentState(
+  participants: TournamentParticipant[],
+  contracts: JockeyInvitation[],
+  championships: JockeyChampionship[],
+): CurrentState {
+  const participant = participants.find((item) => item.status === "ACTIVE") ?? participants[0];
+  if (participant) return { kind: "participant", participant };
+
+  const acceptedContract = contracts.find((contract) => contract.status === "ACCEPTED");
+  if (acceptedContract) return { kind: "contract", contract: acceptedContract };
+
+  const championship =
+    championships.find((item) => item.applicationStatus === "APPROVED_FOR_POOL") ??
+    championships.find((item) => item.applicationStatus === "PENDING") ??
+    championships.find((item) => item.applicationStatus === "REJECTED") ??
+    null;
+
+  if (championship) return { kind: "application", championship };
+  return { kind: "empty" };
 }
 
-function currentTitle(championship?: JockeyChampionship | null) {
-  if (!championship) return "No Active Championship";
-  if (championship.applicationStatus === "PENDING") return "Application Under Review";
-  if (championship.applicationStatus === "APPROVED_FOR_POOL") return "Approved for Pool";
-  if (championship.applicationStatus === "REJECTED") return "Application Needs Revision";
-  if (championship.applicationStatus === "WITHDRAWN") return "Application Withdrawn";
+function currentTitle(state: CurrentState) {
+  if (state.kind === "participant") return "Official Championship Assignment";
+  if (state.kind === "contract") return "Committed Assignment";
+  if (state.kind === "empty") return "No Active Championship";
+  if (state.championship.applicationStatus === "PENDING") return "Application Under Review";
+  if (state.championship.applicationStatus === "APPROVED_FOR_POOL") return "Approved for Pool";
+  if (state.championship.applicationStatus === "REJECTED") return "Application Needs Revision";
+  if (state.championship.applicationStatus === "WITHDRAWN") return "Application Withdrawn";
   return "No Active Championship";
 }
 
-function overviewMessage(championship?: JockeyChampionship | null) {
-  if (!championship) {
+function currentName(state: CurrentState) {
+  if (state.kind === "participant") return state.participant.championshipName;
+  if (state.kind === "contract") return state.contract.championshipName;
+  if (state.kind === "application") return state.championship.name;
+  return "";
+}
+
+function overviewMessage(state: CurrentState) {
+  if (state.kind === "empty") {
     return "Apply to an open championship pool to become visible to stable owners and receive assignment contracts.";
   }
+  if (state.kind === "participant") {
+    return `${state.participant.horseName} with ${state.participant.ownerName} is now an official championship participant. Standings should appear only after published round results exist.`;
+  }
+  if (state.kind === "contract") {
+    return `${state.contract.horseName} with ${state.contract.ownerName} is committed by contract. Admin must lock participants before this becomes the official racing pair.`;
+  }
 
-  switch (championship.applicationStatus) {
+  switch (state.championship.applicationStatus) {
     case "PENDING":
       return `Your pool application is waiting for admin review. Submitted ${formatDate(
-        championship.applicationCreatedAt,
+        state.championship.applicationCreatedAt,
       )}.`;
     case "APPROVED_FOR_POOL":
       return "You are visible to owners in this championship pool. Assignment contracts unlock after owners choose approved jockeys.";
@@ -126,6 +169,22 @@ function overviewMessage(championship?: JockeyChampionship | null) {
     default:
       return "Apply to an open championship pool to become visible to stable owners.";
   }
+}
+
+function currentBadge(state: CurrentState) {
+  if (state.kind === "participant") {
+    return { label: "Official Participant", className: "border-emerald-200 bg-emerald-50 text-[#006d5b]" };
+  }
+  if (state.kind === "contract") {
+    return { label: "Pending Admin Lock", className: "border-sky-200 bg-sky-50 text-sky-800" };
+  }
+  if (state.kind === "application") {
+    return {
+      label: statusLabel(state.championship.applicationStatus),
+      className: statusTone(state.championship.applicationStatus),
+    };
+  }
+  return { label: "Not Applied", className: "border-slate-200 bg-slate-50 text-slate-600" };
 }
 
 function cardHelp(championship: JockeyChampionship) {
@@ -151,6 +210,8 @@ export function JockeyChampionshipsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [championships, setChampionships] = useState<JockeyChampionship[]>([]);
   const [applications, setApplications] = useState<JockeyPoolApplication[]>([]);
+  const [contracts, setContracts] = useState<JockeyInvitation[]>([]);
+  const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [applicationTarget, setApplicationTarget] = useState<JockeyChampionship | null>(null);
@@ -158,8 +219,10 @@ export function JockeyChampionshipsPage() {
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentChampionship = pickCurrentChampionship(championships);
-  const activeProgressIndex = progressIndex(currentChampionship?.applicationStatus);
+  const currentState = pickCurrentState(participants, contracts, championships);
+  const currentApplication = currentState.kind === "application" ? currentState.championship : null;
+  const activeProgressIndex = progressIndex(currentState);
+  const badge = currentBadge(currentState);
 
   const visibleChampionships = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -188,12 +251,16 @@ export function JockeyChampionshipsPage() {
     setIsLoading(true);
     setError("");
     try {
-      const [championshipData, applicationData] = await Promise.all([
+      const [championshipData, applicationData, contractData, participantData] = await Promise.all([
         getJockeyChampionships(),
         getJockeyPoolApplications(),
+        getJockeyContracts(),
+        getJockeyParticipants(),
       ]);
       setChampionships(championshipData);
       setApplications(applicationData);
+      setContracts(contractData);
+      setParticipants(participantData);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not load jockey championships."));
     } finally {
@@ -301,29 +368,36 @@ export function JockeyChampionshipsPage() {
                         Current State
                       </span>
                       <h2 className="mt-4 text-3xl font-black tracking-tight">
-                        {currentTitle(currentChampionship)}
+                        {currentTitle(currentState)}
                       </h2>
-                      {currentChampionship && (
+                      {currentName(currentState) && (
                         <p className="mt-2 text-xl font-black tracking-tight text-emerald-50">
-                          {currentChampionship.name}
+                          {currentName(currentState)}
                         </p>
                       )}
                       <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-emerald-50/85">
-                        {overviewMessage(currentChampionship)}
+                        {overviewMessage(currentState)}
                       </p>
                       <div className="mt-6 flex flex-wrap gap-2">
-                        {currentChampionship && (
-                          <span
-                            className={`inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-black ${statusTone(
-                              currentChampionship.applicationStatus,
-                            )}`}
-                          >
-                            {statusLabel(currentChampionship.applicationStatus)}
+                        <span
+                          className={`inline-flex min-h-10 items-center rounded-md border px-3 text-sm font-black ${badge.className}`}
+                        >
+                          {badge.label}
+                        </span>
+                        {currentState.kind === "application" &&
+                          currentState.championship.applicationStatus === "APPROVED_FOR_POOL" && (
+                            <span className="inline-flex min-h-10 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm font-black text-white">
+                              Visible to Owners
+                            </span>
+                          )}
+                        {currentState.kind === "contract" && (
+                          <span className="inline-flex min-h-10 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm font-black text-white">
+                            {currentState.contract.horseName} / {currentState.contract.ownerName}
                           </span>
                         )}
-                        {currentChampionship?.applicationStatus === "APPROVED_FOR_POOL" && (
+                        {currentState.kind === "participant" && (
                           <span className="inline-flex min-h-10 items-center rounded-md border border-white/20 bg-white/10 px-3 text-sm font-black text-white">
-                            Visible to Owners
+                            Current Points: {currentState.participant.points}
                           </span>
                         )}
                         <button
@@ -339,16 +413,16 @@ export function JockeyChampionshipsPage() {
                   </div>
                 </div>
 
-                {currentChampionship?.applicationStatus === "REJECTED" && currentChampionship.rejectionReason && (
+                {currentApplication?.applicationStatus === "REJECTED" && currentApplication.rejectionReason && (
                   <div className="rounded-lg border border-rose-200 bg-rose-50 p-5">
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-rose-700">Review Feedback</p>
                     <p className="mt-2 text-sm font-bold leading-6 text-rose-900">
-                      {currentChampionship.rejectionReason}
+                      {currentApplication.rejectionReason}
                     </p>
-                    {currentChampionship.canApply && (
+                    {currentApplication.canApply && (
                       <button
                         className="mt-4 inline-flex min-h-10 items-center rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#8f1230] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
-                        onClick={() => openApplication(currentChampionship)}
+                        onClick={() => openApplication(currentApplication)}
                         type="button"
                       >
                         Apply Again
@@ -371,7 +445,7 @@ export function JockeyChampionshipsPage() {
                       </p>
                       <h3 className="mt-2 text-2xl font-black text-slate-950">From pool application to racing</h3>
                       <p className="mt-1 text-sm font-bold text-slate-500">
-                        Contract, participant lock, and standings stay locked until backend source data exists.
+                        Contract acceptance is visible immediately. Official racing status starts after admin locks participants.
                       </p>
                     </div>
                     <span className="rounded-md bg-slate-100 px-3 py-2 text-sm font-black text-slate-600">

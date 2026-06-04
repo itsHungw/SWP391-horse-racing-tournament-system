@@ -242,6 +242,11 @@ export async function getJockeyContracts(): Promise<JockeyInvitation[]> {
   return response.data;
 }
 
+export async function getJockeyParticipants(): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>("/jockey/participants");
+  return response.data;
+}
+
 export async function acceptJockeyContract(contractId: number): Promise<JockeyInvitation> {
   const response = await httpClient.post<JockeyInvitation>(`/jockey/contracts/${contractId}/accept`);
   return response.data;

@@ -1,48 +1,101 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import {
+  getJockeyChampionships,
+  getJockeyContracts,
+  getJockeyParticipants,
+  getJockeyPoolApplications,
+} from "../../api/racingApi";
 import { JockeyDashboardPage } from "./JockeyDashboardPage";
 
+vi.mock("../../api/racingApi", () => ({
+  getJockeyChampionships: vi.fn(),
+  getJockeyContracts: vi.fn(),
+  getJockeyParticipants: vi.fn(),
+  getJockeyPoolApplications: vi.fn(),
+}));
+
+const acceptedContract = {
+  id: 10,
+  championshipId: 7,
+  championshipName: "Spring Cup 2026",
+  horseRegistrationId: 15,
+  horseId: 3,
+  horseName: "Thunder Bolt",
+  ownerId: 2,
+  ownerName: "Sunrise Stable",
+  jockeyId: 4,
+  jockeyName: "Nguyen Van A",
+  jockeyApplicationId: 8,
+  status: "ACCEPTED" as const,
+  acceptedAt: "2026-06-04T08:00:00Z",
+};
+
+const officialParticipant = {
+  id: 21,
+  championshipId: 7,
+  championshipName: "Spring Cup 2026",
+  horseRegistrationId: 15,
+  horseId: 3,
+  horseName: "Thunder Bolt",
+  ownerId: 2,
+  ownerName: "Sunrise Stable",
+  jockeyId: 4,
+  jockeyName: "Nguyen Van A",
+  jockeyInvitationId: 10,
+  status: "ACTIVE",
+  points: 0,
+};
+
 describe("JockeyDashboardPage", () => {
-  it("prioritizes championship hero, standing, and timeline", async () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(getJockeyChampionships).mockResolvedValue([]);
+    vi.mocked(getJockeyPoolApplications).mockResolvedValue([]);
+    vi.mocked(getJockeyContracts).mockResolvedValue([]);
+    vi.mocked(getJockeyParticipants).mockResolvedValue([]);
+  });
+
+  it("shows accepted contracts as committed assignments waiting for admin lock", async () => {
+    vi.mocked(getJockeyContracts).mockResolvedValue([acceptedContract]);
+
     render(
       <MemoryRouter>
         <JockeyDashboardPage />
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { name: /current championship/i })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: /select championship/i })).toHaveDisplayValue(
-      "Summer Championship 2026",
+    expect(await screen.findByRole("heading", { name: /spring cup 2026/i })).toBeInTheDocument();
+    expect(screen.getByText(/committed assignment/i)).toBeInTheDocument();
+    expect(screen.getByText(/pending admin lock/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/thunder bolt with sunrise stable/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/admin still needs to lock participants/i)).toBeInTheDocument();
+
+    expect(screen.queryByText(/current standing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/rank #3/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/42 pts/i)).not.toBeInTheDocument();
+  });
+
+  it("shows official participant only after admin lock creates the pair", async () => {
+    vi.mocked(getJockeyContracts).mockResolvedValue([acceptedContract]);
+    vi.mocked(getJockeyParticipants).mockResolvedValue([officialParticipant]);
+
+    render(
+      <MemoryRouter>
+        <JockeyDashboardPage />
+      </MemoryRouter>,
     );
-    expect(screen.getByText(/thunder bolt \/ sunrise stable/i)).toBeInTheDocument();
-    expect(screen.getByText(/round 4 of 8/i)).toBeInTheDocument();
-    expect(screen.getByText(/jun 6 - belmont park/i)).toBeInTheDocument();
-    expect(screen.getByText(/season progress/i)).toBeInTheDocument();
-    expect(screen.getByText(/50%/i)).toBeInTheDocument();
 
-    const standing = screen.getByLabelText(/current standing/i);
-    expect(within(standing).getByText("#3")).toBeInTheDocument();
-    expect(within(standing).getByText("42")).toBeInTheDocument();
-    expect(within(standing).getByText(/podium position/i)).toBeInTheDocument();
-    expect(within(standing).getByText(/leader: 50 pts/i)).toBeInTheDocument();
-    expect(within(standing).getByText(/you: 42 pts/i)).toBeInTheDocument();
-    expect(within(standing).getByText(/84% of leader score/i)).toBeInTheDocument();
-    expect(within(standing).getByText(/8 pts behind the leader/i)).toBeInTheDocument();
+    expect(await screen.findByText(/official championship assignment/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /spring cup 2026/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/thunder bolt with sunrise stable/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/current points: 0/i)).toBeInTheDocument();
 
-    const nextRace = screen.getByRole("region", { name: /next race/i });
-    expect(within(nextRace).getByText(/belmont stakes presented/i)).toBeInTheDocument();
-    expect(within(nextRace).getByText(/thunder bolt/i)).toBeInTheDocument();
-
-    const timeline = screen.getByLabelText(/dashboard championship timeline/i);
-    expect(within(timeline).getByRole("button", { name: /featured round 4/i })).toBeInTheDocument();
-    expect(within(timeline).getAllByText(/featured round/i).length).toBeGreaterThan(0);
-    expect(within(timeline).queryByText(/^next race$/i)).not.toBeInTheDocument();
-
-    fireEvent.click(within(timeline).getByRole("button", { name: /round 4/i }));
-    const dialog = screen.getByRole("dialog", { name: /race detail/i });
-    expect(dialog).toBeInTheDocument();
-    expect(within(dialog).getByText(/round 4 of 8/i)).toBeInTheDocument();
+    const summary = screen.getByLabelText(/jockey dashboard summary/i);
+    expect(within(summary).getByText(/official assignments/i)).toBeInTheDocument();
+    expect(within(summary).getAllByText("1").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/leader:/i)).not.toBeInTheDocument();
   });
 });

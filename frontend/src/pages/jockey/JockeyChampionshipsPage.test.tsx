@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   applyToJockeyChampionship,
   getJockeyChampionships,
+  getJockeyContracts,
+  getJockeyParticipants,
   getJockeyPoolApplications,
 } from "../../api/racingApi";
 import { JockeyChampionshipsPage } from "./JockeyChampionshipsPage";
@@ -12,6 +14,8 @@ import { JockeyChampionshipsPage } from "./JockeyChampionshipsPage";
 vi.mock("../../api/racingApi", () => ({
   applyToJockeyChampionship: vi.fn(),
   getJockeyChampionships: vi.fn(),
+  getJockeyContracts: vi.fn(),
+  getJockeyParticipants: vi.fn(),
   getJockeyPoolApplications: vi.fn(),
 }));
 
@@ -36,6 +40,8 @@ describe("JockeyChampionshipsPage", () => {
     vi.clearAllMocks();
     vi.mocked(getJockeyChampionships).mockResolvedValue([openChampionship]);
     vi.mocked(getJockeyPoolApplications).mockResolvedValue([]);
+    vi.mocked(getJockeyContracts).mockResolvedValue([]);
+    vi.mocked(getJockeyParticipants).mockResolvedValue([]);
   });
 
   it("shows a truth-first empty current state instead of fake standings", async () => {
@@ -144,6 +150,37 @@ describe("JockeyChampionshipsPage", () => {
     expect(within(current).getAllByText(/visible to owners/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/current rank/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/42 pts/i)).not.toBeInTheDocument();
+  });
+
+  it("shows accepted contract as current pending admin lock state", async () => {
+    vi.mocked(getJockeyContracts).mockResolvedValue([
+      {
+        id: 10,
+        championshipId: 7,
+        championshipName: "Spring Cup 2026",
+        horseRegistrationId: 15,
+        horseId: 3,
+        horseName: "Thunder Bolt",
+        ownerId: 2,
+        ownerName: "Sunrise Stable",
+        jockeyId: 4,
+        jockeyName: "Jockey",
+        jockeyApplicationId: 31,
+        status: "ACCEPTED",
+      },
+    ]);
+
+    render(
+      <MemoryRouter>
+        <JockeyChampionshipsPage />
+      </MemoryRouter>,
+    );
+
+    const current = await screen.findByRole("region", { name: /current championship state/i });
+    expect(within(current).getByRole("heading", { name: /committed assignment/i })).toBeInTheDocument();
+    expect(within(current).getByText(/pending admin lock/i)).toBeInTheDocument();
+    expect(within(current).getByText(/thunder bolt \/ sunrise stable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/rank #3/i)).not.toBeInTheDocument();
   });
 
   it("keeps history future-ready until official standings exist", async () => {
