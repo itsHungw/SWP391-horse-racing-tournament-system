@@ -10,13 +10,18 @@ import {
   Gauge,
   Play,
   Plus,
+  Search,
+  ShieldCheck,
   Trophy,
   Users,
   UserCheck,
+  UserRound,
+  X,
 } from "lucide-react";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
+import { assignAdminRaceReferee, createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
+import { getAdminUsers } from "../../api/adminUserApi";
 import {
   CreateTournamentPayload,
   deleteTournament,
@@ -36,6 +41,7 @@ import {
 } from "../../api/racingApi";
 import type { Race, RaceStatus, Tournament, TournamentParticipant, TournamentRegistration } from "../../types/racing";
 import type { JockeyPoolApplication } from "../../types/racing";
+import type { AdminUserDetail } from "../../types/adminUser";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 type ChampionshipTab = "overview" | "applications" | "participants" | "rounds" | "standings" | "controls";
@@ -264,6 +270,13 @@ export function AdminTournamentDetailPage() {
   const [roundFormError, setRoundFormError] = useState("");
   const [creatingRound, setCreatingRound] = useState(false);
   const [lockingParticipants, setLockingParticipants] = useState(false);
+  const [manageRoundRaceId, setManageRoundRaceId] = useState<number | null>(null);
+  const [referees, setReferees] = useState<AdminUserDetail[]>([]);
+  const [refereeLoading, setRefereeLoading] = useState(false);
+  const [refereeError, setRefereeError] = useState("");
+  const [refereeSearch, setRefereeSearch] = useState("");
+  const [assigningRefereeId, setAssigningRefereeId] = useState<number | null>(null);
+  const [highlightMissingReferees, setHighlightMissingReferees] = useState(false);
 
   useDocumentTitle(tournament ? `${tournament.name} championship` : "Championship detail");
 
@@ -350,6 +363,19 @@ export function AdminTournamentDetailPage() {
     }
   };
 
+  const loadReferees = async () => {
+    try {
+      setRefereeLoading(true);
+      setRefereeError("");
+      const data = await getAdminUsers("", "", "REFEREE", 0, 100);
+      setReferees(data.content ?? []);
+    } catch (err) {
+      setRefereeError(getApiErrorMessage(err, "Failed to load referees."));
+    } finally {
+      setRefereeLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (tournamentId) {
       loadDetail();
@@ -374,6 +400,12 @@ export function AdminTournamentDetailPage() {
       loadParticipants();
     }
   }, [activeTab, tournamentId]);
+
+  useEffect(() => {
+    if (activeTab === "rounds" && referees.length === 0) {
+      void loadReferees();
+    }
+  }, [activeTab]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -427,6 +459,14 @@ export function AdminTournamentDetailPage() {
 
   const handleStatusTransition = async () => {
     const { targetStatus } = showStatusModal;
+    if (targetStatus === "SCHEDULE_PUBLISHED" && !schedulePublicationReady) {
+      setShowStatusModal({ show: false, targetStatus: "" });
+      setActiveTab("rounds");
+      setHighlightMissingReferees(true);
+      setErrorMsg(scheduleBlockReason || "Complete schedule readiness before publishing.");
+      return;
+    }
+
     try {
       setUpdatingStatus(true);
       await updateTournamentStatus(tournamentId, targetStatus);
@@ -455,6 +495,32 @@ export function AdminTournamentDetailPage() {
       setRaceError(err.response?.data?.message || "Failed to update race status.");
     } finally {
       setRaceActionLoadingId(null);
+    }
+  };
+
+  const openManageRound = (race: Race) => {
+    setManageRoundRaceId(race.id);
+    setRefereeSearch("");
+    setRefereeError("");
+    if (referees.length === 0) {
+      void loadReferees();
+    }
+  };
+
+  const handleAssignReferee = async (race: Race, referee: AdminUserDetail) => {
+    try {
+      setAssigningRefereeId(referee.id);
+      setRefereeError("");
+      const updatedRace = await assignAdminRaceReferee(race.id, referee.id);
+      setRaces((currentRaces) =>
+        currentRaces.map((currentRace) => (currentRace.id === updatedRace.id ? updatedRace : currentRace)),
+      );
+      setManageRoundRaceId(updatedRace.id);
+      setSuccessMsg(`${referee.fullName} assigned to ${race.name}.`);
+    } catch (err) {
+      setRefereeError(getApiErrorMessage(err, "Failed to assign referee."));
+    } finally {
+      setAssigningRefereeId(null);
     }
   };
 
@@ -628,6 +694,23 @@ export function AdminTournamentDetailPage() {
   const resultReadyCount = races.filter((race) => race.status === "RESULT_CONFIRMED").length;
   const activeRaceCount = races.filter((race) => ["CHECKING", "READY", "ONGOING"].includes(race.status)).length;
   const nextRound = races.find((race) => !["PUBLISHED", "CANCELLED"].includes(race.status)) ?? races[0] ?? null;
+  const managedRound = races.find((race) => race.id === manageRoundRaceId) ?? null;
+  const missingRefereeRounds = races.filter((race) => !race.refereeId);
+  const allRoundsCreated = races.length > 0;
+  const participantsLockedForSchedule = ["PARTICIPANTS_LOCKED", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
+  const officialParticipantsReady = participants.length > 0 || participantsLockedForSchedule;
+  const schedulePublicationReady = allRoundsCreated && officialParticipantsReady && missingRefereeRounds.length === 0;
+  const scheduleBlockReason = !allRoundsCreated
+    ? "Create at least one round before publishing the schedule."
+    : !officialParticipantsReady
+      ? "Lock official participants before publishing the schedule."
+      : missingRefereeRounds.length > 0
+        ? `${missingRefereeRounds.length} round${missingRefereeRounds.length === 1 ? "" : "s"} missing referee assignment.`
+        : "";
+  const filteredReferees = referees.filter((referee) => {
+    const haystack = `${referee.fullName} ${referee.email}`.toLowerCase();
+    return haystack.includes(refereeSearch.trim().toLowerCase());
+  });
   const participantCapacity = tournament.maxHorses ?? 0;
   const pendingRegistrations = registrations.filter((registration) => registration.status === "PENDING");
   const approvedRegistrations = registrations.filter((registration) => registration.status === "APPROVED");
@@ -646,6 +729,7 @@ export function AdminTournamentDetailPage() {
       : `${participants.length} / ${participantCapacity || "Unset"}`;
   const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool, ${tournament.maxHorsesPerOwner ?? 2} horses per owner`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
+  const getRefereeWorkload = (refereeId: number) => races.filter((race) => race.refereeId === refereeId).length;
 
   const openRoundControlCenter = (race: Race | null = nextRound) => {
     if (race) {
@@ -672,6 +756,11 @@ export function AdminTournamentDetailPage() {
     }
 
     if (tournament.status === "PARTICIPANTS_LOCKED") {
+      if (!schedulePublicationReady) {
+        setActiveTab("rounds");
+        setHighlightMissingReferees(true);
+        return;
+      }
       setShowStatusModal({ show: true, targetStatus: "SCHEDULE_PUBLISHED" });
       return;
     }
@@ -734,12 +823,19 @@ export function AdminTournamentDetailPage() {
 
       {tournament.status === "PARTICIPANTS_LOCKED" && (
         <>
-          <button
-            onClick={() => setShowStatusModal({ show: true, targetStatus: "SCHEDULE_PUBLISHED" })}
-            className="rounded-md bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700"
-          >
-            Publish Schedule
-          </button>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => setShowStatusModal({ show: true, targetStatus: "SCHEDULE_PUBLISHED" })}
+              disabled={!schedulePublicationReady}
+              className="rounded-md bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+              title={schedulePublicationReady ? "Publish official race schedule" : scheduleBlockReason}
+            >
+              Publish Schedule
+            </button>
+            {!schedulePublicationReady && (
+              <p className="max-w-[220px] text-[11px] font-semibold leading-4 text-amber-700">{scheduleBlockReason}</p>
+            )}
+          </div>
           <button
             onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
             className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
@@ -1748,16 +1844,81 @@ export function AdminTournamentDetailPage() {
               </button>
             </div>
 
-            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-              <h3 className="text-lg font-black text-slate-950">Season Timeline</h3>
-              <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                {["Registration Closed", "Pool Approved", "Participants Locked"].map((item) => (
-                  <div key={item} className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden="true" />
-                    <span className="text-sm font-black text-slate-900">{item}</span>
-                  </div>
-                ))}
+            <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-lg font-black text-slate-950">Season Timeline</h3>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {["Registration Closed", "Pool Approved", "Participants Locked"].map((item) => (
+                    <div key={item} className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
+                      <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden="true" />
+                      <span className="text-sm font-black text-slate-900">{item}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
+
+              <aside
+                aria-labelledby="schedule-readiness-title"
+                className={`rounded-lg border p-4 ${
+                  schedulePublicationReady
+                    ? "border-emerald-200 bg-emerald-50"
+                    : "border-amber-200 bg-amber-50"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-600">Publication readiness</p>
+                    <h3 id="schedule-readiness-title" className="mt-1 text-lg font-black text-slate-950">
+                      Schedule Publication
+                    </h3>
+                  </div>
+                  {schedulePublicationReady ? (
+                    <CheckCircle2 className="h-6 w-6 text-emerald-700" aria-hidden="true" />
+                  ) : (
+                    <AlertTriangle className="h-6 w-6 text-amber-700" aria-hidden="true" />
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {[
+                    { label: "Rounds created", complete: allRoundsCreated },
+                    { label: "Participants locked", complete: officialParticipantsReady },
+                    { label: "Referees assigned", complete: missingRefereeRounds.length === 0 },
+                  ].map((item) => (
+                    <div key={item.label} className="flex items-center justify-between gap-3 rounded-md bg-white/80 px-3 py-2">
+                      <span className="text-sm font-black text-slate-800">{item.label}</span>
+                      <span
+                        className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${
+                          item.complete
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : "border-amber-200 bg-amber-50 text-amber-800"
+                        }`}
+                      >
+                        {item.complete ? "Ready" : "Needed"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {!schedulePublicationReady && (
+                  <div className="mt-4 rounded-md border border-amber-200 bg-white/80 p-3">
+                    <p className="text-sm font-black text-amber-900">Cannot publish schedule yet</p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">{scheduleBlockReason}</p>
+                    {missingRefereeRounds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHighlightMissingReferees(true);
+                          document.getElementById("missing-referee-round")?.scrollIntoView({ behavior: "smooth", block: "center" });
+                        }}
+                        className="mt-3 rounded-md border border-amber-300 bg-white px-3 py-2 text-xs font-black text-amber-800 hover:bg-amber-50"
+                      >
+                        Review missing rounds
+                      </button>
+                    )}
+                  </div>
+                )}
+              </aside>
             </div>
 
             {raceLoading ? (
@@ -1779,11 +1940,18 @@ export function AdminTournamentDetailPage() {
                 {races.map((race, index) => {
                   const meta = getRaceStatusMeta(race.status);
                   const isCurrent = race.id === nextRound?.id;
+                  const isMissingReferee = !race.refereeId;
+                  const shouldHighlight = highlightMissingReferees && isMissingReferee;
                   return (
                     <article
                       key={race.id}
-                      className={`rounded-lg border p-4 ${
-                        isCurrent ? "border-[#b3193a]/30 bg-[#b3193a]/5" : "border-slate-200 bg-white"
+                      id={isMissingReferee ? "missing-referee-round" : undefined}
+                      className={`rounded-lg border p-4 transition ${
+                        shouldHighlight
+                          ? "border-amber-300 bg-amber-50 ring-2 ring-amber-200"
+                          : isCurrent
+                            ? "border-[#b3193a]/30 bg-[#b3193a]/5"
+                            : "border-slate-200 bg-white"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1797,20 +1965,35 @@ export function AdminTournamentDetailPage() {
                       </div>
                       <p className="mt-3 text-sm font-semibold text-slate-600">{formatRaceDate(race.raceDateTime)}</p>
                       <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{meta.helper}</p>
+                      <div
+                        className={`mt-4 rounded-md border p-3 ${
+                          race.refereeName ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <ShieldCheck className={`h-4 w-4 ${race.refereeName ? "text-emerald-700" : "text-amber-700"}`} aria-hidden="true" />
+                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Referee</p>
+                        </div>
+                        <p className={`mt-1 text-sm font-black ${race.refereeName ? "text-emerald-950" : "text-amber-900"}`}>
+                          {race.refereeName ?? "Unassigned"}
+                        </p>
+                      </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <button
                           type="button"
                           className="rounded-md bg-[#b3193a] px-3 py-2 text-xs font-black text-white hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
-                          onClick={() => openRoundControlCenter(race)}
-                          aria-label={`Open control center for ${race.name}`}
+                          onClick={() => openManageRound(race)}
+                          aria-label={`Manage ${race.name}`}
                         >
-                          Open Control Center
+                          Manage
                         </button>
                         <button
                           type="button"
                           className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                          onClick={() => openRoundControlCenter(race)}
+                          aria-label={`Open control center for ${race.name}`}
                         >
-                          Edit Schedule
+                          Open Control Center
                         </button>
                         {race.status === "SCHEDULED" && (
                           <button
@@ -1880,6 +2063,226 @@ export function AdminTournamentDetailPage() {
           </div>
         )}
       </div>
+
+      {managedRound && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40">
+          <aside
+            aria-labelledby="manage-round-title"
+            aria-modal="true"
+            role="dialog"
+            className="flex h-full w-full max-w-2xl flex-col overflow-hidden bg-white shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Round management</p>
+                <h2 id="manage-round-title" className="mt-1 text-2xl font-black text-slate-950">
+                  {managedRound.name}
+                </h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  Referee assignment, schedule context, and race-day operations live here.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setManageRoundRaceId(null)}
+                className="rounded-md border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                aria-label="Close round management"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+              <section className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-slate-500">Basic information</p>
+                    <h3 className="mt-1 text-lg font-black text-slate-950">{managedRound.code}</h3>
+                  </div>
+                  <span className={`rounded-md border px-3 py-1 text-[11px] font-black uppercase tracking-wide ${getRaceStatusMeta(managedRound.status).className}`}>
+                    {getRaceStatusMeta(managedRound.status).label}
+                  </span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-md border border-slate-200 bg-white p-3">
+                    <CalendarDays className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                    <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Race time</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{formatRaceDate(managedRound.raceDateTime)}</p>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-white p-3">
+                    <Gauge className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                    <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Distance</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{managedRound.distanceMeters.toLocaleString()} m</p>
+                  </div>
+                  <div className="rounded-md border border-slate-200 bg-white p-3">
+                    <Users className="h-4 w-4 text-slate-500" aria-hidden="true" />
+                    <p className="mt-2 text-[11px] font-black uppercase tracking-wider text-slate-400">Field cap</p>
+                    <p className="mt-1 text-sm font-black text-slate-950">{managedRound.maxParticipants} participants</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Assignments</p>
+                    <h3 className="mt-1 text-lg font-black text-slate-950">Race Day Referee</h3>
+                    <p className="mt-1 text-sm font-semibold text-slate-500">
+                      Referee assignment is required before publishing the official schedule.
+                    </p>
+                  </div>
+                  <span
+                    className={`w-fit rounded-md border px-3 py-1 text-[11px] font-black uppercase tracking-wide ${
+                      managedRound.refereeId
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                        : "border-amber-200 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    {managedRound.refereeId ? "Assigned" : "Required"}
+                  </span>
+                </div>
+
+                <div
+                  className={`mt-4 rounded-md border p-4 ${
+                    managedRound.refereeId ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-11 w-11 items-center justify-center rounded-md ${
+                        managedRound.refereeId ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"
+                      }`}
+                    >
+                      <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-slate-950">{managedRound.refereeName ?? "No referee assigned"}</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-600">
+                        {managedRound.refereeId
+                          ? `${getRefereeWorkload(managedRound.refereeId)} assigned round${getRefereeWorkload(managedRound.refereeId) === 1 ? "" : "s"} in this championship`
+                          : "Assign a race day official before schedule publication."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label htmlFor="referee-search" className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                    Search referee
+                  </label>
+                  <div className="relative mt-2">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                    <input
+                      id="referee-search"
+                      type="search"
+                      value={refereeSearch}
+                      onChange={(event) => setRefereeSearch(event.target.value)}
+                      placeholder="Search by name or email"
+                      className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                    />
+                  </div>
+                </div>
+
+                {refereeError && (
+                  <div role="alert" className="mt-4 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">
+                    {refereeError}
+                  </div>
+                )}
+
+                <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
+                  {refereeLoading ? (
+                    [1, 2, 3].map((item) => (
+                      <div key={item} className="h-16 animate-pulse rounded-md border border-slate-100 bg-slate-50" />
+                    ))
+                  ) : filteredReferees.length === 0 ? (
+                    <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-5 text-center">
+                      <UserRound className="mx-auto h-8 w-8 text-slate-400" aria-hidden="true" />
+                      <p className="mt-2 text-sm font-black text-slate-900">No referee found</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">Try another name or confirm the user has REFEREE role.</p>
+                    </div>
+                  ) : (
+                    filteredReferees.map((referee) => {
+                      const isAssigned = managedRound.refereeId === referee.id;
+                      const workload = getRefereeWorkload(referee.id);
+                      return (
+                        <article
+                          key={referee.id}
+                          className={`flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between ${
+                            isAssigned ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-black text-slate-700">
+                              {referee.fullName
+                                .split(" ")
+                                .map((part) => part[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm font-black text-slate-950">{referee.fullName}</p>
+                              <p className="mt-0.5 text-xs font-semibold text-slate-500">{referee.email}</p>
+                              <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                                REFEREE / {workload} assigned round{workload === 1 ? "" : "s"}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            disabled={isAssigned || assigningRefereeId === referee.id}
+                            onClick={() => void handleAssignReferee(managedRound, referee)}
+                            className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-emerald-200 disabled:bg-emerald-100 disabled:text-emerald-800"
+                          >
+                            {assigningRefereeId === referee.id ? "Assigning..." : isAssigned ? "Assigned" : "Assign"}
+                          </button>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Operations</p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">Round shortcuts</h3>
+                <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManageRoundRaceId(null);
+                      setActiveTab("participants");
+                    }}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  >
+                    View Participants
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManageRoundRaceId(null);
+                      setActiveTab("rounds");
+                    }}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-black text-slate-700 hover:bg-slate-50"
+                  >
+                    View Schedule
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManageRoundRaceId(null);
+                      openRoundControlCenter(managedRound);
+                    }}
+                    className="rounded-md bg-[#b3193a] px-3 py-2 text-xs font-black text-white hover:bg-[#92122d]"
+                  >
+                    Open Control Center
+                  </button>
+                </div>
+              </section>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {showCreateRoundModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

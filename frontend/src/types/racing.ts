@@ -112,6 +112,8 @@ export type Race = {
   distanceMeters: number;
   maxParticipants: number;
   status: RaceStatus | string;
+  refereeId?: number | null;
+  refereeName?: string | null;
   creatorName?: string;
   createdAt?: string;
   updatedAt?: string;

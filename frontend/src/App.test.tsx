@@ -387,7 +387,7 @@ describe("App", () => {
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
-  it("renders referee result history as a read-only published results table", () => {
+  it("renders referee result packages as a read-only confirmed results archive", () => {
     window.history.pushState({}, "", "/referee/result-history");
     localStorage.setItem("accessToken", createTokenWithRoles(["REFEREE"]));
     localStorage.setItem("fullName", "Julian Sterling");
@@ -396,11 +396,11 @@ describe("App", () => {
     render(<App />);
 
     expect(screen.getByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /result history/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /result packages/i })).toHaveAttribute(
       "href",
       "/referee/result-history",
     );
-    expect(screen.getByRole("heading", { name: /result history/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /confirmed race results/i })).toBeInTheDocument();
     expect(screen.getByRole("table", { name: /published race results/i })).toBeInTheDocument();
     expect(screen.getAllByText("PUBLISHED")).toHaveLength(2);
     expect(screen.getByText("June Stakes - Heat 2")).toBeInTheDocument();

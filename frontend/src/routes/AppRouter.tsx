@@ -39,6 +39,7 @@ import { SubmitResultsPage } from "../pages/referee/SubmitResultsPage";
 import { IncidentReportsPage } from "../pages/referee/IncidentReportsPage";
 import { RefereeOfficiatePage } from "../pages/referee/RefereeOfficiatePage";
 import { RefereeResultHistoryPage } from "../pages/referee/RefereeResultHistoryPage";
+import { RefereeDashboardPage } from "../pages/referee/RefereeDashboardPage";
 import { RefereeProfileDashboardPage } from "../pages/referee/RefereeProfileDashboardPage";
 
 function adminRoute(element: ReactNode) {
@@ -102,9 +103,11 @@ export function AppRouter() {
 
 <Route path="referee" element={refereeRoute(<RefereeLayout />)}>
   <Route index element={<Navigate to="/referee/dashboard" replace />} />
-  <Route path="dashboard" element={<RefereeProfileDashboardPage />} />
+  <Route path="dashboard" element={<RefereeDashboardPage />} />
   <Route path="assigned-races" element={<RefereeOverviewPage mode="all" />} />
+  <Route path="race-control" element={<RefereeOverviewPage mode="check" />} />
   <Route path="result-history" element={<RefereeResultHistoryPage />} />
+  <Route path="profile" element={<RefereeProfileDashboardPage />} />
   <Route path="races/:id/check" element={<PreRaceCheckPage />} />
   <Route path="races/:id/results" element={<SubmitResultsPage />} />
   <Route path="races/:id/report" element={<IncidentReportsPage />} />
