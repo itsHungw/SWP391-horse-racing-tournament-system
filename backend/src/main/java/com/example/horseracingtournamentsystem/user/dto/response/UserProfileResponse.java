@@ -14,7 +14,8 @@ public record UserProfileResponse(
         Set<String> roles,
         boolean profileCompleted,
         boolean phoneVerified,
-        boolean ageVerified
+        boolean ageVerified,
+        RefereeProfileInfo refereeProfile
 ) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
@@ -27,7 +28,8 @@ public record UserProfileResponse(
                 user.getActiveRoleNames(),
                 user.isProfileCompleted(),
                 user.isPhoneVerified(),
-                user.isAgeVerified()
+                user.isAgeVerified(),
+                RefereeProfileInfo.from(user.getRefereeProfile())
         );
     }
 }

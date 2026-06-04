@@ -32,6 +32,14 @@ import { JockeySchedulePage } from "../pages/jockey/JockeySchedulePage";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 import { RequireRoleRoute } from "./RequireRoleRoute";
+import { RefereeLayout } from "../layouts/RefereeLayout";
+import { RefereeOverviewPage } from "../pages/referee/RefereeOverviewPage";
+import { PreRaceCheckPage } from "../pages/referee/PreRaceCheckPage";
+import { SubmitResultsPage } from "../pages/referee/SubmitResultsPage";
+import { IncidentReportsPage } from "../pages/referee/IncidentReportsPage";
+import { RefereeOfficiatePage } from "../pages/referee/RefereeOfficiatePage";
+import { RefereeResultHistoryPage } from "../pages/referee/RefereeResultHistoryPage";
+import { RefereeProfileDashboardPage } from "../pages/referee/RefereeProfileDashboardPage";
 
 function adminRoute(element: ReactNode) {
   return <RequireAdminRoute>{element}</RequireAdminRoute>;
@@ -44,6 +52,14 @@ function authRoute(element: ReactNode) {
 function jockeyRoute(element: ReactNode) {
   return (
     <RequireRoleRoute role="JOCKEY" workspaceName="Jockey Workspace">
+      {element}
+    </RequireRoleRoute>
+  );
+}
+
+function refereeRoute(element: ReactNode) {
+  return (
+    <RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
       {element}
     </RequireRoleRoute>
   );
@@ -65,27 +81,35 @@ export function AppRouter() {
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
 
-        <Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
-        <Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
-        <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
-        <Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
-        <Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
-        <Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
-        <Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
-        <Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
-        <Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
-        <Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />
-        <Route path="jockey/championships" element={jockeyRoute(<JockeyChampionshipsPage />)} />
-        <Route path="jockey/contracts" element={jockeyRoute(<JockeyContractsPage />)} />
-        <Route path="jockey/schedule" element={jockeyRoute(<JockeySchedulePage />)} />
-        <Route path="jockey/profile" element={jockeyRoute(<JockeyProfilePage />)} />
-        <Route path="jockey/invitations" element={jockeyRoute(<Navigate to="/jockey/contracts" replace />)} />
-        <Route path="jockey/races" element={jockeyRoute(<Navigate to="/jockey/schedule" replace />)} />
-        <Route path="referee" element={<Navigate to="/referee/dashboard" replace />} />
-        <Route path="referee/dashboard" element={<RoleDashboardPage role="Referee" />} />
-        <Route path="referee/races" element={<RoleDashboardPage role="Referee" />} />
-        <Route path="referee/checks" element={<RoleDashboardPage role="Referee" />} />
-        <Route path="referee/results" element={<RoleDashboardPage role="Referee" />} />
+<Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
+<Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
+
+<Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
+<Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
+<Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
+<Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
+<Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
+<Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
+
+<Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
+<Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />
+<Route path="jockey/championships" element={jockeyRoute(<JockeyChampionshipsPage />)} />
+<Route path="jockey/contracts" element={jockeyRoute(<JockeyContractsPage />)} />
+<Route path="jockey/schedule" element={jockeyRoute(<JockeySchedulePage />)} />
+<Route path="jockey/profile" element={jockeyRoute(<JockeyProfilePage />)} />
+<Route path="jockey/invitations" element={jockeyRoute(<Navigate to="/jockey/contracts" replace />)} />
+<Route path="jockey/races" element={jockeyRoute(<Navigate to="/jockey/schedule" replace />)} />
+
+<Route path="referee" element={refereeRoute(<RefereeLayout />)}>
+  <Route index element={<Navigate to="/referee/dashboard" replace />} />
+  <Route path="dashboard" element={<RefereeProfileDashboardPage />} />
+  <Route path="assigned-races" element={<RefereeOverviewPage mode="all" />} />
+  <Route path="result-history" element={<RefereeResultHistoryPage />} />
+  <Route path="races/:id/check" element={<PreRaceCheckPage />} />
+  <Route path="races/:id/results" element={<SubmitResultsPage />} />
+  <Route path="races/:id/report" element={<IncidentReportsPage />} />
+  <Route path="races/:id/officiate" element={<RefereeOfficiatePage />} />
+</Route>
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />

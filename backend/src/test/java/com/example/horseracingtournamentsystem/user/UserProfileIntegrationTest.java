@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.entity.RefereeProfile;
+import com.example.horseracingtournamentsystem.user.entity.RefereeProfileStatus;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.RoleRequestRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
@@ -155,5 +157,34 @@ class UserProfileIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidRequest))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void refereeUserCanGetProfileWithRefereeInfo() throws Exception {
+        Role refereeRole = roleRepository.save(Role.of("REFEREE", "Referee"));
+        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(user, refereeRole, user));
+        
+        RefereeProfile refProfile = RefereeProfile.create(
+            user,
+            "REF-2026-X89",
+            "FEI Certified Steward",
+            8,
+            "Steward bio details",
+            RefereeProfileStatus.ACTIVE
+        );
+        ReflectionTestUtils.setField(user, "refereeProfile", refProfile);
+        userRepository.save(user);
+
+        String refToken = jwtService.generateToken(user.getEmail(), Set.of("REFEREE"));
+
+        mockMvc.perform(get("/api/v1/users/me/profile")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + refToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.fullName").value("Minh Quan"))
+                .andExpect(jsonPath("$.refereeProfile").exists())
+                .andExpect(jsonPath("$.refereeProfile.licenseNumber").value("REF-2026-X89"))
+                .andExpect(jsonPath("$.refereeProfile.certification").value("FEI Certified Steward"))
+                .andExpect(jsonPath("$.refereeProfile.experienceYears").value(8))
+                .andExpect(jsonPath("$.refereeProfile.status").value("ACTIVE"));
     }
 }
