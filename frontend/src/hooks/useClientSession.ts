@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { logoutRemote } from "../api/authApi";
-import { AUTH_SESSION_CHANGED_EVENT, clearClientSession } from "../utils/authSession";
+import { AUTH_SESSION_CHANGED_EVENT, clearClientSession, getClientSession, setClientSession } from "../utils/authSession";
 import { getRolesFromAccessToken } from "../utils/authRoles";
+import axios from "axios";
 
 type ClientSession = {
   accessToken: string;
@@ -11,7 +12,8 @@ type ClientSession = {
 };
 
 function readClientSession(): ClientSession | null {
-  const accessToken = localStorage.getItem("accessToken");
+  const session = getClientSession();
+  const accessToken = session.accessToken;
 
   if (!accessToken) {
     return null;
@@ -19,14 +21,45 @@ function readClientSession(): ClientSession | null {
 
   return {
     accessToken,
-    email: localStorage.getItem("email"),
-    fullName: localStorage.getItem("fullName"),
+    email: session.email,
+    fullName: session.fullName,
     roles: getRolesFromAccessToken(accessToken),
   };
 }
 
 export function useClientSession() {
   const [session, setSession] = useState<ClientSession | null>(() => readClientSession());
+  const [isInitializing, setIsInitializing] = useState(() => !readClientSession() && import.meta.env.MODE !== "test");
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!session && isInitializing) {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+      axios
+        .post(
+          `${apiBaseUrl.replace(/\/$/, "")}/auth/refresh`,
+          undefined,
+          { withCredentials: true }
+        )
+        .then((res) => {
+          if (!mounted) return;
+          setClientSession(res.data.accessToken, res.data.fullName, res.data.email);
+          setSession(readClientSession());
+          setIsInitializing(false);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setIsInitializing(false);
+        });
+    } else {
+      setIsInitializing(false);
+    }
+
+    return () => {
+      mounted = false;
+    };
+  }, [session, isInitializing]);
 
   useEffect(() => {
     const syncSession = () => {
@@ -52,5 +85,6 @@ export function useClientSession() {
     isAuthenticated: Boolean(session?.accessToken),
     logout,
     session,
+    isInitializing,
   };
 }
