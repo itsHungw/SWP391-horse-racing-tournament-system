@@ -11,6 +11,10 @@ import com.example.horseracingtournamentsystem.championship.entity.TournamentPar
 import com.example.horseracingtournamentsystem.championship.repository.JockeyInvitationRepository;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
+import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
@@ -39,6 +43,8 @@ public class JockeyInvitationContractService {
     private final TournamentRegistrationRepository registrationRepository;
     private final JockeyTournamentApplicationRepository applicationRepository;
     private final TournamentParticipantRepository participantRepository;
+    private final RaceRepository raceRepository;
+    private final RaceParticipantRepository raceParticipantRepository;
     private final UserRepository userRepository;
 
     @Transactional
@@ -127,11 +133,12 @@ public class JockeyInvitationContractService {
                     || participantRepository.existsByTournament_IdAndJockey_Id(tournamentId, jockeyId)) {
                 continue;
             }
-            participantRepository.save(TournamentParticipant.active(
+            TournamentParticipant participant = participantRepository.save(TournamentParticipant.active(
                     contract.getTournamentRegistration(),
                     contract.getJockey(),
                     contract.getId()
             ));
+            syncParticipantToExistingRounds(participant, contract);
             createdParticipants++;
         }
         return new LockParticipantsResponse(championshipId, createdParticipants);
@@ -141,6 +148,16 @@ public class JockeyInvitationContractService {
     public List<TournamentParticipantResponse> listParticipants(Long championshipId) {
         ensureTournamentExists(championshipId);
         return participantRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId)
+                .stream()
+                .map(this::mapParticipantToResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentParticipantResponse> listJockeyParticipants(String jockeyEmail) {
+        User jockey = getUserWithRoles(jockeyEmail);
+        requireRole(jockey, "JOCKEY", "Only approved jockeys can view official participants");
+        return participantRepository.findAllByJockey_EmailOrderByCreatedAtDesc(jockeyEmail)
                 .stream()
                 .map(this::mapParticipantToResponse)
                 .toList();
@@ -232,6 +249,18 @@ public class JockeyInvitationContractService {
     private User getUserWithRoles(String email) {
         return userRepository.findWithUserRolesByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+    }
+
+    private void syncParticipantToExistingRounds(TournamentParticipant participant, JockeyInvitation contract) {
+        List<Race> races = raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(
+                participant.getTournament().getId()
+        );
+        for (Race race : races) {
+            if (raceParticipantRepository.existsByRace_IdAndHorse_Id(race.getId(), participant.getHorse().getId())) {
+                continue;
+            }
+            raceParticipantRepository.save(RaceParticipant.registered(race, participant, contract));
+        }
     }
 
     private void requireRole(User user, String role, String message) {

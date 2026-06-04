@@ -202,6 +202,12 @@ class TournamentIntegrationTest {
         // Transition to ONGOING
         mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "PARTICIPANTS_LOCKED"))
+                .andExpect(status().isOk());
+
+        // Transition to ONGOING
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .param("status", "ONGOING"))
                 .andExpect(status().isOk());
 
@@ -285,16 +291,27 @@ class TournamentIntegrationTest {
         t1.openRegistration();
         t1 = tournamentRepository.save(t1);
 
-        // 2. CLOSED_REGISTRATION past startDate -> ONGOING
+        // 2. CLOSED_REGISTRATION past startDate stays closed until participants are locked
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t2 = 
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
                 "Derby 2", "DB_2", "Desc", "Loc", 
                 LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
                 LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
                 20, adminUser
-            );
+        );
         t2.closeRegistration();
         t2 = tournamentRepository.save(t2);
+
+        // 3. PARTICIPANTS_LOCKED past startDate -> ONGOING
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t3 =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 3", "DB_3", "Desc", "Loc",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
+                20, adminUser
+            );
+        t3.lockParticipants();
+        t3 = tournamentRepository.save(t3);
 
         // Run scheduler
         tournamentScheduler.checkTournamentStatusTransitions();
@@ -304,8 +321,11 @@ class TournamentIntegrationTest {
             tournamentRepository.findById(t1.getId()).orElseThrow();
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT2 = 
             tournamentRepository.findById(t2.getId()).orElseThrow();
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT3 =
+            tournamentRepository.findById(t3.getId()).orElseThrow();
 
         org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT3.getStatus());
     }
 }

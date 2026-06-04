@@ -12,6 +12,8 @@ import com.example.horseracingtournamentsystem.championship.repository.JockeyTou
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -63,6 +65,9 @@ class JockeyInvitationContractIntegrationTest {
     private HorseRepository horseRepository;
 
     @Autowired
+    private RaceRepository raceRepository;
+
+    @Autowired
     private TournamentRepository tournamentRepository;
 
     @Autowired
@@ -81,6 +86,7 @@ class JockeyInvitationContractIntegrationTest {
     private User owner;
     private User jockey;
     private Tournament tournament;
+    private Race openingRound;
     private Horse horse;
     private TournamentRegistration approvedRegistration;
     private TournamentRegistration pendingRegistration;
@@ -93,6 +99,7 @@ class JockeyInvitationContractIntegrationTest {
         jockeyApplicationRepository.deleteAll();
         registrationRepository.deleteAll();
         horseRepository.deleteAll();
+        raceRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -124,6 +131,16 @@ class JockeyInvitationContractIntegrationTest {
         );
         tournament.openRegistration();
         tournament = tournamentRepository.save(tournament);
+
+        openingRound = raceRepository.save(Race.create(
+                tournament,
+                "Round 1 - Opening Sprint",
+                "SPRING_R1",
+                LocalDateTime.now().plusDays(12),
+                1600,
+                20,
+                admin
+        ));
 
         horse = horseRepository.save(Horse.create(
                 owner,
@@ -252,6 +269,58 @@ class JockeyInvitationContractIntegrationTest {
                 .andExpect(jsonPath("$[0].jockeyName").value("Nguyen Van A"))
                 .andExpect(jsonPath("$[0].status").value("ACTIVE"))
                 .andExpect(jsonPath("$[0].points").value(0));
+    }
+
+    @Test
+    void jockeyListsOnlyOwnOfficialParticipantsAfterAdminLock() throws Exception {
+        long contractId = createContract();
+        mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/jockey/participants")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/jockey/participants")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].championshipId").value(tournament.getId()))
+                .andExpect(jsonPath("$[0].championshipName").value("Spring Cup 2026"))
+                .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"))
+                .andExpect(jsonPath("$[0].ownerName").value("Sunrise Stable"))
+                .andExpect(jsonPath("$[0].jockeyName").value("Nguyen Van A"))
+                .andExpect(jsonPath("$[0].status").value("ACTIVE"))
+                .andExpect(jsonPath("$[0].points").value(0));
+    }
+
+    @Test
+    void adminListsRoundParticipantsProjectedFromOfficialTournamentParticipants() throws Exception {
+        long contractId = createContract();
+        mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/admin/races/{id}/participants", openingRound.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].raceId").value(openingRound.getId()))
+                .andExpect(jsonPath("$[0].championshipId").value(tournament.getId()))
+                .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"))
+                .andExpect(jsonPath("$[0].ownerName").value("Sunrise Stable"))
+                .andExpect(jsonPath("$[0].jockeyName").value("Nguyen Van A"))
+                .andExpect(jsonPath("$[0].status").value("REGISTERED"))
+                .andExpect(jsonPath("$[0].confirmationStatus").value("PENDING"))
+                .andExpect(jsonPath("$[0].checkStatus").value("NOT_CHECKED"));
     }
 
     private long createContract() throws Exception {

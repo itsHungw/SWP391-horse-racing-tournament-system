@@ -40,7 +40,7 @@ public class TournamentService {
         Tournament tournament = Tournament.create(
                 req.getName(), req.getCode(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses(), creator
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(), creator
         );
 
         tournamentRepository.save(tournament);
@@ -68,7 +68,7 @@ public class TournamentService {
         tournament.update(
                 req.getName(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses()
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner()
         );
 
         tournamentRepository.save(tournament);
@@ -118,6 +118,9 @@ public class TournamentService {
             case "CLOSED_REGISTRATION":
                 tournament.closeRegistration();
                 break;
+            case "PARTICIPANTS_LOCKED":
+                tournament.lockParticipants();
+                break;
             case "ONGOING":
                 tournament.startOngoing();
                 break;
@@ -145,6 +148,7 @@ public class TournamentService {
                 .registrationStartAt(t.getRegistrationStartAt())
                 .registrationEndAt(t.getRegistrationEndAt())
                 .maxHorses(t.getMaxHorses())
+                .maxHorsesPerOwner(t.getMaxHorsesPerOwner())
                 .status(t.getStatus())
                 .creatorName(t.getCreatedBy().getFullName())
                 .createdAt(t.getCreatedAt())

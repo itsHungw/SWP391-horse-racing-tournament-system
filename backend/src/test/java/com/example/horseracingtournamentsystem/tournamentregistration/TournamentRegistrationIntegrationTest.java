@@ -215,6 +215,33 @@ class TournamentRegistrationIntegrationTest {
     }
 
     @Test
+    void ownerCannotExceedTournamentHorseLimitPerOwner() throws Exception {
+        Horse secondHorse = createApprovedOwnerHorse("Second Horse", "H_SECOND");
+        Horse thirdHorse = createApprovedOwnerHorse("Third Horse", "H_THIRD");
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().plusDays(1));
+        addRequiredMedicalDocuments(secondHorse, openTournament.getEndDate().plusDays(1));
+        addRequiredMedicalDocuments(thirdHorse, openTournament.getEndDate().plusDays(1));
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(secondHorse)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(thirdHorse)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Owner horse registration limit reached for this tournament"));
+    }
+
+    @Test
     void ownerCanWithdrawPendingRegistration() throws Exception {
         long registrationId = createPendingRegistration();
 
@@ -378,6 +405,18 @@ class TournamentRegistrationIntegrationTest {
                 "Saigon Equine Clinic",
                 "/uploads/horses/documents/health.pdf",
                 null
+        ));
+    }
+
+    private Horse createApprovedOwnerHorse(String name, String registrationCode) {
+        return horseRepository.save(Horse.create(
+                ownerUser,
+                name,
+                registrationCode,
+                "Thoroughbred",
+                "MALE",
+                LocalDate.of(2020, 1, 1),
+                "Bay"
         ));
     }
 

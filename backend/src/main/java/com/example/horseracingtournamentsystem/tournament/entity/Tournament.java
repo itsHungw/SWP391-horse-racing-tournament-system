@@ -44,6 +44,9 @@ public class Tournament {
     @Column(name = "max_horses")
     private Integer maxHorses;
 
+    @Column(name = "max_horses_per_owner", nullable = false)
+    private Integer maxHorsesPerOwner;
+
     @Column(name = "status", nullable = false, length = 40)
     private String status;
 
@@ -73,9 +76,20 @@ public class Tournament {
         tournament.registrationStartAt = regStart;
         tournament.registrationEndAt = regEnd;
         tournament.maxHorses = maxHorses;
+        tournament.maxHorsesPerOwner = 2;
         tournament.status = "DRAFT";
         tournament.createdBy = creator;
         tournament.createdAt = LocalDateTime.now();
+        return tournament;
+    }
+
+    public static Tournament create(String name, String code, String description, String location,
+                                    LocalDate startDate, LocalDate endDate, LocalDateTime regStart,
+                                    LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner,
+                                    User creator) {
+        Tournament tournament = create(
+                name, code, description, location, startDate, endDate, regStart, regEnd, maxHorses, creator);
+        tournament.maxHorsesPerOwner = maxHorsesPerOwner == null ? 2 : maxHorsesPerOwner;
         return tournament;
     }
 
@@ -92,6 +106,12 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void update(String name, String description, String location, LocalDate startDate, LocalDate endDate,
+                       LocalDateTime regStart, LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner) {
+        update(name, description, location, startDate, endDate, regStart, regEnd, maxHorses);
+        this.maxHorsesPerOwner = maxHorsesPerOwner == null ? 2 : maxHorsesPerOwner;
+    }
+
     public void postpone() {
         this.status = "POSTPONED";
         this.updatedAt = LocalDateTime.now();
@@ -104,6 +124,11 @@ public class Tournament {
 
     public void closeRegistration() {
         this.status = "CLOSED_REGISTRATION";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void lockParticipants() {
+        this.status = "PARTICIPANTS_LOCKED";
         this.updatedAt = LocalDateTime.now();
     }
 

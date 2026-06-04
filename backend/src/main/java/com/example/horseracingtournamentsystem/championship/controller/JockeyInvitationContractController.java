@@ -47,6 +47,11 @@ public class JockeyInvitationContractController {
         return contractService.listJockeyContracts(authentication.getName());
     }
 
+    @GetMapping("/api/v1/jockey/participants")
+    public List<TournamentParticipantResponse> listJockeyParticipants(Authentication authentication) {
+        return contractService.listJockeyParticipants(authentication.getName());
+    }
+
     @PostMapping("/api/v1/jockey/contracts/{contractId}/accept")
     public JockeyInvitationResponse acceptContract(
             @PathVariable Long contractId,
