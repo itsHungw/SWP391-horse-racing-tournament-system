@@ -44,7 +44,7 @@ app:
     email-otp-ttl-minutes: 10
     password-reset-token-ttl-minutes: 30
     refresh-cookie-name: refresh_token
-    refresh-cookie-secure: false
+    refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:false}
     refresh-cookie-same-site: Lax
   frontend-base-url: ${APP_FRONTEND_BASE_URL:http://localhost:5173}
   mail:

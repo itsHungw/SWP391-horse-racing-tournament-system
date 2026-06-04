@@ -12,6 +12,7 @@ import {
   validatePasswordStrength,
   validateVietnamesePhone,
 } from "../../utils/validation";
+import { setClientSession } from "../../utils/authSession";
 
 type AuthMode = "login" | "register";
 
@@ -107,9 +108,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       setError(null);
       setLoading(true);
       const response = await login({ email: loginEmail, password: loginPassword });
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("fullName", response.fullName);
-      localStorage.setItem("email", response.email);
+      setClientSession(response.accessToken, response.fullName, response.email);
       const roles = getRolesFromAccessToken(response.accessToken);
       if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
