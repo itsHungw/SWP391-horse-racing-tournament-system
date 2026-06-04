@@ -4,7 +4,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import { getTournamentDetail, updateTournamentStatus } from "../../api/adminTournamentApi";
-import { getAdminJockeyPoolApplications, getAdminTournamentRegistrations } from "../../api/racingApi";
+import {
+  getAdminChampionshipParticipants,
+  getAdminJockeyPoolApplications,
+  getAdminTournamentRegistrations,
+  lockAdminChampionshipParticipants,
+} from "../../api/racingApi";
 import { AdminTournamentDetailPage } from "./AdminTournamentDetailPage";
 
 vi.mock("../../api/adminTournamentApi", () => ({
@@ -23,8 +28,10 @@ vi.mock("../../api/adminRaceApi", () => ({
 vi.mock("../../api/racingApi", () => ({
   approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
+  getAdminChampionshipParticipants: vi.fn(),
   getAdminJockeyPoolApplications: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
+  lockAdminChampionshipParticipants: vi.fn(),
   rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
 }));
@@ -42,6 +49,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       registrationStartAt: "2026-05-01T09:00",
       registrationEndAt: "2026-05-25T18:00",
       maxHorses: 20,
+      maxHorsesPerOwner: 2,
       status: "ONGOING",
     });
     vi.mocked(getAdminRaces).mockResolvedValue([
@@ -136,7 +144,29 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
         status: "APPROVED_FOR_POOL",
       },
     ]);
+    vi.mocked(getAdminChampionshipParticipants).mockResolvedValue([
+      {
+        id: 51,
+        championshipId: 7,
+        championshipName: "Summer Championship 2026",
+        horseRegistrationId: 11,
+        horseId: 8,
+        horseName: "Thunder Bolt",
+        ownerId: 5,
+        ownerName: "Sunrise Stable",
+        jockeyId: 14,
+        jockeyName: "Nguyen Van A",
+        jockeyInvitationId: 61,
+        status: "ACTIVE",
+        points: 0,
+        createdAt: "2026-06-04T03:00:00",
+      },
+    ]);
     vi.mocked(updateTournamentStatus).mockResolvedValue(undefined);
+    vi.mocked(lockAdminChampionshipParticipants).mockResolvedValue({
+      championshipId: 7,
+      createdParticipants: 1,
+    });
   });
 
   function renderPage() {
@@ -221,6 +251,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       registrationStartAt: "2026-05-01T09:00",
       registrationEndAt: "2026-05-25T18:00",
       maxHorses: 20,
+      maxHorsesPerOwner: 2,
       status: "OPEN_REGISTRATION",
     });
 
@@ -242,6 +273,34 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(await screen.findByText("Nguyen Van A")).toBeInTheDocument();
     expect(screen.getByText(/available for the full championship/i)).toBeInTheDocument();
     expect(screen.getByText("Tran Minh K")).toBeInTheDocument();
+  });
+
+  it("locks participants before allowing championship racing", async () => {
+    vi.mocked(getTournamentDetail).mockResolvedValueOnce({
+      id: 7,
+      name: "Summer Championship 2026",
+      code: "SUMMER_2026",
+      location: "Belmont Park",
+      startDate: "2026-06-01",
+      endDate: "2026-08-20",
+      registrationStartAt: "2026-05-01T09:00",
+      registrationEndAt: "2026-05-25T18:00",
+      maxHorses: 20,
+      maxHorsesPerOwner: 2,
+      status: "CLOSED_REGISTRATION",
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/lock participants/i).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
+
+    await waitFor(() => {
+      expect(lockAdminChampionshipParticipants).toHaveBeenCalledWith(7);
+    });
+    expect(updateTournamentStatus).not.toHaveBeenCalledWith(7, "PARTICIPANTS_LOCKED");
   });
 
   it("creates a championship round from the rounds tab", async () => {
@@ -286,5 +345,22 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
       expect(screen.queryByRole("dialog", { name: /create championship round/i })).not.toBeInTheDocument();
     });
     expect(getAdminRaces).toHaveBeenCalledWith({ tournamentId: 7 });
+  });
+
+  it("loads official participants from the championship participant source of truth", async () => {
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^participants$/i }));
+
+    expect(await screen.findByRole("heading", { name: /championship participants/i })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getAdminChampionshipParticipants).toHaveBeenCalledWith(7);
+    });
+    expect(screen.getByText("Thunder Bolt")).toBeInTheDocument();
+    expect(screen.getByText("Nguyen Van A")).toBeInTheDocument();
+    expect(screen.getByText("Sunrise Stable")).toBeInTheDocument();
+    expect(screen.getByText("0 pts")).toBeInTheDocument();
   });
 });

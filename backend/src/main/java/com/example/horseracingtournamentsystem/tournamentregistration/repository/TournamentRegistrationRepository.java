@@ -48,4 +48,6 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             List<String> statuses);
 
     long countByTournament_IdAndStatus(Long tournamentId, String status);
+
+    long countByTournament_IdAndOwner_IdAndStatusIn(Long tournamentId, Long ownerId, List<String> statuses);
 }

@@ -22,10 +22,10 @@ import org.springframework.web.server.ResponseStatusException;
 public class AdminChampionshipWorkspaceService {
 
     private static final Set<String> REGISTRATION_CLOSED_STATUSES = Set.of(
-            "CLOSED_REGISTRATION", "PARTICIPANTS_LOCKED", "ONGOING", "COMPLETED"
+            "CLOSED_REGISTRATION", "PARTICIPANTS_LOCKED", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
     );
     private static final Set<String> OFFICIAL_SCHEDULE_STATUSES = Set.of(
-            "PARTICIPANTS_LOCKED", "ONGOING", "COMPLETED"
+            "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
     );
 
     private final TournamentRepository tournamentRepository;
@@ -116,7 +116,8 @@ public class AdminChampionshipWorkspaceService {
             case "CLOSED_REGISTRATION" -> pendingRegistrations > 0 || pendingJockeyApplications > 0
                     ? action("REVIEW_REMAINING_APPLICATIONS", "Review Remaining Applications", "APPLICATIONS", null)
                     : action("LOCK_PARTICIPANTS", "Lock Participants", "PARTICIPANTS", null);
-            case "PARTICIPANTS_LOCKED" -> action("START_RACING", "Start Racing", "CONTROLS", null);
+            case "PARTICIPANTS_LOCKED" -> action("PUBLISH_SCHEDULE", "Publish Schedule", "CONTROLS", null);
+            case "SCHEDULE_PUBLISHED" -> nextRoundAction(currentRound);
             case "ONGOING" -> nextRoundAction(currentRound);
             case "COMPLETED" -> action("REVIEW_STANDINGS", "Review Standings", "STANDINGS", null);
             default -> action("REVIEW_CHAMPIONSHIP", "Review Championship", "OVERVIEW", null);
@@ -154,6 +155,7 @@ public class AdminChampionshipWorkspaceService {
             case "OPEN_REGISTRATION" -> "Registration Open";
             case "CLOSED_REGISTRATION" -> "Registration Closed";
             case "PARTICIPANTS_LOCKED" -> "Participants Locked";
+            case "SCHEDULE_PUBLISHED" -> "Schedule Published";
             case "ONGOING" -> "Racing";
             case "COMPLETED" -> "Completed";
             case "POSTPONED" -> "Postponed";

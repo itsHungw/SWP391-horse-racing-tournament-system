@@ -87,6 +87,7 @@ export type Tournament = {
   registrationStartAt?: string;
   registrationEndAt?: string;
   maxHorses?: number;
+  maxHorsesPerOwner?: number;
   status: string;
 };
 
@@ -183,6 +184,7 @@ export type JockeyChampionship = {
   registrationStartAt?: string;
   registrationEndAt?: string;
   maxHorses?: number;
+  maxHorsesPerOwner?: number;
   status: string;
   applicationStatus: JockeyChampionshipApplicationStatus;
   applicationId?: number;
@@ -193,6 +195,85 @@ export type JockeyChampionship = {
   approvedPoolCount: number;
   applicationWindowOpen: boolean;
   canApply: boolean;
+};
+
+export type JockeyInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+
+export type JockeyInvitation = {
+  id: number;
+  championshipId: number;
+  championshipName: string;
+  horseRegistrationId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId: number;
+  jockeyName: string;
+  jockeyApplicationId: number;
+  message?: string;
+  agreementUrl?: string;
+  agreementFileName?: string;
+  status: JockeyInvitationStatus;
+  readAt?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OwnerContractPayload = {
+  horseRegistrationId: number;
+  jockeyApplicationId: number;
+  message?: string;
+  agreementUrl?: string;
+  agreementFileName?: string;
+};
+
+export type LockParticipantsResponse = {
+  championshipId: number;
+  createdParticipants: number;
+};
+
+export type TournamentParticipant = {
+  id: number;
+  championshipId: number;
+  championshipName: string;
+  horseRegistrationId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId: number;
+  jockeyName: string;
+  jockeyInvitationId?: number;
+  status: "ACTIVE" | "WITHDRAWN" | "DISQUALIFIED" | string;
+  points: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type JockeyScheduleItem = {
+  raceParticipantId: number;
+  raceId: number;
+  raceName: string;
+  raceCode?: string;
+  raceAt: string;
+  distanceMeters: number;
+  raceStatus: RaceStatus | string;
+  championshipId: number;
+  championshipName: string;
+  championshipStatus: string;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  startNumber?: number;
+  laneNumber?: number;
+  confirmationStatus: string;
+  checkStatus: string;
+  participantStatus: string;
 };
 
 export type PageResponse<T> = {

@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.race.controller;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
 import jakarta.validation.Valid;
@@ -42,6 +43,11 @@ public class AdminRaceController {
     @GetMapping("/{id}")
     public RaceResponse getDetail(@PathVariable Long id) {
         return raceService.getRaceDetail(id);
+    }
+
+    @GetMapping("/{id}/participants")
+    public List<RaceParticipantResponse> listParticipants(@PathVariable Long id) {
+        return raceService.getRaceParticipants(id);
     }
 
     @PutMapping("/{id}/status")

@@ -24,6 +24,7 @@ describe("AdminTournamentListPage", () => {
         registrationStartAt: "2026-05-01T09:00",
         registrationEndAt: "2026-05-25T18:00",
         maxHorses: 24,
+        maxHorsesPerOwner: 2,
         status: "OPEN_REGISTRATION",
       },
     ]);
@@ -39,6 +40,7 @@ describe("AdminTournamentListPage", () => {
     expect(await screen.findByRole("heading", { name: /championships/i })).toBeInTheDocument();
     expect(screen.getByText("Spring Cup 2026")).toBeInTheDocument();
     expect(screen.getByText(/current phase/i)).toBeInTheDocument();
+    expect(screen.getByText(/owner quota/i)).toBeInTheDocument();
     expect(screen.getByText(/next action/i)).toBeInTheDocument();
     expect(screen.getByText(/close registration/i)).toBeInTheDocument();
     expect(screen.getAllByText(/^Registration$/i).length).toBeGreaterThan(0);

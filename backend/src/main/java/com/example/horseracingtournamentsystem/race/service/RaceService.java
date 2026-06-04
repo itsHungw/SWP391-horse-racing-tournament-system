@@ -1,8 +1,12 @@
 package com.example.horseracingtournamentsystem.race.service;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
+import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -24,6 +28,7 @@ import java.util.stream.Collectors;
 public class RaceService {
 
     private final RaceRepository raceRepository;
+    private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
 
@@ -36,6 +41,12 @@ public class RaceService {
             "RESULT_SUBMITTED", Set.of("RESULT_CONFIRMED"),
             "RESULT_CONFIRMED", Set.of("PUBLISHED"),
             "PUBLISHED", Set.of()
+    );
+
+    private static final List<String> VISIBLE_JOCKEY_SCHEDULE_STATUSES = List.of(
+            "SCHEDULE_PUBLISHED",
+            "ONGOING",
+            "COMPLETED"
     );
 
     @Transactional
@@ -136,6 +147,31 @@ public class RaceService {
                 .collect(Collectors.toList());
     }
 
+    public List<RaceParticipantResponse> getRaceParticipants(Long raceId) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+                .stream()
+                .map(this::mapParticipantToResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<JockeyScheduleItemResponse> getJockeySchedule(String jockeyEmail) {
+        User jockey = userRepository.findWithUserRolesByEmail(jockeyEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!jockey.getActiveRoleNames().contains("JOCKEY")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only approved jockeys can view race schedule");
+        }
+        return raceParticipantRepository
+                .findAllByJockey_EmailAndRace_Tournament_StatusInOrderByRace_RaceAtAsc(
+                        jockeyEmail,
+                        VISIBLE_JOCKEY_SCHEDULE_STATUSES
+                )
+                .stream()
+                .map(this::mapToJockeyScheduleItem)
+                .collect(Collectors.toList());
+    }
+
     private RaceResponse mapToResponse(Race r) {
         return RaceResponse.builder()
                 .id(r.getId())
@@ -150,6 +186,56 @@ public class RaceService {
                 .creatorName(r.getCreatedBy().getFullName())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
+                .build();
+    }
+
+    private RaceParticipantResponse mapParticipantToResponse(RaceParticipant participant) {
+        Race race = participant.getRace();
+        return RaceParticipantResponse.builder()
+                .id(participant.getId())
+                .raceId(race.getId())
+                .raceName(race.getName())
+                .championshipId(race.getTournament().getId())
+                .championshipName(race.getTournament().getName())
+                .invitationId(participant.getInvitation() == null ? null : participant.getInvitation().getId())
+                .horseId(participant.getHorse().getId())
+                .horseName(participant.getHorse().getName())
+                .ownerId(participant.getOwner().getId())
+                .ownerName(participant.getOwner().getFullName())
+                .jockeyId(participant.getJockey() == null ? null : participant.getJockey().getId())
+                .jockeyName(participant.getJockey() == null ? null : participant.getJockey().getFullName())
+                .startNumber(participant.getStartNumber())
+                .laneNumber(participant.getLaneNumber())
+                .confirmationStatus(participant.getConfirmationStatus())
+                .checkStatus(participant.getCheckStatus())
+                .status(participant.getStatus())
+                .createdAt(participant.getCreatedAt())
+                .updatedAt(participant.getUpdatedAt())
+                .build();
+    }
+
+    private JockeyScheduleItemResponse mapToJockeyScheduleItem(RaceParticipant participant) {
+        Race race = participant.getRace();
+        return JockeyScheduleItemResponse.builder()
+                .raceParticipantId(participant.getId())
+                .raceId(race.getId())
+                .raceName(race.getName())
+                .raceCode(race.getCode())
+                .raceAt(race.getRaceAt())
+                .distanceMeters(race.getDistanceMeter())
+                .raceStatus(race.getStatus())
+                .championshipId(race.getTournament().getId())
+                .championshipName(race.getTournament().getName())
+                .championshipStatus(race.getTournament().getStatus())
+                .horseId(participant.getHorse().getId())
+                .horseName(participant.getHorse().getName())
+                .ownerId(participant.getOwner().getId())
+                .ownerName(participant.getOwner().getFullName())
+                .startNumber(participant.getStartNumber())
+                .laneNumber(participant.getLaneNumber())
+                .confirmationStatus(participant.getConfirmationStatus())
+                .checkStatus(participant.getCheckStatus())
+                .participantStatus(participant.getStatus())
                 .build();
     }
 }

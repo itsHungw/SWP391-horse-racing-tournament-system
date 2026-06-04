@@ -9,7 +9,7 @@ import {
 } from "../../api/adminTournamentApi";
 import type { Tournament } from "../../types/racing";
 
-const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Racing", "Completed"];
+const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Schedule", "Racing", "Completed"];
 
 function getChampionshipPhase(status: string) {
   switch (status) {
@@ -19,10 +19,14 @@ function getChampionshipPhase(status: string) {
       return { label: "Registration", index: 0 };
     case "CLOSED_REGISTRATION":
       return { label: "Pool Formation", index: 1 };
+    case "PARTICIPANTS_LOCKED":
+      return { label: "Assignment", index: 2 };
+    case "SCHEDULE_PUBLISHED":
+      return { label: "Schedule", index: 3 };
     case "ONGOING":
-      return { label: "Racing", index: 3 };
+      return { label: "Racing", index: 4 };
     case "COMPLETED":
-      return { label: "Completed", index: 4 };
+      return { label: "Completed", index: 5 };
     case "POSTPONED":
       return { label: "Paused", index: 0 };
     default:
@@ -42,6 +46,10 @@ function getStatusBadgeClass(status: string) {
       return "border-orange-200 bg-orange-50 text-orange-800";
     case "CLOSED_REGISTRATION":
       return "border-amber-200 bg-amber-50 text-amber-800";
+    case "PARTICIPANTS_LOCKED":
+      return "border-[#b3193a]/25 bg-[#b3193a]/5 text-[#b3193a]";
+    case "SCHEDULE_PUBLISHED":
+      return "border-sky-200 bg-sky-50 text-sky-800";
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
   }
@@ -55,6 +63,10 @@ function getChampionshipNextAction(status: string) {
       return "Close Registration";
     case "CLOSED_REGISTRATION":
       return "Lock Participants";
+    case "PARTICIPANTS_LOCKED":
+      return "Publish Schedule";
+    case "SCHEDULE_PUBLISHED":
+      return "Start Championship";
     case "ONGOING":
       return "Continue Round Control";
     case "COMPLETED":
@@ -76,6 +88,7 @@ const emptyForm: CreateTournamentPayload = {
   registrationStartAt: "",
   registrationEndAt: "",
   maxHorses: undefined,
+  maxHorsesPerOwner: 2,
 };
 
 export function AdminTournamentListPage() {
@@ -130,6 +143,7 @@ export function AdminTournamentListPage() {
       await createTournament({
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
+        maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
       });
       setShowCreateModal(false);
       setForm(emptyForm);
@@ -220,6 +234,8 @@ export function AdminTournamentListPage() {
               <option value="DRAFT">Draft</option>
               <option value="OPEN_REGISTRATION">Open Registration</option>
               <option value="CLOSED_REGISTRATION">Closed Registration</option>
+              <option value="PARTICIPANTS_LOCKED">Participants Locked</option>
+              <option value="SCHEDULE_PUBLISHED">Schedule Published</option>
               <option value="ONGOING">Ongoing</option>
               <option value="COMPLETED">Completed</option>
               <option value="POSTPONED">Postponed</option>
@@ -266,10 +282,14 @@ export function AdminTournamentListPage() {
                       </Link>
                     </div>
 
-                    <div className="mt-5 grid gap-3 sm:grid-cols-4">
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                       <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Horse cap</p>
                         <p className="mt-1 text-lg font-black text-slate-950">{t.maxHorses || "Unlimited"}</p>
+                      </div>
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Owner quota</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{t.maxHorsesPerOwner ?? 2}</p>
                       </div>
                       <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
                         <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Current phase</p>
@@ -431,6 +451,27 @@ export function AdminTournamentListPage() {
                       }
                       className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Max Horses Per Owner
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.maxHorsesPerOwner || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          maxHorsesPerOwner: e.target.value ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      Default is 2 active horse registrations per owner.
+                    </p>
                   </div>
 
                   <div className="sm:col-span-2">
