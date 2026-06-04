@@ -254,6 +254,28 @@ export type TournamentParticipant = {
   updatedAt?: string;
 };
 
+export type JockeyScheduleItem = {
+  raceParticipantId: number;
+  raceId: number;
+  raceName: string;
+  raceCode?: string;
+  raceAt: string;
+  distanceMeters: number;
+  raceStatus: RaceStatus | string;
+  championshipId: number;
+  championshipName: string;
+  championshipStatus: string;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  startNumber?: number;
+  laneNumber?: number;
+  confirmationStatus: string;
+  checkStatus: string;
+  participantStatus: string;
+};
+
 export type PageResponse<T> = {
   content: T[];
   number: number;

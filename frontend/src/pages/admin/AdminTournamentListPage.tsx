@@ -9,7 +9,7 @@ import {
 } from "../../api/adminTournamentApi";
 import type { Tournament } from "../../types/racing";
 
-const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Racing", "Completed"];
+const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Schedule", "Racing", "Completed"];
 
 function getChampionshipPhase(status: string) {
   switch (status) {
@@ -21,10 +21,12 @@ function getChampionshipPhase(status: string) {
       return { label: "Pool Formation", index: 1 };
     case "PARTICIPANTS_LOCKED":
       return { label: "Assignment", index: 2 };
+    case "SCHEDULE_PUBLISHED":
+      return { label: "Schedule", index: 3 };
     case "ONGOING":
-      return { label: "Racing", index: 3 };
+      return { label: "Racing", index: 4 };
     case "COMPLETED":
-      return { label: "Completed", index: 4 };
+      return { label: "Completed", index: 5 };
     case "POSTPONED":
       return { label: "Paused", index: 0 };
     default:
@@ -46,6 +48,8 @@ function getStatusBadgeClass(status: string) {
       return "border-amber-200 bg-amber-50 text-amber-800";
     case "PARTICIPANTS_LOCKED":
       return "border-[#b3193a]/25 bg-[#b3193a]/5 text-[#b3193a]";
+    case "SCHEDULE_PUBLISHED":
+      return "border-sky-200 bg-sky-50 text-sky-800";
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
   }
@@ -60,6 +64,8 @@ function getChampionshipNextAction(status: string) {
     case "CLOSED_REGISTRATION":
       return "Lock Participants";
     case "PARTICIPANTS_LOCKED":
+      return "Publish Schedule";
+    case "SCHEDULE_PUBLISHED":
       return "Start Championship";
     case "ONGOING":
       return "Continue Round Control";
@@ -229,6 +235,7 @@ export function AdminTournamentListPage() {
               <option value="OPEN_REGISTRATION">Open Registration</option>
               <option value="CLOSED_REGISTRATION">Closed Registration</option>
               <option value="PARTICIPANTS_LOCKED">Participants Locked</option>
+              <option value="SCHEDULE_PUBLISHED">Schedule Published</option>
               <option value="ONGOING">Ongoing</option>
               <option value="COMPLETED">Completed</option>
               <option value="POSTPONED">Postponed</option>

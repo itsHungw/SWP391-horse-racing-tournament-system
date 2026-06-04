@@ -147,7 +147,9 @@ function getChampionshipPhase(status: string) {
     case "CLOSED_REGISTRATION":
       return "Pool Formation";
     case "PARTICIPANTS_LOCKED":
-      return "Assignment";
+      return "Schedule Publication";
+    case "SCHEDULE_PUBLISHED":
+      return "Published Schedule";
     case "ONGOING":
       return "Racing";
     case "COMPLETED":
@@ -171,6 +173,8 @@ function getBadgeStyle(status: string) {
       return "border-amber-200 bg-amber-100 text-amber-800";
     case "PARTICIPANTS_LOCKED":
       return "border-[#b3193a]/25 bg-[#b3193a]/10 text-[#b3193a]";
+    case "SCHEDULE_PUBLISHED":
+      return "border-sky-200 bg-sky-100 text-sky-800";
     default:
       return "border-slate-200 bg-slate-100 text-slate-800";
   }
@@ -195,7 +199,9 @@ function getChampionshipNextActionLabel(tournament: Tournament, race: Race | nul
     case "CLOSED_REGISTRATION":
       return "Lock Participants";
     case "PARTICIPANTS_LOCKED":
-      return "Start Championship";
+      return "Publish Schedule";
+    case "SCHEDULE_PUBLISHED":
+      return "Open Round Control Center";
     case "COMPLETED":
       return "Review Standings";
     default:
@@ -638,6 +644,8 @@ export function AdminTournamentDetailPage() {
       ? "Ready to lock"
       : tournament.status === "PARTICIPANTS_LOCKED"
         ? "Locked"
+      : tournament.status === "SCHEDULE_PUBLISHED"
+        ? "Schedule published"
       : `${participants.length} / ${participantCapacity || "Unset"}`;
   const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool, ${tournament.maxHorsesPerOwner ?? 2} horses per owner`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
@@ -663,6 +671,11 @@ export function AdminTournamentDetailPage() {
 
     if (tournament.status === "COMPLETED") {
       setActiveTab("standings");
+      return;
+    }
+
+    if (tournament.status === "PARTICIPANTS_LOCKED") {
+      setShowStatusModal({ show: true, targetStatus: "SCHEDULE_PUBLISHED" });
       return;
     }
 
@@ -723,6 +736,23 @@ export function AdminTournamentDetailPage() {
       )}
 
       {tournament.status === "PARTICIPANTS_LOCKED" && (
+        <>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "SCHEDULE_PUBLISHED" })}
+            className="rounded-md bg-sky-600 px-4 py-2 text-xs font-bold text-white hover:bg-sky-700"
+          >
+            Publish Schedule
+          </button>
+          <button
+            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+          >
+            Postpone
+          </button>
+        </>
+      )}
+
+      {tournament.status === "SCHEDULE_PUBLISHED" && (
         <>
           <button
             onClick={() => setShowStatusModal({ show: true, targetStatus: "ONGOING" })}
