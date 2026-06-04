@@ -117,7 +117,7 @@ public class JockeyInvitationContractService {
 
     @Transactional
     public LockParticipantsResponse lockParticipants(Long championshipId) {
-        ensureTournamentExists(championshipId);
+        Tournament tournament = ensureTournamentExists(championshipId);
         int createdParticipants = 0;
         List<JockeyInvitation> acceptedContracts = invitationRepository
                 .findAllByTournament_IdAndStatusOrderByAcceptedAtAsc(
@@ -141,6 +141,7 @@ public class JockeyInvitationContractService {
             syncParticipantToExistingRounds(participant, contract);
             createdParticipants++;
         }
+        tournament.lockParticipants();
         return new LockParticipantsResponse(championshipId, createdParticipants);
     }
 

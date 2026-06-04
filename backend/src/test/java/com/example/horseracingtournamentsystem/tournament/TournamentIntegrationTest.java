@@ -302,7 +302,7 @@ class TournamentIntegrationTest {
         t2.closeRegistration();
         t2 = tournamentRepository.save(t2);
 
-        // 3. PARTICIPANTS_LOCKED past startDate -> ONGOING
+        // 3. PARTICIPANTS_LOCKED past startDate stays locked until schedule is published
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t3 =
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
                 "Derby 3", "DB_3", "Desc", "Loc",
@@ -312,6 +312,18 @@ class TournamentIntegrationTest {
             );
         t3.lockParticipants();
         t3 = tournamentRepository.save(t3);
+
+        // 4. SCHEDULE_PUBLISHED past startDate -> ONGOING
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t4 =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 4", "DB_4", "Desc", "Loc",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
+                20, adminUser
+            );
+        t4.lockParticipants();
+        t4.publishSchedule();
+        t4 = tournamentRepository.save(t4);
 
         // Run scheduler
         tournamentScheduler.checkTournamentStatusTransitions();
@@ -323,9 +335,12 @@ class TournamentIntegrationTest {
             tournamentRepository.findById(t2.getId()).orElseThrow();
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT3 =
             tournamentRepository.findById(t3.getId()).orElseThrow();
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT4 =
+            tournamentRepository.findById(t4.getId()).orElseThrow();
 
         org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
         org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT2.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT3.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("PARTICIPANTS_LOCKED", updatedT3.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT4.getStatus());
     }
 }

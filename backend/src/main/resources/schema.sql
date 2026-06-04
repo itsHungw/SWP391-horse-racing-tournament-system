@@ -885,6 +885,7 @@ BEGIN
             N'OPEN_REGISTRATION',
             N'CLOSED_REGISTRATION',
             N'PARTICIPANTS_LOCKED',
+            N'SCHEDULE_PUBLISHED',
             N'ONGOING',
             N'COMPLETED',
             N'POSTPONED'
@@ -942,6 +943,36 @@ ALTER TABLE dbo.tournaments
                        N'OPEN_REGISTRATION',
                        N'CLOSED_REGISTRATION',
                        N'PARTICIPANTS_LOCKED',
+                       N'SCHEDULE_PUBLISHED',
+                       N'ONGOING',
+                       N'COMPLETED',
+                       N'POSTPONED',
+                       N'CANCELLED'
+                )
+            );
+GO
+
+IF EXISTS (
+    SELECT 1
+    FROM sys.check_constraints
+    WHERE name = N'chk_tournaments_status'
+      AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+)
+    BEGIN
+        ALTER TABLE dbo.tournaments
+            DROP CONSTRAINT chk_tournaments_status;
+    END;
+GO
+
+ALTER TABLE dbo.tournaments
+    ADD CONSTRAINT chk_tournaments_status
+        CHECK (
+            status IN (
+                       N'DRAFT',
+                       N'OPEN_REGISTRATION',
+                       N'CLOSED_REGISTRATION',
+                       N'PARTICIPANTS_LOCKED',
+                       N'SCHEDULE_PUBLISHED',
                        N'ONGOING',
                        N'COMPLETED',
                        N'POSTPONED',

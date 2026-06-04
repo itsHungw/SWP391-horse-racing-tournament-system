@@ -132,6 +132,11 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void publishSchedule() {
+        this.status = "SCHEDULE_PUBLISHED";
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void startOngoing() {
         this.status = "ONGOING";
         this.updatedAt = LocalDateTime.now();

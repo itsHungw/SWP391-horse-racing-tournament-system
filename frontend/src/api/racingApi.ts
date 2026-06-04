@@ -9,6 +9,7 @@ import type {
   JockeyInvitation,
   JockeyPoolApplication,
   JockeyPoolApplicationStatus,
+  JockeyScheduleItem,
   LockParticipantsResponse,
   OwnerContractPayload,
   PageResponse,
@@ -244,6 +245,11 @@ export async function getJockeyContracts(): Promise<JockeyInvitation[]> {
 
 export async function getJockeyParticipants(): Promise<TournamentParticipant[]> {
   const response = await httpClient.get<TournamentParticipant[]>("/jockey/participants");
+  return response.data;
+}
+
+export async function getJockeySchedule(): Promise<JockeyScheduleItem[]> {
+  const response = await httpClient.get<JockeyScheduleItem[]>("/jockey/schedule");
   return response.data;
 }
 

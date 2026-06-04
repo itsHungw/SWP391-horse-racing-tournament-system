@@ -314,6 +314,7 @@ CREATE TABLE tournaments (
             'OPEN_REGISTRATION',
             'CLOSED_REGISTRATION',
             'PARTICIPANTS_LOCKED',
+            'SCHEDULE_PUBLISHED',
             'ONGOING',
             'COMPLETED',
             'POSTPONED'

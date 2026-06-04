@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.championship;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -321,6 +322,41 @@ class JockeyInvitationContractIntegrationTest {
                 .andExpect(jsonPath("$[0].status").value("REGISTERED"))
                 .andExpect(jsonPath("$[0].confirmationStatus").value("PENDING"))
                 .andExpect(jsonPath("$[0].checkStatus").value("NOT_CHECKED"));
+    }
+
+    @Test
+    void jockeyScheduleUnlocksOnlyAfterAdminPublishesSchedule() throws Exception {
+        long contractId = createContract();
+        mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/jockey/schedule")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/{id}/status", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "SCHEDULE_PUBLISHED"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/jockey/schedule")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].raceId").value(openingRound.getId()))
+                .andExpect(jsonPath("$[0].raceName").value("Round 1 - Opening Sprint"))
+                .andExpect(jsonPath("$[0].raceAt").exists())
+                .andExpect(jsonPath("$[0].distanceMeters").value(1600))
+                .andExpect(jsonPath("$[0].raceStatus").value("SCHEDULED"))
+                .andExpect(jsonPath("$[0].championshipStatus").value("SCHEDULE_PUBLISHED"))
+                .andExpect(jsonPath("$[0].horseName").value("Thunder Bolt"))
+                .andExpect(jsonPath("$[0].ownerName").value("Sunrise Stable"))
+                .andExpect(jsonPath("$[0].participantStatus").value("REGISTERED"));
     }
 
     private long createContract() throws Exception {

@@ -101,7 +101,7 @@ public class TournamentService {
 
     public List<TournamentResponse> getPublicTournaments() {
         return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "ONGOING", "COMPLETED")
+                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED")
         ).stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -120,6 +120,15 @@ public class TournamentService {
                 break;
             case "PARTICIPANTS_LOCKED":
                 tournament.lockParticipants();
+                break;
+            case "SCHEDULE_PUBLISHED":
+                if (!"PARTICIPANTS_LOCKED".equals(tournament.getStatus())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Schedule can only be published after participants are locked"
+                    );
+                }
+                tournament.publishSchedule();
                 break;
             case "ONGOING":
                 tournament.startOngoing();

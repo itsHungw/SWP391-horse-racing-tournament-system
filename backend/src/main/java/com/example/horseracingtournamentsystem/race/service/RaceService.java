@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.race.service;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
+import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.entity.Race;
@@ -40,6 +41,12 @@ public class RaceService {
             "RESULT_SUBMITTED", Set.of("RESULT_CONFIRMED"),
             "RESULT_CONFIRMED", Set.of("PUBLISHED"),
             "PUBLISHED", Set.of()
+    );
+
+    private static final List<String> VISIBLE_JOCKEY_SCHEDULE_STATUSES = List.of(
+            "SCHEDULE_PUBLISHED",
+            "ONGOING",
+            "COMPLETED"
     );
 
     @Transactional
@@ -149,6 +156,22 @@ public class RaceService {
                 .collect(Collectors.toList());
     }
 
+    public List<JockeyScheduleItemResponse> getJockeySchedule(String jockeyEmail) {
+        User jockey = userRepository.findWithUserRolesByEmail(jockeyEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        if (!jockey.getActiveRoleNames().contains("JOCKEY")) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only approved jockeys can view race schedule");
+        }
+        return raceParticipantRepository
+                .findAllByJockey_EmailAndRace_Tournament_StatusInOrderByRace_RaceAtAsc(
+                        jockeyEmail,
+                        VISIBLE_JOCKEY_SCHEDULE_STATUSES
+                )
+                .stream()
+                .map(this::mapToJockeyScheduleItem)
+                .collect(Collectors.toList());
+    }
+
     private RaceResponse mapToResponse(Race r) {
         return RaceResponse.builder()
                 .id(r.getId())
@@ -188,6 +211,31 @@ public class RaceService {
                 .status(participant.getStatus())
                 .createdAt(participant.getCreatedAt())
                 .updatedAt(participant.getUpdatedAt())
+                .build();
+    }
+
+    private JockeyScheduleItemResponse mapToJockeyScheduleItem(RaceParticipant participant) {
+        Race race = participant.getRace();
+        return JockeyScheduleItemResponse.builder()
+                .raceParticipantId(participant.getId())
+                .raceId(race.getId())
+                .raceName(race.getName())
+                .raceCode(race.getCode())
+                .raceAt(race.getRaceAt())
+                .distanceMeters(race.getDistanceMeter())
+                .raceStatus(race.getStatus())
+                .championshipId(race.getTournament().getId())
+                .championshipName(race.getTournament().getName())
+                .championshipStatus(race.getTournament().getStatus())
+                .horseId(participant.getHorse().getId())
+                .horseName(participant.getHorse().getName())
+                .ownerId(participant.getOwner().getId())
+                .ownerName(participant.getOwner().getFullName())
+                .startNumber(participant.getStartNumber())
+                .laneNumber(participant.getLaneNumber())
+                .confirmationStatus(participant.getConfirmationStatus())
+                .checkStatus(participant.getCheckStatus())
+                .participantStatus(participant.getStatus())
                 .build();
     }
 }
