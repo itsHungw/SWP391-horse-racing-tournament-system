@@ -91,8 +91,22 @@ function filterMatches(championship: JockeyChampionship, filter: OpenFilter) {
   return championship.applicationStatus === "NOT_APPLIED" || championship.canApply;
 }
 
-function progressIndex(state: CurrentState) {
-  if (state.kind === "participant") return 4;
+function isFinalChampionshipStatus(status?: string) {
+  return status === "COMPLETED" || status === "CANCELLED";
+}
+
+function isRacingChampionshipStatus(status?: string) {
+  return status === "SCHEDULE_PUBLISHED" || status === "ONGOING";
+}
+
+function championshipStatus(championships: JockeyChampionship[], championshipId: number) {
+  return championships.find((championship) => championship.id === championshipId)?.status;
+}
+
+function progressIndex(state: CurrentState, championships: JockeyChampionship[]) {
+  if (state.kind === "participant") {
+    return isRacingChampionshipStatus(championshipStatus(championships, state.participant.championshipId)) ? 5 : 4;
+  }
   if (state.kind === "contract") return 3;
   if (state.kind === "application" && state.championship.applicationStatus === "APPROVED_FOR_POOL") return 2;
   if (state.kind === "application" && state.championship.applicationStatus === "PENDING") return 1;
@@ -110,16 +124,24 @@ function pickCurrentState(
   contracts: JockeyInvitation[],
   championships: JockeyChampionship[],
 ): CurrentState {
-  const participant = participants.find((item) => item.status === "ACTIVE") ?? participants[0];
+  const participant =
+    participants.find(
+      (item) => item.status === "ACTIVE" && !isFinalChampionshipStatus(championshipStatus(championships, item.championshipId)),
+    ) ?? null;
   if (participant) return { kind: "participant", participant };
 
-  const acceptedContract = contracts.find((contract) => contract.status === "ACCEPTED");
+  const acceptedContract = contracts.find(
+    (contract) =>
+      contract.status === "ACCEPTED" &&
+      !isFinalChampionshipStatus(championshipStatus(championships, contract.championshipId)),
+  );
   if (acceptedContract) return { kind: "contract", contract: acceptedContract };
 
+  const activeChampionships = championships.filter((item) => !isFinalChampionshipStatus(item.status));
   const championship =
-    championships.find((item) => item.applicationStatus === "APPROVED_FOR_POOL") ??
-    championships.find((item) => item.applicationStatus === "PENDING") ??
-    championships.find((item) => item.applicationStatus === "REJECTED") ??
+    activeChampionships.find((item) => item.applicationStatus === "APPROVED_FOR_POOL") ??
+    activeChampionships.find((item) => item.applicationStatus === "PENDING") ??
+    activeChampionships.find((item) => item.applicationStatus === "REJECTED") ??
     null;
 
   if (championship) return { kind: "application", championship };
@@ -221,8 +243,15 @@ export function JockeyChampionshipsPage() {
 
   const currentState = pickCurrentState(participants, contracts, championships);
   const currentApplication = currentState.kind === "application" ? currentState.championship : null;
-  const activeProgressIndex = progressIndex(currentState);
+  const activeProgressIndex = progressIndex(currentState, championships);
   const badge = currentBadge(currentState);
+  const completedParticipants = useMemo(
+    () =>
+      participants.filter((participant) =>
+        isFinalChampionshipStatus(championshipStatus(championships, participant.championshipId)),
+      ),
+    [championships, participants],
+  );
 
   const visibleChampionships = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -614,7 +643,7 @@ export function JockeyChampionshipsPage() {
               </section>
             )}
 
-            {activeTab === "history" && <HistorySection />}
+            {activeTab === "history" && <HistorySection participants={completedParticipants} />}
           </>
         )}
 
@@ -744,7 +773,43 @@ function InfoBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-function HistorySection() {
+function HistorySection({ participants }: { participants: TournamentParticipant[] }) {
+  if (participants.length > 0) {
+    return (
+      <section aria-label="Championship history" className="space-y-5">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Championship Archive</p>
+          <h2 className="mt-2 text-2xl font-black text-slate-950">Completed Assignments</h2>
+          <p className="mt-1 text-sm font-bold text-slate-500">
+            Finished championships move here so the Current tab stays focused on active work.
+          </p>
+        </div>
+
+        <div className="grid gap-4">
+          {participants.map((participant) => (
+            <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={participant.id}>
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-black uppercase tracking-[0.12em] text-[#006d5b]">
+                    Completed
+                  </span>
+                  <h3 className="mt-3 text-2xl font-black text-slate-950">{participant.championshipName}</h3>
+                  <p className="mt-1 text-sm font-bold text-slate-500">
+                    {participant.horseName} with {participant.ownerName}
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 md:min-w-72">
+                  <InfoBlock label="Career Points" value={`${participant.points}`} />
+                  <InfoBlock label="Assignment" value={participant.status.replaceAll("_", " ")} />
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Championship history" className="space-y-5">
       <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">

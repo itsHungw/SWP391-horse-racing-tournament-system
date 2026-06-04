@@ -109,6 +109,7 @@ export function JockeySchedulePage() {
   const [schedule, setSchedule] = useState<JockeyScheduleItem[]>([]);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
   const [contracts, setContracts] = useState<JockeyInvitation[]>([]);
+  const [selectedChampionshipId, setSelectedChampionshipId] = useState("all");
   const [selectedRace, setSelectedRace] = useState<JockeyScheduleItem | null>(null);
   const [visibleMonth, setVisibleMonth] = useState(() => new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -131,7 +132,11 @@ export function JockeySchedulePage() {
           setParticipants(participantData);
           setContracts(contractData);
           if (scheduleData[0]) {
-            setVisibleMonth(parseDate(scheduleData[0].raceAt));
+            const nextPublishedRace =
+              scheduleData.find((item) => !["FINISHED", "PUBLISHED", "CANCELLED"].includes(item.raceStatus)) ??
+              scheduleData[0];
+            setSelectedChampionshipId(String(nextPublishedRace.championshipId));
+            setVisibleMonth(parseDate(nextPublishedRace.raceAt));
           }
         }
       } catch (err) {
@@ -152,14 +157,33 @@ export function JockeySchedulePage() {
     };
   }, []);
 
-  const completedItems = schedule.filter((item) => ["FINISHED", "PUBLISHED"].includes(item.raceStatus));
-  const nextRace = schedule.find((item) => !["FINISHED", "PUBLISHED", "CANCELLED"].includes(item.raceStatus));
+  const championshipOptions = useMemo(() => {
+    const options = new Map<number, { id: number; name: string; count: number }>();
+    for (const item of schedule) {
+      const current = options.get(item.championshipId);
+      options.set(item.championshipId, {
+        id: item.championshipId,
+        name: item.championshipName,
+        count: (current?.count ?? 0) + 1,
+      });
+    }
+    return [...options.values()];
+  }, [schedule]);
+  const visibleSchedule = useMemo(
+    () =>
+      selectedChampionshipId === "all"
+        ? schedule
+        : schedule.filter((item) => String(item.championshipId) === selectedChampionshipId),
+    [schedule, selectedChampionshipId],
+  );
+  const completedItems = visibleSchedule.filter((item) => ["FINISHED", "PUBLISHED"].includes(item.raceStatus));
+  const nextRace = visibleSchedule.find((item) => !["FINISHED", "PUBLISHED", "CANCELLED"].includes(item.raceStatus));
   const hasAcceptedContract = contracts.some((contract) => contract.status === "ACCEPTED");
-  const championshipGroups = useMemo(() => groupByChampionship(schedule), [schedule]);
+  const championshipGroups = useMemo(() => groupByChampionship(visibleSchedule), [visibleSchedule]);
   const cells = useMemo(() => monthCells(visibleMonth), [visibleMonth]);
   const monthItems = useMemo(
-    () => schedule.filter((item) => sameMonth(parseDate(item.raceAt), visibleMonth)),
-    [schedule, visibleMonth],
+    () => visibleSchedule.filter((item) => sameMonth(parseDate(item.raceAt), visibleMonth)),
+    [visibleSchedule, visibleMonth],
   );
 
   const emptyState = (() => {
@@ -195,6 +219,35 @@ export function JockeySchedulePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Schedule view">
+            {championshipOptions.length > 1 && (
+              <label className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm font-black text-slate-600">
+                <span className="sr-only">Select championship schedule</span>
+                <Flag className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
+                <select
+                  aria-label="Select championship schedule"
+                  className="bg-transparent text-sm font-black text-slate-700 outline-none"
+                  onChange={(event) => {
+                    const nextValue = event.target.value;
+                    setSelectedChampionshipId(nextValue);
+                    const firstItem =
+                      nextValue === "all"
+                        ? schedule[0]
+                        : schedule.find((item) => String(item.championshipId) === nextValue);
+                    if (firstItem) {
+                      setVisibleMonth(parseDate(firstItem.raceAt));
+                    }
+                  }}
+                  value={selectedChampionshipId}
+                >
+                  <option value="all">All Championships</option>
+                  {championshipOptions.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.name} ({option.count})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {viewOptions.map((item) => (
               <button
                 aria-pressed={view === item.id}
@@ -258,7 +311,7 @@ export function JockeySchedulePage() {
               </article>
               <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Official Rounds</p>
-                <p className="mt-2 text-4xl font-black text-slate-950">{schedule.length}</p>
+                <p className="mt-2 text-4xl font-black text-slate-950">{visibleSchedule.length}</p>
                 <p className="mt-2 text-sm font-bold text-slate-500">Generated from race participants</p>
               </article>
             </section>
@@ -418,7 +471,7 @@ export function JockeySchedulePage() {
 
             {view === "list" && (
               <section className="space-y-3" aria-label="Schedule list">
-                {schedule.map((item) => (
+                {visibleSchedule.map((item) => (
                   <button
                     className="flex w-full flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#006d5b]/40 md:flex-row md:items-center md:justify-between"
                     key={item.raceParticipantId}

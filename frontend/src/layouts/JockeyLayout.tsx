@@ -8,6 +8,7 @@ import { useClientSession } from "../hooks/useClientSession";
 
 type JockeyLayoutProps = {
   children: ReactNode;
+  sidebarPanel?: ReactNode;
 };
 
 const jockeyNavItems = [
@@ -18,7 +19,7 @@ const jockeyNavItems = [
   { label: "Racing Passport", href: "/jockey/profile", icon: UserRound },
 ];
 
-export function JockeyLayout({ children }: JockeyLayoutProps) {
+export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
   const navigate = useNavigate();
   const { logout, session } = useClientSession();
   const displayName = session?.fullName || "Jockey";
@@ -124,25 +125,27 @@ export function JockeyLayout({ children }: JockeyLayoutProps) {
               ))}
             </nav>
 
-            <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Pool workflow">
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Pool Workflow</p>
-                <Trophy className="h-4 w-4 text-emerald-100" aria-hidden="true" />
-              </div>
-              <ol className="mt-4 grid gap-3 text-sm">
-                {["Apply to pool", "Admin review", "Owner contract", "Participant lock"].map((step, index) => (
-                  <li className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-b-0 last:pb-0" key={step}>
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-emerald-100">
-                      {index < 2 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
-                    </span>
-                    <span className="font-black leading-5 text-emerald-50">{step}</span>
-                  </li>
-                ))}
-              </ol>
-              <p className="mt-4 text-xs font-bold leading-5 text-emerald-100/80">
-                Horse, rank, and points appear after an official participant and standings exist.
-              </p>
-            </section>
+            {sidebarPanel ?? (
+              <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Pool workflow">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Pool Workflow</p>
+                  <Trophy className="h-4 w-4 text-emerald-100" aria-hidden="true" />
+                </div>
+                <ol className="mt-4 grid gap-3 text-sm">
+                  {["Apply to pool", "Admin review", "Owner contract", "Participant lock"].map((step, index) => (
+                    <li className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-b-0 last:pb-0" key={step}>
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-emerald-100">
+                        {index < 2 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                      </span>
+                      <span className="font-black leading-5 text-emerald-50">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-4 text-xs font-bold leading-5 text-emerald-100/80">
+                  Horse, rank, and points appear after an official participant and standings exist.
+                </p>
+              </section>
+            )}
           </div>
         </aside>
 

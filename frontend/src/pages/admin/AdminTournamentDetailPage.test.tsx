@@ -300,9 +300,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     await waitFor(() => {
       expect(lockAdminChampionshipParticipants).toHaveBeenCalledWith(7);
     });
-    await waitFor(() => {
-      expect(updateTournamentStatus).toHaveBeenCalledWith(7, "PARTICIPANTS_LOCKED");
-    });
+    expect(updateTournamentStatus).not.toHaveBeenCalledWith(7, "PARTICIPANTS_LOCKED");
   });
 
   it("creates a championship round from the rounds tab", async () => {

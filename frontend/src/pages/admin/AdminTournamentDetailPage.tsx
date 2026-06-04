@@ -578,9 +578,6 @@ export function AdminTournamentDetailPage() {
       setErrorMsg("");
       setSuccessMsg("");
       const response = await lockAdminChampionshipParticipants(tournamentId);
-      if (response.createdParticipants > 0 || participants.length > 0) {
-        await updateTournamentStatus(tournamentId, "PARTICIPANTS_LOCKED");
-      }
       setSuccessMsg(
         response.createdParticipants > 0
           ? `${response.createdParticipants} participant pair${response.createdParticipants === 1 ? "" : "s"} locked from accepted contracts.`

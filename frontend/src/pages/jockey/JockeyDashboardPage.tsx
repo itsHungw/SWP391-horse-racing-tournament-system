@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
-  CheckCircle2,
   Clock3,
   FileCheck2,
   Loader2,
@@ -14,6 +13,7 @@ import {
   getJockeyContracts,
   getJockeyParticipants,
   getJockeyPoolApplications,
+  getJockeySchedule,
 } from "../../api/racingApi";
 import racingImage from "../../assets/slide.jpg";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -22,6 +22,7 @@ import type {
   JockeyChampionship,
   JockeyInvitation,
   JockeyPoolApplication,
+  JockeyScheduleItem,
   TournamentParticipant,
 } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
@@ -51,12 +52,8 @@ type DashboardState =
       kind: "empty";
     };
 
-const journeySteps = [
-  "Pool Application",
-  "Contract Accepted",
-  "Participant Locked",
-  "Racing Data",
-];
+const visibleDate = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" });
+const visibleTime = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" });
 
 function pickDashboardState(
   participants: TournamentParticipant[],
@@ -81,18 +78,29 @@ function pickDashboardState(
   return { kind: "empty" };
 }
 
-function stateCopy(state: DashboardState) {
+function stateCopy(state: DashboardState, nextRace: JockeyScheduleItem | null) {
   switch (state.kind) {
     case "official":
+      if (nextRace) {
+        return {
+          eyebrow: "Next Race",
+          title: nextRace.raceName,
+          subtitle: `${visibleDate.format(new Date(nextRace.raceAt))} at ${visibleTime.format(new Date(nextRace.raceAt))}`,
+          description: `${nextRace.horseName} is assigned for ${nextRace.championshipName}. Open the schedule for the full race card and race-day details.`,
+          badge: "Official Schedule",
+          ctaLabel: "View Schedule",
+          ctaHref: "/jockey/schedule",
+        };
+      }
       return {
         eyebrow: "Official Championship Assignment",
         title: state.participant.championshipName,
         subtitle: `${state.participant.horseName} with ${state.participant.ownerName}`,
         description:
-          "Admin has locked this horse and jockey pair. Race operations and standings can now use this official participant.",
+          "Your Horse + Jockey pair is locked. Waiting for admin to publish the official race schedule.",
         badge: "Official Participant",
-        ctaLabel: "Open Championships",
-        ctaHref: "/jockey/championships",
+        ctaLabel: "Open Schedule",
+        ctaHref: "/jockey/schedule",
       };
     case "committed":
       return {
@@ -152,15 +160,6 @@ function stateCopy(state: DashboardState) {
   }
 }
 
-function activeJourneyIndex(state: DashboardState) {
-  if (state.kind === "official") return 2;
-  if (state.kind === "committed") return 1;
-  if (state.kind === "pending-contract" || state.kind === "approved-pool" || state.kind === "pending-application") {
-    return 0;
-  }
-  return -1;
-}
-
 export function JockeyDashboardPage() {
   useDocumentTitle("Jockey dashboard");
 
@@ -168,6 +167,7 @@ export function JockeyDashboardPage() {
   const [applications, setApplications] = useState<JockeyPoolApplication[]>([]);
   const [contracts, setContracts] = useState<JockeyInvitation[]>([]);
   const [participants, setParticipants] = useState<TournamentParticipant[]>([]);
+  const [schedule, setSchedule] = useState<JockeyScheduleItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -178,17 +178,19 @@ export function JockeyDashboardPage() {
       setIsLoading(true);
       setError("");
       try {
-        const [championshipData, applicationData, contractData, participantData] = await Promise.all([
+        const [championshipData, applicationData, contractData, participantData, scheduleData] = await Promise.all([
           getJockeyChampionships(),
           getJockeyPoolApplications(),
           getJockeyContracts(),
           getJockeyParticipants(),
+          getJockeySchedule(),
         ]);
         if (!ignore) {
           setChampionships(championshipData);
           setApplications(applicationData);
           setContracts(contractData);
           setParticipants(participantData);
+          setSchedule(scheduleData);
         }
       } catch (err) {
         if (!ignore) {
@@ -212,15 +214,27 @@ export function JockeyDashboardPage() {
     () => pickDashboardState(participants, contracts, championships),
     [championships, contracts, participants],
   );
-  const copy = stateCopy(dashboardState);
-  const currentJourneyIndex = activeJourneyIndex(dashboardState);
+  const nextRace =
+    schedule.find((item) => !["FINISHED", "PUBLISHED", "CANCELLED"].includes(item.raceStatus)) ?? null;
+  const upcomingRaces = schedule.filter((item) => !["FINISHED", "PUBLISHED", "CANCELLED"].includes(item.raceStatus)).length;
+  const copy = stateCopy(dashboardState, nextRace);
   const pendingContracts = contracts.filter((contract) => contract.status === "PENDING").length;
-  const acceptedContracts = contracts.filter((contract) => contract.status === "ACCEPTED").length;
   const approvedApplications = applications.filter((application) => application.status === "APPROVED_FOR_POOL").length;
   const pendingApplications = applications.filter((application) => application.status === "PENDING").length;
 
   return (
-    <JockeyLayout>
+    <JockeyLayout
+      sidebarPanel={
+        dashboardState.kind === "official" ? (
+          <OfficialSidebarPanel
+            participant={dashboardState.participant}
+            nextRace={nextRace}
+            upcomingRaces={upcomingRaces}
+            pendingContracts={pendingContracts}
+          />
+        ) : undefined
+      }
+    >
       <section aria-labelledby="jockey-dashboard-title" className="space-y-6">
         {error && (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700" role="alert">
@@ -289,65 +303,58 @@ export function JockeyDashboardPage() {
                   </div>
                 </div>
 
-                <aside aria-label="Assignment state" className="rounded-lg border border-white/15 bg-white/10 p-5">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">Flow State</p>
-                  <div className="mt-5 space-y-3">
-                    {journeySteps.map((step, index) => {
-                      const done = index <= currentJourneyIndex;
-                      const current = index === currentJourneyIndex;
-
-                      return (
-                        <div
-                          className={`flex items-center gap-3 rounded-md border p-3 ${
-                            current
-                              ? "border-emerald-100/70 bg-white/15"
-                              : done
-                                ? "border-white/15 bg-white/10"
-                                : "border-white/10 bg-transparent"
-                          }`}
-                          key={step}
-                        >
-                          <span
-                            className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${
-                              done ? "bg-emerald-100 text-[#004d3d]" : "bg-white/10 text-emerald-50/60"
-                            }`}
-                          >
-                            {done ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
-                          </span>
-                          <div>
-                            <p className="text-sm font-black text-white">{step}</p>
-                            <p className="text-xs font-bold text-emerald-50/70">
-                              {current ? "Current step" : done ? "Completed" : "Waiting"}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                <aside aria-label="Race focus" className="rounded-lg border border-white/15 bg-white/10 p-5">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-100">Race Focus</p>
+                  {nextRace ? (
+                    <div className="mt-5 space-y-4">
+                      <div>
+                        <p className="text-2xl font-black text-white">{nextRace.raceName}</p>
+                        <p className="mt-1 text-sm font-bold text-emerald-50/80">
+                          {visibleDate.format(new Date(nextRace.raceAt))} - {visibleTime.format(new Date(nextRace.raceAt))}
+                        </p>
+                      </div>
+                      <div className="grid gap-2">
+                        <MiniFact label="Horse" value={nextRace.horseName} />
+                        <MiniFact label="Distance" value={`${nextRace.distanceMeters}m`} />
+                        <MiniFact label="Status" value={nextRace.raceStatus.replaceAll("_", " ")} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-md border border-white/15 bg-white/10 p-4">
+                      <p className="text-xl font-black text-white">Schedule not published</p>
+                      <p className="mt-2 text-sm font-bold leading-6 text-emerald-50/80">
+                        Your assignment is official. Race dates appear here after admin publishes the schedule.
+                      </p>
+                    </div>
+                  )}
                 </aside>
               </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Jockey dashboard summary">
-              <SummaryCard icon={Trophy} label="Official Assignments" value={participants.length} />
+              <SummaryCard icon={Trophy} label="Upcoming Races" value={upcomingRaces} />
+              <SummaryCard icon={ShieldCheck} label="Official Assignments" value={participants.length} />
               <SummaryCard icon={FileCheck2} label="Pending Contracts" value={pendingContracts} />
-              <SummaryCard icon={ShieldCheck} label="Accepted Contracts" value={acceptedContracts} />
-              <SummaryCard icon={Clock3} label="Pool Applications" value={approvedApplications + pendingApplications} />
+              <SummaryCard icon={Clock3} label="Championships" value={approvedApplications + pendingApplications + participants.length} />
             </div>
 
             <section className="grid gap-5 xl:grid-cols-[1fr_360px]" aria-label="Operational follow-up">
               <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">What this means</p>
-                <h2 className="mt-2 text-2xl font-black text-slate-950">Contract accepted does not mean official entry</h2>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Race Readiness</p>
+                <h2 className="mt-2 text-2xl font-black text-slate-950">
+                  {nextRace ? "Next race is ready to review" : "Waiting for official schedule"}
+                </h2>
                 <p className="mt-3 text-sm font-bold leading-6 text-slate-600">
-                  The owner contract confirms your intent to ride a horse for a championship. Admin still locks
-                  participants to create the official Horse + Jockey pair. Only then should schedule, round operations,
-                  and standings treat it as racing data.
+                  {nextRace
+                    ? `${nextRace.raceName} is now on your official calendar. Review time, distance, horse, and race-day status before the event.`
+                    : dashboardState.kind === "official"
+                      ? "Your assignment is official. The dashboard will switch to race-day details after admin publishes the schedule."
+                      : "Your next operational item appears here after a contract, participant lock, or published schedule exists."}
                 </p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                  <InfoBlock label="Accepted Contract" value="Commitment" />
-                  <InfoBlock label="Admin Lock" value="Official Pair" />
-                  <InfoBlock label="Standing" value="After Results" />
+                  <InfoBlock label="Assignment" value={dashboardState.kind === "official" ? "Official" : copy.badge} />
+                  <InfoBlock label="Schedule" value={nextRace ? "Published" : "Waiting"} />
+                  <InfoBlock label="Upcoming" value={`${upcomingRaces} races`} />
                 </div>
               </article>
 
@@ -405,6 +412,63 @@ function SummaryCard({
         </span>
       </div>
     </article>
+  );
+}
+
+function MiniFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/10 p-3">
+      <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-100/75">{label}</p>
+      <p className="mt-1 text-sm font-black text-white">{value}</p>
+    </div>
+  );
+}
+
+function OfficialSidebarPanel({
+  participant,
+  nextRace,
+  upcomingRaces,
+  pendingContracts,
+}: {
+  participant: TournamentParticipant;
+  nextRace: JockeyScheduleItem | null;
+  upcomingRaces: number;
+  pendingContracts: number;
+}) {
+  return (
+    <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Current assignment">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Current Assignment</p>
+        <Trophy className="h-4 w-4 text-emerald-100" aria-hidden="true" />
+      </div>
+      <div className="mt-4 rounded-md border border-white/10 bg-white/10 p-3">
+        <p className="text-lg font-black text-white">{participant.horseName}</p>
+        <p className="mt-1 text-sm font-bold text-emerald-100">{participant.championshipName}</p>
+        <p className="mt-1 text-xs font-bold text-emerald-100/75">{participant.ownerName}</p>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <SidebarStat label="Upcoming" value={upcomingRaces} />
+        <SidebarStat label="Points" value={participant.points} />
+        <SidebarStat label="Contracts" value={pendingContracts} />
+        <SidebarStat label="Status" value="Active" />
+      </div>
+      <div className="mt-4 rounded-md border border-white/10 bg-white/5 p-3">
+        <p className="text-[11px] font-black uppercase tracking-[0.12em] text-emerald-100/75">Next Race</p>
+        <p className="mt-1 text-sm font-black text-white">{nextRace?.raceName ?? "Waiting for schedule"}</p>
+        <p className="mt-1 text-xs font-bold text-emerald-100/75">
+          {nextRace ? visibleDate.format(new Date(nextRace.raceAt)) : "Admin has not published the schedule yet"}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function SidebarStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-md border border-white/10 bg-white/10 p-3">
+      <p className="text-[10px] font-black uppercase tracking-[0.12em] text-emerald-100/70">{label}</p>
+      <p className="mt-1 text-lg font-black text-white">{value}</p>
+    </div>
   );
 }
 

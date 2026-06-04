@@ -7,6 +7,7 @@ import {
   getJockeyContracts,
   getJockeyParticipants,
   getJockeyPoolApplications,
+  getJockeySchedule,
 } from "../../api/racingApi";
 import { JockeyDashboardPage } from "./JockeyDashboardPage";
 
@@ -15,6 +16,7 @@ vi.mock("../../api/racingApi", () => ({
   getJockeyContracts: vi.fn(),
   getJockeyParticipants: vi.fn(),
   getJockeyPoolApplications: vi.fn(),
+  getJockeySchedule: vi.fn(),
 }));
 
 const acceptedContract = {
@@ -56,6 +58,7 @@ describe("JockeyDashboardPage", () => {
     vi.mocked(getJockeyPoolApplications).mockResolvedValue([]);
     vi.mocked(getJockeyContracts).mockResolvedValue([]);
     vi.mocked(getJockeyParticipants).mockResolvedValue([]);
+    vi.mocked(getJockeySchedule).mockResolvedValue([]);
   });
 
   it("shows accepted contracts as committed assignments waiting for admin lock", async () => {
@@ -69,7 +72,7 @@ describe("JockeyDashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: /spring cup 2026/i })).toBeInTheDocument();
     expect(screen.getByText(/committed assignment/i)).toBeInTheDocument();
-    expect(screen.getByText(/pending admin lock/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/pending admin lock/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/thunder bolt with sunrise stable/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/admin still needs to lock participants/i)).toBeInTheDocument();
 
