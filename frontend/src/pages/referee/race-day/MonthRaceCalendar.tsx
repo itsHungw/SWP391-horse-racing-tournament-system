@@ -13,6 +13,12 @@ export function MonthRaceCalendar({ races, referenceDate, onRaceSelect }: MonthR
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthName = referenceDate.toLocaleDateString("en-US", { month: "long" });
   const today = new Date();
+  const monthRaces = [...races]
+    .filter((race) => {
+      const scheduledAt = new Date(race.scheduledAt);
+      return scheduledAt.getFullYear() === year && scheduledAt.getMonth() === month;
+    })
+    .sort((left, right) => new Date(left.scheduledAt).getTime() - new Date(right.scheduledAt).getTime());
 
   return (
     <section aria-label="Month calendar" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
@@ -28,7 +34,43 @@ export function MonthRaceCalendar({ races, referenceDate, onRaceSelect }: MonthR
           <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-rose-500" /> Live</span>
         </div>
       </div>
-      <div className="mt-6 grid grid-cols-7 gap-2">
+      <div className="mt-6 space-y-3 md:hidden">
+        {monthRaces.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+            No assigned races are scheduled in this month.
+          </p>
+        ) : (
+          monthRaces.map((race) => {
+            const scheduledAt = new Date(race.scheduledAt);
+            return onRaceSelect ? (
+              <button
+                aria-label={`Open ${race.code} ${race.name}`}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 p-4 text-left transition hover:border-[#007a68] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+                key={race.id}
+                onClick={() => onRaceSelect(race)}
+                type="button"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#007a68]">
+                      {scheduledAt.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "2-digit" })}
+                    </p>
+                    <p className="mt-2 text-base font-black text-slate-950">{race.name}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {scheduledAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} | {race.venue}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 rounded-md border px-2.5 py-1 text-[10px] font-black uppercase ${statusChipClasses(race.status)}`}>
+                    {getRaceStatusMeta(race.status).label}
+                  </span>
+                </div>
+              </button>
+            ) : null;
+          })
+        )}
+      </div>
+
+      <div className="mt-6 hidden grid-cols-7 gap-2 md:grid">
         {Array.from({ length: daysInMonth }, (_, index) => {
           const day = index + 1;
           const isToday =

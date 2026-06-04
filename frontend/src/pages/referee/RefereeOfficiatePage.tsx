@@ -87,7 +87,7 @@ function ActionStep({
           !active && !done ? "bg-slate-100 text-slate-500" : "",
         ].join(" ")}
       >
-        {done ? "✓" : active ? "•" : ""}
+        {done ? "OK" : active ? ">" : ""}
       </span>
       {label}
     </div>
@@ -439,14 +439,14 @@ export function RefereeOfficiatePage() {
         <div className="fixed inset-x-3 bottom-24 z-40 rounded-2xl border border-emerald-900/15 bg-white/95 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.22)] backdrop-blur-md lg:hidden">
           {mobilePrimaryAction.to ? (
             <Link
-              className="inline-flex min-h-13 w-full items-center justify-center rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              className="inline-flex min-h-[52px] w-full items-center justify-center rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
               to={mobilePrimaryAction.to}
             >
               {mobilePrimaryAction.label}
             </Link>
           ) : (
             <button
-              className="min-h-13 w-full rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+              className="min-h-[52px] w-full rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
               disabled={mobilePrimaryAction.disabled}
               onClick={mobilePrimaryAction.onClick}
               type="button"

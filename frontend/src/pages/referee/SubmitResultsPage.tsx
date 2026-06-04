@@ -97,7 +97,7 @@ export function SubmitResultsPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1180px] space-y-5" aria-labelledby="submit-results-title">
+    <section className="mx-auto max-w-[1180px] space-y-5 pb-20 lg:pb-0" aria-labelledby="submit-results-title">
       <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <Link
           className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
@@ -107,7 +107,7 @@ export function SubmitResultsPage() {
           Race control
         </Link>
         <p className="mt-5 text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Result package</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950" id="submit-results-title">
+        <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl" id="submit-results-title">
           Submit race results
         </h1>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
@@ -218,7 +218,7 @@ export function SubmitResultsPage() {
           ) : null}
 
           <button
-            className="mt-5 min-h-12 w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+            className="mt-5 hidden min-h-12 w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] lg:block"
             disabled={submitting}
             onClick={() => void handleSave()}
             type="button"
@@ -226,6 +226,17 @@ export function SubmitResultsPage() {
             {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Confirm result package"}
           </button>
         </aside>
+      </div>
+
+      <div className="fixed inset-x-3 bottom-24 z-40 rounded-2xl border border-emerald-900/15 bg-white/95 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.22)] backdrop-blur-md lg:hidden">
+        <button
+          className="min-h-[52px] w-full rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+          disabled={submitting}
+          onClick={() => void handleSave()}
+          type="button"
+        >
+          {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Confirm result package"}
+        </button>
       </div>
     </section>
   );

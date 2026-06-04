@@ -293,14 +293,14 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.28em] text-[#006f5f]">Referee Credential Center</p>
-          <h1 id="referee-profile-title" className="mt-3 text-4xl font-black tracking-tight text-slate-950">
+          <h1 id="referee-profile-title" className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">
             Professional race official profile
           </h1>
           <p className="mt-3 max-w-3xl text-base font-semibold leading-7 text-slate-600">
             Manage identity, race-day credentials, and assignment readiness for referee operations.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="grid gap-3 sm:flex sm:flex-wrap">
           <a
             href="#edit-referee-profile"
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 text-sm font-black text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"

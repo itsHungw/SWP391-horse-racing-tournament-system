@@ -33,7 +33,7 @@ export function LiveRaceWorkspace({
         <LiveIncidentLog incidents={state.incidents} />
         <section aria-label="Race flag controls" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#007a68]">Race controls</p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
             {state.mode === "FINISHED_DRAFT" ? (
               <button
                 className="min-h-16 w-full rounded-xl bg-emerald-600 px-5 text-base font-black text-white shadow-sm transition hover:bg-emerald-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#06145f]"
