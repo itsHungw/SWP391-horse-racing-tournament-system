@@ -8,6 +8,8 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
 
     List<TournamentParticipant> findAllByTournament_IdOrderByCreatedAtDesc(Long tournamentId);
 
+    List<TournamentParticipant> findAllByJockey_EmailOrderByCreatedAtDesc(String jockeyEmail);
+
     boolean existsByTournament_IdAndHorse_Id(Long tournamentId, Long horseId);
 
     boolean existsByTournament_IdAndJockey_Id(Long tournamentId, Long jockeyId);

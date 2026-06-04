@@ -715,6 +715,103 @@ BEGIN
     ON dbo.tournament_participants(tournament_id, jockey_id)
 END;
 
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.race_participants (
+        id bigint IDENTITY(1,1) NOT NULL CONSTRAINT PK_race_participants PRIMARY KEY,
+        race_id bigint NOT NULL,
+        horse_id bigint NOT NULL,
+        owner_id bigint NOT NULL,
+        jockey_id bigint NULL,
+        invitation_id bigint NULL,
+        start_number int NULL,
+        lane_number int NULL,
+        weight_carried_kg decimal(5,2) NULL,
+        confirmation_status nvarchar(30) NOT NULL CONSTRAINT DF_race_participants_confirmation_status DEFAULT N'PENDING',
+        check_status nvarchar(30) NOT NULL CONSTRAINT DF_race_participants_check_status DEFAULT N'NOT_CHECKED',
+        status nvarchar(30) NOT NULL CONSTRAINT DF_race_participants_status DEFAULT N'REGISTERED',
+        check_note nvarchar(max) NULL,
+        created_at datetime2 NOT NULL CONSTRAINT DF_race_participants_created_at DEFAULT SYSUTCDATETIME(),
+        updated_at datetime2 NULL
+    )
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.races', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_race_participants_race'
+         AND parent_object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    ALTER TABLE dbo.race_participants
+    ADD CONSTRAINT FK_race_participants_race
+    FOREIGN KEY (race_id) REFERENCES dbo.races(id)
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_race_participants_horse'
+         AND parent_object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    ALTER TABLE dbo.race_participants
+    ADD CONSTRAINT FK_race_participants_horse
+    FOREIGN KEY (horse_id) REFERENCES dbo.horses(id)
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_race_participants_owner'
+         AND parent_object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    ALTER TABLE dbo.race_participants
+    ADD CONSTRAINT FK_race_participants_owner
+    FOREIGN KEY (owner_id) REFERENCES dbo.users(id)
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_race_participants_jockey'
+         AND parent_object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    ALTER TABLE dbo.race_participants
+    ADD CONSTRAINT FK_race_participants_jockey
+    FOREIGN KEY (jockey_id) REFERENCES dbo.users(id)
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.jockey_invitations', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.foreign_keys
+       WHERE name = N'FK_race_participants_invitation'
+         AND parent_object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    ALTER TABLE dbo.race_participants
+    ADD CONSTRAINT FK_race_participants_invitation
+    FOREIGN KEY (invitation_id) REFERENCES dbo.jockey_invitations(id)
+END;
+
+IF OBJECT_ID(N'dbo.race_participants', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1 FROM sys.indexes
+       WHERE name = N'UQ_race_participants_race_horse'
+         AND object_id = OBJECT_ID(N'dbo.race_participants')
+   )
+BEGIN
+    CREATE UNIQUE INDEX UQ_race_participants_race_horse
+    ON dbo.race_participants(race_id, horse_id)
+END;
+
 IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NOT NULL
    AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
    AND NOT EXISTS (
@@ -738,3 +835,121 @@ BEGIN
     CREATE UNIQUE INDEX uq_jockey_tournament_applications_tournament_jockey
     ON dbo.jockey_tournament_applications(tournament_id, jockey_id)
 END;
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NULL
+BEGIN
+    ALTER TABLE dbo.tournaments
+    ADD max_horses_per_owner int NOT NULL
+        CONSTRAINT DF_tournaments_max_horses_per_owner DEFAULT 2
+END;
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.check_constraints
+       WHERE name = N'chk_tournaments_max_horses_per_owner'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+   )
+BEGIN
+    ALTER TABLE dbo.tournaments
+    ADD CONSTRAINT chk_tournaments_max_horses_per_owner
+    CHECK (max_horses_per_owner > 0)
+END;
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND EXISTS (
+       SELECT 1
+       FROM sys.check_constraints
+       WHERE name = N'chk_tournaments_status'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+   )
+BEGIN
+    ALTER TABLE dbo.tournaments DROP CONSTRAINT chk_tournaments_status
+END;
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.check_constraints
+       WHERE name = N'chk_tournaments_status'
+         AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+   )
+BEGIN
+    ALTER TABLE dbo.tournaments
+    ADD CONSTRAINT chk_tournaments_status
+    CHECK (
+        status IN (
+            N'DRAFT',
+            N'OPEN_REGISTRATION',
+            N'CLOSED_REGISTRATION',
+            N'PARTICIPANTS_LOCKED',
+            N'ONGOING',
+            N'COMPLETED',
+            N'POSTPONED'
+        )
+    )
+END;
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NULL
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.tournaments
+        ADD max_horses_per_owner INT NOT NULL
+            CONSTRAINT DF_tournaments_max_horses_per_owner DEFAULT 2
+            WITH VALUES
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_tournaments_max_horses_per_owner'
+          AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+    )
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.tournaments
+        ADD CONSTRAINT chk_tournaments_max_horses_per_owner
+        CHECK (max_horses_per_owner > 0)
+    ');
+    END;
+GO
+
+
+IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
+    AND EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_tournaments_status'
+          AND parent_object_id = OBJECT_ID(N'dbo.tournaments')
+    )
+    BEGIN
+        ALTER TABLE dbo.tournaments
+            DROP CONSTRAINT chk_tournaments_status;
+    END;
+GO
+
+ALTER TABLE dbo.tournaments
+    ADD CONSTRAINT chk_tournaments_status
+        CHECK (
+            status IN (
+                       N'DRAFT',
+                       N'OPEN_REGISTRATION',
+                       N'CLOSED_REGISTRATION',
+                       N'PARTICIPANTS_LOCKED',
+                       N'ONGOING',
+                       N'COMPLETED',
+                       N'POSTPONED',
+                       N'CANCELLED'
+                )
+            );
+GO
+
+SELECT definition
+FROM sys.check_constraints
+WHERE name = 'chk_tournaments_status';

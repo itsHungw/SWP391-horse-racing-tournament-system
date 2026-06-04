@@ -292,6 +292,7 @@ CREATE TABLE tournaments (
     registration_start_at DATETIME2 NOT NULL,
     registration_end_at DATETIME2 NOT NULL,
     max_horses INT NULL,
+    max_horses_per_owner INT NOT NULL DEFAULT 2,
     status VARCHAR(40) NOT NULL DEFAULT 'DRAFT',
     banner_url VARCHAR(500) NULL,
     rules NVARCHAR(MAX) NULL,
@@ -306,11 +307,13 @@ CREATE TABLE tournaments (
     CONSTRAINT chk_tournament_dates CHECK (start_date <= end_date),
     CONSTRAINT chk_tournament_reg_dates CHECK (registration_start_at < registration_end_at),
     CONSTRAINT chk_tournaments_max_horses CHECK (max_horses IS NULL OR max_horses > 0),
+    CONSTRAINT chk_tournaments_max_horses_per_owner CHECK (max_horses_per_owner > 0),
     CONSTRAINT chk_tournaments_status CHECK (
         status IN (
             'DRAFT',
             'OPEN_REGISTRATION',
             'CLOSED_REGISTRATION',
+            'PARTICIPANTS_LOCKED',
             'ONGOING',
             'COMPLETED',
             'POSTPONED'

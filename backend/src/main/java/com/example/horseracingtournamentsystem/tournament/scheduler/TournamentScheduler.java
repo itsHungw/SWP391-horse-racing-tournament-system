@@ -26,7 +26,7 @@ public class TournamentScheduler {
         LocalDate today = LocalDate.now();
 
         List<Tournament> activeTournaments = tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "ONGOING")
+                List.of("OPEN_REGISTRATION", "PARTICIPANTS_LOCKED", "ONGOING")
         );
 
         for (Tournament t : activeTournaments) {
@@ -37,11 +37,11 @@ public class TournamentScheduler {
                         tournamentRepository.save(t);
                         log.info("Auto-transitioned Tournament ID {} from OPEN_REGISTRATION to CLOSED_REGISTRATION", t.getId());
                     }
-                } else if ("CLOSED_REGISTRATION".equals(t.getStatus())) {
+                } else if ("PARTICIPANTS_LOCKED".equals(t.getStatus())) {
                     if (today.isAfter(t.getStartDate()) || today.isEqual(t.getStartDate())) {
                         t.startOngoing();
                         tournamentRepository.save(t);
-                        log.info("Auto-transitioned Tournament ID {} from CLOSED_REGISTRATION to ONGOING", t.getId());
+                        log.info("Auto-transitioned Tournament ID {} from PARTICIPANTS_LOCKED to ONGOING", t.getId());
                     }
                 } else if ("ONGOING".equals(t.getStatus())) {
                     if (today.isAfter(t.getEndDate())) {
