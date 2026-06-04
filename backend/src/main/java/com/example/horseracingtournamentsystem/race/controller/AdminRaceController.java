@@ -54,4 +54,9 @@ public class AdminRaceController {
     public RaceResponse updateStatus(@PathVariable Long id, @RequestParam String status) {
         return raceService.updateRaceStatus(id, status);
     }
+
+    @PutMapping("/{id}/referee")
+    public RaceResponse assignReferee(@PathVariable Long id, @RequestParam Long refereeId) {
+        return raceService.assignReferee(id, refereeId);
+    }
 }

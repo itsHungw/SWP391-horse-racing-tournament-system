@@ -36,6 +36,9 @@ public class RaceParticipant {
 
     public static final String CONFIRMATION_PENDING = "PENDING";
     public static final String CHECK_NOT_CHECKED = "NOT_CHECKED";
+    public static final String CHECK_PASSED = "PASSED";
+    public static final String CHECK_FAILED = "FAILED";
+    public static final String CHECK_CONDITIONAL = "CONDITIONAL";
     public static final String STATUS_REGISTERED = "REGISTERED";
     public static final String STATUS_APPROVED = "APPROVED";
     public static final String STATUS_WITHDRAWN = "WITHDRAWN";
@@ -108,5 +111,12 @@ public class RaceParticipant {
         participant.status = STATUS_REGISTERED;
         participant.createdAt = LocalDateTime.now();
         return participant;
+    }
+
+    public void updateCheck(String checkStatus, String participantStatus, String note) {
+        this.checkStatus = checkStatus;
+        this.status = participantStatus;
+        this.checkNote = note;
+        this.updatedAt = LocalDateTime.now();
     }
 }

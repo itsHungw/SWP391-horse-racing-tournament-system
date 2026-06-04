@@ -11,6 +11,8 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
     List<Race> findAllByDeletedAtIsNullOrderByRaceAtAsc();
     List<Race> findAllByTournamentIdAndDeletedAtIsNull(Long tournamentId);
     List<Race> findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(Long tournamentId);
+    List<Race> findAllByReferee_EmailAndTournament_StatusInAndDeletedAtIsNullOrderByRaceAtAsc(String refereeEmail, List<String> tournamentStatuses);
+    Optional<Race> findByIdAndReferee_EmailAndDeletedAtIsNull(Long id, String refereeEmail);
     boolean existsByCodeAndDeletedAtIsNull(String code);
     boolean existsByCodeAndIdNotAndDeletedAtIsNull(String code, Long id);
 }

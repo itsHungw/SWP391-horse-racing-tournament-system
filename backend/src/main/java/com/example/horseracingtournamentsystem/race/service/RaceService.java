@@ -135,6 +135,22 @@ public class RaceService {
         return mapToResponse(race);
     }
 
+    @Transactional
+    public RaceResponse assignReferee(Long id, Long refereeId) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        User referee = userRepository.findById(refereeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referee not found"));
+        User refereeWithRoles = userRepository.findWithUserRolesByEmail(referee.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referee not found"));
+        if (!refereeWithRoles.getActiveRoleNames().contains("REFEREE")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not an approved referee");
+        }
+        race.assignReferee(referee);
+        raceRepository.save(race);
+        return mapToResponse(race);
+    }
+
     public List<RaceResponse> getPublicRaces(Long tournamentId) {
         List<Race> races;
         if (tournamentId != null) {
@@ -183,6 +199,8 @@ public class RaceService {
                 .distanceMeters(r.getDistanceMeter())
                 .maxParticipants(r.getMaxParticipants())
                 .status(r.getStatus())
+                .refereeId(r.getReferee() == null ? null : r.getReferee().getId())
+                .refereeName(r.getReferee() == null ? null : r.getReferee().getFullName())
                 .creatorName(r.getCreatedBy().getFullName())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
