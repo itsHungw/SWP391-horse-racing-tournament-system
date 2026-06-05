@@ -165,6 +165,8 @@ public class RefereeRaceDayService {
                             result.getParticipant().getHorse().getName(),
                             result.getParticipant().getJockey() == null ? "Unassigned" : result.getParticipant().getJockey().getFullName(),
                             result.getPosition(),
+                            result.getRawFinishTimeSeconds(),
+                            result.getPenaltySeconds(),
                             result.getFinishTimeSeconds(),
                             result.getResultStatus(),
                             result.getNote()
@@ -179,6 +181,8 @@ public class RefereeRaceDayService {
                         participant.getHorse().getName(),
                         participant.getJockey() == null ? "Unassigned" : participant.getJockey().getFullName(),
                         null,
+                        null,
+                        BigDecimal.ZERO,
                         null,
                         "FINISHED",
                         null
@@ -206,7 +210,22 @@ public class RefereeRaceDayService {
                     .orElseGet(() -> RaceResult.create(race, participant, referee));
             String entryStatus = normalizeResultStatus(entry.status());
             Integer position = "FINISHED".equals(entryStatus) ? entry.position() : null;
-            result.submit(position, entry.finishTimeSeconds(), entryStatus, resultStatus, referee, entry.note());
+            BigDecimal penaltySeconds = entry.penaltySeconds() == null ? BigDecimal.ZERO : entry.penaltySeconds();
+            BigDecimal rawFinishTimeSeconds = entry.rawFinishTimeSeconds();
+            BigDecimal finalFinishTimeSeconds = entry.finishTimeSeconds();
+            if (rawFinishTimeSeconds != null) {
+                finalFinishTimeSeconds = rawFinishTimeSeconds.add(penaltySeconds);
+            }
+            result.submit(
+                    position,
+                    rawFinishTimeSeconds,
+                    penaltySeconds,
+                    finalFinishTimeSeconds,
+                    entryStatus,
+                    resultStatus,
+                    referee,
+                    entry.note()
+            );
             raceResultRepository.save(result);
         }
 

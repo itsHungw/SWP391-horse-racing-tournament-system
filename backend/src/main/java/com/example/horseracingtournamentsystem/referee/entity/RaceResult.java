@@ -46,6 +46,12 @@ public class RaceResult {
     @Column(name = "position")
     private Integer position;
 
+    @Column(name = "raw_finish_time_seconds", precision = 10, scale = 3)
+    private BigDecimal rawFinishTimeSeconds;
+
+    @Column(name = "penalty_seconds", nullable = false, precision = 10, scale = 3)
+    private BigDecimal penaltySeconds = BigDecimal.ZERO;
+
     @Column(name = "finish_time_seconds", precision = 10, scale = 3)
     private BigDecimal finishTimeSeconds;
 
@@ -101,6 +107,8 @@ public class RaceResult {
 
     public void submit(
             Integer position,
+            BigDecimal rawFinishTimeSeconds,
+            BigDecimal penaltySeconds,
             BigDecimal finishTimeSeconds,
             String resultStatus,
             String status,
@@ -108,6 +116,8 @@ public class RaceResult {
             String note
     ) {
         this.position = position;
+        this.rawFinishTimeSeconds = rawFinishTimeSeconds;
+        this.penaltySeconds = penaltySeconds == null ? BigDecimal.ZERO : penaltySeconds;
         this.finishTimeSeconds = finishTimeSeconds;
         this.resultStatus = resultStatus;
         this.status = status;

@@ -7,6 +7,8 @@ public record ParticipantResultEntry(
         String horseName,
         String jockeyName,
         Integer position,
+        BigDecimal rawFinishTimeSeconds,
+        BigDecimal penaltySeconds,
         BigDecimal finishTimeSeconds,
         String status,
         String note
