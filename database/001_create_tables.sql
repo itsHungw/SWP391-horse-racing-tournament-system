@@ -607,6 +607,8 @@ CREATE TABLE race_results (
     race_id BIGINT NOT NULL,
     participant_id BIGINT NOT NULL,
     position INT NULL, -- NULL for DISQUALIFIED / DID_NOT_FINISH / WITHDRAWN
+    raw_finish_time_seconds DECIMAL(10,3) NULL,
+    penalty_seconds DECIMAL(10,3) NOT NULL DEFAULT 0,
     finish_time_seconds DECIMAL(10,3) NULL,
     result_status VARCHAR(30) NOT NULL, -- FINISHED / DISQUALIFIED / DID_NOT_FINISH / WITHDRAWN
     points INT NOT NULL DEFAULT 0,
@@ -638,6 +640,10 @@ CREATE TABLE race_results (
     CONSTRAINT chk_finish_time_positive CHECK (
         finish_time_seconds IS NULL OR finish_time_seconds > 0
     ),
+    CONSTRAINT chk_raw_finish_time_positive CHECK (
+        raw_finish_time_seconds IS NULL OR raw_finish_time_seconds > 0
+    ),
+    CONSTRAINT chk_race_results_penalty_non_negative CHECK (penalty_seconds >= 0),
     CONSTRAINT chk_res_position CHECK (position IS NULL OR position > 0)
 );
 

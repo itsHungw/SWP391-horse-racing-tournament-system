@@ -836,6 +836,69 @@ BEGIN
     ON dbo.jockey_tournament_applications(tournament_id, jockey_id)
 END;
 
+
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'raw_finish_time_seconds') IS NULL
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD raw_finish_time_seconds DECIMAL(10,3) NULL
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'penalty_seconds') IS NULL
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD penalty_seconds DECIMAL(10,3) NOT NULL
+            CONSTRAINT DF_race_results_penalty_seconds DEFAULT 0
+            WITH VALUES
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'raw_finish_time_seconds') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_race_results_raw_finish_time_positive'
+          AND parent_object_id = OBJECT_ID(N'dbo.race_results')
+    )
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD CONSTRAINT chk_race_results_raw_finish_time_positive
+        CHECK (raw_finish_time_seconds IS NULL OR raw_finish_time_seconds > 0)
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'penalty_seconds') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_race_results_penalty_non_negative'
+          AND parent_object_id = OBJECT_ID(N'dbo.race_results')
+    )
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD CONSTRAINT chk_race_results_penalty_non_negative
+        CHECK (penalty_seconds >= 0)
+    ');
+    END;
+GO
+
+
+
+
+
+
 IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NULL
 BEGIN
