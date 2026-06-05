@@ -19,7 +19,10 @@ import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
 import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
+import { AdminPredictionsWorkspace } from "../pages/admin/AdminPredictionsWorkspace";
+import { AdminRacePredictionDetailPage } from "../pages/admin/AdminRacePredictionDetailPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
+import { SpectatorPredictionsPage } from "../pages/spectator/predictions/SpectatorPredictionsPage";
 import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
@@ -51,8 +54,9 @@ export function AppRouter() {
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
 
-        <Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
-        <Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
+        <Route path="spectator" element={<Navigate to="/spectator/predictions" replace />} />
+        <Route path="spectator/dashboard" element={<Navigate to="/spectator/predictions" replace />} />
+        <Route path="spectator/predictions" element={authRoute(<SpectatorPredictionsPage />)} />
         <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
         <Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
         <Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
@@ -85,15 +89,8 @@ export function AppRouter() {
             />
           )}
         />
-        <Route
-          path="admin/predictions"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Predictions"
-              description="Monitor prediction features, moderation queues, and future point reward rules."
-            />
-          )}
-        />
+        <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
+        <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route
           path="admin/blog"
           element={adminRoute(
