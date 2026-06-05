@@ -29,14 +29,22 @@ const state: LiveRaceState = {
 };
 
 describe("LiveRaceWorkspace", () => {
-  it("reveals runner-specific penalty actions after selecting a live row", () => {
-    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} state={state} />);
+  it("shows runner-specific official actions on each live gate card", () => {
+    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} onRunnerFinish={vi.fn()} state={state} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /P2 Thunderstrike/i }));
-
+    expect(screen.getByRole("button", { name: "Finish Thunderstrike" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Warn Thunderstrike" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add five-second penalty to Thunderstrike" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Disqualify Thunderstrike" })).toBeInTheDocument();
+  });
+
+  it("records a runner finish from the live gate card", () => {
+    const onRunnerFinish = vi.fn();
+    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} onRunnerFinish={onRunnerFinish} state={state} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish Thunderstrike" }));
+
+    expect(onRunnerFinish).toHaveBeenCalledWith(5);
   });
 
   it("shows resume and abort actions after a red flag", () => {
@@ -45,6 +53,7 @@ describe("LiveRaceWorkspace", () => {
         onFinish={vi.fn()}
         onFlag={vi.fn()}
         onPenalty={vi.fn()}
+        onRunnerFinish={vi.fn()}
         state={{ ...state, mode: "RED_FLAGGED" }}
       />
     );
@@ -60,6 +69,7 @@ describe("LiveRaceWorkspace", () => {
         onFinish={vi.fn()}
         onFlag={onFlag}
         onPenalty={vi.fn()}
+        onRunnerFinish={vi.fn()}
         state={{ ...state, mode: "RED_FLAGGED", resumeMode: "SAFETY_CAR" }}
       />
     );
@@ -75,6 +85,7 @@ describe("LiveRaceWorkspace", () => {
         onFinish={vi.fn()}
         onFlag={vi.fn()}
         onPenalty={vi.fn()}
+        onRunnerFinish={vi.fn()}
         state={{ ...state, runners: state.runners.map((runner) => ({ ...runner, progressPercent: 80 })) }}
       />
     );
@@ -84,7 +95,7 @@ describe("LiveRaceWorkspace", () => {
   });
 
   it("uses horse-racing labels for live control buttons", () => {
-    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} state={state} />);
+    render(<LiveRaceWorkspace onFinish={vi.fn()} onFlag={vi.fn()} onPenalty={vi.fn()} onRunnerFinish={vi.fn()} state={state} />);
 
     expect(screen.getByRole("button", { name: "START / RESUME" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "TRACK HAZARD" })).toBeInTheDocument();
@@ -95,13 +106,14 @@ describe("LiveRaceWorkspace", () => {
     expect(screen.queryByRole("button", { name: "Red Flag" })).not.toBeInTheDocument();
   });
 
-  it("shows a large proceed action once the simulator freezes the finished draft", () => {
+  it("shows a large proceed action once the race operation reaches finished draft", () => {
     const onFinish = vi.fn();
     render(
       <LiveRaceWorkspace
         onFinish={onFinish}
         onFlag={vi.fn()}
         onPenalty={vi.fn()}
+        onRunnerFinish={vi.fn()}
         state={{
           ...state,
           mode: "FINISHED_DRAFT",
@@ -125,6 +137,7 @@ describe("LiveRaceWorkspace", () => {
         onFinish={vi.fn()}
         onFlag={vi.fn()}
         onPenalty={vi.fn()}
+        onRunnerFinish={vi.fn()}
         state={{
           ...state,
           elapsedMilliseconds: 66_000,
@@ -136,7 +149,7 @@ describe("LiveRaceWorkspace", () => {
       />
     );
 
-    expect(screen.getByText("64.235s")).toBeInTheDocument();
+    expect(screen.getAllByText("64.235s").length).toBeGreaterThan(0);
     expect(screen.getByText("66.000s")).toBeInTheDocument();
     expect(screen.getByText("FINISHED")).toBeInTheDocument();
     expect(screen.getByText("RUNNING")).toBeInTheDocument();
