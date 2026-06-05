@@ -1,24 +1,27 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
 import { RaceSummary } from "./race-day/RaceSummary";
 import { RefereeOfficiatePage } from "./RefereeOfficiatePage";
 
 vi.mock("../../api/refereeApi");
 
+beforeEach(() => {
+  vi.restoreAllMocks();
+  vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+});
+
 function renderPage() {
-  vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue([
-    {
-      id: 1,
-      name: "Grand Derby",
-      code: "R-1",
-      distanceMeters: 1600,
-      status: "SCHEDULED",
-      scheduledAt: "2026-06-02T14:00:00+07:00",
-      venue: "Turf Tower C",
-    },
-  ]);
+  vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+    id: 1,
+    name: "Grand Derby",
+    code: "R-1",
+    distanceMeters: 1600,
+    status: "SCHEDULED",
+    scheduledAt: "2026-06-02T14:00:00+07:00",
+    venue: "Turf Tower C",
+  });
   vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([
     {
       participantId: 7,
@@ -40,6 +43,8 @@ function renderPage() {
     },
   ]);
   vi.spyOn(refereeApi, "savePreRaceChecks").mockResolvedValue();
+  vi.spyOn(refereeApi, "startRace").mockResolvedValue("ONGOING");
+  vi.spyOn(refereeApi, "finishRace").mockResolvedValue("FINISHED");
 
   render(
     <MemoryRouter initialEntries={["/referee/races/1/officiate"]}>
@@ -54,11 +59,10 @@ describe("RefereeOfficiatePage", () => {
   it("shows timeline and checklist during pre-race, then excludes scratched horses from live", async () => {
     renderPage();
 
-    expect(await screen.findByRole("heading", { name: "Pre-Race Verification" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Today's Race Timeline" })).toBeInTheDocument();
-    expect(screen.getByText("SCRATCHED")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pre-race checks" })).toBeInTheDocument();
+    expect(screen.getAllByText("Scratched").length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Confirm Pre-Race Checks" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mark race ready" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
 
     expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
@@ -68,9 +72,8 @@ describe("RefereeOfficiatePage", () => {
 
   it("moves a disqualified runner into Out of Race", async () => {
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm Pre-Race Checks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
-    fireEvent.click(screen.getByRole("button", { name: /P1 Golden Arrow/i }));
     fireEvent.click(screen.getByRole("button", { name: "Disqualify Golden Arrow" }));
 
     expect(screen.getByText(/DSQ - Golden Arrow/i)).toBeInTheDocument();
@@ -79,7 +82,7 @@ describe("RefereeOfficiatePage", () => {
   it("requires confirmation before aborting a red-flagged race", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
     renderPage();
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm Pre-Race Checks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
     fireEvent.click(screen.getByRole("button", { name: "STOP RACE" }));
     fireEvent.click(screen.getByRole("button", { name: "STOP RACE" }));
@@ -89,11 +92,11 @@ describe("RefereeOfficiatePage", () => {
     confirm.mockRestore();
   });
 
-  it("proceeds to post-race from an auto-frozen live snapshot", async () => {
+  it("proceeds to post-race after the referee records every runner finish", async () => {
     const confirm = vi.spyOn(window, "confirm");
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Confirm Pre-Race Checks" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     const enterLiveButton = await screen.findByRole("button", { name: "Confirm & Enter Live Control" });
     try {
       vi.useFakeTimers();
@@ -103,10 +106,11 @@ describe("RefereeOfficiatePage", () => {
         vi.advanceTimersByTime(72_000);
       });
 
+      fireEvent.click(screen.getByRole("button", { name: "Finish Golden Arrow" }));
       fireEvent.click(screen.getByRole("button", { name: "PROCEED TO POST-RACE" }));
 
       expect(confirm).not.toHaveBeenCalledWith("Finish this race and store the current draft snapshot?");
-      expect(screen.getByRole("heading", { name: "Race Summary" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Official finish order" })).toBeInTheDocument();
     } finally {
       confirm.mockRestore();
       vi.useRealTimers();
@@ -116,6 +120,7 @@ describe("RefereeOfficiatePage", () => {
   it("renders a finished draft snapshot summary", () => {
     render(
       <RaceSummary
+        raceId={9}
         snapshot={{
           elapsedMilliseconds: 62_345,
           leaderboard: [
@@ -134,10 +139,10 @@ describe("RefereeOfficiatePage", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Race Summary" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Official finish order" })).toBeInTheDocument();
     expect(screen.getByText("Golden Arrow")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Update Draft Result" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Publish Official Result" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Update finish order" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Confirm official result" })).toBeDisabled();
     expect(screen.queryByRole("heading", { name: "Appeals Board" })).not.toBeInTheDocument();
     expect(screen.getByText("62.345s + 0.000s = 62.345s")).toBeInTheDocument();
     expect(screen.getByText("P1 (was P1)")).toBeInTheDocument();
@@ -146,6 +151,7 @@ describe("RefereeOfficiatePage", () => {
   it("requires Update Time before applying a manual total time override", () => {
     render(
       <RaceSummary
+        raceId={9}
         snapshot={{
           elapsedMilliseconds: 62_345,
           leaderboard: [
@@ -177,6 +183,7 @@ describe("RefereeOfficiatePage", () => {
   it("reorders draft rows only after Update Time is saved", () => {
     render(
       <RaceSummary
+        raceId={9}
         snapshot={{
           elapsedMilliseconds: 62_345,
           leaderboard: [
@@ -214,6 +221,7 @@ describe("RefereeOfficiatePage", () => {
   it("keeps official publish locked until appeals are resolved or rejected", () => {
     render(
       <RaceSummary
+        raceId={9}
         appeals={[
           {
             id: "appeal-1",
@@ -241,20 +249,21 @@ describe("RefereeOfficiatePage", () => {
     );
 
     expect(screen.queryByRole("heading", { name: "Appeals Board" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Update Draft Result" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update finish order" }));
 
-    expect(screen.getByRole("button", { name: "Publish Official Result" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Confirm official result" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Accept appeal from Stable Team A" }));
     fireEvent.change(screen.getByLabelText("Penalty seconds for Stable Team A"), { target: { value: "5" } });
     fireEvent.click(screen.getByRole("button", { name: "Save accepted appeal for Stable Team A" }));
 
     expect(screen.getByText("Resolved")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Publish Official Result" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Confirm official result" })).toBeEnabled();
   });
 
   it("requires a rejection reason before dismissing an appeal", () => {
     render(
       <RaceSummary
+        raceId={9}
         appeals={[
           {
             id: "appeal-1",
@@ -281,7 +290,7 @@ describe("RefereeOfficiatePage", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Update Draft Result" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update finish order" }));
     fireEvent.click(screen.getByRole("button", { name: "Reject appeal from Stable Team A" }));
     expect(screen.getByRole("button", { name: "Save rejected appeal for Stable Team A" })).toBeDisabled();
 
@@ -291,12 +300,13 @@ describe("RefereeOfficiatePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save rejected appeal for Stable Team A" }));
 
     expect(screen.getByText("Rejected")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Publish Official Result" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Confirm official result" })).toBeEnabled();
   });
 
-  it("locks the race summary after publishing official results", () => {
+  it("locks the race summary after publishing official results", async () => {
     render(
       <RaceSummary
+        raceId={9}
         snapshot={{
           elapsedMilliseconds: 62_345,
           leaderboard: [
@@ -315,12 +325,12 @@ describe("RefereeOfficiatePage", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Update Draft Result" }));
-    fireEvent.click(screen.getByRole("button", { name: "Publish Official Result" }));
+    fireEvent.click(screen.getByRole("button", { name: "Update finish order" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm official result" }));
 
-    expect(screen.getByText("Official result published")).toBeInTheDocument();
+    expect(await screen.findByText("Official result confirmed")).toBeInTheDocument();
     expect(screen.getByLabelText("Override total time for Golden Arrow")).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Update Draft Result" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Publish Official Result" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Update finish order" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Confirm official result" })).toBeDisabled();
   });
 });

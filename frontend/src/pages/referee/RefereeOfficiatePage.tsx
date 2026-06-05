@@ -5,8 +5,6 @@ import {
   CheckCircle2,
   ClipboardCheck,
   Flag,
-  Play,
-  ShieldAlert,
 } from "lucide-react";
 import {
   finishRace,
@@ -30,6 +28,7 @@ import {
   applyPenalty,
   buildLiveRunners,
   createFinishedSnapshot,
+  markRunnerFinished,
   setLiveFlag,
 } from "./race-day/refereeRaceDayState";
 import { LiveRaceWorkspace } from "./race-day/LiveRaceWorkspace";
@@ -140,8 +139,8 @@ export function RefereeOfficiatePage() {
     }
 
     const timer = window.setInterval(() => {
-      setLive((current) => applyLiveTick(current, REFEREE_RACE_DAY_CONFIG.simulatorTickMilliseconds));
-    }, REFEREE_RACE_DAY_CONFIG.simulatorTickMilliseconds);
+      setLive((current) => applyLiveTick(current, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds));
+    }, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds);
 
     return () => window.clearInterval(timer);
   }, [live.mode, stage]);
@@ -258,21 +257,21 @@ export function RefereeOfficiatePage() {
   const mobilePrimaryAction =
     stage === "PRE_CHECKING"
       ? {
-          label: saving ? "Saving checks..." : "Mark race ready",
+          label: saving ? "Saving checks..." : "Continue: Mark race ready",
           disabled: checksBlocked || saving,
           onClick: () => void confirmPreRace(),
           to: undefined,
         }
       : stage === "READY"
         ? {
-            label: saving ? "Starting race..." : "Start race",
+            label: saving ? "Starting race..." : "Continue: Start race",
             disabled: saving,
             onClick: () => void enterLive(),
             to: undefined,
           }
         : stage === "FINISHED_DRAFT"
           ? {
-              label: "Submit results",
+              label: "Continue: Submit results",
               disabled: false,
               onClick: undefined,
               to: `/referee/races/${raceId}/results`,
@@ -284,7 +283,7 @@ export function RefereeOfficiatePage() {
       <section className="max-w-[1486px] rounded-xl border border-rose-200 bg-rose-50 p-6">
         <p className="text-xs font-black uppercase tracking-widest text-rose-700">Red flag decision</p>
         <h2 className="mt-2 text-3xl font-black text-slate-950">Race aborted</h2>
-        <p className="mt-2 text-sm text-slate-600">The final live telemetry has been frozen for review.</p>
+        <p className="mt-2 text-sm text-slate-600">The current race operation state has been frozen for review.</p>
       </section>
     );
   }
@@ -299,7 +298,7 @@ export function RefereeOfficiatePage() {
               to="/referee/assigned-races"
             >
               <ArrowLeft aria-hidden="true" className="h-4 w-4" />
-              Assigned races
+              Today's races
             </Link>
             <p className="mt-5 text-xs font-black uppercase tracking-[0.24em] text-[#007a68]">Race control</p>
             <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl" id="race-control-title">
@@ -344,6 +343,10 @@ export function RefereeOfficiatePage() {
           onPenalty={(participantId: number, penaltyAction: PenaltyAction) =>
             setLive((current) => applyPenalty(current, participantId, penaltyAction, new Date().toISOString()))
           }
+          onRunnerFinish={(participantId: number) =>
+            setLive((current) => markRunnerFinished(current, participantId, new Date().toISOString()))
+          }
+          race={race}
           state={live}
         />
       ) : null}
@@ -365,9 +368,8 @@ export function RefereeOfficiatePage() {
       ) : null}
 
       {stage === "PRE_CHECKING" ? (
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
               <ClipboardCheck aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
               <div>
                 <h2 className="text-2xl font-black text-slate-950">Pre-race checks</h2>
@@ -385,22 +387,16 @@ export function RefereeOfficiatePage() {
             >
               {saving ? "Saving checks..." : "Mark race ready"}
             </button>
-          </div>
-          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
-              <ShieldAlert aria-hidden="true" className="h-6 w-6" />
-            </div>
-            <h2 className="mt-4 text-xl font-black text-slate-950">Clear only what is verified</h2>
-            <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-              Scratch a participant when health or equipment cannot be cleared. The race can move forward only when every row has a final decision.
-            </p>
-          </aside>
         </div>
       ) : null}
 
       {stage === "FINISHED_DRAFT" ? (
         snapshot ? (
-          <RaceSummary snapshot={snapshot} />
+          <RaceSummary
+            raceId={raceId}
+            snapshot={snapshot}
+            onConfirmed={() => setRace((current) => (current ? { ...current, status: "RESULT_CONFIRMED" } : current))}
+          />
         ) : (
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">

@@ -14,7 +14,7 @@ interface RefereeOverviewPageProps {
 }
 
 const modeCopy = {
-  all: ["Assigned races", "Race Desk"],
+  all: ["Race cards", "Race Desk"],
   check: ["Race control", "Active Operations"],
   results: ["Result packages", "Submit Results"],
   reports: ["Incident review", "Reports and Incidents"],
@@ -137,7 +137,7 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
 
       <div className="mt-6 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-black text-slate-950">Assigned Races View</p>
+          <p className="text-sm font-black text-slate-950">Race desk view</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">Use queue for work, calendar for date planning.</p>
         </div>
         <div className="grid w-full grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:inline-flex sm:w-auto">

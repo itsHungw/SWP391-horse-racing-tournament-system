@@ -44,8 +44,11 @@ export type ParticipantResultEntry = {
   horseName: string;
   jockeyName: string;
   position: number | "";
+  rawFinishTimeSeconds?: number | "";
+  penaltySeconds?: number | "";
   finishTimeSeconds: number | "";
   status: "FINISHED" | "DISQUALIFIED" | "DID_NOT_FINISH" | "WITHDRAWN";
+  note?: string | null;
 };
 
 export async function getRaceResultEntries(raceId: number): Promise<ParticipantResultEntry[]> {
@@ -61,6 +64,8 @@ export type SubmitRaceResultPackageRequest = {
   results: ParticipantResultEntry[];
   requiresAdminReview: boolean;
   reviewReason?: string | null;
+  reportTitle?: string | null;
+  reportSummary?: string | null;
 };
 
 export async function submitRaceResultPackage(

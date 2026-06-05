@@ -24,12 +24,12 @@ const refereeNavSections = [
     label: "Operations",
     items: [
       {
-        label: "Assigned Races",
+        label: "Today's Races",
         href: "/referee/assigned-races",
         icon: ClipboardList,
       },
       {
-        label: "Result Packages",
+        label: "Race Reports",
         href: "/referee/result-history",
         icon: ShieldCheck,
       },
@@ -172,7 +172,7 @@ export function RefereeLayout() {
         <div className="grid grid-cols-4 gap-1">
           {refereeNavSections.flatMap((section) => section.items).map((item) => {
             const Icon = item.icon;
-            const mobileLabel = item.label === "Assigned Races" ? "Races" : item.label === "Result Packages" ? "Packages" : item.label;
+            const mobileLabel = item.label === "Today's Races" ? "Races" : item.label === "Race Reports" ? "Reports" : item.label;
             return (
               <NavLink
                 key={item.href}

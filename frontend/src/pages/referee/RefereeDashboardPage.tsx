@@ -170,7 +170,7 @@ export function RefereeDashboardPage({ now }: RefereeDashboardPageProps) {
                 <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-emerald-50/88 sm:text-base sm:leading-7">
                   {nextRace
                     ? `${formatRaceDate(nextRace.scheduledAt)} at ${formatRaceTime(nextRace.scheduledAt)} | ${nextRace.venue} | ${nextRace.distanceMeters}m`
-                    : "Assigned races will appear here after the official schedule is published."}
+                    : "Race cards will appear here after the official schedule is published."}
                 </p>
               </div>
 

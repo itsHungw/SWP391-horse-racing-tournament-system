@@ -450,7 +450,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             {[
-              { label: "Assigned races", value: races.length, icon: ShieldCheck, helper: "Official race cards assigned" },
+              { label: "Race cards", value: races.length, icon: ShieldCheck, helper: "Official race cards assigned" },
               { label: "Active assignments", value: activeAssignments, icon: ClipboardCheck, helper: "Still waiting for operation or result" },
               { label: "Completed packages", value: completedResults, icon: BadgeCheck, helper: "Confirmed result packages" },
               { label: "Pre-race queue", value: preRaceQueue, icon: UserRound, helper: "Checks, ready, or scheduled cards" },
@@ -468,7 +468,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
             <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4">
               <p className="text-sm font-black text-amber-900">{reviewPackages} result package needs review</p>
               <p className="mt-1 text-sm font-semibold text-amber-800">
-                Escalated packages remain visible in Result Packages until administrator follow-up.
+                Escalated packages remain visible in Race Reports until administrator follow-up.
               </p>
             </div>
           )}
