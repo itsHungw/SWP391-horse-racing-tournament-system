@@ -5,6 +5,7 @@ import {
   buildLiveRunners,
   canOpenPreRaceCheck,
   createFinishedSnapshot,
+  markRunnerFinished,
   setLiveFlag,
 } from "./refereeRaceDayState";
 import { LiveRaceState, PreRaceParticipant } from "./refereeRaceDayModels";
@@ -112,38 +113,58 @@ describe("refereeRaceDayState", () => {
     expect(next.outOfRace[0]).toMatchObject({ participantId: 3, progressPercent: 60, status: "DSQ" });
   });
 
-  it("auto-captures finish times and freezes once all active runners finish", () => {
+  it("keeps race progress live until the referee manually records each finish", () => {
     const nearlyFinished: LiveRaceState = {
       ...liveState,
       runners: liveState.runners.map((runner) => ({ ...runner, progressPercent: 99, speedMultiplier: 1 })),
     };
     const next = applyLiveTick(nearlyFinished, 1_000);
 
-    expect(next.mode).toBe("FINISHED_DRAFT");
+    expect(next.mode).toBe("RACING");
     expect(next.runners).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ participantId: 7, progressPercent: 100, finishMilliseconds: 9_000 }),
-        expect.objectContaining({ participantId: 3, progressPercent: 100, finishMilliseconds: 9_000 }),
+        expect.objectContaining({ participantId: 7, progressPercent: 100 }),
+        expect.objectContaining({ participantId: 3, progressPercent: 100 }),
       ])
     );
+    expect(next.runners[0]).not.toHaveProperty("finishMilliseconds");
   });
 
-  it("ignores disqualified runners when deciding whether every active runner has finished", () => {
+  it("records raw finish time per runner and freezes hero clock at the last raw finish", () => {
+    const firstFinish = markRunnerFinished(liveState, 7, "2026-06-02T14:10:00+07:00");
+    const lastFinish = markRunnerFinished(
+      { ...firstFinish, elapsedMilliseconds: 12_500 },
+      3,
+      "2026-06-02T14:10:04+07:00"
+    );
+
+    expect(firstFinish.mode).toBe("RACING");
+    expect(firstFinish.runners.find((runner) => runner.participantId === 7)).toMatchObject({
+      finishMilliseconds: 8_000,
+      progressPercent: 100,
+    });
+    expect(lastFinish.mode).toBe("FINISHED_DRAFT");
+    expect(lastFinish.elapsedMilliseconds).toBe(12_500);
+    expect(lastFinish.runners.find((runner) => runner.participantId === 3)).toMatchObject({
+      finishMilliseconds: 12_500,
+      progressPercent: 100,
+    });
+  });
+
+  it("finishes the race when the last unfinished runner is disqualified", () => {
     const oneActiveOneDisqualified: LiveRaceState = {
       ...liveState,
       runners: [
-        { ...liveState.runners[0], progressPercent: 99, speedMultiplier: 1 },
-        { ...liveState.runners[1], progressPercent: 60, status: "DSQ" },
+        { ...liveState.runners[0], progressPercent: 100, finishMilliseconds: 9_000 },
+        { ...liveState.runners[1], progressPercent: 60 },
       ],
     };
-    const next = applyLiveTick(oneActiveOneDisqualified, 1_000);
+    const next = applyPenalty(oneActiveOneDisqualified, 3, "DSQ", "2026-06-02T14:11:00+07:00");
 
     expect(next.mode).toBe("FINISHED_DRAFT");
-    expect(next.runners.find((runner) => runner.participantId === 7)).toMatchObject({
-      finishMilliseconds: 9_000,
-      progressPercent: 100,
-    });
-    expect(next.runners.find((runner) => runner.participantId === 3)).not.toHaveProperty("finishMilliseconds");
+    expect(next.elapsedMilliseconds).toBe(9_000);
+    expect(next.runners.map((runner) => runner.participantId)).toEqual([7]);
+    expect(next.outOfRace[0]).toMatchObject({ participantId: 3, status: "DSQ" });
   });
 
   it("only creates a finished snapshot once all active runners have locked finish times", () => {
@@ -158,6 +179,33 @@ describe("refereeRaceDayState", () => {
       })),
     };
 
-    expect(createFinishedSnapshot(eligible)).toMatchObject({ elapsedMilliseconds: 8_000 });
+    expect(createFinishedSnapshot(eligible)).toMatchObject({ elapsedMilliseconds: 9_000 });
+  });
+
+  it("keeps raw finish order separate from penalty-adjusted result order", () => {
+    const penalizedWinner: LiveRaceState = {
+      ...liveState,
+      mode: "FINISHED_DRAFT",
+      elapsedMilliseconds: 73_500,
+      runners: [
+        { ...liveState.runners[0], finishMilliseconds: 71_500, progressPercent: 100 },
+        { ...liveState.runners[1], finishMilliseconds: 73_500, progressPercent: 100 },
+      ],
+      incidents: [
+        {
+          id: "penalty",
+          occurredAt: "2026-06-02T14:11:00+07:00",
+          type: "PENALTY",
+          participantId: 7,
+          message: "Golden Arrow receives +5s penalty",
+          penaltySeconds: 5,
+        },
+      ],
+    };
+
+    const snapshot = createFinishedSnapshot(penalizedWinner);
+
+    expect(snapshot?.leaderboard.map((runner) => runner.participantId)).toEqual([7, 3]);
+    expect(snapshot?.elapsedMilliseconds).toBe(73_500);
   });
 });
