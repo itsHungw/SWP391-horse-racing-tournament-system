@@ -33,7 +33,6 @@ public class UserPointAccount {
     public static UserPointAccount create(User user, int initialBalance) {
         UserPointAccount account = new UserPointAccount();
         account.setUser(user);
-        account.setUserId(user.getId());
         account.setPointBalance(initialBalance);
         account.setUpdatedAt(LocalDateTime.now());
         return account;

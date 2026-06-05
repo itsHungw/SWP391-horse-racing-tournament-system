@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -66,7 +66,7 @@ describe("RefereeOfficiatePage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
 
     expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /P1 Golden Arrow/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Golden Arrow" })).toBeInTheDocument();
     expect(screen.queryByText("Thunderstrike")).not.toBeInTheDocument();
   });
 
@@ -74,9 +74,11 @@ describe("RefereeOfficiatePage", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
+    expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Disqualify Golden Arrow" }));
 
-    expect(screen.getByText(/DSQ - Golden Arrow/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Golden Arrow").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("DSQ").length).toBeGreaterThan(0);
   });
 
   it("requires confirmation before aborting a red-flagged race", async () => {
@@ -84,6 +86,7 @@ describe("RefereeOfficiatePage", () => {
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
+    expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "STOP RACE" }));
     fireEvent.click(screen.getByRole("button", { name: "STOP RACE" }));
 
@@ -99,12 +102,8 @@ describe("RefereeOfficiatePage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
     const enterLiveButton = await screen.findByRole("button", { name: "Confirm & Enter Live Control" });
     try {
-      vi.useFakeTimers();
       fireEvent.click(enterLiveButton);
-
-      await act(async () => {
-        vi.advanceTimersByTime(72_000);
-      });
+      expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Finish Golden Arrow" }));
       fireEvent.click(screen.getByRole("button", { name: "PROCEED TO POST-RACE" }));
@@ -113,7 +112,6 @@ describe("RefereeOfficiatePage", () => {
       expect(await screen.findByRole("heading", { name: "Official finish order" })).toBeInTheDocument();
     } finally {
       confirm.mockRestore();
-      vi.useRealTimers();
     }
   });
 

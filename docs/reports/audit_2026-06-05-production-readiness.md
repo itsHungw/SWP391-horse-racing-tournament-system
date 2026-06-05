@@ -13,10 +13,12 @@ This audit focuses on changes that should be handled before production so the pr
 Completed in this pass:
 
 - Hardened generic file upload by category, MIME allowlist, size limit, generated filenames, and public/private storage split.
-- Added authenticated private file download path and integration coverage for private owner evidence access.
+- Added stored-file metadata and private download authorization: uploader and admin can read private files; other authenticated users are forbidden.
 - Removed runtime mock fallback from admin prediction pages and added explicit API error/retry states.
 - Moved frontend access token storage out of `localStorage`; access tokens are memory-only and legacy stored tokens are cleared.
-- Fixed the duplicate JPA boot blocker around the second `race_results` mapping by giving the published result entity/repository unique JPA/bean names. A full domain unification is still required before production.
+- Consolidated `race_results` to a single source-of-truth JPA entity/repository used by referee, admin prediction audit, and settlement.
+- Wired race/prediction lifecycle hooks: leaving `SCHEDULED` locks predictions, cancellation refunds eligible predictions, and result confirmation creates one settlement job.
+- Fixed `UserPointAccount` `@MapsId` creation so new point accounts persist reliably on Hibernate 7.
 - Added backend test database cleanup support for integration tests that share the H2 context.
 - Updated schedule publication tests to match the production rule that rounds require assigned referees before schedule publication.
 
@@ -25,11 +27,11 @@ Verification evidence:
 - `npm test -- --run` from `frontend`: 48 test files, 163 tests passed.
 - `mvn test` from `backend`: full Maven test suite passed.
 - Focused file security test: `mvn test -Dtest=FileStorageSecurityIntegrationTest` passed.
+- Focused lifecycle/source-of-truth suite: `mvn test "-Dtest=RaceResultMappingIntegrationTest,RaceIntegrationTest,FileStorageSecurityIntegrationTest"` passed.
 
 Known remaining production backlog:
 
-- Full race result source-of-truth consolidation is still open.
-- Prediction lifecycle hooks for lock/refund/settlement are still open.
+- Broader private-file authorization for legacy horse medical/evidence paths under `/uploads/**` still needs migration into the controlled file endpoint.
 - Production CORS/security headers/rate limits/secure-cookie fail-fast configuration are still open.
 - DTO hardening, Bean Validation expansion, and Flyway/Liquibase migration work are still open.
 - Frontend test suite still emits non-failing legacy warnings around jsdom network noise and React `act(...)` in a few older tests.
@@ -85,6 +87,10 @@ Split file access by visibility:
 
 Private files must be fetched through an authenticated controller with ownership/admin/referee authorization checks.
 
+**Status**
+
+Partially fixed for the generic upload endpoint. New private uploads are recorded in `stored_files` with uploader metadata and `/api/v1/files/private/{filename}` allows only the uploader or admin. Legacy horse evidence/medical files still need migration away from direct `/uploads/**` exposure.
+
 ### 3. Access token is stored in localStorage
 
 **Files**
@@ -125,6 +131,10 @@ The two mappings can drift. Settlement may read incomplete or misinterpreted off
 
 Unify official result persistence around one entity/repository/model. All referee, admin, result, and prediction modules must read and write the same result contract.
 
+**Status**
+
+Fixed. The referee-specific `RaceResult` entity/repository was removed, `result.entity.RaceResult` is now the single mapping for `race_results`, and `RefereeRaceDayService`, admin prediction audit, and settlement all use `result.repository.RaceResultRepository`. `RaceResultMappingIntegrationTest` asserts that only one JPA entity maps `race_results`.
+
 ### 5. Prediction lifecycle is not reliably connected to race lifecycle
 
 **Files**
@@ -147,6 +157,10 @@ Define lifecycle hooks:
 - when race leaves `SCHEDULED`, lock predictions;
 - when race is cancelled, refund eligible predictions;
 - when official result becomes `RESULT_CONFIRMED` or `PUBLISHED`, create settlement job exactly once.
+
+**Status**
+
+Fixed for the current race/referee flows. `RaceService` and `RefereeRaceDayService` now call prediction lifecycle hooks for lock/refund/settlement, and `RaceIntegrationTest` covers pending prediction lock, cancellation refund, and one settlement job on result confirmation.
 
 ### 6. Admin prediction pages fall back to fake data on API failure
 

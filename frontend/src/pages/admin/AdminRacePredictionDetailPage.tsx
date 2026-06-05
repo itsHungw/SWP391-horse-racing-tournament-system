@@ -9,269 +9,6 @@ import {
   retrySettlementJob,
 } from "../../api/adminPredictionApi";
 
-// Mock data matching backend API contract for local fallback
-const mockRaceDetailMap: Record<number, any> = {
-  101: {
-    raceId: 101,
-    raceName: "Spring Championship Qualifier",
-    roundName: "Round 1",
-    tournamentName: "Spring Cup 2026",
-    raceStatus: "SCHEDULED",
-    predictionStatus: "OPEN",
-    summary: {
-      totalPredictions: 120,
-      winnerPickCount: 80,
-      top3PickCount: 40,
-      winnerCorrectCount: 0,
-      exactTop3Count: 0,
-      top3AnyOrderCount: 0,
-      incorrectCount: 0,
-      refundedCount: 0,
-      rewardedPoints: 0
-    },
-    settlementJob: null
-  },
-  102: {
-    raceId: 102,
-    raceName: "Summer Derby Main",
-    roundName: "Round 2",
-    tournamentName: "Golden Horseshoe Cup",
-    raceStatus: "ONGOING",
-    predictionStatus: "LOCKED",
-    summary: {
-      totalPredictions: 250,
-      winnerPickCount: 150,
-      top3PickCount: 100,
-      winnerCorrectCount: 0,
-      exactTop3Count: 0,
-      top3AnyOrderCount: 0,
-      incorrectCount: 0,
-      refundedCount: 0,
-      rewardedPoints: 0
-    },
-    settlementJob: null
-  },
-  103: {
-    raceId: 103,
-    raceName: "Classic Sprint Final",
-    roundName: "Final",
-    tournamentName: "NYRA Aqueduct Classic",
-    raceStatus: "PUBLISHED",
-    predictionStatus: "COMPLETED",
-    summary: {
-      totalPredictions: 250,
-      winnerPickCount: 180,
-      top3PickCount: 70,
-      winnerCorrectCount: 80,
-      exactTop3Count: 20,
-      top3AnyOrderCount: 35,
-      incorrectCount: 115,
-      refundedCount: 0,
-      rewardedPoints: 1850
-    },
-    settlementJob: {
-      id: 5,
-      status: "COMPLETED",
-      processedCount: 250,
-      rewardedCount: 135,
-      failedCount: 0,
-      retryCount: 1,
-      errorMessage: null,
-      startedAt: "2026-06-10T16:00:00",
-      completedAt: "2026-06-10T16:00:05"
-    }
-  },
-  104: {
-    raceId: 104,
-    raceName: "Novice Turf Run",
-    roundName: "Round 1",
-    tournamentName: "Spring Cup 2026",
-    raceStatus: "RESULT_CONFIRMED",
-    predictionStatus: "FAILED",
-    summary: {
-      totalPredictions: 85,
-      winnerPickCount: 50,
-      top3PickCount: 35,
-      winnerCorrectCount: 0,
-      exactTop3Count: 0,
-      top3AnyOrderCount: 0,
-      incorrectCount: 0,
-      refundedCount: 0,
-      rewardedPoints: 0
-    },
-    settlementJob: {
-      id: 6,
-      status: "FAILED",
-      processedCount: 20,
-      rewardedCount: 0,
-      failedCount: 1,
-      retryCount: 2,
-      errorMessage: "Database connection timeout error when rewarding points for User ID #20",
-      startedAt: "2026-06-03T10:00:00",
-      completedAt: "2026-06-03T10:00:02"
-    }
-  },
-  105: {
-    raceId: 105,
-    raceName: "Pony Club Exhibition",
-    roundName: "Exhibition",
-    tournamentName: "Golden Horseshoe Cup",
-    raceStatus: "CANCELLED",
-    predictionStatus: "REFUNDED",
-    summary: {
-      totalPredictions: 64,
-      winnerPickCount: 44,
-      top3PickCount: 20,
-      winnerCorrectCount: 0,
-      exactTop3Count: 0,
-      top3AnyOrderCount: 0,
-      incorrectCount: 0,
-      refundedCount: 64,
-      rewardedPoints: 0
-    },
-    settlementJob: null
-  }
-};
-
-const mockPredictionsMap: Record<number, any[]> = {
-  101: [
-    {
-      predictionId: 1,
-      spectatorName: "Nguyen Van A",
-      spectatorEmail: "a@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Thunder Bolt"],
-      entryCostPoints: 5,
-      status: "PENDING",
-      displayStatus: "Submitted",
-      resultCategory: "Pending",
-      rewardPoints: 0,
-      submittedAt: "2026-06-03T10:30:00",
-      evaluatedAt: null
-    },
-    {
-      predictionId: 2,
-      spectatorName: "Tran Minh B",
-      spectatorEmail: "b@gmail.com",
-      predictionType: "TOP3",
-      selections: ["Black Storm", "Thunder Bolt", "Golden Arrow"],
-      entryCostPoints: 10,
-      status: "PENDING",
-      displayStatus: "Submitted",
-      resultCategory: "Pending",
-      rewardPoints: 0,
-      submittedAt: "2026-06-03T10:42:00",
-      evaluatedAt: null
-    }
-  ],
-  102: [
-    {
-      predictionId: 3,
-      spectatorName: "Le Quang C",
-      spectatorEmail: "c@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Golden Arrow"],
-      entryCostPoints: 5,
-      status: "LOCKED",
-      displayStatus: "Locked",
-      resultCategory: "Locked",
-      rewardPoints: 0,
-      submittedAt: "2026-06-02T11:20:00",
-      evaluatedAt: null
-    }
-  ],
-  103: [
-    {
-      predictionId: 4,
-      spectatorName: "Nguyen Van A",
-      spectatorEmail: "a@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Thunder Bolt"],
-      entryCostPoints: 5,
-      status: "CORRECT",
-      displayStatus: "Won",
-      resultCategory: "Winner Correct",
-      rewardPoints: 10,
-      submittedAt: "2026-06-01T09:15:00",
-      evaluatedAt: "2026-06-02T15:05:00"
-    },
-    {
-      predictionId: 5,
-      spectatorName: "Tran Minh B",
-      spectatorEmail: "b@gmail.com",
-      predictionType: "TOP3",
-      selections: ["Thunder Bolt", "Black Storm", "Golden Arrow"],
-      entryCostPoints: 10,
-      status: "CORRECT",
-      displayStatus: "Won",
-      resultCategory: "Exact Top 3",
-      rewardPoints: 30,
-      submittedAt: "2026-06-01T10:00:00",
-      evaluatedAt: "2026-06-02T15:05:00"
-    },
-    {
-      predictionId: 6,
-      spectatorName: "Pham Thi D",
-      spectatorEmail: "d@gmail.com",
-      predictionType: "TOP3",
-      selections: ["Black Storm", "Thunder Bolt", "Golden Arrow"],
-      entryCostPoints: 10,
-      status: "CORRECT",
-      displayStatus: "Won",
-      resultCategory: "Top 3 Any Order",
-      rewardPoints: 15,
-      submittedAt: "2026-06-01T11:45:00",
-      evaluatedAt: "2026-06-02T15:05:00"
-    },
-    {
-      predictionId: 7,
-      spectatorName: "Hoang Le E",
-      spectatorEmail: "e@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Black Storm"],
-      entryCostPoints: 5,
-      status: "INCORRECT",
-      displayStatus: "Lost",
-      resultCategory: "Incorrect",
-      rewardPoints: 0,
-      submittedAt: "2026-06-01T14:30:00",
-      evaluatedAt: "2026-06-02T15:05:00"
-    }
-  ],
-  104: [
-    {
-      predictionId: 8,
-      spectatorName: "Linh Tran",
-      spectatorEmail: "linh@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Thunder Bolt"],
-      entryCostPoints: 5,
-      status: "PENDING",
-      displayStatus: "Submitted",
-      resultCategory: "Pending",
-      rewardPoints: 0,
-      submittedAt: "2026-05-31T16:00:00",
-      evaluatedAt: null
-    }
-  ],
-  105: [
-    {
-      predictionId: 9,
-      spectatorName: "Nguyen Van A",
-      spectatorEmail: "a@gmail.com",
-      predictionType: "WINNER",
-      selections: ["Golden Arrow"],
-      entryCostPoints: 5,
-      status: "REFUNDED",
-      displayStatus: "Refunded",
-      resultCategory: "Refunded",
-      rewardPoints: 5,
-      submittedAt: "2026-05-27T10:00:00",
-      evaluatedAt: "2026-05-28T09:10:00"
-    }
-  ]
-};
-
 export function AdminRacePredictionDetailPage() {
   const { raceId: paramRaceId } = useParams();
   const raceId = Number(paramRaceId);
@@ -280,29 +17,28 @@ export function AdminRacePredictionDetailPage() {
   const [raceDetail, setRaceDetail] = useState<any>(null);
   const [predictions, setPredictions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("");
 
   const loadData = () => {
     setLoading(true);
-    // Fetch details
-    getAdminPredictionRaceDetail(raceId)
-      .then((data) => {
-        setRaceDetail(data);
+    setError(null);
+    Promise.all([
+      getAdminPredictionRaceDetail(raceId),
+      getAdminRacePredictions(raceId),
+    ])
+      .then(([detail, predictionRows]) => {
+        setRaceDetail(detail);
+        setPredictions(predictionRows);
       })
       .catch(() => {
-        setRaceDetail(mockRaceDetailMap[raceId] || null);
-      });
-
-    // Fetch predictions list
-    getAdminRacePredictions(raceId)
-      .then((data) => {
-        setPredictions(data);
-        setLoading(false);
+        setRaceDetail(null);
+        setPredictions([]);
+        setError("Unable to load prediction race details. Check the API connection and try again.");
       })
-      .catch(() => {
-        setPredictions(mockPredictionsMap[raceId] || []);
+      .finally(() => {
         setLoading(false);
       });
   };
@@ -318,20 +54,7 @@ export function AdminRacePredictionDetailPage() {
       alert("Settlement Job retry requested successfully!");
       loadData();
     } catch (err) {
-      console.warn("Falling back to local retry mock update");
-      // Mock update local status back to pending
-      if (raceDetail && raceDetail.settlementJob) {
-        setRaceDetail({
-          ...raceDetail,
-          predictionStatus: "SETTLEMENT_PENDING",
-          settlementJob: {
-            ...raceDetail.settlementJob,
-            status: "PENDING",
-            errorMessage: null
-          }
-        });
-      }
-      alert("Retry request sent (Local Mock).");
+      setError("Unable to retry the settlement job. Check the API connection and try again.");
     } finally {
       setRetrying(false);
     }
@@ -373,7 +96,18 @@ export function AdminRacePredictionDetailPage() {
       <AdminLayout>
         <div className="text-center py-20 space-y-4">
           <Info className="h-12 w-12 mx-auto text-slate-400" />
-          <h2 className="text-xl font-bold text-slate-700">No prediction race found</h2>
+          <h2 className="text-xl font-bold text-slate-700">
+            {error ?? "No prediction race found"}
+          </h2>
+          {error && (
+            <button
+              className="rounded bg-[#070f4f] px-4 py-2 text-xs font-bold text-white hover:bg-[#101a70]"
+              onClick={loadData}
+              type="button"
+            >
+              Retry
+            </button>
+          )}
           <Link className="text-[#b3193a] underline font-bold" to="/admin/predictions">Back to list</Link>
         </div>
       </AdminLayout>

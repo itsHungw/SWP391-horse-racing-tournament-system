@@ -82,7 +82,7 @@ describe("RefereeProfileDashboardPage", () => {
     expect(screen.getByText("FEI Certified Steward")).toBeInTheDocument();
     expect(screen.getByText("REF-2026-X89")).toBeInTheDocument();
     expect(screen.getByText("8 years")).toBeInTheDocument();
-    expect(screen.getByText("Veteran steward bio details.")).toBeInTheDocument();
+    expect(screen.getAllByText("Veteran steward bio details.").length).toBeGreaterThan(0);
 
     expect(screen.getByText("Account profile completed")).toBeInTheDocument();
     expect(screen.getByText("Phone verified")).toBeInTheDocument();

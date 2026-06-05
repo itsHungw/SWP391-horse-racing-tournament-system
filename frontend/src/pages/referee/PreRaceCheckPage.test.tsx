@@ -31,11 +31,11 @@ describe("PreRaceCheckPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Pre-Race Check-in Verification")).toBeInTheDocument();
+    expect(await screen.findByText("Pre-race verification")).toBeInTheDocument();
     expect(screen.getByText(/Thunderstrike/i)).toBeInTheDocument();
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
 
-    const saveButton = screen.getByRole("button", { name: /save pre-checks/i });
+    const saveButton = screen.getByRole("button", { name: /save pre-race checks/i });
     fireEvent.click(saveButton);
 
     expect(saveSpy).toHaveBeenCalledWith(1, mockParticipants);

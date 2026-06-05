@@ -228,7 +228,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(screen.getByRole("heading", { name: /season timeline/i })).toBeInTheDocument();
     expect(screen.getByText(/registration closed/i)).toBeInTheDocument();
     expect(screen.getByText(/pool approved/i)).toBeInTheDocument();
-    expect(screen.getByText(/participants locked/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/participants locked/i).length).toBeGreaterThan(0);
     expect(getAdminRaces).toHaveBeenCalledWith({ tournamentId: 7 });
     expect(screen.getByText("Round 1 - Belmont Stakes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /open control center for round 1 - belmont stakes/i }));

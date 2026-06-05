@@ -5,121 +5,33 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Calendar, ChevronRight, Filter, Compass } from "lucide-react";
 import { getAdminPredictionRaces } from "../../api/adminPredictionApi";
 
-// Mock data matching backend API contract for local fallback
-const mockRaces = [
-  {
-    raceId: 101,
-    raceName: "Spring Championship Qualifier",
-    roundName: "Round 1",
-    tournamentId: 1,
-    tournamentName: "Spring Cup 2026",
-    raceAt: "2026-06-10T14:30:00",
-    raceStatus: "SCHEDULED",
-    predictionStatus: "OPEN",
-    totalPredictions: 120,
-    winnerPickCount: 80,
-    top3PickCount: 40,
-    correctWinnerCount: 0,
-    exactTop3Count: 0,
-    partialTop3Count: 0,
-    incorrectCount: 0,
-    settlementJobStatus: null
-  },
-  {
-    raceId: 102,
-    raceName: "Summer Derby Main",
-    roundName: "Round 2",
-    tournamentId: 2,
-    tournamentName: "Golden Horseshoe Cup",
-    raceAt: "2026-06-03T18:00:00",
-    raceStatus: "ONGOING",
-    predictionStatus: "LOCKED",
-    totalPredictions: 250,
-    winnerPickCount: 150,
-    top3PickCount: 100,
-    correctWinnerCount: 0,
-    exactTop3Count: 0,
-    partialTop3Count: 0,
-    incorrectCount: 0,
-    settlementJobStatus: null
-  },
-  {
-    raceId: 103,
-    raceName: "Classic Sprint Final",
-    roundName: "Final",
-    tournamentId: 3,
-    tournamentName: "NYRA Aqueduct Classic",
-    raceAt: "2026-06-02T15:00:00",
-    raceStatus: "PUBLISHED",
-    predictionStatus: "COMPLETED",
-    totalPredictions: 430,
-    winnerPickCount: 280,
-    top3PickCount: 150,
-    correctWinnerCount: 120,
-    exactTop3Count: 40,
-    partialTop3Count: 30,
-    incorrectCount: 240,
-    settlementJobStatus: "COMPLETED"
-  },
-  {
-    raceId: 104,
-    raceName: "Novice Turf Run",
-    roundName: "Round 1",
-    tournamentId: 1,
-    tournamentName: "Spring Cup 2026",
-    raceAt: "2026-06-01T10:00:00",
-    raceStatus: "RESULT_CONFIRMED",
-    predictionStatus: "FAILED",
-    totalPredictions: 85,
-    winnerPickCount: 50,
-    top3PickCount: 35,
-    correctWinnerCount: 0,
-    exactTop3Count: 0,
-    partialTop3Count: 0,
-    incorrectCount: 0,
-    settlementJobStatus: "FAILED"
-  },
-  {
-    raceId: 105,
-    raceName: "Pony Club Exhibition",
-    roundName: "Exhibition",
-    tournamentId: 2,
-    tournamentName: "Golden Horseshoe Cup",
-    raceAt: "2026-05-28T09:00:00",
-    raceStatus: "CANCELLED",
-    predictionStatus: "REFUNDED",
-    totalPredictions: 64,
-    winnerPickCount: 44,
-    top3PickCount: 20,
-    correctWinnerCount: 0,
-    exactTop3Count: 0,
-    partialTop3Count: 0,
-    incorrectCount: 0,
-    settlementJobStatus: null
-  }
-];
-
 export function AdminPredictionsWorkspace() {
   useDocumentTitle("Race predictions monitor");
 
-  const [races, setRaces] = useState<any[]>(mockRaces);
+  const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [filterTournament, setFilterTournament] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
+  const loadRaces = () => {
     setLoading(true);
+    setError(null);
     getAdminPredictionRaces()
       .then((data) => {
         setRaces(data);
         setLoading(false);
       })
-      .catch((err) => {
-        console.warn("Using mock prediction races data:", err.message);
-        setRaces(mockRaces);
+      .catch(() => {
+        setRaces([]);
+        setError("Unable to load prediction races. Check the API connection and try again.");
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadRaces();
   }, []);
 
   const getStatusStyle = (status: string) => {
@@ -233,6 +145,17 @@ export function AdminPredictionsWorkspace() {
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#b3193a]"></div>
+            </div>
+          ) : error ? (
+            <div className="px-6 py-10 text-center">
+              <p className="text-sm font-bold text-rose-700">{error}</p>
+              <button
+                className="mt-4 rounded bg-[#070f4f] px-4 py-2 text-xs font-bold text-white hover:bg-[#101a70]"
+                onClick={loadRaces}
+                type="button"
+              >
+                Retry
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">

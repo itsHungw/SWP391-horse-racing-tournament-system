@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
+import com.example.horseracingtournamentsystem.prediction.service.PredictionService;
 import com.example.horseracingtournamentsystem.referee.dto.ParticipantCheckRequest;
 import com.example.horseracingtournamentsystem.referee.dto.ParticipantResultEntry;
 import com.example.horseracingtournamentsystem.referee.dto.ParticipantVerificationResponse;
@@ -12,13 +13,13 @@ import com.example.horseracingtournamentsystem.referee.dto.RefereeReportRequest;
 import com.example.horseracingtournamentsystem.referee.dto.SubmitResultsRequest;
 import com.example.horseracingtournamentsystem.referee.dto.ViolationRequest;
 import com.example.horseracingtournamentsystem.referee.entity.PreRaceCheck;
-import com.example.horseracingtournamentsystem.referee.entity.RaceResult;
 import com.example.horseracingtournamentsystem.referee.entity.RefereeReport;
 import com.example.horseracingtournamentsystem.referee.entity.Violation;
 import com.example.horseracingtournamentsystem.referee.repository.PreRaceCheckRepository;
-import com.example.horseracingtournamentsystem.referee.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository;
 import com.example.horseracingtournamentsystem.referee.repository.ViolationRepository;
+import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.math.BigDecimal;
@@ -55,6 +56,7 @@ public class RefereeRaceDayService {
     private final RefereeReportRepository refereeReportRepository;
     private final ViolationRepository violationRepository;
     private final UserRepository userRepository;
+    private final PredictionService predictionService;
 
     public List<RefereeRaceResponse> listAssignedRaces(String refereeEmail) {
         return raceRepository
@@ -90,6 +92,7 @@ public class RefereeRaceDayService {
 
         if ("SCHEDULED".equals(race.getStatus())) {
             race.updateStatus("CHECKING");
+            predictionService.lockPredictionsForRace(race.getId());
         }
 
         if (!"CHECKING".equals(race.getStatus()) && !"READY".equals(race.getStatus())) {
@@ -243,7 +246,11 @@ public class RefereeRaceDayService {
         );
         refereeReportRepository.save(report);
 
-        race.updateStatus(requiresReview ? "RESULT_SUBMITTED" : "RESULT_CONFIRMED");
+        String nextStatus = requiresReview ? "RESULT_SUBMITTED" : "RESULT_CONFIRMED";
+        race.updateStatus(nextStatus);
+        if ("RESULT_CONFIRMED".equals(nextStatus)) {
+            predictionService.createSettlementJob(race.getId());
+        }
         return mapRace(race);
     }
 
@@ -289,6 +296,7 @@ public class RefereeRaceDayService {
         return switch (race.getStatus()) {
             case "SCHEDULED" -> {
                 race.updateStatus("CHECKING");
+                predictionService.lockPredictionsForRace(race.getId());
                 yield mapRace(race);
             }
             case "CHECKING" -> {

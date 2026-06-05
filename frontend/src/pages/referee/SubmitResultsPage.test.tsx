@@ -38,7 +38,7 @@ describe("SubmitResultsPage", () => {
     expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /confirm result package/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: mockEntries,
@@ -66,7 +66,7 @@ describe("SubmitResultsPage", () => {
     fireEvent.change(timeInput, { target: { value: "94.25" } });
     expect(timeInput).toHaveValue("94.25");
 
-    fireEvent.click(screen.getByRole("button", { name: /confirm result package/i }));
+    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: [

@@ -137,7 +137,7 @@ export function PreRaceChecklist({ participants, onChange }: PreRaceChecklistPro
           </div>
           <div className="grid grid-cols-2 gap-2 sm:w-[260px]">
             <button
-              aria-label={`Verify ${kind} for ${participant.horseName}`}
+              aria-label={`Pass ${kind} check for ${participant.horseName}`}
               aria-pressed={decision === "PASSED"}
               className={`min-h-11 rounded-md border px-3 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] ${decisionButtonClasses(decision === "PASSED", "pass")}`}
               onClick={() => setDecision(participant, kind, "PASSED")}
@@ -146,7 +146,7 @@ export function PreRaceChecklist({ participants, onChange }: PreRaceChecklistPro
               Verified
             </button>
             <button
-              aria-label={`Fail ${kind} for ${participant.horseName}`}
+              aria-label={`Fail ${kind} check for ${participant.horseName}`}
               aria-pressed={decision === "SCRATCHED"}
               className={`min-h-11 rounded-md border px-3 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7f1d1d] ${decisionButtonClasses(decision === "SCRATCHED", "fail")}`}
               onClick={() => setDecision(participant, kind, "SCRATCHED")}

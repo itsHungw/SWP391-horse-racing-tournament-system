@@ -8,23 +8,25 @@ Make the system safe enough for a production-style deployment by fixing the high
 
 Implemented in this pass:
 
-- Workstream 1 partial: generic file upload is category-aware, rejects unsafe types, stores public/private files separately, and private downloads require authentication.
+- Workstream 1 partial: generic file upload is category-aware, rejects unsafe types, stores public/private files separately, records uploader metadata, and private downloads allow only uploader/admin access.
 - Workstream 2 partial: frontend access tokens are memory-only and no longer persisted in `localStorage`.
+- Workstream 3 complete for current backend flows: `race_results` now has one authoritative JPA entity/repository shared by referee submission, admin prediction audit, and settlement.
+- Workstream 4 complete for current race/referee flows: leaving `SCHEDULED` locks predictions, cancellation refunds eligible predictions, and result confirmation creates one settlement job.
 - Workstream 5 complete for audited pages: admin prediction pages now render API failure states instead of mock fallback data.
+- Points account hardening: `UserPointAccount` creation now works with Hibernate 7 `@MapsId` persist behavior.
 - Test infrastructure: added a test-only database cleaner for integration tests that share the H2 context.
 - Test alignment: schedule publication integration tests now seed an assigned referee because production requires every round to have one before publishing.
 
 Deferred work remains for full production readiness:
 
-- Full private-file authorization by owner/admin/referee for every evidence/document domain.
-- Full `race_results` entity consolidation.
-- Prediction lifecycle hooks and idempotent settlement wiring.
+- Legacy horse evidence/medical document paths still need migration from `/uploads/**` to the controlled private file endpoint.
 - Production CORS, headers, secure-cookie enforcement, rate limiting, DTO hardening, validation, and migrations.
 
 Current verification:
 
 - Frontend: `npm test -- --run` passed.
 - Backend: `mvn test` passed.
+- Focused backend: `mvn test "-Dtest=RaceResultMappingIntegrationTest,RaceIntegrationTest,FileStorageSecurityIntegrationTest"` passed.
 
 ## Scope
 
@@ -145,6 +147,12 @@ Mock data belongs in tests or fixture files only.
 - A different owner cannot download another owner's private evidence.
 - Admin can download private evidence for review.
 
+**Implemented**
+
+- Generic private uploads now persist `stored_files` metadata with uploader, category, content type, and visibility.
+- Private downloads are denied to anonymous users and other authenticated users; uploader and admin are allowed.
+- Legacy horse document/evidence storage remains a follow-up because it still uses domain-specific `/uploads/**` paths.
+
 ### Workstream 2: Auth Token Storage and Cookie Hardening
 
 **Files likely affected**
@@ -197,6 +205,12 @@ Mock data belongs in tests or fixture files only.
 - Admin prediction audit displays the same official result source.
 - No two JPA entities map the same `race_results` table.
 
+**Implemented**
+
+- The duplicate referee `RaceResult` entity/repository was removed.
+- `result.entity.RaceResult` is now the single `race_results` mapping and preserves referee result fields.
+- `RaceResultMappingIntegrationTest` prevents the duplicate-table-mapping regression.
+
 ### Workstream 4: Prediction Lifecycle Hooks
 
 **Files likely affected**
@@ -219,6 +233,12 @@ Mock data belongs in tests or fixture files only.
 - Cancelling a race refunds pending and locked predictions once.
 - Confirming official result creates exactly one settlement job.
 - Re-running settlement does not duplicate point rewards.
+
+**Implemented**
+
+- Admin race status transitions call lock/refund/settlement hooks.
+- Referee race-day transitions lock predictions when checks start and create settlement when results are confirmed without admin review.
+- `RaceIntegrationTest` covers lock, refund, and settlement job creation. Point reward idempotency remains protected by existing transaction reference checks in `PointsService`.
 
 ### Workstream 5: Admin Prediction UI Real Data Only
 
