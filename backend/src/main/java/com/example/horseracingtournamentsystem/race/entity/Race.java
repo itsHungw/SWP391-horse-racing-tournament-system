@@ -27,6 +27,21 @@ public class Race {
     @Column(name = "code", nullable = false, unique = true, length = 100)
     private String code;
 
+    @Column(name = "round_name", length = 100)
+    private String roundName;
+
+    @Column(name = "race_number")
+    private Integer raceNumber;
+
+    @Column(name = "track_name", length = 150)
+    private String trackName;
+
+    @Column(name = "track_condition", length = 50)
+    private String trackCondition;
+
+    @Column(name = "note")
+    private String note;
+
     @Column(name = "race_at", nullable = false)
     private LocalDateTime raceAt;
 
