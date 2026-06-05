@@ -58,6 +58,10 @@ public class Race {
     private String status; // SCHEDULED / CHECKING / READY / ONGOING / FINISHED / RESULT_SUBMITTED / RESULT_CONFIRMED / PUBLISHED / CANCELLED
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "referee_id")
+    private User referee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
 
@@ -97,6 +101,16 @@ public class Race {
 
     public void cancel() {
         this.status = "CANCELLED";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateStatus(String status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignReferee(User referee) {
+        this.referee = referee;
         this.updatedAt = LocalDateTime.now();
     }
 

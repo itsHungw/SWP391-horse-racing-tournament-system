@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -129,5 +130,51 @@ class RaceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminCanListRacesForOneTournamentOnly() throws Exception {
+        Tournament otherTournament = tournamentRepository.save(Tournament.create(
+                "Autumn Cup", "AC_01", "Autumn Cup Desc", "West Track",
+                LocalDate.now().plusDays(20), LocalDate.now().plusDays(30),
+                LocalDateTime.now().plusDays(20), LocalDateTime.now().plusDays(22),
+                18, adminUser
+        ));
+
+        raceRepository.save(Race.create(
+                tournament, "Round 1", "MC_R1", LocalDateTime.of(2026, 6, 15, 14, 30),
+                1200, 12, adminUser
+        ));
+        raceRepository.save(Race.create(
+                otherTournament, "Other Round", "AC_R1", LocalDateTime.of(2026, 7, 15, 14, 30),
+                1400, 12, adminUser
+        ));
+
+        mockMvc.perform(get("/api/v1/admin/races")
+                        .param("tournamentId", tournament.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Round 1"))
+                .andExpect(jsonPath("$[0].code").value("MC_R1"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
+
+    @Test
+    void adminCanAdvanceRaceOperationsStatus() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Round 2", "MC_R2", LocalDateTime.of(2026, 6, 16, 14, 30),
+                1600, 12, adminUser
+        ));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "CHECKING")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CHECKING"));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "PUBLISHED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
     }
 }

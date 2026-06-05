@@ -5,10 +5,17 @@ import {
   createOwnerHorse,
   createOwnerHorseDocument,
   createOwnerTournamentRegistration,
+  applyToJockeyChampionship,
+  approveAdminJockeyPoolApplication,
   getOwnerHorseDocuments,
   getOwnerHorses,
   getOwnerHorsesPage,
+  getAdminJockeyPoolApplications,
+  getJockeyChampionships,
+  getJockeyPoolApplications,
+  getOwnerAvailableJockeys,
   getOwnerTournamentRegistrationsPage,
+  rejectAdminJockeyPoolApplication,
 } from "./racingApi";
 
 vi.mock("./httpClient", () => ({
@@ -119,6 +126,70 @@ describe("racingApi", () => {
     });
     expect(httpClient.get).toHaveBeenCalledWith("/owner/tournament-registrations", {
       params: { page: 0, size: 5, horseId: 3, focusId: 10 },
+    });
+  });
+
+  it("loads and reviews championship jockey pool applications", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({
+      data: [{ id: 31, jockeyName: "Nguyen Van A", status: "PENDING" }],
+    });
+    vi.mocked(httpClient.post)
+      .mockResolvedValueOnce({ data: { id: 31, status: "APPROVED_FOR_POOL" } })
+      .mockResolvedValueOnce({ data: { id: 32, status: "REJECTED" } });
+
+    await expect(getAdminJockeyPoolApplications(7, "PENDING")).resolves.toEqual([
+      { id: 31, jockeyName: "Nguyen Van A", status: "PENDING" },
+    ]);
+    await approveAdminJockeyPoolApplication(7, 31);
+    await rejectAdminJockeyPoolApplication(7, 32, "Schedule conflict.");
+
+    expect(httpClient.get).toHaveBeenCalledWith("/admin/championships/7/jockey-pool-applications", {
+      params: { status: "PENDING" },
+    });
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/admin/championships/7/jockey-pool-applications/31/approve",
+    );
+    expect(httpClient.post).toHaveBeenCalledWith(
+      "/admin/championships/7/jockey-pool-applications/32/reject",
+      { reason: "Schedule conflict." },
+    );
+  });
+
+  it("loads owner available jockeys from the approved championship pool", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({
+      data: [{ id: 31, jockeyName: "Nguyen Van A", status: "APPROVED_FOR_POOL" }],
+    });
+
+    await expect(getOwnerAvailableJockeys(7)).resolves.toEqual([
+      { id: 31, jockeyName: "Nguyen Van A", status: "APPROVED_FOR_POOL" },
+    ]);
+    expect(httpClient.get).toHaveBeenCalledWith("/owner/championships/7/jockey-pool");
+  });
+
+  it("loads and applies to jockey championships", async () => {
+    vi.mocked(httpClient.get)
+      .mockResolvedValueOnce({
+        data: [{ id: 7, name: "Spring Cup 2026", applicationStatus: "NOT_APPLIED", canApply: true }],
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 31, championshipName: "Spring Cup 2026", status: "PENDING" }],
+      });
+    vi.mocked(httpClient.post).mockResolvedValueOnce({
+      data: { id: 31, championshipName: "Spring Cup 2026", status: "PENDING" },
+    });
+
+    await expect(getJockeyChampionships()).resolves.toEqual([
+      { id: 7, name: "Spring Cup 2026", applicationStatus: "NOT_APPLIED", canApply: true },
+    ]);
+    await expect(getJockeyPoolApplications()).resolves.toEqual([
+      { id: 31, championshipName: "Spring Cup 2026", status: "PENDING" },
+    ]);
+    await applyToJockeyChampionship(7, "Available for all rounds.");
+
+    expect(httpClient.get).toHaveBeenCalledWith("/jockey/championships");
+    expect(httpClient.get).toHaveBeenCalledWith("/jockey/championships/applications");
+    expect(httpClient.post).toHaveBeenCalledWith("/jockey/championships/7/pool-applications", {
+      message: "Available for all rounds.",
     });
   });
 });

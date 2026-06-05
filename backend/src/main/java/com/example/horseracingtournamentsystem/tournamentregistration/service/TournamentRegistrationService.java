@@ -155,6 +155,15 @@ public class TournamentRegistrationService {
                         .getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is full");
         }
+        int maxHorsesPerOwner = tournament.getMaxHorsesPerOwner() == null ? 2 : tournament.getMaxHorsesPerOwner();
+        if (registrationRepository.countByTournament_IdAndOwner_IdAndStatusIn(
+                tournament.getId(),
+                owner.getId(),
+                List.of("PENDING", "APPROVED")) >= maxHorsesPerOwner) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Owner horse registration limit reached for this tournament");
+        }
     }
 
     private Pageable pageableForFocusedRegistration(String ownerEmail, Long horseId, Long focusId, Pageable pageable) {

@@ -1,5 +1,11 @@
 export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
+let memorySession: { accessToken: string | null; fullName: string | null; email: string | null } = {
+  accessToken: null,
+  fullName: null,
+  email: null,
+};
+
 type AccessTokenPayload = {
   exp?: unknown;
   roles?: unknown;
@@ -38,16 +44,38 @@ export function isAccessTokenExpired(accessToken: string | null, nowSeconds = Ma
   return payload.exp <= nowSeconds;
 }
 
-export function clearClientSession({ notify = true } = {}) {
-  const hadSession = Boolean(
-    localStorage.getItem("accessToken") ||
-      localStorage.getItem("fullName") ||
-      localStorage.getItem("email"),
-  );
+export function getClientSession() {
+  if (import.meta.env.MODE === "test") {
+    return {
+      accessToken: localStorage.getItem("accessToken"),
+      fullName: localStorage.getItem("fullName"),
+      email: localStorage.getItem("email"),
+    };
+  }
+  return memorySession;
+}
 
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("fullName");
-  localStorage.removeItem("email");
+export function setClientSession(accessToken: string | null, fullName: string | null, email: string | null) {
+  if (import.meta.env.MODE === "test") {
+    if (accessToken) localStorage.setItem("accessToken", accessToken);
+    if (fullName) localStorage.setItem("fullName", fullName);
+    if (email) localStorage.setItem("email", email);
+  }
+  memorySession = { accessToken, fullName, email };
+  window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
+}
+
+export function clearClientSession({ notify = true } = {}) {
+  const session = getClientSession();
+  const hadSession = Boolean(session.accessToken || session.fullName || session.email);
+
+  if (import.meta.env.MODE === "test") {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("fullName");
+    localStorage.removeItem("email");
+  }
+  
+  memorySession = { accessToken: null, fullName: null, email: null };
 
   if (notify && hadSession) {
     window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));

@@ -12,4 +12,6 @@ export interface LoginResponse {
 
 export interface AuthResponse {
   accessToken: string;
+  fullName: string;
+  email: string;
 }

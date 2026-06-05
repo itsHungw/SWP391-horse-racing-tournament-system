@@ -22,14 +22,20 @@ vi.mock("./api/adminUserApi", () => ({
 }));
 
 vi.mock("./api/racingApi", () => ({
+  applyToJockeyChampionship: vi.fn(),
   approveAdminHorse: vi.fn(),
+  approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
   createOwnerHorse: vi.fn(),
   createOwnerTournamentRegistration: vi.fn(),
+  getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getAdminHorses: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
+  getJockeyChampionships: vi.fn().mockResolvedValue([]),
+  getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
   getOwnerTournamentRegistrations: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn().mockResolvedValue({
     content: [],
@@ -40,6 +46,7 @@ vi.mock("./api/racingApi", () => ({
   }),
   getPublicTournaments: vi.fn(),
   rejectAdminHorse: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
@@ -320,14 +327,22 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByText("PEOPLE")).toBeInTheDocument();
+    expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
+    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournaments",
+    );
     expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
       "href",
       "/admin/horses",
     );
-    expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
-      "href",
-      "/admin/tournament-registrations",
-    );
+    expect(screen.queryByRole("link", { name: /^participants$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^registrations$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^standings$/i })).not.toBeInTheDocument();
   });
 
   it("keeps admin user management inside the admin shell", async () => {
@@ -370,5 +385,29 @@ describe("App", () => {
     expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
+  });
+
+  it("renders referee result packages as a read-only confirmed results archive", () => {
+    window.history.pushState({}, "", "/referee/result-history");
+    localStorage.setItem("accessToken", createTokenWithRoles(["REFEREE"]));
+    localStorage.setItem("fullName", "Julian Sterling");
+    localStorage.setItem("email", "referee@equine.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /result packages/i })).toHaveAttribute(
+      "href",
+      "/referee/result-history",
+    );
+    expect(screen.getByRole("heading", { name: /confirmed race results/i })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: /published race results/i })).toBeInTheDocument();
+    expect(screen.getAllByText("PUBLISHED")).toHaveLength(2);
+    expect(screen.getByText("June Stakes - Heat 2")).toBeInTheDocument();
+    expect(screen.getByText(/Golden Arrow, Night Bloom, River Comet/i)).toBeInTheDocument();
+    expect(screen.getByText(/Track Hazard - Caution Period Enabled/i)).toBeInTheDocument();
+    expect(screen.getByText(/Warning: Lane drift/i)).toBeInTheDocument();
+    expect(screen.queryByText("DRAFT")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /update|publish|save|edit/i })).not.toBeInTheDocument();
   });
 });

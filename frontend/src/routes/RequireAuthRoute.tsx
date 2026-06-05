@@ -8,7 +8,11 @@ type RequireAuthRouteProps = {
 };
 
 export function RequireAuthRoute({ children }: RequireAuthRouteProps) {
-  const { isAuthenticated } = useClientSession();
+  const { isAuthenticated, isInitializing } = useClientSession();
+
+  if (isInitializing) {
+    return <div className="p-8 text-center text-slate-500">Loading session...</div>;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

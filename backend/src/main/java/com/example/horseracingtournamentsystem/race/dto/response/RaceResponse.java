@@ -17,6 +17,8 @@ public class RaceResponse {
     private Integer distanceMeters;
     private Integer maxParticipants;
     private String status;
+    private Long refereeId;
+    private String refereeName;
     private String creatorName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

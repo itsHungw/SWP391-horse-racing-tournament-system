@@ -5,8 +5,16 @@ import type {
   HorseDocumentPayload,
   HorseMultipartPayload,
   HorseStatus,
+  JockeyChampionship,
+  JockeyInvitation,
+  JockeyPoolApplication,
+  JockeyPoolApplicationStatus,
+  JockeyScheduleItem,
+  LockParticipantsResponse,
+  OwnerContractPayload,
   PageResponse,
   Tournament,
+  TournamentParticipant,
   TournamentRegistration,
   TournamentRegistrationPayload,
   TournamentRegistrationStatus,
@@ -150,5 +158,119 @@ export async function rejectAdminTournamentRegistration(
   const response = await httpClient.post<TournamentRegistration>(`/admin/tournament-registrations/${id}/reject`, {
     reason,
   });
+  return response.data;
+}
+
+export async function getAdminJockeyPoolApplications(
+  championshipId: number,
+  status?: JockeyPoolApplicationStatus,
+): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/admin/championships/${championshipId}/jockey-pool-applications`,
+    { params: { status: status || undefined } },
+  );
+  return response.data;
+}
+
+export async function getJockeyChampionships(): Promise<JockeyChampionship[]> {
+  const response = await httpClient.get<JockeyChampionship[]>("/jockey/championships");
+  return response.data;
+}
+
+export async function getJockeyPoolApplications(): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>("/jockey/championships/applications");
+  return response.data;
+}
+
+export async function applyToJockeyChampionship(
+  championshipId: number,
+  message?: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/jockey/championships/${championshipId}/pool-applications`,
+    { message },
+  );
+  return response.data;
+}
+
+export async function approveAdminJockeyPoolApplication(
+  championshipId: number,
+  applicationId: number,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/admin/championships/${championshipId}/jockey-pool-applications/${applicationId}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectAdminJockeyPoolApplication(
+  championshipId: number,
+  applicationId: number,
+  reason: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/admin/championships/${championshipId}/jockey-pool-applications/${applicationId}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+export async function getOwnerAvailableJockeys(championshipId: number): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/owner/championships/${championshipId}/jockey-pool`,
+  );
+  return response.data;
+}
+
+export async function sendOwnerContract(
+  championshipId: number,
+  payload: OwnerContractPayload,
+): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(
+    `/owner/championships/${championshipId}/contracts`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function getOwnerContracts(championshipId: number): Promise<JockeyInvitation[]> {
+  const response = await httpClient.get<JockeyInvitation[]>(`/owner/championships/${championshipId}/contracts`);
+  return response.data;
+}
+
+export async function getJockeyContracts(): Promise<JockeyInvitation[]> {
+  const response = await httpClient.get<JockeyInvitation[]>("/jockey/contracts");
+  return response.data;
+}
+
+export async function getJockeyParticipants(): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>("/jockey/participants");
+  return response.data;
+}
+
+export async function getJockeySchedule(): Promise<JockeyScheduleItem[]> {
+  const response = await httpClient.get<JockeyScheduleItem[]>("/jockey/schedule");
+  return response.data;
+}
+
+export async function acceptJockeyContract(contractId: number): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(`/jockey/contracts/${contractId}/accept`);
+  return response.data;
+}
+
+export async function rejectJockeyContract(contractId: number, reason: string): Promise<JockeyInvitation> {
+  const response = await httpClient.post<JockeyInvitation>(`/jockey/contracts/${contractId}/reject`, { reason });
+  return response.data;
+}
+
+export async function lockAdminChampionshipParticipants(championshipId: number): Promise<LockParticipantsResponse> {
+  const response = await httpClient.post<LockParticipantsResponse>(
+    `/admin/championships/${championshipId}/lock-participants`,
+  );
+  return response.data;
+}
+
+export async function getAdminChampionshipParticipants(championshipId: number): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>(`/admin/championships/${championshipId}/participants`);
   return response.data;
 }
