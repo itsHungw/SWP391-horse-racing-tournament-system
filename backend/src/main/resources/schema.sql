@@ -1048,7 +1048,7 @@ GO
 SELECT definition
 FROM sys.check_constraints
 WHERE name = 'chk_tournaments_status';
-=======
+
 -- 6. PREDICTIONS & POINTS TABLES
 
 IF OBJECT_ID(N'dbo.user_point_accounts', N'U') IS NULL
