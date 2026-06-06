@@ -21,6 +21,12 @@ Completed in this pass:
 - Fixed `UserPointAccount` `@MapsId` creation so new point accounts persist reliably on Hibernate 7.
 - Added backend test database cleanup support for integration tests that share the H2 context.
 - Updated schedule publication tests to match the production rule that rounds require assigned referees before schedule publication.
+- Added production security configuration: env-backed CORS, CSP/referrer/frame/permissions headers, secure-cookie fail-fast for `prod`, and application rate limiting for login/upload/prediction submit.
+- Moved SQL logging into `application-dev.yml` and added Flyway dependencies plus baseline migration marker for production schema history.
+- Converted spectator prediction mutation/list responses to DTOs so entity graphs are not exposed.
+- Hardened referee result validation for empty result packages, missing participants, duplicate participants, duplicate finish positions, invalid times, invalid penalties, and non-finished participants with positions.
+- Tightened owner registration and referee result UI around blocker checklists and result payload correctness.
+- Added admin prediction settlement audit strip and removed blocking browser alert from settlement retry.
 
 Verification evidence:
 
@@ -32,8 +38,8 @@ Verification evidence:
 Known remaining production backlog:
 
 - Broader private-file authorization for legacy horse medical/evidence paths under `/uploads/**` still needs migration into the controlled file endpoint.
-- Production CORS/security headers/rate limits/secure-cookie fail-fast configuration are still open.
-- DTO hardening, Bean Validation expansion, and Flyway/Liquibase migration work are still open.
+- Legacy horse evidence/medical authorization remains the main upload backlog before cloud deployment.
+- Flyway has been introduced with a baseline marker; the full legacy `schema.sql` still needs conversion into ordered incremental migrations for clean cloud database creation.
 - Frontend test suite still emits non-failing legacy warnings around jsdom network noise and React `act(...)` in a few older tests.
 
 ## Critical Issues
@@ -195,6 +201,10 @@ CORS uses `Customizer.withDefaults()` and there is no explicit CSP, referrer pol
 
 Add a `CorsConfigurationSource` backed by environment-configured allowed origins. Add security headers including CSP, frame options, and referrer policy.
 
+**Status**
+
+Fixed for application-level configuration. `SecurityConfig` now registers env-backed CORS and adds CSP, referrer, frame, and permissions headers.
+
 ### 2. Refresh cookie `Secure` defaults to false
 
 **File**
@@ -207,6 +217,10 @@ Add a `CorsConfigurationSource` backed by environment-configured allowed origins
 **Required fix**
 
 Production profile must require secure cookies. Prefer fail-fast production config instead of unsafe defaults.
+
+**Status**
+
+Fixed. `application-prod.yml` defaults the refresh cookie to secure/Strict, and startup fails when the `prod` profile is active with `app.auth.refresh-cookie-secure=false`.
 
 ### 3. No rate limiting on sensitive endpoints
 
@@ -223,6 +237,10 @@ Login, resend verification email, upload, and prediction submission endpoints ha
 
 Add application-level or gateway-level rate limits for auth, upload, and prediction mutation endpoints.
 
+**Status**
+
+Fixed at application level for login, generic upload, and prediction submit. Multi-instance cloud deployments should back the same policy with a shared store such as Redis or an edge gateway.
+
 ### 4. Prediction spectator API exposes entities directly
 
 **File**
@@ -235,6 +253,10 @@ Several endpoints return `RacePrediction` entities directly.
 **Required fix**
 
 Return DTOs only. DTOs must include just the fields the frontend uses.
+
+**Status**
+
+Fixed for spectator prediction submit/update/my/options responses with `UserPredictionResponse`.
 
 ### 5. Official result request DTOs need stronger validation
 
@@ -252,6 +274,10 @@ Official race-day inputs rely heavily on service checks and have limited Bean Va
 
 Add validation for non-empty result lists, participant IDs, status values, time/position ranges, penalties, report titles, and incident payloads.
 
+**Status**
+
+Partially fixed for official result submission: empty packages, missing/duplicate participants, duplicate positions, invalid statuses, negative time/penalty values, and invalid position/time combinations are rejected. Incident/check DTO expansion remains lower-risk follow-up.
+
 ### 6. Database migration flow is not production-grade
 
 **Files**
@@ -265,6 +291,10 @@ The project uses manual SQL scripts and a large schema script with many conditio
 **Required fix**
 
 Move schema management to Flyway or Liquibase with ordered, versioned migrations and repeatable seed policy for dev data.
+
+**Status**
+
+Started. Flyway is installed/configured and test profile disables it to preserve H2 create-drop tests. The first migration is a baseline marker; the next production task is converting the legacy SQL Server `schema.sql` into full ordered migrations.
 
 ## Cleanup Items
 

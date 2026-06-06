@@ -16,11 +16,15 @@ Implemented in this pass:
 - Points account hardening: `UserPointAccount` creation now works with Hibernate 7 `@MapsId` persist behavior.
 - Test infrastructure: added a test-only database cleaner for integration tests that share the H2 context.
 - Test alignment: schedule publication integration tests now seed an assigned referee because production requires every round to have one before publishing.
+- Security hardening: CORS is env-backed, security headers are explicit, production refresh cookies fail fast when not secure, SQL logging moved to dev profile, and rate limits protect login/upload/prediction submit.
+- DTO hardening: spectator prediction endpoints now return DTOs instead of `RacePrediction` entities.
+- Race-day validation: result packages now enforce non-empty submissions, every participant exactly once, no duplicate finish positions, non-negative times/penalties, and valid status/time/position combinations.
+- UI hardening: owner registration uses a blocker checklist, referee result submission avoids invalid empty-string payloads, and admin prediction detail has an inline settlement audit strip.
 
 Deferred work remains for full production readiness:
 
 - Legacy horse evidence/medical document paths still need migration from `/uploads/**` to the controlled private file endpoint.
-- Production CORS, headers, secure-cookie enforcement, rate limiting, DTO hardening, validation, and migrations.
+- Full conversion of the legacy SQL Server schema into ordered Flyway migrations and legacy horse evidence/medical authorization.
 
 Current verification:
 
@@ -51,6 +55,30 @@ This spec does not require implementing the changes immediately. It is intended 
 - Reworking unrelated owner, jockey, or referee screen styling.
 
 ## Architecture Direction
+
+### Official Domain Flow
+
+Main operational flow:
+
+1. Admin opens a championship registration window.
+2. Owner registers an approved horse and clears document blockers.
+3. Jockey applies to the championship pool.
+4. Admin approves horse registrations and jockey pool applications.
+5. Owner sends a jockey contract; jockey accepts.
+6. Admin locks accepted contracts into championship participants.
+7. Admin creates rounds, assigns referees, and publishes the schedule.
+8. Race starts in `SCHEDULED`; predictions are open only in this state.
+9. Referee starts checks; race moves to `CHECKING` and pending predictions lock.
+10. Referee clears participants, starts race, finishes race, and submits official results.
+11. Result confirmation creates one prediction settlement job.
+12. Settlement evaluates official results, updates prediction status, and adjusts points idempotently.
+
+State ownership:
+
+- Admin owns championship setup, participant lock, schedule publication, referee assignment, cancellation, and final result publication.
+- Referee owns race-day transitions from checks through result submission for assigned published races.
+- Spectator owns prediction create/update only while race is `SCHEDULED`.
+- Settlement owns prediction payout/refund finalization after result confirmation or cancellation.
 
 ### File Access
 
@@ -284,6 +312,14 @@ Mock data belongs in tests or fixture files only.
 - Auth spam returns HTTP 429 after configured limits.
 - Base `application.yml` does not enable SQL logging by default.
 
+**Implemented**
+
+- `CorsConfigurationSource` uses `app.cors.*`.
+- Security headers include CSP, frame deny, strict-origin referrer, and permissions policy.
+- `ProductionCookiePropertiesValidator` fails unsafe prod cookie settings.
+- `RateLimitingFilter` protects login, upload, and prediction submit.
+- SQL logging moved to `application-dev.yml`.
+
 ### Workstream 7: DTO and Validation Hardening
 
 **Files likely affected**
@@ -303,6 +339,13 @@ Mock data belongs in tests or fixture files only.
 - Spectator prediction endpoints return DTOs only.
 - Malformed result submissions return HTTP 400 with field errors.
 - Invalid participant IDs and duplicate result positions are rejected.
+
+**Implemented**
+
+- `UserPredictionResponse` is used for spectator prediction API boundaries.
+- `SubmitResultsRequest` and `ParticipantResultEntry` have Bean Validation.
+- `RefereeRaceDayService` enforces cross-field and cross-row result package rules.
+- Frontend referee result submission maps blank numeric fields to `null` before sending JSON.
 
 ### Workstream 8: Database Migration Management
 
@@ -324,6 +367,12 @@ Mock data belongs in tests or fixture files only.
 - A clean database can be created by running migrations.
 - Existing dev seed can still be applied intentionally.
 - Production startup does not depend on manual SQL copy-paste.
+
+**Implemented**
+
+- Flyway dependencies and application config were added.
+- Test profile disables Flyway to keep isolated H2 create-drop tests stable.
+- `V1__baseline_schema.sql` marks migration ownership for existing deployments; full legacy schema conversion remains before a clean cloud database launch.
 
 ## Suggested Implementation Order
 
