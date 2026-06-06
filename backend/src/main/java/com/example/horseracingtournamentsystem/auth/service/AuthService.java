@@ -8,6 +8,7 @@ import com.example.horseracingtournamentsystem.auth.email.EmailSender;
 import com.example.horseracingtournamentsystem.auth.entity.AuthSession;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
+import com.example.horseracingtournamentsystem.point.service.FirstLoginBonusService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -44,6 +45,7 @@ public class AuthService {
     private final OneTimeTokenService oneTimeTokenService;
     private final EmailSender emailSender;
     private final JwtService jwtService;
+    private final FirstLoginBonusService firstLoginBonusService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.refresh-token-ttl-days}")
@@ -52,7 +54,7 @@ public class AuthService {
     @Transactional
     public LoginResult login(LoginRequest request, String userAgent, String ipAddress) {
         String email = normalizeEmail(request.email());
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new IllegalArgumentException("INVALID_CREDENTIALS"));
 
         if (User.STATUS_PENDING_EMAIL_VERIFY.equals(user.getStatus())) {
@@ -62,6 +64,9 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("INVALID_CREDENTIALS");
         }
+
+        firstLoginBonusService.awardIfEligible(user);
+        user.recordLogin();
 
         String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
         String refreshToken = createRefreshSession(user, userAgent, ipAddress);
