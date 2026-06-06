@@ -434,3 +434,17 @@ BEGIN
 END;
 SELECT DB_NAME() AS current_db;
 
+ALTER TABLE dbo.point_transactions
+    DROP CONSTRAINT chk_pt_transaction_type;
+
+ALTER TABLE dbo.point_transactions
+    ADD CONSTRAINT chk_pt_transaction_type CHECK (
+        transaction_type IN (
+                             'FIRST_LOGIN_BONUS',
+                             'PREDICTION_ENTRY',
+                             'PREDICTION_REWARD',
+                             'BLOG_REWARD',
+                             'RACE_CANCEL_REFUND',
+                             'ADMIN_ADJUSTMENT'
+            )
+        );
