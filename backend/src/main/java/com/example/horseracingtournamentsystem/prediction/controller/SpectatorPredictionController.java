@@ -135,7 +135,7 @@ public class SpectatorPredictionController {
         res.setTop3DistributionVisible(hasTop3Pred);
 
         // Compute rates if visible
-        List<RacePrediction> allPredictions = predictionRepo.findByRaceId(raceId);
+        List<RacePrediction> allPredictions = predictionRepo.findByRace_Id(raceId);
         long totalWinnerPreds = allPredictions.stream().filter(p -> "WINNER".equals(p.getPredictionType())).count();
         long totalTop3Preds = allPredictions.stream().filter(p -> "TOP3".equals(p.getPredictionType())).count();
 

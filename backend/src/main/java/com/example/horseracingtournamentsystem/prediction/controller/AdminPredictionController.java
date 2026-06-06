@@ -54,13 +54,13 @@ public class AdminPredictionController {
             s.setRaceStatus(r.getStatus());
 
             // Counts
-            List<RacePrediction> preds = predictionRepo.findByRaceId(r.getId());
+            List<RacePrediction> preds = predictionRepo.findByRace_Id(r.getId());
             s.setTotalPredictions(preds.size());
             s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
             s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
             // Settlement Job Status
-            PredictionSettlementJob job = jobRepo.findByRaceId(r.getId()).orElse(null);
+            PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
             String predStatus = "OPEN";
             if ("CANCELLED".equals(r.getStatus())) {
                 predStatus = "REFUNDED";
@@ -103,7 +103,7 @@ public class AdminPredictionController {
         }
         d.setRaceStatus(r.getStatus());
 
-        PredictionSettlementJob job = jobRepo.findByRaceId(r.getId()).orElse(null);
+        PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
         String predStatus = "OPEN";
         if ("CANCELLED".equals(r.getStatus())) {
             predStatus = "REFUNDED";
@@ -118,7 +118,7 @@ public class AdminPredictionController {
         }
         d.setPredictionStatus(predStatus);
 
-        List<RacePrediction> preds = predictionRepo.findByRaceId(r.getId());
+        List<RacePrediction> preds = predictionRepo.findByRace_Id(r.getId());
         AdminRaceDetailResponse.SummaryInfo s = new AdminRaceDetailResponse.SummaryInfo();
         s.setTotalPredictions(preds.size());
         s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
@@ -151,7 +151,7 @@ public class AdminPredictionController {
 
     @GetMapping("/races/{raceId}/predictions")
     public ResponseEntity<List<AdminAuditPredictionResponse>> getRacePredictions(@PathVariable Long raceId) {
-        List<RacePrediction> preds = predictionRepo.findByRaceId(raceId);
+        List<RacePrediction> preds = predictionRepo.findByRace_Id(raceId);
         
         // Fetch participant horse names map to construct displays
         List<Object[]> rawHorses = predictionRepo.findParticipantHorseNamesByRaceId(raceId);

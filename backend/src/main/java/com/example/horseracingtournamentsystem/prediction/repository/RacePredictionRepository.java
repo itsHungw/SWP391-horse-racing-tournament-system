@@ -8,9 +8,9 @@ import java.util.List;
 @Repository
 public interface RacePredictionRepository extends JpaRepository<RacePrediction, Long> {
 
-    List<RacePrediction> findByRaceId(Long raceId);
+    List<RacePrediction> findByRace_Id(Long raceId);
 
-    List<RacePrediction> findByRaceIdAndStatus(Long raceId, String status);
+    List<RacePrediction> findByRace_IdAndStatus(Long raceId, String status);
 
     List<RacePrediction> findBySpectatorId(Long spectatorId);
 

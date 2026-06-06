@@ -10,9 +10,12 @@ import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,10 @@ public class PredictionSettlementScheduler {
     private final RaceResultRepository resultRepo;
     private final PointsService pointsService;
 
+    @Autowired
+    @Lazy
+    private PredictionSettlementScheduler self;
+
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
@@ -42,20 +49,24 @@ public class PredictionSettlementScheduler {
     public void pollAndProcessJobs() {
         List<PredictionSettlementJob> pendingJobs = jobRepo.findByStatus(PredictionSettlementJob.STATUS_PENDING);
         for (PredictionSettlementJob job : pendingJobs) {
-            // Concurrency Guard: Atomic claim PENDING -> PROCESSING
-            int affected = jobRepo.claimJobAtomic(job.getId());
+            int affected = self.claimJob(job.getId());
             if (affected == 1) {
                 try {
-                    processJob(job.getId());
+                    self.processJob(job.getId());
                 } catch (Exception e) {
                     log.error("Failed to process settlement job #{}", job.getId(), e);
-                    markJobAsFailed(job.getId(), e.getMessage());
+                    self.markJobAsFailed(job.getId(), e.getMessage());
                 }
             }
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int claimJob(Long jobId) {
+        return jobRepo.claimJobAtomic(jobId);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processJob(Long jobId) {
         PredictionSettlementJob job = jobRepo.findById(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
@@ -63,7 +74,7 @@ public class PredictionSettlementScheduler {
         log.info("Processing prediction settlement job #{} for raceId={}", job.getId(), job.getRace().getId());
 
         // Fetch official results
-        List<RaceResult> results = resultRepo.findByRaceId(job.getRace().getId());
+        List<RaceResult> results = resultRepo.findByRace_Id(job.getRace().getId());
         
         // Find top 3 actual positions (sorted by position ascending: 1, 2, 3)
         List<Long> actualTop3 = results.stream()
@@ -73,9 +84,13 @@ public class PredictionSettlementScheduler {
             .collect(Collectors.toList());
 
         Map<Long, Integer> participantPositions = results.stream()
+            .filter(r -> r.getPosition() != null)
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getPosition, (p1, p2) -> p1));
 
-        List<RacePrediction> predictions = predictionRepo.findByRaceId(job.getRace().getId());
+        Map<Long, String> participantStatuses = results.stream()
+            .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getResultStatus, (p1, p2) -> p1));
+
+        List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
 
         int processedCount = 0;
         int rewardedCount = 0;
@@ -86,6 +101,31 @@ public class PredictionSettlementScheduler {
             if (RacePrediction.STATUS_PENDING.equals(p.getStatus()) || RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
                 processedCount++;
                 try {
+                    boolean shouldRefund = false;
+                    if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
+                        if (RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId()))) {
+                            shouldRefund = true;
+                        }
+                    } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
+                        if (RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
+                            RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedSecondId())) ||
+                            RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedThirdId()))) {
+                            shouldRefund = true;
+                        }
+                    }
+
+                    if (shouldRefund) {
+                        p.setStatus(RacePrediction.STATUS_REFUNDED);
+                        p.setEvaluatedAt(LocalDateTime.now());
+                        predictionRepo.save(p);
+                        pointsService.adjustPoints(
+                            p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
+                            PointTransaction.REF_RACE_PREDICTION, p.getId(), 
+                            "Refunded " + p.getEntryCostPoints() + " entry cost points due to horse withdrawal"
+                        );
+                        continue;
+                    }
+
                     boolean isCorrect = false;
                     int reward = 0;
 
@@ -155,7 +195,7 @@ public class PredictionSettlementScheduler {
         jobRepo.save(job);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markJobAsFailed(Long jobId, String message) {
         PredictionSettlementJob job = jobRepo.findById(jobId).orElse(null);
         if (job != null) {
@@ -164,6 +204,21 @@ public class PredictionSettlementScheduler {
             job.setCompletedAt(LocalDateTime.now());
             job.setUpdatedAt(LocalDateTime.now());
             jobRepo.save(job);
+            
+            // Refund predictions due to system error
+            List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
+            for (RacePrediction p : predictions) {
+                if (RacePrediction.STATUS_PENDING.equals(p.getStatus()) || RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
+                    p.setStatus(RacePrediction.STATUS_REFUNDED);
+                    p.setUpdatedAt(LocalDateTime.now());
+                    predictionRepo.save(p);
+                    pointsService.adjustPoints(
+                        p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
+                        PointTransaction.REF_RACE_PREDICTION, p.getId(), 
+                        "Refunded " + p.getEntryCostPoints() + " entry cost points due to system error processing results"
+                    );
+                }
+            }
         }
     }
 }

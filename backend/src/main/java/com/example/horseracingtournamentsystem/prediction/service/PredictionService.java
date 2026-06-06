@@ -123,7 +123,7 @@ public class PredictionService {
 
     @Transactional
     public void lockPredictionsForRace(Long raceId) {
-        List<RacePrediction> pendingPredictions = predictionRepo.findByRaceIdAndStatus(raceId, RacePrediction.STATUS_PENDING);
+        List<RacePrediction> pendingPredictions = predictionRepo.findByRace_IdAndStatus(raceId, RacePrediction.STATUS_PENDING);
         for (RacePrediction p : pendingPredictions) {
             p.setStatus(RacePrediction.STATUS_LOCKED);
             p.setLockedAt(LocalDateTime.now());
@@ -133,7 +133,7 @@ public class PredictionService {
 
     @Transactional
     public void refundCancelledRace(Long raceId) {
-        List<RacePrediction> predictions = predictionRepo.findByRaceId(raceId);
+        List<RacePrediction> predictions = predictionRepo.findByRace_Id(raceId);
         for (RacePrediction p : predictions) {
             if (RacePrediction.STATUS_PENDING.equals(p.getStatus()) || RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
                 p.setStatus(RacePrediction.STATUS_REFUNDED);
@@ -155,7 +155,7 @@ public class PredictionService {
         Race race = raceRepo.findById(raceId)
             .orElseThrow(() -> new IllegalArgumentException("Race not found"));
 
-        if (jobRepo.findByRaceId(raceId).isEmpty()) {
+        if (jobRepo.findByRace_Id(raceId).isEmpty()) {
             PredictionSettlementJob job = PredictionSettlementJob.create(race);
             jobRepo.save(job);
         }

@@ -14,7 +14,7 @@ public interface PredictionSettlementJobRepository extends JpaRepository<Predict
 
     List<PredictionSettlementJob> findByStatus(String status);
 
-    Optional<PredictionSettlementJob> findByRaceId(Long raceId);
+    Optional<PredictionSettlementJob> findByRace_Id(Long raceId);
 
     long countByStatus(String status);
 
