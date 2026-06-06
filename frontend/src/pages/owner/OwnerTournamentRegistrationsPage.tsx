@@ -251,14 +251,16 @@ export function OwnerTournamentRegistrationsPage() {
         </div>
 
         {pageMessage && (
-          <div className="rounded-xl border border-slate-200 bg-white px-5 py-4 text-xs font-bold text-slate-700 shadow-sm flex justify-between items-center" role="status">
+          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-5 py-4 text-xs font-bold text-slate-700 shadow-sm" role="status">
             <span>{pageMessage}</span>
-            <button onClick={() => setPageMessage(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer">✕</button>
+            <button aria-label="Dismiss message" onClick={() => setPageMessage(null)} className="cursor-pointer text-slate-400 hover:text-slate-600">
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
         )}
 
         {/* Wizard Panel */}
-        <div className="border border-slate-200 rounded-xl bg-white p-6 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <RegistrationWizardHeader currentStep={currentStep} />
 
           <div className="mt-6">
@@ -306,15 +308,15 @@ export function OwnerTournamentRegistrationsPage() {
         <div className="space-y-4">
           <h2 className="text-xl font-black text-slate-800">Registration History & Status</h2>
           {loading ? (
-            <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-400">
+            <div className="rounded-lg border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-400">
               Loading registrations...
             </div>
           ) : registrations.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-400">
-              No tournament registrations yet.
+            <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-500">
+              No registration records in this workspace.
             </div>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200 text-left text-xs">
                   <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">

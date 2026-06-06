@@ -12,24 +12,24 @@ export function RegistrationWizardHeader({ currentStep }: Props) {
   ];
 
   return (
-    <div className="w-full py-4 mb-6 border-b border-slate-100">
-      <div className="flex items-center justify-between max-w-3xl mx-auto px-4">
+    <div className="mb-6 w-full border-b border-slate-100 py-4">
+      <div className="mx-auto flex max-w-3xl items-center justify-between px-4">
         {steps.map((step, idx) => {
           const isCompleted = currentStep > step.number;
           const isActive = currentStep === step.number;
           return (
             <React.Fragment key={step.number}>
-              <div className="flex flex-col items-center flex-1 text-center relative">
+              <div className="relative flex flex-1 flex-col items-center text-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                  className={`flex h-10 w-10 items-center justify-center rounded-md text-sm font-bold transition-all duration-300 ${
                     isCompleted
                       ? "bg-[#006d5b] text-white shadow-sm"
                       : isActive
-                      ? "bg-[#006d5b] text-white ring-4 ring-[#006d5b]/15"
-                      : "bg-slate-100 text-slate-400"
+                        ? "bg-[#006d5b] text-white ring-4 ring-[#006d5b]/15"
+                        : "bg-slate-100 text-slate-400"
                   }`}
                 >
-                  {isCompleted ? "✓" : step.number}
+                  {isCompleted ? "OK" : step.number}
                 </div>
                 <span
                   className={`mt-2 text-xs font-bold transition-colors duration-300 ${
@@ -41,7 +41,7 @@ export function RegistrationWizardHeader({ currentStep }: Props) {
               </div>
               {idx < steps.length - 1 && (
                 <div
-                  className={`h-0.5 flex-1 mx-2 -mt-4 rounded transition-all duration-300 ${
+                  className={`-mt-4 mx-2 h-0.5 flex-1 rounded transition-all duration-300 ${
                     currentStep > step.number ? "bg-[#006d5b]" : "bg-slate-100"
                   }`}
                 />

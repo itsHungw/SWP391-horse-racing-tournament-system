@@ -43,10 +43,10 @@ export type ParticipantResultEntry = {
   participantId: number;
   horseName: string;
   jockeyName: string;
-  position: number | "";
-  rawFinishTimeSeconds?: number | "";
-  penaltySeconds?: number | "";
-  finishTimeSeconds: number | "";
+  position: number | "" | null;
+  rawFinishTimeSeconds?: number | "" | null;
+  penaltySeconds?: number | "" | null;
+  finishTimeSeconds: number | "" | null;
   status: "FINISHED" | "DISQUALIFIED" | "DID_NOT_FINISH" | "WITHDRAWN";
   note?: string | null;
 };

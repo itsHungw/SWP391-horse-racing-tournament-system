@@ -41,18 +41,31 @@ export function SubmitResultsPage() {
 
   const handleStatusChange = (index: number, status: ParticipantResultEntry["status"]) => {
     const updated = [...entries];
-    updated[index] = { ...updated[index], status };
+    updated[index] =
+      status === "FINISHED"
+        ? { ...updated[index], status }
+        : { ...updated[index], status, position: "", finishTimeSeconds: "" };
     setEntries(updated);
   };
 
-  const handleSave = async () => {
-    const positions = entries
-      .map((entry) => entry.position)
-      .filter((position): position is number => typeof position === "number");
-    const hasDuplicates = new Set(positions).size !== positions.length;
+  const finishedEntries = entries.filter((entry) => entry.status === "FINISHED");
+  const positions = finishedEntries
+    .map((entry) => entry.position)
+    .filter((position): position is number => typeof position === "number");
+  const hasDuplicates = new Set(positions).size !== positions.length;
+  const missingFinishedData = finishedEntries.some(
+    (entry) => !entry.position || entry.finishTimeSeconds === "" || entry.finishTimeSeconds == null,
+  );
+  const resultBlocked = entries.length === 0 || hasDuplicates || missingFinishedData;
 
+  const handleSave = async () => {
     if (hasDuplicates) {
       setMessage("Duplicate finish positions are not allowed.");
+      return;
+    }
+
+    if (missingFinishedData) {
+      setMessage("Every finished participant needs a position and finish time.");
       return;
     }
 
@@ -67,7 +80,8 @@ export function SubmitResultsPage() {
 
       const mappedEntries = entries.map((entry) => ({
         ...entry,
-        finishTimeSeconds: entry.finishTimeSeconds === "" ? "" : Number(entry.finishTimeSeconds),
+        position: entry.position === "" ? null : entry.position,
+        finishTimeSeconds: entry.finishTimeSeconds === "" ? null : Number(entry.finishTimeSeconds),
       }));
 
       await submitRaceResultPackage(raceId, {
@@ -90,15 +104,15 @@ export function SubmitResultsPage() {
   if (loading) {
     return (
       <section className="max-w-[1180px] space-y-4" aria-label="Loading result package">
-        <div className="h-32 animate-pulse rounded-xl border border-slate-200 bg-white" />
-        <div className="h-80 animate-pulse rounded-xl border border-slate-200 bg-white" />
+        <div className="h-32 animate-pulse rounded-lg border border-slate-200 bg-white" />
+        <div className="h-80 animate-pulse rounded-lg border border-slate-200 bg-white" />
       </section>
     );
   }
 
   return (
     <section className="mx-auto max-w-[1180px] space-y-5 pb-20 lg:pb-0" aria-labelledby="submit-results-title">
-      <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+      <header className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <Link
           className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-black text-slate-600 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
           to={`/referee/races/${raceId}/officiate`}
@@ -116,13 +130,13 @@ export function SubmitResultsPage() {
       </header>
 
       {message ? (
-        <div className="rounded-xl border border-slate-200 bg-white p-4" role="status" aria-live="polite">
+        <div className="rounded-lg border border-slate-200 bg-white p-4" role="status" aria-live="polite">
           <p className="font-black text-slate-800">{message}</p>
         </div>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <ClipboardCheck aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
             <div>
@@ -178,7 +192,7 @@ export function SubmitResultsPage() {
           </div>
         </div>
 
-        <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-[#007a68]">
             <CheckCircle2 aria-hidden="true" className="h-6 w-6" />
           </div>
@@ -219,7 +233,7 @@ export function SubmitResultsPage() {
 
           <button
             className="mt-5 hidden min-h-12 w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] lg:block"
-            disabled={submitting}
+            disabled={submitting || resultBlocked}
             onClick={() => void handleSave()}
             type="button"
           >
@@ -228,10 +242,10 @@ export function SubmitResultsPage() {
         </aside>
       </div>
 
-      <div className="fixed inset-x-3 bottom-24 z-40 rounded-2xl border border-emerald-900/15 bg-white/95 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.22)] backdrop-blur-md lg:hidden">
+      <div className="fixed inset-x-3 bottom-24 z-40 rounded-lg border border-emerald-900/15 bg-white/95 p-3 shadow-[0_18px_60px_rgba(15,23,42,0.22)] backdrop-blur-md lg:hidden">
         <button
-          className="min-h-[52px] w-full rounded-xl bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
-          disabled={submitting}
+          className="min-h-[52px] w-full rounded-lg bg-[#007a68] px-5 text-sm font-black text-white shadow-sm transition active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+          disabled={submitting || resultBlocked}
           onClick={() => void handleSave()}
           type="button"
         >

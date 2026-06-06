@@ -19,6 +19,7 @@ export function AdminRacePredictionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [operationMessage, setOperationMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("");
 
@@ -49,9 +50,10 @@ export function AdminRacePredictionDetailPage() {
 
   const handleRetryJob = async (jobId: number) => {
     setRetrying(true);
+    setOperationMessage(null);
     try {
       await retrySettlementJob(jobId);
-      alert("Settlement Job retry requested successfully!");
+      setOperationMessage("Settlement retry has been queued.");
       loadData();
     } catch (err) {
       setError("Unable to retry the settlement job. Check the API connection and try again.");
@@ -67,9 +69,9 @@ export function AdminRacePredictionDetailPage() {
       case "LOCKED":
         return <span className="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-black text-slate-700">Locked</span>;
       case "SETTLEMENT_PENDING":
-        return <span className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700 animate-pulse">Settlement Pending</span>;
+        return <span className="inline-flex items-center rounded-md border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">Settlement Pending</span>;
       case "PROCESSING":
-        return <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700 animate-spin">Processing</span>;
+        return <span className="inline-flex items-center rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-black text-indigo-700">Processing</span>;
       case "COMPLETED":
         return <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-3 py-1 text-xs font-black text-teal-700">Completed</span>;
       case "FAILED":
@@ -153,6 +155,52 @@ export function AdminRacePredictionDetailPage() {
             {getStatusBadge(raceDetail.predictionStatus)}
           </div>
         </div>
+
+        {operationMessage && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800" role="status">
+            {operationMessage}
+          </div>
+        )}
+
+        {raceDetail.settlementJob && (
+          <section aria-label="Settlement audit trail" className="rounded-lg border border-[#d8d8d8] bg-white p-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Settlement Audit</p>
+                <h2 className="mt-1 text-lg font-black text-[#161616]">Prediction settlement job #{raceDetail.settlementJob.id}</h2>
+              </div>
+              {getStatusBadge(raceDetail.settlementJob.status)}
+            </div>
+            <div className="mt-4 grid gap-3 text-xs font-bold text-slate-600 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="uppercase tracking-[0.12em] text-slate-400">Processed</p>
+                <p className="mt-1 text-base font-black text-slate-950">{raceDetail.settlementJob.processedCount}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="uppercase tracking-[0.12em] text-slate-400">Rewarded</p>
+                <p className="mt-1 text-base font-black text-emerald-700">{raceDetail.settlementJob.rewardedCount}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="uppercase tracking-[0.12em] text-slate-400">Failed</p>
+                <p className="mt-1 text-base font-black text-rose-700">{raceDetail.settlementJob.failedCount}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="uppercase tracking-[0.12em] text-slate-400">Retries</p>
+                <p className="mt-1 text-base font-black text-slate-950">{raceDetail.settlementJob.retryCount}</p>
+              </div>
+              <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                <p className="uppercase tracking-[0.12em] text-slate-400">Last event</p>
+                <p className="mt-1 text-sm font-black text-slate-950">
+                  {raceDetail.settlementJob.completedAt
+                    ? new Date(raceDetail.settlementJob.completedAt).toLocaleString("en-US")
+                    : raceDetail.settlementJob.startedAt
+                      ? new Date(raceDetail.settlementJob.startedAt).toLocaleString("en-US")
+                      : "Not started"}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Settlement failure alert banner */}
         {raceDetail.predictionStatus === "FAILED" && raceDetail.settlementJob && (
