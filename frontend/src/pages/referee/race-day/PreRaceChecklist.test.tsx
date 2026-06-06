@@ -112,7 +112,7 @@ describe("PreRaceChecklist", () => {
     expect(screen.getByRole("button", { name: "Confirm & Enter Live Control" })).toBeDisabled();
   });
 
-  it("shows only passed horses in the ready lineup", () => {
+  it("shows passed horses and keeps scratched horses visible for audit", () => {
     render(
       <ReadyLineupPanel
         onEnterLive={vi.fn()}
@@ -132,7 +132,8 @@ describe("PreRaceChecklist", () => {
     );
 
     expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
-    expect(screen.queryByText("Night Bloom")).not.toBeInTheDocument();
+    expect(screen.getByText("Night Bloom")).toBeInTheDocument();
+    expect(screen.getByText("Failed health check")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Confirm & Enter Live Control" })).toBeEnabled();
   });
 });

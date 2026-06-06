@@ -4,6 +4,8 @@ import {
   AUTH_SESSION_CHANGED_EVENT,
   clearClientSession,
   isAccessTokenExpired,
+  getClientSession,
+  setClientSession,
 } from "../utils/authSession";
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
@@ -45,7 +47,8 @@ function isFormDataBody(data: unknown) {
 
 httpClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("accessToken");
+    const session = getClientSession();
+    const token = session.accessToken;
     const headers = AxiosHeaders.from(config.headers);
 
     if (isFormDataBody(config.data)) {
@@ -87,8 +90,11 @@ httpClient.interceptors.response.use(
         { withCredentials: true },
       );
       const nextAccessToken = refreshResponse.data.accessToken;
-      localStorage.setItem("accessToken", nextAccessToken);
-      window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
+      setClientSession(
+        nextAccessToken,
+        refreshResponse.data.fullName,
+        refreshResponse.data.email
+      );
 
       const headers = AxiosHeaders.from(originalRequest.headers);
       headers.set("Authorization", `Bearer ${nextAccessToken}`);

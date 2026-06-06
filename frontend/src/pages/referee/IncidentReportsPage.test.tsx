@@ -31,14 +31,12 @@ describe("IncidentReportsPage", () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText("Incident Reporting & Officiating Log")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Race incident and official report" })).toBeInTheDocument();
 
-    // Fill the required summary field
-    const summaryInput = screen.getByPlaceholderText(/Summarize overall race conditions/i);
+    const summaryInput = screen.getByPlaceholderText(/Track condition was clear/i);
     fireEvent.change(summaryInput, { target: { value: "This was a clean race with no major accidents." } });
 
-    // Submit the report
-    const submitReportButton = screen.getByRole("button", { name: /save report/i });
+    const submitReportButton = screen.getByRole("button", { name: /save official report/i });
     await act(async () => {
       fireEvent.click(submitReportButton);
     });

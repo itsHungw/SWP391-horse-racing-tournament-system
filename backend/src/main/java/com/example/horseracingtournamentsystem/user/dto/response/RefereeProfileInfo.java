@@ -8,6 +8,7 @@ public record RefereeProfileInfo(
         String certification,
         int experienceYears,
         String bio,
+        String evidenceUrl,
         String status,
         LocalDateTime approvedAt
 ) {
@@ -20,6 +21,7 @@ public record RefereeProfileInfo(
                 profile.getCertification(),
                 profile.getExperienceYears(),
                 profile.getBio(),
+                profile.getEvidenceUrl(),
                 profile.getStatus().name(),
                 profile.getApprovedAt()
         );

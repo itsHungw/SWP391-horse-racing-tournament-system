@@ -17,6 +17,7 @@ import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
@@ -37,6 +38,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +52,9 @@ class JockeyInvitationContractIntegrationTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private TournamentParticipantRepository participantRepository;
@@ -90,6 +95,7 @@ class JockeyInvitationContractIntegrationTest {
     private User admin;
     private User owner;
     private User jockey;
+    private User referee;
     private Tournament tournament;
     private Race openingRound;
     private Horse horse;
@@ -99,6 +105,7 @@ class JockeyInvitationContractIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TestDatabaseCleaner.clean(jdbcTemplate);
         participantRepository.deleteAll();
         invitationRepository.deleteAll();
         jockeyApplicationRepository.deleteAll();
@@ -113,14 +120,17 @@ class JockeyInvitationContractIntegrationTest {
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Admin"));
         Role ownerRole = roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
         Role jockeyRole = roleRepository.save(Role.of("JOCKEY", "Jockey"));
+        Role refereeRole = roleRepository.save(Role.of("REFEREE", "Referee"));
 
         admin = verifiedUser("Admin User", "admin@example.com");
         owner = verifiedUser("Sunrise Stable", "owner@example.com");
         jockey = verifiedUser("Nguyen Van A", "jockey@example.com");
+        referee = verifiedUser("Race Steward", "referee@example.com");
 
         userRoleRepository.save(UserRole.active(admin, adminRole, admin));
         userRoleRepository.save(UserRole.active(owner, ownerRole, admin));
         userRoleRepository.save(UserRole.active(jockey, jockeyRole, admin));
+        userRoleRepository.save(UserRole.active(referee, refereeRole, admin));
 
         tournament = Tournament.create(
                 "Spring Cup 2026",
@@ -137,7 +147,7 @@ class JockeyInvitationContractIntegrationTest {
         tournament.openRegistration();
         tournament = tournamentRepository.save(tournament);
 
-        openingRound = raceRepository.save(Race.create(
+        openingRound = Race.create(
                 tournament,
                 "Round 1 - Opening Sprint",
                 "SPRING_R1",
@@ -145,7 +155,9 @@ class JockeyInvitationContractIntegrationTest {
                 1600,
                 20,
                 admin
-        ));
+        );
+        openingRound.assignReferee(referee);
+        openingRound = raceRepository.save(openingRound);
 
         horse = horseRepository.save(Horse.create(
                 owner,

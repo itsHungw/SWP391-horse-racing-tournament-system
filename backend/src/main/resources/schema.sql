@@ -376,6 +376,7 @@ ALTER TABLE horse_owner_profiles ADD created_at DATETIME2 NULL;
 IF COL_LENGTH('horse_owner_profiles', 'updated_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD updated_at DATETIME2 NULL;
 
+
 IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.jockey_tournament_applications (
@@ -836,6 +837,69 @@ BEGIN
     ON dbo.jockey_tournament_applications(tournament_id, jockey_id)
 END;
 
+
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'raw_finish_time_seconds') IS NULL
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD raw_finish_time_seconds DECIMAL(10,3) NULL
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'penalty_seconds') IS NULL
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD penalty_seconds DECIMAL(10,3) NOT NULL
+            CONSTRAINT DF_race_results_penalty_seconds DEFAULT 0
+            WITH VALUES
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'raw_finish_time_seconds') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_race_results_raw_finish_time_positive'
+          AND parent_object_id = OBJECT_ID(N'dbo.race_results')
+    )
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD CONSTRAINT chk_race_results_raw_finish_time_positive
+        CHECK (raw_finish_time_seconds IS NULL OR raw_finish_time_seconds > 0)
+    ');
+    END;
+GO
+
+IF OBJECT_ID(N'dbo.race_results', N'U') IS NOT NULL
+    AND COL_LENGTH(N'dbo.race_results', N'penalty_seconds') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.check_constraints
+        WHERE name = N'chk_race_results_penalty_non_negative'
+          AND parent_object_id = OBJECT_ID(N'dbo.race_results')
+    )
+    BEGIN
+        EXEC(N'
+        ALTER TABLE dbo.race_results
+        ADD CONSTRAINT chk_race_results_penalty_non_negative
+        CHECK (penalty_seconds >= 0)
+    ');
+    END;
+GO
+
+
+
+
+
+
 IF OBJECT_ID(N'dbo.tournaments', N'U') IS NOT NULL
    AND COL_LENGTH(N'dbo.tournaments', N'max_horses_per_owner') IS NULL
 BEGIN
@@ -984,3 +1048,112 @@ GO
 SELECT definition
 FROM sys.check_constraints
 WHERE name = 'chk_tournaments_status';
+
+-- 6. PREDICTIONS & POINTS TABLES
+
+IF OBJECT_ID(N'dbo.user_point_accounts', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.user_point_accounts (
+        user_id BIGINT NOT NULL,
+        point_balance INT NOT NULL DEFAULT 0,
+        updated_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        CONSTRAINT pk_user_point_accounts PRIMARY KEY (user_id),
+        CONSTRAINT fk_upa_user FOREIGN KEY (user_id) REFERENCES dbo.users(id),
+        CONSTRAINT chk_upa_balance CHECK (point_balance >= 0)
+    );
+END;
+
+IF OBJECT_ID(N'dbo.point_transactions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.point_transactions (
+        id BIGINT IDENTITY(1,1) NOT NULL,
+        user_id BIGINT NOT NULL,
+        amount INT NOT NULL,
+        transaction_type VARCHAR(50) NOT NULL,
+        reference_type VARCHAR(50) NULL,
+        reference_id BIGINT NULL,
+        description NVARCHAR(500) NULL,
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        CONSTRAINT pk_point_transactions PRIMARY KEY (id),
+        CONSTRAINT fk_pt_user FOREIGN KEY (user_id) REFERENCES dbo.users(id),
+        CONSTRAINT chk_pt_transaction_type CHECK (
+            transaction_type IN ('PREDICTION_ENTRY', 'PREDICTION_REWARD', 'BLOG_REWARD', 'RACE_CANCEL_REFUND', 'ADMIN_ADJUSTMENT')
+        ),
+        CONSTRAINT chk_pt_reference_type CHECK (
+            reference_type IS NULL OR reference_type IN ('RACE_PREDICTION', 'RACE_RESULT', 'BLOG', 'ADMIN', 'RACE')
+        )
+    );
+END;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes 
+    WHERE name = N'uq_point_tx_idempotency' 
+      AND object_id = OBJECT_ID(N'dbo.point_transactions')
+)
+BEGIN
+    CREATE UNIQUE INDEX uq_point_tx_idempotency 
+    ON dbo.point_transactions(reference_type, reference_id, transaction_type)
+    WHERE reference_type IS NOT NULL AND reference_id IS NOT NULL;
+END;
+
+IF OBJECT_ID(N'dbo.race_predictions', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.race_predictions (
+        id BIGINT IDENTITY(1,1) NOT NULL,
+        race_id BIGINT NOT NULL,
+        spectator_id BIGINT NOT NULL,
+        prediction_type VARCHAR(30) NOT NULL DEFAULT 'WINNER',
+        predicted_winner_id BIGINT NOT NULL,
+        predicted_second_id BIGINT NULL,
+        predicted_third_id BIGINT NULL,
+        entry_cost_points INT NOT NULL,
+        reward_points INT NOT NULL DEFAULT 0,
+        status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+        locked_at DATETIME2 NULL,
+        evaluated_at DATETIME2 NULL,
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL,
+        CONSTRAINT pk_race_predictions PRIMARY KEY (id),
+        CONSTRAINT uq_race_spectator_prediction UNIQUE (race_id, spectator_id, prediction_type),
+        CONSTRAINT fk_rpred_race FOREIGN KEY (race_id) REFERENCES dbo.races(id),
+        CONSTRAINT fk_rpred_spectator FOREIGN KEY (spectator_id) REFERENCES dbo.users(id),
+        CONSTRAINT fk_rpred_winner FOREIGN KEY (predicted_winner_id) REFERENCES dbo.race_participants(id),
+        CONSTRAINT fk_rpred_second FOREIGN KEY (predicted_second_id) REFERENCES dbo.race_participants(id),
+        CONSTRAINT fk_rpred_third FOREIGN KEY (predicted_third_id) REFERENCES dbo.race_participants(id),
+        CONSTRAINT chk_rpred_type CHECK (prediction_type IN ('WINNER', 'TOP3')),
+        CONSTRAINT chk_rpred_status CHECK (status IN ('PENDING', 'LOCKED', 'CORRECT', 'INCORRECT', 'CANCELLED', 'REFUNDED')),
+        CONSTRAINT chk_rpred_top3_distinct CHECK (
+            prediction_type <> 'TOP3' OR (
+                predicted_second_id IS NOT NULL 
+                AND predicted_third_id IS NOT NULL
+                AND predicted_winner_id <> predicted_second_id
+                AND predicted_winner_id <> predicted_third_id
+                AND predicted_second_id <> predicted_third_id
+            )
+        )
+    );
+END;
+
+IF OBJECT_ID(N'dbo.prediction_settlement_jobs', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.prediction_settlement_jobs (
+        id BIGINT IDENTITY(1,1) NOT NULL,
+        race_id BIGINT NOT NULL,
+        status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+        processed_count INT NOT NULL DEFAULT 0,
+        rewarded_count INT NOT NULL DEFAULT 0,
+        failed_count INT NOT NULL DEFAULT 0,
+        retry_count INT NOT NULL DEFAULT 0,
+        error_message NVARCHAR(MAX) NULL,
+        started_at DATETIME2 NULL,
+        completed_at DATETIME2 NULL,
+        created_at DATETIME2 NOT NULL DEFAULT SYSDATETIME(),
+        updated_at DATETIME2 NULL,
+        CONSTRAINT pk_prediction_settlement_jobs PRIMARY KEY (id),
+        CONSTRAINT fk_psj_race FOREIGN KEY (race_id) REFERENCES dbo.races(id),
+        CONSTRAINT uq_psj_race UNIQUE (race_id),
+        CONSTRAINT chk_psj_status CHECK (status IN ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'))
+    );
+END;
+
+

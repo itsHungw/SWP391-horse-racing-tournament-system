@@ -15,6 +15,11 @@ export async function getAssignedRaces(): Promise<RaceSummary[]> {
   return response.data;
 }
 
+export async function getAssignedRace(raceId: number): Promise<RaceSummary> {
+  const response = await httpClient.get<RaceSummary>(`/referee/races/${raceId}`);
+  return response.data;
+}
+
 export type ParticipantVerification = {
   participantId: number;
   horseName: string;
@@ -38,9 +43,12 @@ export type ParticipantResultEntry = {
   participantId: number;
   horseName: string;
   jockeyName: string;
-  position: number | "";
-  finishTimeSeconds: number | "";
+  position: number | "" | null;
+  rawFinishTimeSeconds?: number | "" | null;
+  penaltySeconds?: number | "" | null;
+  finishTimeSeconds: number | "" | null;
   status: "FINISHED" | "DISQUALIFIED" | "DID_NOT_FINISH" | "WITHDRAWN";
+  note?: string | null;
 };
 
 export async function getRaceResultEntries(raceId: number): Promise<ParticipantResultEntry[]> {
@@ -50,6 +58,21 @@ export async function getRaceResultEntries(raceId: number): Promise<ParticipantR
 
 export async function submitRaceResults(raceId: number, results: ParticipantResultEntry[]): Promise<void> {
   await httpClient.post(`/referee/races/${raceId}/results`, results);
+}
+
+export type SubmitRaceResultPackageRequest = {
+  results: ParticipantResultEntry[];
+  requiresAdminReview: boolean;
+  reviewReason?: string | null;
+  reportTitle?: string | null;
+  reportSummary?: string | null;
+};
+
+export async function submitRaceResultPackage(
+  raceId: number,
+  payload: SubmitRaceResultPackageRequest
+): Promise<void> {
+  await httpClient.post(`/referee/races/${raceId}/results/submit`, payload);
 }
 
 export type ViolationEntry = {
@@ -76,3 +99,12 @@ export async function transitionRaceState(raceId: number): Promise<string> {
   return response.data.status;
 }
 
+export async function startRace(raceId: number): Promise<string> {
+  const response = await httpClient.post<{ status: string }>(`/referee/races/${raceId}/start`);
+  return response.data.status;
+}
+
+export async function finishRace(raceId: number): Promise<string> {
+  const response = await httpClient.post<{ status: string }>(`/referee/races/${raceId}/finish`);
+  return response.data.status;
+}

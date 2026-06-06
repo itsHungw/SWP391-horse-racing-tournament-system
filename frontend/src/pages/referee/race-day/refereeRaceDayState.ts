@@ -25,6 +25,31 @@ function createIncident(
   };
 }
 
+function raceCompletionElapsed(state: LiveRaceState) {
+  const finishTimes = state.runners
+    .map((runner) => runner.finishMilliseconds)
+    .filter((value): value is number => value !== undefined);
+
+  return finishTimes.length === 0 ? state.elapsedMilliseconds : Math.max(...finishTimes);
+}
+
+function completeRaceIfFieldSettled(state: LiveRaceState): LiveRaceState {
+  const activeRunners = state.runners.filter((runner) => runner.status !== "DSQ");
+  const fieldSettled =
+    activeRunners.length === 0 ||
+    activeRunners.every((runner) => runner.finishMilliseconds !== undefined);
+
+  if (!fieldSettled) {
+    return state;
+  }
+
+  return {
+    ...state,
+    mode: "FINISHED_DRAFT",
+    elapsedMilliseconds: raceCompletionElapsed(state),
+  };
+}
+
 export function canOpenPreRaceCheck(scheduledAt: string, now: Date, demoMode: boolean) {
   const start = new Date(scheduledAt);
   const sameDay = start.toDateString() === now.toDateString();
@@ -101,35 +126,57 @@ export function applyLiveTick(state: LiveRaceState, elapsedMilliseconds: number)
       return runner;
     }
 
-    const nextProgress = Math.min(
-      100,
-      runner.progressPercent +
-        progressPerSecond * seconds * (state.mode === "SAFETY_CAR" ? 1 : runner.speedMultiplier)
-    );
-
-    if (nextProgress >= 100) {
-      return {
-        ...runner,
-        progressPercent: 100,
-        finishMilliseconds: nextElapsedMilliseconds,
-      };
-    }
-
     return {
       ...runner,
-      progressPercent: nextProgress,
+      progressPercent: Math.min(
+        100,
+        runner.progressPercent +
+          progressPerSecond * seconds * (state.mode === "SAFETY_CAR" ? 1 : runner.speedMultiplier)
+      ),
     };
   });
-  const activeRunners = runners.filter((runner) => runner.status !== "DSQ");
-  const allActiveRunnersFinished =
-    activeRunners.length > 0 && activeRunners.every((runner) => runner.finishMilliseconds !== undefined);
 
   return {
     ...state,
-    mode: allActiveRunnersFinished ? "FINISHED_DRAFT" : state.mode,
     elapsedMilliseconds: nextElapsedMilliseconds,
     runners,
   };
+}
+
+export function markRunnerFinished(
+  state: LiveRaceState,
+  participantId: number,
+  occurredAt: string
+): LiveRaceState {
+  const runner = state.runners.find((entry) => entry.participantId === participantId);
+
+  if (!runner || runner.status !== "RUNNING" || runner.finishMilliseconds !== undefined) {
+    return state;
+  }
+
+  const nextState: LiveRaceState = {
+    ...state,
+    runners: state.runners.map((entry) =>
+      entry.participantId === participantId
+        ? {
+            ...entry,
+            progressPercent: 100,
+            finishMilliseconds: state.elapsedMilliseconds,
+          }
+        : entry
+    ),
+    incidents: [
+      ...state.incidents,
+      createIncident(
+        "FLAG",
+        occurredAt,
+        `${runner.horseName} finished at ${(state.elapsedMilliseconds / 1_000).toFixed(3)}s`,
+        participantId
+      ),
+    ],
+  };
+
+  return completeRaceIfFieldSettled(nextState);
 }
 
 export function applyPenalty(
@@ -145,15 +192,15 @@ export function applyPenalty(
   }
 
   if (action === "DSQ") {
-    return {
+    return completeRaceIfFieldSettled({
       ...state,
       runners: state.runners.filter((entry) => entry.participantId !== participantId),
       outOfRace: [...state.outOfRace, { ...runner, status: "DSQ" }],
       incidents: [
         ...state.incidents,
-        createIncident("DSQ", occurredAt, `Horse #${participantId} disqualified`, participantId),
+        createIncident("DSQ", occurredAt, `${runner.horseName} disqualified`, participantId),
       ],
-    };
+    });
   }
 
   const isFiveSecondPenalty = action === "PENALTY_5S";
@@ -165,8 +212,8 @@ export function applyPenalty(
         isFiveSecondPenalty ? "PENALTY" : "WARNING",
         occurredAt,
         isFiveSecondPenalty
-          ? `Horse #${participantId} receives +5s draft penalty`
-          : `Horse #${participantId} receives a warning`,
+          ? `${runner.horseName} receives +5s penalty`
+          : `${runner.horseName} receives a warning`,
         participantId,
         isFiveSecondPenalty ? 5 : undefined
       ),
@@ -185,7 +232,7 @@ export function createFinishedSnapshot(state: LiveRaceState): RaceSnapshot | nul
   }
 
   return {
-    elapsedMilliseconds: state.elapsedMilliseconds,
+    elapsedMilliseconds: raceCompletionElapsed(state),
     leaderboard: [...state.runners].sort((a, b) => {
       const finishDelta = (a.finishMilliseconds ?? Number.POSITIVE_INFINITY) - (b.finishMilliseconds ?? Number.POSITIVE_INFINITY);
       return finishDelta || b.progressPercent - a.progressPercent;

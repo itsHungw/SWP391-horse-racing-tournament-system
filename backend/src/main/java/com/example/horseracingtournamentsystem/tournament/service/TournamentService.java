@@ -163,6 +163,17 @@ public class TournamentService {
                     "Create at least one championship round before publishing the schedule"
             );
         }
+        List<String> missingRefereeRounds = races.stream()
+                .filter(race -> race.getReferee() == null)
+                .map(Race::getName)
+                .toList();
+        if (!missingRefereeRounds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot publish schedule. Some races do not have assigned referees: "
+                            + String.join(", ", missingRefereeRounds)
+            );
+        }
 
         List<TournamentParticipant> participants =
                 tournamentParticipantRepository.findAllByTournament_IdOrderByCreatedAtDesc(tournament.getId());

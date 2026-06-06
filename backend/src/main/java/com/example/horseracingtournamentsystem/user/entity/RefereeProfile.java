@@ -69,4 +69,15 @@ public class RefereeProfile {
         profile.createdAt = LocalDateTime.now();
         return profile;
     }
+
+    public void updateCredentials(String licenseNumber, String certification, int experienceYears, String bio, String evidenceUrl) {
+        this.licenseNumber = licenseNumber;
+        this.certification = certification;
+        this.experienceYears = experienceYears;
+        this.bio = bio;
+        this.evidenceUrl = evidenceUrl;
+        this.status = RefereeProfileStatus.PENDING;
+        this.rejectionReason = null;
+        this.updatedAt = LocalDateTime.now();
+    }
 }

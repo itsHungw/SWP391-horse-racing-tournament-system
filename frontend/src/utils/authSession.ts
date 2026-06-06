@@ -1,5 +1,11 @@
 export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
+let memorySession: { accessToken: string | null; fullName: string | null; email: string | null } = {
+  accessToken: null,
+  fullName: null,
+  email: null,
+};
+
 type AccessTokenPayload = {
   exp?: unknown;
   roles?: unknown;
@@ -38,16 +44,29 @@ export function isAccessTokenExpired(accessToken: string | null, nowSeconds = Ma
   return payload.exp <= nowSeconds;
 }
 
+export function getClientSession() {
+  return memorySession;
+}
+
+export function setClientSession(accessToken: string | null, fullName: string | null, email: string | null) {
+  memorySession = { accessToken, fullName, email };
+  localStorage.removeItem("accessToken");
+  if (fullName) localStorage.setItem("fullName", fullName);
+  else localStorage.removeItem("fullName");
+  if (email) localStorage.setItem("email", email);
+  else localStorage.removeItem("email");
+  window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
+}
+
 export function clearClientSession({ notify = true } = {}) {
-  const hadSession = Boolean(
-    localStorage.getItem("accessToken") ||
-      localStorage.getItem("fullName") ||
-      localStorage.getItem("email"),
-  );
+  const session = getClientSession();
+  const hadSession = Boolean(session.accessToken || session.fullName || session.email);
 
   localStorage.removeItem("accessToken");
   localStorage.removeItem("fullName");
   localStorage.removeItem("email");
+  
+  memorySession = { accessToken: null, fullName: null, email: null };
 
   if (notify && hadSession) {
     window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));

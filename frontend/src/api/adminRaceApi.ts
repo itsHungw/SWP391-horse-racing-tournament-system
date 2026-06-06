@@ -17,3 +17,10 @@ export async function updateAdminRaceStatus(id: number, status: RaceStatus): Pro
   });
   return response.data;
 }
+
+export async function assignAdminRaceReferee(id: number, refereeId: number): Promise<Race> {
+  const response = await httpClient.put<Race>(`/admin/races/${id}/referee`, null, {
+    params: { refereeId },
+  });
+  return response.data;
+}

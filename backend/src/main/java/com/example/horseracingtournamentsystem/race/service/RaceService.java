@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.race.service;
 
+import com.example.horseracingtournamentsystem.prediction.service.PredictionService;
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
@@ -12,6 +13,10 @@ import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
+import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -31,6 +36,9 @@ public class RaceService {
     private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
+    private final PredictionService predictionService;
+    private final RaceResultRepository raceResultRepository;
+    private final TournamentParticipantRepository tournamentParticipantRepository;
 
     private static final Map<String, Set<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             "SCHEDULED", Set.of("CHECKING", "CANCELLED"),
@@ -130,7 +138,25 @@ public class RaceService {
             );
         }
 
+        String previousStatus = race.getStatus();
         race.updateStatus(normalizedStatus);
+        raceRepository.save(race);
+        applyPredictionLifecycle(race, previousStatus, normalizedStatus);
+        return mapToResponse(race);
+    }
+
+    @Transactional
+    public RaceResponse assignReferee(Long id, Long refereeId) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        User referee = userRepository.findById(refereeId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referee not found"));
+        User refereeWithRoles = userRepository.findWithUserRolesByEmail(referee.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referee not found"));
+        if (!refereeWithRoles.getActiveRoleNames().contains("REFEREE")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not an approved referee");
+        }
+        race.assignReferee(referee);
         raceRepository.save(race);
         return mapToResponse(race);
     }
@@ -183,6 +209,8 @@ public class RaceService {
                 .distanceMeters(r.getDistanceMeter())
                 .maxParticipants(r.getMaxParticipants())
                 .status(r.getStatus())
+                .refereeId(r.getReferee() == null ? null : r.getReferee().getId())
+                .refereeName(r.getReferee() == null ? null : r.getReferee().getFullName())
                 .creatorName(r.getCreatedBy().getFullName())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
@@ -237,5 +265,38 @@ public class RaceService {
                 .checkStatus(participant.getCheckStatus())
                 .participantStatus(participant.getStatus())
                 .build();
+    }
+
+    private void applyPredictionLifecycle(Race race, String previousStatus, String normalizedStatus) {
+        if ("CANCELLED".equals(normalizedStatus)) {
+            predictionService.refundCancelledRace(race.getId());
+            return;
+        }
+        if ("SCHEDULED".equals(previousStatus) && !"SCHEDULED".equals(normalizedStatus)) {
+            predictionService.lockPredictionsForRace(race.getId());
+        }
+        if ("RESULT_CONFIRMED".equals(normalizedStatus)) {
+            predictionService.createSettlementJob(race.getId());
+        }
+        if ("PUBLISHED".equals(normalizedStatus)) {
+            updateTournamentStandings(race);
+        }
+    }
+
+    private void updateTournamentStandings(Race race) {
+        List<RaceResult> results = raceResultRepository.findByRace_Id(race.getId());
+        for (RaceResult result : results) {
+            if (result.getPoints() > 0) {
+                // Find tournament participant using horse ID since horse is unique per tournament
+                tournamentParticipantRepository.findAllByTournament_IdOrderByCreatedAtDesc(race.getTournament().getId())
+                    .stream()
+                    .filter(tp -> tp.getHorse().getId().equals(result.getParticipant().getHorse().getId()))
+                    .findFirst()
+                    .ifPresent(tp -> {
+                        tp.addPoints(result.getPoints());
+                        tournamentParticipantRepository.save(tp);
+                    });
+            }
+        }
     }
 }

@@ -1,5 +1,5 @@
 import { httpClient } from "./httpClient";
-import { Profile, UpdateProfileRequest } from "../types/profile";
+import { Profile, RefereeProfileInfo, UpdateProfileRequest, UpdateRefereeProfileRequest } from "../types/profile";
 
 const USE_MOCK = false;
 
@@ -55,5 +55,10 @@ export async function updateMyProfile(data: UpdateProfileRequest): Promise<Profi
   }
 
   const response = await httpClient.put<Profile>("/users/me/profile", data);
+  return response.data;
+}
+
+export async function updateMyRefereeProfile(data: UpdateRefereeProfileRequest): Promise<RefereeProfileInfo> {
+  const response = await httpClient.put<RefereeProfileInfo>("/users/me/referee-profile", data);
   return response.data;
 }

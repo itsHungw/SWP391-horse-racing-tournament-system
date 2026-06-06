@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.common.error;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -29,6 +30,19 @@ public class GlobalExceptionHandler {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         ex.getBindingResult().getFieldErrors().forEach(fieldError ->
                 fieldErrors.putIfAbsent(fieldError.getField(), fieldError.getDefaultMessage())
+        );
+
+        return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed", request, fieldErrors);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleConstraintViolation(
+            ConstraintViolationException ex,
+            HttpServletRequest request
+    ) {
+        Map<String, String> fieldErrors = new LinkedHashMap<>();
+        ex.getConstraintViolations().forEach(violation ->
+                fieldErrors.putIfAbsent(violation.getPropertyPath().toString(), violation.getMessage())
         );
 
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation failed", request, fieldErrors);

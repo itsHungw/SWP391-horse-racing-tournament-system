@@ -27,12 +27,12 @@ describe("MonthRaceCalendar", () => {
       />
     );
 
-    const chip = screen.getByRole("button", {
+    const chip = screen.getAllByRole("button", {
       name: "Open R-2026-001 Royal Ascot Gold Cup - Qualifiers A",
-    });
+    }).find((button) => button.className.includes("min-h-11"));
 
     expect(chip).toHaveClass("min-h-11");
-    fireEvent.click(chip);
+    fireEvent.click(chip!);
     expect(onRaceSelect).toHaveBeenCalledWith(races[0]);
   });
 

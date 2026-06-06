@@ -50,11 +50,11 @@ export function PreRaceCheckPage() {
     <div className="max-w-5xl mx-auto">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 m-0">Pre-Race Check-in Verification</h2>
+          <h2 className="text-xl font-bold text-slate-900 m-0">Pre-race verification</h2>
           <p className="text-xs text-slate-500 mt-1">Inspect and approve health, weight, and gear conditions.</p>
         </div>
-        <Link to="/referee" className="text-xs text-slate-500 hover:text-slate-800 underline">
-          Back to Races
+        <Link to={`/referee/races/${raceId}/officiate`} className="text-xs text-slate-500 hover:text-slate-800 underline">
+          Back to race control
         </Link>
       </div>
 
@@ -79,7 +79,7 @@ export function PreRaceCheckPage() {
           <tbody>
             {participants.map((p, idx) => (
               <tr key={p.participantId} className="border-bottom border-slate-100 text-slate-700">
-                <td className="p-4 font-bold text-slate-900">⚡ {p.horseName}</td>
+                <td className="p-4 font-bold text-slate-900">{p.horseName}</td>
                 <td className="p-4 font-semibold text-[#004d3d]">{p.jockeyName}</td>
                 <td className="p-4 text-center">{p.jockeyWeight} kg</td>
                 <td className="p-4 text-center">
@@ -120,7 +120,7 @@ export function PreRaceCheckPage() {
         disabled={saving}
         className="bg-[#004d3d] hover:bg-[#003d30] text-white px-6 py-2.5 rounded text-xs font-bold transition-colors disabled:opacity-60"
       >
-        {saving ? "Saving Checks..." : "💾 Save Pre-Checks"}
+        {saving ? "Saving checks..." : "Save pre-race checks"}
       </button>
     </div>
   );

@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getOwnerHorseDocuments } from "../../../api/racingApi";
-import type { Horse, Tournament, HorseDocument } from "../../../types/racing";
+import type { Horse, HorseDocument, Tournament } from "../../../types/racing";
 
 interface Props {
   selectedTournament: Tournament;
@@ -20,124 +20,151 @@ type DocumentCheckStatus = {
   isEligible: boolean;
 };
 
+function RequirementRow({
+  label,
+  state,
+  helper,
+}: {
+  label: string;
+  state: "valid" | "missing" | "expired" | "blocked";
+  helper?: string;
+}) {
+  const positive = state === "valid";
+  return (
+    <div className="flex items-center justify-between gap-3 p-3.5">
+      <div>
+        <p className="text-xs font-bold text-slate-700">{label}</p>
+        {helper ? <p className="mt-1 text-[11px] font-semibold text-slate-500">{helper}</p> : null}
+      </div>
+      <span
+        className={`shrink-0 rounded-md px-2.5 py-1 text-xs font-black uppercase ${
+          positive ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+        }`}
+      >
+        {positive ? "Ready" : state}
+      </span>
+    </div>
+  );
+}
+
 export function StepSelectHorse({ selectedTournament, horses, onPrev, onNext }: Props) {
   const [selectedHorseId, setSelectedHorseId] = useState<number | "">("");
-  const [docs, setDocs] = useState<HorseDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [errorDocs, setErrorDocs] = useState<string | null>(null);
   const [checkStatus, setCheckStatus] = useState<DocumentCheckStatus | null>(null);
 
-  const approvedHorses = horses.filter((h) => h.status === "APPROVED");
+  const approvedHorses = horses.filter((horse) => horse.status === "APPROVED");
 
-  const fetchDocuments = useCallback(async (horseId: number) => {
-    setLoadingDocs(true);
-    setErrorDocs(null);
-    try {
-      const documents = await getOwnerHorseDocuments(horseId);
-      setDocs(documents);
-      
-      const tourEndDate = selectedTournament.endDate ? new Date(selectedTournament.endDate) : null;
-      const horse = horses.find(h => h.id === horseId);
-      
-      const coggins = documents.find(d => d.documentType === "COGGINS");
-      const healthCert = documents.find(d => d.documentType === "HEALTH_CERTIFICATE");
+  const fetchDocuments = useCallback(
+    async (horseId: number) => {
+      setLoadingDocs(true);
+      setErrorDocs(null);
+      try {
+        const documents: HorseDocument[] = await getOwnerHorseDocuments(horseId);
+        const tournamentEndDate = selectedTournament.endDate ? new Date(selectedTournament.endDate) : null;
+        const horse = horses.find((item) => item.id === horseId);
+        const coggins = documents.find((document) => document.documentType === "COGGINS");
+        const healthCert = documents.find((document) => document.documentType === "HEALTH_CERTIFICATE");
 
-      const hasCoggins = !!coggins;
-      const cogginsValid = hasCoggins && tourEndDate && coggins.expiryDate ? new Date(coggins.expiryDate) >= tourEndDate : false;
+        const hasCoggins = Boolean(coggins);
+        const cogginsValid = Boolean(
+          hasCoggins && tournamentEndDate && coggins?.expiryDate && new Date(coggins.expiryDate) >= tournamentEndDate,
+        );
+        const hasHealthCert = Boolean(healthCert);
+        const healthCertValid = Boolean(
+          hasHealthCert && tournamentEndDate && healthCert?.expiryDate && new Date(healthCert.expiryDate) >= tournamentEndDate,
+        );
+        const horseApproved = horse?.status === "APPROVED";
 
-      const hasHealthCert = !!healthCert;
-      const healthCertValid = hasHealthCert && tourEndDate && healthCert.expiryDate ? new Date(healthCert.expiryDate) >= tourEndDate : false;
-
-      const horseApproved = horse?.status === "APPROVED";
-      const isEligible = horseApproved && cogginsValid && healthCertValid;
-
-      setCheckStatus({
-        hasCoggins,
-        cogginsValid,
-        cogginsExpiry: coggins?.expiryDate,
-        hasHealthCert,
-        healthCertValid,
-        healthCertExpiry: healthCert?.expiryDate,
-        horseApproved,
-        isEligible
-      });
-    } catch (err) {
-      setErrorDocs("Failed to load medical documents for this horse.");
-      setCheckStatus(null);
-    } finally {
-      setLoadingDocs(false);
-    }
-  }, [selectedTournament, horses]);
+        setCheckStatus({
+          hasCoggins,
+          cogginsValid,
+          cogginsExpiry: coggins?.expiryDate,
+          hasHealthCert,
+          healthCertValid,
+          healthCertExpiry: healthCert?.expiryDate,
+          horseApproved,
+          isEligible: horseApproved && cogginsValid && healthCertValid,
+        });
+      } catch {
+        setErrorDocs("Failed to load medical documents for this horse.");
+        setCheckStatus(null);
+      } finally {
+        setLoadingDocs(false);
+      }
+    },
+    [horses, selectedTournament.endDate],
+  );
 
   useEffect(() => {
     if (selectedHorseId) {
       void fetchDocuments(Number(selectedHorseId));
     } else {
-      setDocs([]);
       setCheckStatus(null);
     }
-  }, [selectedHorseId, fetchDocuments]);
-
-  const handleRefresh = () => {
-    if (selectedHorseId) {
-      void fetchDocuments(Number(selectedHorseId));
-    }
-  };
+  }, [fetchDocuments, selectedHorseId]);
 
   const handleNext = () => {
-    if (selectedHorseId && checkStatus?.isEligible) {
-      const horse = horses.find(h => h.id === Number(selectedHorseId));
-      if (horse) onNext(horse);
-    }
+    if (!selectedHorseId || !checkStatus?.isEligible) return;
+    const horse = horses.find((item) => item.id === Number(selectedHorseId));
+    if (horse) onNext(horse);
   };
 
   if (approvedHorses.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="py-12 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50">
-          <p className="text-slate-500 font-bold mb-2">You need at least one approved horse before registering for a tournament.</p>
-          <p className="text-xs text-slate-400 mb-4">
-            Horses with PENDING or REJECTED status are not eligible for tournament registration.
-          </p>
+        <div className="rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 py-12 text-center">
+          <p className="mb-2 font-bold text-slate-600">At least one approved horse is required before registration.</p>
+          <p className="mb-4 text-xs text-slate-500">Pending or rejected horses stay blocked from tournament entry.</p>
           <a
+            className="inline-block rounded-md bg-[#006d5b] px-5 py-2 text-xs font-black text-white hover:bg-[#004d3d]"
             href="/owner/horses"
-            className="inline-block bg-[#006d5b] text-white px-5 py-2 rounded-lg text-xs font-black hover:bg-[#004d3d]"
           >
-            Manage My Horses ↗
+            Manage My Horses
           </a>
         </div>
         <button
-          type="button"
+          className="flex items-center gap-1 text-xs font-black text-slate-500 hover:text-slate-700"
           onClick={onPrev}
-          className="text-xs font-black text-slate-500 hover:text-slate-700 flex items-center gap-1 cursor-pointer"
+          type="button"
         >
-          ← Back to Select Tournament
+          Back to Select Tournament
         </button>
       </div>
     );
   }
 
+  const cogginsState: "valid" | "missing" | "expired" = !checkStatus?.hasCoggins
+    ? "missing"
+    : checkStatus.cogginsValid
+      ? "valid"
+      : "expired";
+  const healthState: "valid" | "missing" | "expired" = !checkStatus?.hasHealthCert
+    ? "missing"
+    : checkStatus.healthCertValid
+      ? "valid"
+      : "expired";
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-black text-slate-800">Step 2: Select Horse & Verify Medical Eligibility</h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Registration requires valid COGGINS and HEALTH CERTIFICATE documents through the tournament end date (
-          <span className="font-bold text-slate-700">{selectedTournament.endDate}</span>).
+        <h2 className="text-lg font-black text-slate-800">Step 2: Select Horse And Verify Eligibility</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Required documents must stay valid through{" "}
+          <span className="font-bold text-slate-700">{selectedTournament.endDate}</span>.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1.2fr_1.8fr]">
-        {/* Horse selection */}
         <div className="space-y-4">
           <label className="block space-y-1 text-sm font-bold text-slate-700">
             <span>Select a horse</span>
             <select
               className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
+              onChange={(event) => setSelectedHorseId(event.target.value ? Number(event.target.value) : "")}
               value={selectedHorseId}
-              onChange={(e) => setSelectedHorseId(e.target.value ? Number(e.target.value) : "")}
             >
-              <option value="">-- Select a horse --</option>
+              <option value="">Select a horse</option>
               {approvedHorses.map((horse) => (
                 <option key={horse.id} value={horse.id}>
                   {horse.name} (ID: {horse.id})
@@ -148,116 +175,81 @@ export function StepSelectHorse({ selectedTournament, horses, onPrev, onNext }: 
 
           <div className="flex gap-3">
             <button
-              type="button"
+              className="w-1/2 rounded-md border border-slate-300 py-2.5 text-xs font-black text-slate-700 hover:bg-slate-50"
               onClick={onPrev}
-              className="w-1/2 border border-slate-300 text-slate-700 py-2.5 rounded-lg text-xs font-black hover:bg-slate-50 cursor-pointer"
+              type="button"
             >
-              ← Back
+              Back
             </button>
             <button
-              type="button"
-              onClick={handleNext}
+              className="w-1/2 rounded-md bg-[#006d5b] py-2.5 text-xs font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={!selectedHorseId || !checkStatus?.isEligible || loadingDocs}
-              className="w-1/2 bg-[#006d5b] text-white py-2.5 rounded-lg text-xs font-black hover:bg-[#004d3d] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              onClick={handleNext}
+              type="button"
             >
-              Continue →
+              Continue
             </button>
           </div>
         </div>
 
-        {/* Eligibility Check Panel */}
-        <div className="border border-slate-200 rounded-xl p-5 bg-slate-50/50">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-black text-slate-800 text-sm">Medical Eligibility Checklist</h3>
-            {selectedHorseId && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-5">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-sm font-black text-slate-800">Eligibility Blockers</h3>
+            {selectedHorseId ? (
               <button
-                type="button"
-                onClick={handleRefresh}
+                className="text-xs font-black text-[#006d5b] hover:text-[#004d3d]"
                 disabled={loadingDocs}
-                className="text-xs font-black text-[#006d5b] hover:text-[#004d3d] flex items-center gap-1 cursor-pointer"
+                onClick={() => void fetchDocuments(Number(selectedHorseId))}
+                type="button"
               >
-                Refresh 🔄
+                Refresh
               </button>
-            )}
+            ) : null}
           </div>
 
           {loadingDocs ? (
-            <div className="py-8 text-center text-xs text-slate-500 font-semibold animate-pulse">
-              Checking medical documents...
-            </div>
+            <div className="py-8 text-center text-xs font-semibold text-slate-500">Checking documents...</div>
           ) : errorDocs ? (
-            <div className="py-4 text-center text-xs text-rose-600 font-bold bg-rose-50 border border-rose-100 rounded-lg">
+            <div className="rounded-md border border-rose-100 bg-rose-50 py-4 text-center text-xs font-bold text-rose-600">
               {errorDocs}
             </div>
           ) : checkStatus ? (
             <div className="space-y-4">
-              <div className="divide-y divide-slate-100 bg-white border border-slate-150 rounded-xl overflow-hidden shadow-sm">
-                {/* Approved status */}
-                <div className="flex items-center justify-between p-3.5">
-                  <span className="text-xs font-bold text-slate-600">Horse approval status:</span>
-                  <span className={`text-xs font-black px-2.5 py-1 rounded-full ${
-                    checkStatus.horseApproved ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                  }`}>
-                    {checkStatus.horseApproved ? "✓ Approved" : "✗ Not approved"}
-                  </span>
-                </div>
-
-                {/* COGGINS check */}
-                <div className="p-3.5 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600">Coggins test certificate:</span>
-                    <span className={`text-xs font-black px-2.5 py-1 rounded-full ${
-                      checkStatus.cogginsValid ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                    }`}>
-                      {checkStatus.cogginsValid ? "✓ Valid" : !checkStatus.hasCoggins ? "✗ Missing" : "✗ Expired"}
-                    </span>
-                  </div>
-                  {checkStatus.cogginsExpiry && (
-                    <span className="block text-[10px] text-slate-400 font-medium">
-                      Expires: {new Date(checkStatus.cogginsExpiry).toLocaleDateString("en-US")}
-                    </span>
-                  )}
-                </div>
-
-                {/* HEALTH CERTIFICATE check */}
-                <div className="p-3.5 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-600">Health certificate:</span>
-                    <span className={`text-xs font-black px-2.5 py-1 rounded-full ${
-                      checkStatus.healthCertValid ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                    }`}>
-                      {checkStatus.healthCertValid ? "✓ Valid" : !checkStatus.hasHealthCert ? "✗ Missing" : "✗ Expired"}
-                    </span>
-                  </div>
-                  {checkStatus.healthCertExpiry && (
-                    <span className="block text-[10px] text-slate-400 font-medium">
-                      Expires: {new Date(checkStatus.healthCertExpiry).toLocaleDateString("en-US")}
-                    </span>
-                  )}
-                </div>
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+                <RequirementRow
+                  label="Horse approval status"
+                  state={checkStatus.horseApproved ? "valid" : "blocked"}
+                />
+                <RequirementRow
+                  helper={checkStatus.cogginsExpiry ? `Expires ${new Date(checkStatus.cogginsExpiry).toLocaleDateString("en-US")}` : undefined}
+                  label="Coggins test certificate"
+                  state={cogginsState}
+                />
+                <RequirementRow
+                  helper={checkStatus.healthCertExpiry ? `Expires ${new Date(checkStatus.healthCertExpiry).toLocaleDateString("en-US")}` : undefined}
+                  label="Health certificate"
+                  state={healthState}
+                />
               </div>
 
-              {/* Ineligible alert */}
-              {!checkStatus.isEligible && (
-                <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-lg space-y-2">
-                  <p className="text-xs text-rose-700 font-bold leading-relaxed">
-                    ⚠️ This horse is not eligible for this tournament due to missing or expired COGGINS / HEALTH_CERTIFICATE documents before the tournament end date.
+              {!checkStatus.isEligible ? (
+                <div className="space-y-2 rounded-r-md border-l-4 border-rose-500 bg-rose-50 p-4">
+                  <p className="text-xs font-bold leading-relaxed text-rose-700">
+                    This horse is blocked because required COGGINS or HEALTH_CERTIFICATE documents are missing or expire before the tournament end date.
                   </p>
                   <a
-                    href={`/owner/horses`}
-                    target="_blank"
+                    className="inline-block text-xs font-black text-blue-700 hover:text-blue-900 hover:underline"
+                    href="/owner/horses"
                     rel="noopener noreferrer"
-                    className="inline-block text-xs font-black text-blue-600 hover:text-blue-800 hover:underline"
+                    target="_blank"
                   >
-                    Update horse documents (opens new tab) ↗
+                    Update horse documents
                   </a>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
-            <div className="py-8 text-center text-xs text-slate-400 font-bold">
-              Please select a horse to check eligibility.
-            </div>
+            <div className="py-8 text-center text-xs font-bold text-slate-400">Select a horse to check eligibility.</div>
           )}
         </div>
       </div>
