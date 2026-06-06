@@ -7,9 +7,9 @@ import java.util.Optional;
 
 public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
 
-    List<RaceResult> findByRaceId(Long raceId);
+    List<RaceResult> findByRace_Id(Long raceId);
 
-    List<RaceResult> findByRaceIdAndStatus(Long raceId, String status);
+    List<RaceResult> findByRace_IdAndStatus(Long raceId, String status);
 
     List<RaceResult> findAllByRace_IdOrderByPositionAscCreatedAtAsc(Long raceId);
 

@@ -13,6 +13,10 @@ import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
+import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,6 +37,8 @@ public class RaceService {
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
     private final PredictionService predictionService;
+    private final RaceResultRepository raceResultRepository;
+    private final TournamentParticipantRepository tournamentParticipantRepository;
 
     private static final Map<String, Set<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             "SCHEDULED", Set.of("CHECKING", "CANCELLED"),
@@ -271,6 +277,26 @@ public class RaceService {
         }
         if ("RESULT_CONFIRMED".equals(normalizedStatus)) {
             predictionService.createSettlementJob(race.getId());
+        }
+        if ("PUBLISHED".equals(normalizedStatus)) {
+            updateTournamentStandings(race);
+        }
+    }
+
+    private void updateTournamentStandings(Race race) {
+        List<RaceResult> results = raceResultRepository.findByRace_Id(race.getId());
+        for (RaceResult result : results) {
+            if (result.getPoints() > 0) {
+                // Find tournament participant using horse ID since horse is unique per tournament
+                tournamentParticipantRepository.findAllByTournament_IdOrderByCreatedAtDesc(race.getTournament().getId())
+                    .stream()
+                    .filter(tp -> tp.getHorse().getId().equals(result.getParticipant().getHorse().getId()))
+                    .findFirst()
+                    .ifPresent(tp -> {
+                        tp.addPoints(result.getPoints());
+                        tournamentParticipantRepository.save(tp);
+                    });
+            }
         }
     }
 }

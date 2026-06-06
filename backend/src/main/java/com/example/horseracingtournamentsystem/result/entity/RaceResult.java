@@ -140,6 +140,23 @@ public class RaceResult {
             this.confirmedBy = null;
             this.confirmedAt = null;
         }
+
+        this.points = 0;
+        if (RESULT_STATUS_FINISHED.equals(resultStatus) && position != null) {
+            switch (position) {
+                case 1 -> this.points = 25;
+                case 2 -> this.points = 18;
+                case 3 -> this.points = 15;
+                case 4 -> this.points = 12;
+                case 5 -> this.points = 10;
+                case 6 -> this.points = 8;
+                case 7 -> this.points = 6;
+                case 8 -> this.points = 4;
+                case 9 -> this.points = 2;
+                case 10 -> this.points = 1;
+                default -> this.points = 0;
+            }
+        }
     }
 
     public Long getRaceId() {
