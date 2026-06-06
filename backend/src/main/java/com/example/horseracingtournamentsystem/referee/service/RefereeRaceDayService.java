@@ -23,6 +23,8 @@ import com.example.horseracingtournamentsystem.result.repository.RaceResultRepos
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -205,10 +207,10 @@ public class RefereeRaceDayService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Review reason is required");
         }
 
+        Map<Long, RaceParticipant> participantsById = validateResultPackage(race, request.results());
         String resultStatus = requiresReview ? RaceResult.STATUS_SUBMITTED : RaceResult.STATUS_CONFIRMED;
         for (ParticipantResultEntry entry : request.results()) {
-            RaceParticipant participant = raceParticipantRepository.findByIdAndRace_Id(entry.participantId(), race.getId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Participant is not in this race"));
+            RaceParticipant participant = participantsById.get(entry.participantId());
             RaceResult result = raceResultRepository.findByRace_IdAndParticipant_Id(race.getId(), participant.getId())
                     .orElseGet(() -> RaceResult.create(race, participant, referee));
             String entryStatus = normalizeResultStatus(entry.status());
@@ -387,6 +389,71 @@ public class RefereeRaceDayService {
             case "FINISHED", "DISQUALIFIED", "DID_NOT_FINISH", "WITHDRAWN" -> normalized;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported result status");
         };
+    }
+
+    private Map<Long, RaceParticipant> validateResultPackage(Race race, List<ParticipantResultEntry> entries) {
+        if (entries == null || entries.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Result list cannot be empty");
+        }
+
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
+        Map<Long, RaceParticipant> participantsById = new HashMap<>();
+        for (RaceParticipant participant : participants) {
+            participantsById.put(participant.getId(), participant);
+        }
+
+        Set<Long> submittedParticipantIds = new HashSet<>();
+        Set<Integer> submittedPositions = new HashSet<>();
+        for (ParticipantResultEntry entry : entries) {
+            if (entry.participantId() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Participant ID is required");
+            }
+            if (!participantsById.containsKey(entry.participantId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Participant is not in this race");
+            }
+            if (!submittedParticipantIds.add(entry.participantId())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate participant result entry");
+            }
+
+            String entryStatus = normalizeResultStatus(entry.status());
+            BigDecimal penaltySeconds = entry.penaltySeconds() == null ? BigDecimal.ZERO : entry.penaltySeconds();
+            if (isNegative(penaltySeconds)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Penalty seconds cannot be negative");
+            }
+            if (isNegative(entry.rawFinishTimeSeconds()) || isNegative(entry.finishTimeSeconds())) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Finish time cannot be negative");
+            }
+
+            if ("FINISHED".equals(entryStatus)) {
+                if (entry.position() == null || entry.position() < 1) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Finished participants require a positive position");
+                }
+                if (!submittedPositions.add(entry.position())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate finish position");
+                }
+                if (entry.rawFinishTimeSeconds() == null && entry.finishTimeSeconds() == null) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Finished participants require a finish time");
+                }
+                if (entry.rawFinishTimeSeconds() != null && entry.finishTimeSeconds() != null) {
+                    BigDecimal expected = entry.rawFinishTimeSeconds().add(penaltySeconds);
+                    if (expected.compareTo(entry.finishTimeSeconds()) != 0) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Final finish time must equal raw finish time plus penalty");
+                    }
+                }
+            } else if (entry.position() != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only finished participants can have a position");
+            }
+        }
+
+        Set<Long> expectedParticipantIds = participantsById.keySet();
+        if (!submittedParticipantIds.equals(expectedParticipantIds)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Results must include every race participant exactly once");
+        }
+        return participantsById;
+    }
+
+    private boolean isNegative(BigDecimal value) {
+        return value != null && value.compareTo(BigDecimal.ZERO) < 0;
     }
 
     private String nextAction(String status) {

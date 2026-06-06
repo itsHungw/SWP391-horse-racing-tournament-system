@@ -12,7 +12,7 @@ public class PredictionOptionsResponse {
     private String raceStatus;
     private boolean predictionOpen;
     private EntryCost entryCost = new EntryCost();
-    private Object myPredictions; // Renamed from myPrediction
+    private List<UserPredictionResponse> myPredictions;
     private boolean winnerDistributionVisible;
     private boolean top3DistributionVisible;
     private List<Option> options;

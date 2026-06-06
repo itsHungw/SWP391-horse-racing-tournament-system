@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionOptionsResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.OpenRacePredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.response.UserPredictionResponse;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.service.PredictionService;
 import com.example.horseracingtournamentsystem.race.entity.Race;
@@ -122,11 +123,13 @@ public class SpectatorPredictionController {
                 List<RacePrediction> racePreds = myPreds.stream()
                     .filter(p -> p.getRace().getId().equals(raceId))
                     .collect(Collectors.toList());
-                res.setMyPredictions(racePreds);
+                res.setMyPredictions(racePreds.stream().map(UserPredictionResponse::from).toList());
 
                 hasWinnerPred = racePreds.stream().anyMatch(p -> "WINNER".equals(p.getPredictionType()));
                 hasTop3Pred = racePreds.stream().anyMatch(p -> "TOP3".equals(p.getPredictionType()));
             }
+        } else {
+            res.setMyPredictions(List.of());
         }
         res.setWinnerDistributionVisible(hasWinnerPred);
         res.setTop3DistributionVisible(hasTop3Pred);
@@ -163,30 +166,30 @@ public class SpectatorPredictionController {
     }
 
     @PostMapping("/predictions")
-    public ResponseEntity<RacePrediction> submitPrediction(@Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
+    public ResponseEntity<UserPredictionResponse> submitPrediction(@Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         RacePrediction prediction = predictionService.submitPrediction(spectator, request);
-        return ResponseEntity.ok(prediction);
+        return ResponseEntity.ok(UserPredictionResponse.from(prediction));
     }
 
     @PutMapping("/predictions/{id}")
-    public ResponseEntity<RacePrediction> updatePrediction(@PathVariable Long id, @Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
+    public ResponseEntity<UserPredictionResponse> updatePrediction(@PathVariable Long id, @Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         RacePrediction prediction = predictionService.updatePrediction(spectator, id, request);
-        return ResponseEntity.ok(prediction);
+        return ResponseEntity.ok(UserPredictionResponse.from(prediction));
     }
 
     @GetMapping("/predictions/my")
-    public ResponseEntity<List<RacePrediction>> getMyPredictions(Authentication authentication) {
+    public ResponseEntity<List<UserPredictionResponse>> getMyPredictions(Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         List<RacePrediction> predictions = predictionService.getMyPredictions(spectator);
-        return ResponseEntity.ok(predictions);
+        return ResponseEntity.ok(predictions.stream().map(UserPredictionResponse::from).toList());
     }
 
     @GetMapping("/point-accounts/me")

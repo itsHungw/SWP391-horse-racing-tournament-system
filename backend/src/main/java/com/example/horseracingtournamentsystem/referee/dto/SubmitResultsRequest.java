@@ -1,5 +1,7 @@
 package com.example.horseracingtournamentsystem.referee.dto;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 
 public record SubmitResultsRequest(
@@ -7,6 +9,7 @@ public record SubmitResultsRequest(
         String reviewReason,
         String reportTitle,
         String reportSummary,
-        List<ParticipantResultEntry> results
+        @NotEmpty(message = "Result list cannot be empty")
+        List<@Valid ParticipantResultEntry> results
 ) {
 }

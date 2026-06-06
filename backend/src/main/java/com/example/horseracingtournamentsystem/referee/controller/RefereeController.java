@@ -8,6 +8,7 @@ import com.example.horseracingtournamentsystem.referee.dto.RefereeReportRequest;
 import com.example.horseracingtournamentsystem.referee.dto.SubmitResultsRequest;
 import com.example.horseracingtournamentsystem.referee.dto.ViolationRequest;
 import com.example.horseracingtournamentsystem.referee.service.RefereeRaceDayService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -85,7 +86,7 @@ public class RefereeController {
     @PostMapping("/races/{raceId}/results")
     public RefereeRaceResponse submitLegacyRaceResults(
             @PathVariable Long raceId,
-            @RequestBody List<ParticipantResultEntry> results,
+            @Valid @RequestBody List<@Valid ParticipantResultEntry> results,
             Authentication authentication
     ) {
         SubmitResultsRequest request = new SubmitResultsRequest(
@@ -101,7 +102,7 @@ public class RefereeController {
     @PostMapping("/races/{raceId}/results/submit")
     public RefereeRaceResponse submitRaceResults(
             @PathVariable Long raceId,
-            @RequestBody SubmitResultsRequest request,
+            @Valid @RequestBody SubmitResultsRequest request,
             Authentication authentication
     ) {
         return raceDayService.submitResults(raceId, authentication.getName(), request);
