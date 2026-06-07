@@ -43,6 +43,7 @@ import type { Race, RaceStatus, Tournament, TournamentParticipant, TournamentReg
 import type { JockeyPoolApplication } from "../../types/racing";
 import type { AdminUserDetail } from "../../types/adminUser";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
 
 type ChampionshipTab = "overview" | "applications" | "participants" | "rounds" | "standings" | "controls";
 type ApplicationView = "horses" | "jockeys";
@@ -417,13 +418,9 @@ export function AdminTournamentDetailPage() {
       return;
     }
 
-    if (new Date(form.endDate) < new Date(form.startDate)) {
-      setErrorMsg("Championship end date cannot be before start date.");
-      return;
-    }
-
-    if (new Date(form.registrationEndAt) < new Date(form.registrationStartAt)) {
-      setErrorMsg("Registration end time cannot be before start time.");
+    const dateValidationError = getTournamentDateValidationError(form);
+    if (dateValidationError) {
+      setErrorMsg(dateValidationError);
       return;
     }
 
