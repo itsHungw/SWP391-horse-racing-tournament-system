@@ -93,10 +93,10 @@ class TournamentIntegrationTest {
                     "code": "SUMMER_26",
                     "description": "Premium summer racing tournament",
                     "location": "Saratoga Tracks",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 50
                 }
                 """;
@@ -144,6 +144,87 @@ class TournamentIntegrationTest {
     }
 
     @Test
+    void registrationStartInPastReturnsBadRequest() throws Exception {
+        String body = """
+                {
+                    "name": "Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Registration must not start in the past",
+                    "location": "Saratoga Tracks",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2000-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
+                    "maxHorses": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/tournaments")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration start time cannot be in the past"));
+    }
+
+    @Test
+    void registrationEndAtTournamentStartReturnsBadRequest() throws Exception {
+        String body = """
+                {
+                    "name": "Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Registration must finish before the tournament starts",
+                    "location": "Saratoga Tracks",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-07-01T00:00:00",
+                    "maxHorses": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/tournaments")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration end time must be before tournament start date"));
+    }
+
+    @Test
+    void updatingRegistrationEndAfterTournamentStartReturnsBadRequest() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament tournament =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Future Derby", "FUTURE_DERBY", "Desc", "Loc",
+                LocalDate.of(2099, 7, 1), LocalDate.of(2099, 7, 15),
+                LocalDateTime.of(2099, 6, 1, 0, 0), LocalDateTime.of(2099, 6, 25, 0, 0),
+                20, adminUser
+            );
+        tournament = tournamentRepository.save(tournament);
+
+        String updateBody = """
+                {
+                    "name": "Updated Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Desc",
+                    "location": "Loc",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-07-01T00:01:00",
+                    "maxHorses": 20
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration end time must be before tournament start date"));
+    }
+
+    @Test
     void adminCannotDeleteActiveTournament() throws Exception {
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
@@ -178,10 +259,10 @@ class TournamentIntegrationTest {
                     "code": "DB_26",
                     "description": "Desc",
                     "location": "Loc",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 50
                 }
                 """;
@@ -250,10 +331,10 @@ class TournamentIntegrationTest {
                     "code": "DB_26",
                     "description": "Updated description",
                     "location": "New Location",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 40
                 }
                 """;

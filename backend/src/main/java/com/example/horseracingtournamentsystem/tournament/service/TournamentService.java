@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,12 +37,7 @@ public class TournamentService {
         if (tournamentRepository.existsByCodeAndDeletedAtIsNull(req.getCode())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
         }
-        if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
-        }
-        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
-        }
+        validateTournamentDates(req);
 
         User creator = userRepository.findByEmail(creatorEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Creator user not found"));
@@ -67,12 +63,7 @@ public class TournamentService {
         if (tournamentRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
         }
-        if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
-        }
-        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
-        }
+        validateTournamentDates(req);
 
         tournament.update(
                 req.getName(), req.getDescription(), req.getLocation(),
@@ -82,6 +73,24 @@ public class TournamentService {
 
         tournamentRepository.save(tournament);
         return mapToResponse(tournament);
+    }
+
+    private void validateTournamentDates(TournamentRequest req) {
+        if (req.getEndDate().isBefore(req.getStartDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
+        }
+        if (req.getRegistrationStartAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration start time cannot be in the past");
+        }
+        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
+        }
+        if (!req.getRegistrationEndAt().isBefore(req.getStartDate().atStartOfDay())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Registration end time must be before tournament start date"
+            );
+        }
     }
 
     @Transactional
