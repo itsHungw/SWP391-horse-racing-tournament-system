@@ -292,6 +292,7 @@ CREATE TABLE tournaments (
     registration_start_at DATETIME2 NOT NULL,
     registration_end_at DATETIME2 NOT NULL,
     max_horses INT NULL,
+    max_horses_per_owner INT NOT NULL DEFAULT 2,
     status VARCHAR(40) NOT NULL DEFAULT 'DRAFT',
     banner_url VARCHAR(500) NULL,
     rules NVARCHAR(MAX) NULL,
@@ -306,11 +307,14 @@ CREATE TABLE tournaments (
     CONSTRAINT chk_tournament_dates CHECK (start_date <= end_date),
     CONSTRAINT chk_tournament_reg_dates CHECK (registration_start_at < registration_end_at),
     CONSTRAINT chk_tournaments_max_horses CHECK (max_horses IS NULL OR max_horses > 0),
+    CONSTRAINT chk_tournaments_max_horses_per_owner CHECK (max_horses_per_owner > 0),
     CONSTRAINT chk_tournaments_status CHECK (
         status IN (
             'DRAFT',
             'OPEN_REGISTRATION',
             'CLOSED_REGISTRATION',
+            'PARTICIPANTS_LOCKED',
+            'SCHEDULE_PUBLISHED',
             'ONGOING',
             'COMPLETED',
             'POSTPONED'
@@ -603,6 +607,8 @@ CREATE TABLE race_results (
     race_id BIGINT NOT NULL,
     participant_id BIGINT NOT NULL,
     position INT NULL, -- NULL for DISQUALIFIED / DID_NOT_FINISH / WITHDRAWN
+    raw_finish_time_seconds DECIMAL(10,3) NULL,
+    penalty_seconds DECIMAL(10,3) NOT NULL DEFAULT 0,
     finish_time_seconds DECIMAL(10,3) NULL,
     result_status VARCHAR(30) NOT NULL, -- FINISHED / DISQUALIFIED / DID_NOT_FINISH / WITHDRAWN
     points INT NOT NULL DEFAULT 0,
@@ -634,6 +640,10 @@ CREATE TABLE race_results (
     CONSTRAINT chk_finish_time_positive CHECK (
         finish_time_seconds IS NULL OR finish_time_seconds > 0
     ),
+    CONSTRAINT chk_raw_finish_time_positive CHECK (
+        raw_finish_time_seconds IS NULL OR raw_finish_time_seconds > 0
+    ),
+    CONSTRAINT chk_race_results_penalty_non_negative CHECK (penalty_seconds >= 0),
     CONSTRAINT chk_res_position CHECK (position IS NULL OR position > 0)
 );
 

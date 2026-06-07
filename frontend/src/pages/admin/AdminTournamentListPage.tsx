@@ -1,16 +1,99 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import {
-  getAdminTournaments,
-  createTournament,
   CreateTournamentPayload,
+  createTournament,
+  getAdminTournaments,
 } from "../../api/adminTournamentApi";
 import type { Tournament } from "../../types/racing";
+import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
+
+const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Schedule", "Racing", "Completed"];
+
+function getChampionshipPhase(status: string) {
+  switch (status) {
+    case "DRAFT":
+      return { label: "Setup", index: 0 };
+    case "OPEN_REGISTRATION":
+      return { label: "Registration", index: 0 };
+    case "CLOSED_REGISTRATION":
+      return { label: "Pool Formation", index: 1 };
+    case "PARTICIPANTS_LOCKED":
+      return { label: "Assignment", index: 2 };
+    case "SCHEDULE_PUBLISHED":
+      return { label: "Schedule", index: 3 };
+    case "ONGOING":
+      return { label: "Racing", index: 4 };
+    case "COMPLETED":
+      return { label: "Completed", index: 5 };
+    case "POSTPONED":
+      return { label: "Paused", index: 0 };
+    default:
+      return { label: status.replace("_", " "), index: 0 };
+  }
+}
+
+function getStatusBadgeClass(status: string) {
+  switch (status) {
+    case "OPEN_REGISTRATION":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
+    case "ONGOING":
+      return "border-blue-200 bg-blue-50 text-blue-800";
+    case "COMPLETED":
+      return "border-purple-200 bg-purple-50 text-purple-800";
+    case "POSTPONED":
+      return "border-orange-200 bg-orange-50 text-orange-800";
+    case "CLOSED_REGISTRATION":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "PARTICIPANTS_LOCKED":
+      return "border-[#b3193a]/25 bg-[#b3193a]/5 text-[#b3193a]";
+    case "SCHEDULE_PUBLISHED":
+      return "border-sky-200 bg-sky-50 text-sky-800";
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+}
+
+function getChampionshipNextAction(status: string) {
+  switch (status) {
+    case "DRAFT":
+      return "Open Registration";
+    case "OPEN_REGISTRATION":
+      return "Close Registration";
+    case "CLOSED_REGISTRATION":
+      return "Lock Participants";
+    case "PARTICIPANTS_LOCKED":
+      return "Publish Schedule";
+    case "SCHEDULE_PUBLISHED":
+      return "Start Championship";
+    case "ONGOING":
+      return "Continue Round Control";
+    case "COMPLETED":
+      return "Review Standings";
+    case "POSTPONED":
+      return "Review Postponement";
+    default:
+      return "Review Championship";
+  }
+}
+
+const emptyForm: CreateTournamentPayload = {
+  name: "",
+  code: "",
+  description: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  registrationStartAt: "",
+  registrationEndAt: "",
+  maxHorses: undefined,
+  maxHorsesPerOwner: 2,
+};
 
 export function AdminTournamentListPage() {
-  useDocumentTitle("Tournaments admin");
+  useDocumentTitle("Championships admin");
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
@@ -18,20 +101,7 @@ export function AdminTournamentListPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  // Form State
-  const [form, setForm] = useState<CreateTournamentPayload>({
-    name: "",
-    code: "",
-    description: "",
-    location: "",
-    startDate: "",
-    endDate: "",
-    registrationStartAt: "",
-    registrationEndAt: "",
-    maxHorses: undefined,
-  });
-
+  const [form, setForm] = useState<CreateTournamentPayload>(emptyForm);
   const [formError, setFormError] = useState("");
 
   const loadData = async () => {
@@ -40,7 +110,7 @@ export function AdminTournamentListPage() {
       const data = await getAdminTournaments();
       setTournaments(data);
     } catch (err) {
-      console.error("Failed to load tournaments", err);
+      console.error("Failed to load championships", err);
     } finally {
       setLoading(false);
     }
@@ -59,13 +129,9 @@ export function AdminTournamentListPage() {
       return;
     }
 
-    if (new Date(form.endDate) < new Date(form.startDate)) {
-      setFormError("Tournament End Date cannot be before Start Date.");
-      return;
-    }
-
-    if (new Date(form.registrationEndAt) < new Date(form.registrationStartAt)) {
-      setFormError("Registration End Time cannot be before Start Time.");
+    const dateValidationError = getTournamentDateValidationError(form);
+    if (dateValidationError) {
+      setFormError(dateValidationError);
       return;
     }
 
@@ -74,28 +140,18 @@ export function AdminTournamentListPage() {
       await createTournament({
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
+        maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
       });
       setShowCreateModal(false);
-      setForm({
-        name: "",
-        code: "",
-        description: "",
-        location: "",
-        startDate: "",
-        endDate: "",
-        registrationStartAt: "",
-        registrationEndAt: "",
-        maxHorses: undefined,
-      });
+      setForm(emptyForm);
       loadData();
     } catch (err: any) {
-      setFormError(err.response?.data?.message || "Failed to create tournament.");
+      setFormError(err.response?.data?.message || "Failed to create championship.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  // Filters
   const filteredTournaments = tournaments.filter((t) => {
     const matchesSearch =
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -104,7 +160,6 @@ export function AdminTournamentListPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Calculate Overview Stats
   const totalCount = tournaments.length;
   const ongoingCount = tournaments.filter((t) => t.status === "ONGOING").length;
   const openRegCount = tournaments.filter((t) => t.status === "OPEN_REGISTRATION").length;
@@ -112,62 +167,57 @@ export function AdminTournamentListPage() {
   return (
     <AdminLayout>
       <div className="flex flex-col gap-6">
-        {/* Page Header */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="text-xs font-bold uppercase tracking-widest text-[#b3193a]">
-              Ecosystem control
+              Championship operations
             </p>
             <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900">
-              Tournaments
+              Championships
             </h1>
+            <p className="mt-1 text-sm font-semibold text-slate-500">
+              Manage season phase, registration windows, round progression, and championship readiness.
+            </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="self-start rounded bg-[#b3193a] px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-[#92122d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+            className="self-start rounded-md bg-[#b3193a] px-5 py-2.5 text-sm font-bold text-white shadow transition hover:bg-[#92122d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+            type="button"
           >
-            Create Tournament
+            Create Championship
           </button>
         </div>
 
-        {/* Stats Cards */}
         <div className="grid gap-5 sm:grid-cols-3">
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Total Tournaments
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Championships</p>
             <p className="mt-2 text-3xl font-black text-slate-900">{totalCount}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Active / Ongoing
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Active Racing</p>
             <p className="mt-2 text-3xl font-black text-[#070f4f]">{ongoingCount}</p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              Open Registration
-            </p>
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Open Registration</p>
             <p className="mt-2 text-3xl font-black text-emerald-600">{openRegCount}</p>
           </div>
         </div>
 
-        {/* Search & Filters */}
         <div className="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center">
           <div className="flex-1">
-            <label className="sr-only" htmlFor="search-tournaments">
+            <label className="sr-only" htmlFor="search-championships">
               Search by name or code
             </label>
             <input
-              id="search-tournaments"
+              id="search-championships"
               type="text"
-              placeholder="Search tournaments by name or code..."
+              placeholder="Search championships by name or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
             />
           </div>
-          <div className="w-full sm:w-48">
+          <div className="w-full sm:w-56">
             <label className="sr-only" htmlFor="status-filter">
               Filter by status
             </label>
@@ -175,12 +225,14 @@ export function AdminTournamentListPage() {
               id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
             >
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>
               <option value="OPEN_REGISTRATION">Open Registration</option>
               <option value="CLOSED_REGISTRATION">Closed Registration</option>
+              <option value="PARTICIPANTS_LOCKED">Participants Locked</option>
+              <option value="SCHEDULE_PUBLISHED">Schedule Published</option>
               <option value="ONGOING">Ongoing</option>
               <option value="COMPLETED">Completed</option>
               <option value="POSTPONED">Postponed</option>
@@ -188,7 +240,6 @@ export function AdminTournamentListPage() {
           </div>
         </div>
 
-        {/* Tournaments List Table */}
         <div className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
           {loading ? (
             <div className="flex h-64 items-center justify-center">
@@ -196,84 +247,90 @@ export function AdminTournamentListPage() {
             </div>
           ) : filteredTournaments.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center p-6 text-center">
-              <p className="text-lg font-bold text-slate-700">No tournaments found</p>
+              <p className="text-lg font-bold text-slate-700">No championships found</p>
               <p className="mt-1 text-sm text-slate-500">
-                Try adjusting your search filters or create a new tournament.
+                Try adjusting your search filters or create a new championship.
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-xs font-bold uppercase tracking-wider text-slate-500">
-                    <th className="px-6 py-4">Code</th>
-                    <th className="px-6 py-4">Tournament Name</th>
-                    <th className="px-6 py-4">Location</th>
-                    <th className="px-6 py-4">Max Horses</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Dates</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredTournaments.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/50">
-                      <td className="whitespace-nowrap px-6 py-4 font-mono font-bold text-[#070f4f]">
-                        {t.code || "—"}
-                      </td>
-                      <td className="px-6 py-4 font-bold text-slate-900">{t.name}</td>
-                      <td className="px-6 py-4 text-slate-600">{t.location || "—"}</td>
-                      <td className="px-6 py-4 text-slate-600">{t.maxHorses || "Unlimited"}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                            t.status === "OPEN_REGISTRATION"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : t.status === "ONGOING"
-                              ? "bg-blue-100 text-blue-800"
-                              : t.status === "COMPLETED"
-                              ? "bg-purple-100 text-purple-800"
-                              : t.status === "POSTPONED"
-                              ? "bg-orange-100 text-orange-800"
-                              : t.status === "CLOSED_REGISTRATION"
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-800"
-                          }`}
-                        >
-                          {t.status === "POSTPONED" ? "POSTPONED" : t.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-500">
-                        <div>
-                          Start: <strong className="text-slate-700">{t.startDate}</strong>
+            <div className="grid gap-4 p-4 lg:grid-cols-2">
+              {filteredTournaments.map((t) => {
+                const phase = getChampionshipPhase(t.status);
+                const nextAction = getChampionshipNextAction(t.status);
+                return (
+                  <article key={t.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={`rounded-md border px-2.5 py-1 text-xs font-black uppercase tracking-wide ${getStatusBadgeClass(t.status)}`}>
+                            {t.status.replace("_", " ")}
+                          </span>
+                          <span className="font-mono text-xs font-black text-slate-400">{t.code || "NO CODE"}</span>
                         </div>
-                        <div>
-                          End: <strong className="text-slate-700">{t.endDate}</strong>
-                        </div>
-                      </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-right">
-                        <Link
-                          to={`/admin/tournaments/${t.id}`}
-                          className="font-bold text-[#b3193a] underline hover:text-[#070f4f]"
-                        >
-                          Manage
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        <h2 className="mt-3 text-xl font-black text-slate-950">{t.name}</h2>
+                        <p className="mt-1 text-sm font-semibold text-slate-500">{t.location || "Location not set"}</p>
+                      </div>
+                      <Link
+                        to={`/admin/tournaments/${t.id}`}
+                        aria-label={`Continue ${t.name}`}
+                        className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#b3193a] px-4 text-sm font-black text-white hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+                      >
+                        Continue
+                      </Link>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Horse cap</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{t.maxHorses || "Unlimited"}</p>
+                      </div>
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Owner quota</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{t.maxHorsesPerOwner ?? 2}</p>
+                      </div>
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Current phase</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{phase.label}</p>
+                      </div>
+                      <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">Season dates</p>
+                        <p className="mt-1 text-sm font-black text-slate-950">
+                          {t.startDate || "TBD"} to {t.endDate || "TBD"}
+                        </p>
+                      </div>
+                      <div className="rounded-md border border-[#b3193a]/20 bg-[#b3193a]/5 p-3">
+                        <p className="text-[11px] font-black uppercase tracking-wide text-[#b3193a]">Next Action</p>
+                        <p className="mt-1 text-lg font-black text-slate-950">{nextAction}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5">
+                      <div className="flex items-center justify-between text-xs font-black uppercase tracking-wide text-slate-400">
+                        <span>Phase progress</span>
+                        <span>{phase.label}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-5 gap-2">
+                        {championshipPhases.map((phaseLabel, index) => (
+                          <div key={phaseLabel} className="min-w-0">
+                            <div className={`h-2 rounded-full ${index <= phase.index ? "bg-[#b3193a]" : "bg-slate-200"}`} />
+                            <p className="mt-2 truncate text-[11px] font-bold text-slate-500">{phaseLabel}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           )}
         </div>
       </div>
 
-      {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl overflow-hidden rounded-lg bg-white shadow-xl">
             <div className="border-b border-slate-100 px-6 py-4">
-              <h2 className="text-xl font-black text-slate-900">Create New Tournament</h2>
+              <h2 className="text-xl font-black text-slate-900">Create New Championship</h2>
             </div>
 
             <form onSubmit={handleCreateSubmit}>
@@ -287,27 +344,27 @@ export function AdminTournamentListPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Tournament Name *
+                      Championship Name *
                     </label>
                     <input
                       type="text"
                       required
                       value={form.name}
                       onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Tournament Code *
+                      Championship Code *
                     </label>
                     <input
                       type="text"
                       required
                       value={form.code}
                       onChange={(e) => setForm({ ...form, code: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
@@ -320,33 +377,33 @@ export function AdminTournamentListPage() {
                       required
                       value={form.location}
                       onChange={(e) => setForm({ ...form, location: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Tournament Start Date *
+                      Championship Start Date *
                     </label>
                     <input
                       type="date"
                       required
                       value={form.startDate}
                       onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Tournament End Date *
+                      Championship End Date *
                     </label>
                     <input
                       type="date"
                       required
                       value={form.endDate}
                       onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
@@ -359,7 +416,7 @@ export function AdminTournamentListPage() {
                       required
                       value={form.registrationStartAt}
                       onChange={(e) => setForm({ ...form, registrationStartAt: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
@@ -372,13 +429,13 @@ export function AdminTournamentListPage() {
                       required
                       value={form.registrationEndAt}
                       onChange={(e) => setForm({ ...form, registrationEndAt: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
-                      Max Horse Participants (Optional)
+                      Max Horse Participants
                     </label>
                     <input
                       type="number"
@@ -389,8 +446,29 @@ export function AdminTournamentListPage() {
                           maxHorses: e.target.value ? Number(e.target.value) : undefined,
                         })
                       }
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Max Horses Per Owner
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={form.maxHorsesPerOwner || ""}
+                      onChange={(e) =>
+                        setForm({
+                          ...form,
+                          maxHorsesPerOwner: e.target.value ? Number(e.target.value) : undefined,
+                        })
+                      }
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      Default is 2 active horse registrations per owner.
+                    </p>
                   </div>
 
                   <div className="sm:col-span-2">
@@ -401,24 +479,24 @@ export function AdminTournamentListPage() {
                       rows={3}
                       value={form.description}
                       onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+                      className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
                     />
                   </div>
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 bg-slate-50 px-6 py-4 flex justify-end gap-3">
+              <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="rounded bg-[#b3193a] px-4 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
+                  className="rounded-md bg-[#b3193a] px-4 py-2 text-sm font-bold text-white hover:bg-[#92122d] disabled:opacity-50"
                 >
                   {submitting ? "Creating..." : "Create"}
                 </button>

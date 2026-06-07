@@ -12,11 +12,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.email = :email")
     Optional<User> findByEmailForUpdate(String email);
 
-    @EntityGraph(attributePaths = {"userRoles", "userRoles.role"})
+   
+    @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "refereeProfile"})
+
     Optional<User> findWithUserRolesByEmail(String email);
 
     boolean existsByEmail(String email);

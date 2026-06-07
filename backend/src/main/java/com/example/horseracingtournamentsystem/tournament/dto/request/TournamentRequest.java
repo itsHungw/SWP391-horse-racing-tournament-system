@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.tournament.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,5 +39,9 @@ public class TournamentRequest {
     @NotNull(message = "Registration end time is required")
     private LocalDateTime registrationEndAt;
 
+    @Positive(message = "Max horses must be greater than 0")
     private Integer maxHorses;
+
+    @Positive(message = "Max horses per owner must be greater than 0")
+    private Integer maxHorsesPerOwner;
 }

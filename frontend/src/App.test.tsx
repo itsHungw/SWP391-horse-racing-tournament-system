@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { blogApi } from "./api/blogApi";
 import App from "./App";
+import { clearClientSession, getClientSession, setClientSession } from "./utils/authSession";
 
 vi.mock("./api/authApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api/authApi")>();
@@ -34,26 +35,22 @@ vi.mock("./api/pointSettingsApi", () => ({
 }));
 
 vi.mock("./api/racingApi", () => ({
+  applyToJockeyChampionship: vi.fn(),
   approveAdminHorse: vi.fn(),
+  approveAdminJockeyPoolApplication: vi.fn(),
   approveAdminTournamentRegistration: vi.fn(),
   createOwnerHorse: vi.fn(),
   createOwnerTournamentRegistration: vi.fn(),
-  getAdminHorses: vi.fn().mockResolvedValue({
-    content: [],
-    number: 0,
-    size: 8,
-    totalElements: 0,
-    totalPages: 1,
-  }),
-  getAdminTournamentRegistrations: vi.fn().mockResolvedValue({
-    content: [],
-    number: 0,
-    size: 8,
-    totalElements: 0,
-    totalPages: 1,
-  }),
+
+  getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
+  getAdminHorses: vi.fn(),
+  getAdminTournamentRegistrations: vi.fn(),
+  getJockeyChampionships: vi.fn().mockResolvedValue([]),
+  getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
+
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
+  getOwnerAvailableJockeys: vi.fn(),
   getOwnerTournamentRegistrations: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn().mockResolvedValue({
     content: [],
@@ -64,6 +61,7 @@ vi.mock("./api/racingApi", () => ({
   }),
   getPublicTournaments: vi.fn(),
   rejectAdminHorse: vi.fn(),
+  rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
@@ -95,6 +93,7 @@ function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 100
 describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
+    clearClientSession({ notify: false });
     window.history.pushState({}, "", "/");
     vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(emptyBlogPage);
   });
@@ -187,10 +186,10 @@ describe("App", () => {
     );
   });
 
-  it("renders authenticated client header links and logs out", async () => {
-    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
-    localStorage.setItem("fullName", "Nguyen Van A");
-    localStorage.setItem("email", "member@example.com");
+
+  it("renders authenticated client header links and logs out", () => {
+    setClientSession(createTokenWithRoles(["SPECTATOR"]), "Nguyen Van A", "member@example.com");
+
 
     render(<App />);
 
@@ -233,6 +232,7 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: /^logout$/i }));
 
     expect(localStorage.getItem("accessToken")).toBeNull();
+    expect(getClientSession().accessToken).toBeNull();
     expect(screen.getByRole("link", { name: /^log in$/i })).toHaveAttribute(
       "href",
       "/login",
@@ -291,10 +291,10 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
   });
 
-  it("keeps an expired access token session visible so refresh can recover it", async () => {
-    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"], 1));
-    localStorage.setItem("fullName", "Nguyen Van A");
-    localStorage.setItem("email", "member@example.com");
+
+  it("keeps an expired access token session visible so refresh can recover it", () => {
+    setClientSession(createTokenWithRoles(["SPECTATOR"], 1), "Nguyen Van A", "member@example.com");
+
 
     render(<App />);
 
@@ -306,13 +306,12 @@ describe("App", () => {
       "href",
       "/spectator/dashboard",
     );
-    expect(localStorage.getItem("accessToken")).not.toBeNull();
+    expect(getClientSession().accessToken).not.toBeNull();
+    expect(localStorage.getItem("accessToken")).toBeNull();
   });
 
   it("routes horse owner dashboard link to the owner workspace", () => {
-    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
-    localStorage.setItem("fullName", "Owner User");
-    localStorage.setItem("email", "owner@example.com");
+    setClientSession(createTokenWithRoles(["HORSE_OWNER"]), "Owner User", "owner@example.com");
 
     render(<App />);
 
@@ -324,9 +323,7 @@ describe("App", () => {
 
   it("redirects owner base route to owner dashboard for authenticated owners", async () => {
     window.history.pushState({}, "", "/owner");
-    localStorage.setItem("accessToken", createTokenWithRoles(["HORSE_OWNER"]));
-    localStorage.setItem("fullName", "Owner User");
-    localStorage.setItem("email", "owner@example.com");
+    setClientSession(createTokenWithRoles(["HORSE_OWNER"]), "Owner User", "owner@example.com");
 
     render(<App />);
 
@@ -335,9 +332,7 @@ describe("App", () => {
 
   it("renders a polished forbidden page for authenticated non-admin users", () => {
     window.history.pushState({}, "", "/admin");
-    localStorage.setItem("accessToken", createTokenWithRoles(["SPECTATOR"]));
-    localStorage.setItem("fullName", "Nguyen Van A");
-    localStorage.setItem("email", "member@example.com");
+    setClientSession(createTokenWithRoles(["SPECTATOR"]), "Nguyen Van A", "member@example.com");
 
     render(<App />);
 
@@ -348,9 +343,7 @@ describe("App", () => {
 
   it("renders the admin operations foundation route for admin users", () => {
     window.history.pushState({}, "", "/admin");
-    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
-    localStorage.setItem("fullName", "Admin Operator");
-    localStorage.setItem("email", "admin@example.com");
+    setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
 
     render(<App />);
 
@@ -371,21 +364,27 @@ describe("App", () => {
     expect(
       screen.getByRole("link", { name: /role requests/i }),
     ).toHaveAttribute("href", "/admin/role-requests");
+    expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
+    expect(screen.getByText("PEOPLE")).toBeInTheDocument();
+    expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
+    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
+      "href",
+      "/admin/tournaments",
+    );
     expect(screen.getByRole("link", { name: /horse approvals/i })).toHaveAttribute(
       "href",
       "/admin/horses",
     );
-    expect(screen.getByRole("link", { name: /^registrations$/i })).toHaveAttribute(
-      "href",
-      "/admin/tournament-registrations",
-    );
+    expect(screen.queryByRole("link", { name: /^participants$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^races$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^registrations$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^standings$/i })).not.toBeInTheDocument();
   });
 
   it("keeps admin user management inside the admin shell", async () => {
     window.history.pushState({}, "", "/admin/users");
-    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
-    localStorage.setItem("fullName", "Admin Operator");
-    localStorage.setItem("email", "admin@example.com");
+    setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
 
     render(<App />);
 
@@ -399,9 +398,7 @@ describe("App", () => {
 
   it("keeps admin horse approvals inside the admin shell", async () => {
     window.history.pushState({}, "", "/admin/horses");
-    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
-    localStorage.setItem("fullName", "Admin Operator");
-    localStorage.setItem("email", "admin@example.com");
+    setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
 
     render(<App />);
 
@@ -412,9 +409,7 @@ describe("App", () => {
 
   it("keeps admin tournament registrations inside the admin shell", async () => {
     window.history.pushState({}, "", "/admin/tournament-registrations");
-    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
-    localStorage.setItem("fullName", "Admin Operator");
-    localStorage.setItem("email", "admin@example.com");
+    setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
 
     render(<App />);
 
@@ -423,16 +418,41 @@ describe("App", () => {
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
-  it("renders admin point settings inside the admin shell", async () => {
-    window.history.pushState({}, "", "/admin/points");
-    localStorage.setItem("accessToken", createTokenWithRoles(["ADMIN"]));
-    localStorage.setItem("fullName", "Admin Operator");
-    localStorage.setItem("email", "admin@example.com");
+it("renders admin point settings inside the admin shell", async () => {
+  window.history.pushState({}, "", "/admin/points");
+  setClientSession(
+    createTokenWithRoles(["ADMIN"]),
+    "Admin Operator",
+    "admin@example.com",
+  );
+
+  render(<App />);
+
+  expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: /point settings/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/blog reward points/i)).toBeInTheDocument();
+});
+  it("renders referee result packages as a read-only confirmed results archive", () => {
+    window.history.pushState({}, "", "/referee/result-history");
+    setClientSession(createTokenWithRoles(["REFEREE"]), "Julian Sterling", "referee@equine.com");
 
     render(<App />);
 
-    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: /point settings/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/blog reward points/i)).toBeInTheDocument();
+    expect(screen.getByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /race reports/i })).toHaveAttribute(
+      "href",
+      "/referee/result-history",
+    );
+    expect(screen.getByRole("heading", { name: /confirmed race results/i })).toBeInTheDocument();
+    const resultsTable = screen.getByRole("table", { name: /published race results/i });
+    expect(resultsTable).toBeInTheDocument();
+    expect(within(resultsTable).getAllByText("PUBLISHED")).toHaveLength(2);
+    expect(within(resultsTable).getByText("June Stakes - Heat 2")).toBeInTheDocument();
+    expect(within(resultsTable).getByText(/Golden Arrow, Night Bloom, River Comet/i)).toBeInTheDocument();
+    expect(within(resultsTable).getByText(/Track Hazard - Caution Period Enabled/i)).toBeInTheDocument();
+    expect(within(resultsTable).getByText(/Warning: Lane drift/i)).toBeInTheDocument();
+    expect(screen.queryByText("DRAFT")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /update|publish|save|edit/i })).not.toBeInTheDocument();
+
   });
 });

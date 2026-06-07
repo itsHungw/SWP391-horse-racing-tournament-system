@@ -18,7 +18,9 @@ const authenticatedPrimaryNav = publicPrimaryNav;
 export function ClientHeader() {
   const navigate = useNavigate();
   const { isAuthenticated, logout, session } = useClientSession();
-  const primaryNav = isAuthenticated ? authenticatedPrimaryNav : publicPrimaryNav;
+  const primaryNav = isAuthenticated
+    ? publicPrimaryNav.map(nav => nav.label === "Predictions" ? { ...nav, href: "/spectator/predictions" } : nav)
+    : publicPrimaryNav;
   const dashboardHref = getDashboardRouteForRoles(session?.roles ?? []);
 
   const handleLogout = () => {

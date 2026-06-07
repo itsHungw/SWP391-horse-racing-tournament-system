@@ -1,5 +1,11 @@
 package com.example.horseracingtournamentsystem.tournament.service;
 
+import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
+import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.dto.request.TournamentRequest;
 import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentResponse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -11,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -21,18 +28,16 @@ public class TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
+    private final RaceRepository raceRepository;
+    private final RaceParticipantRepository raceParticipantRepository;
+    private final TournamentParticipantRepository tournamentParticipantRepository;
 
     @Transactional
     public TournamentResponse createTournament(TournamentRequest req, String creatorEmail) {
         if (tournamentRepository.existsByCodeAndDeletedAtIsNull(req.getCode())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
         }
-        if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
-        }
-        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
-        }
+        validateTournamentDates(req);
 
         User creator = userRepository.findByEmail(creatorEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Creator user not found"));
@@ -40,7 +45,7 @@ public class TournamentService {
         Tournament tournament = Tournament.create(
                 req.getName(), req.getCode(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses(), creator
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(), creator
         );
 
         tournamentRepository.save(tournament);
@@ -58,21 +63,34 @@ public class TournamentService {
         if (tournamentRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
         }
-        if (req.getEndDate().isBefore(req.getStartDate())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
-        }
-        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
-        }
+        validateTournamentDates(req);
 
         tournament.update(
                 req.getName(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses()
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner()
         );
 
         tournamentRepository.save(tournament);
         return mapToResponse(tournament);
+    }
+
+    private void validateTournamentDates(TournamentRequest req) {
+        if (req.getEndDate().isBefore(req.getStartDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "End date cannot be before start date");
+        }
+        if (req.getRegistrationStartAt().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration start time cannot be in the past");
+        }
+        if (req.getRegistrationEndAt().isBefore(req.getRegistrationStartAt())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Registration end time cannot be before start time");
+        }
+        if (!req.getRegistrationEndAt().isBefore(req.getStartDate().atStartOfDay())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Registration end time must be before tournament start date"
+            );
+        }
     }
 
     @Transactional
@@ -101,7 +119,7 @@ public class TournamentService {
 
     public List<TournamentResponse> getPublicTournaments() {
         return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "ONGOING", "COMPLETED")
+                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED")
         ).stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -118,6 +136,19 @@ public class TournamentService {
             case "CLOSED_REGISTRATION":
                 tournament.closeRegistration();
                 break;
+            case "PARTICIPANTS_LOCKED":
+                tournament.lockParticipants();
+                break;
+            case "SCHEDULE_PUBLISHED":
+                if (!"PARTICIPANTS_LOCKED".equals(tournament.getStatus())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Schedule can only be published after participants are locked"
+                    );
+                }
+                syncOfficialScheduleParticipants(tournament);
+                tournament.publishSchedule();
+                break;
             case "ONGOING":
                 tournament.startOngoing();
                 break;
@@ -133,6 +164,45 @@ public class TournamentService {
         tournamentRepository.save(tournament);
     }
 
+    private void syncOfficialScheduleParticipants(Tournament tournament) {
+        List<Race> races = raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(tournament.getId());
+        if (races.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Create at least one championship round before publishing the schedule"
+            );
+        }
+        List<String> missingRefereeRounds = races.stream()
+                .filter(race -> race.getReferee() == null)
+                .map(Race::getName)
+                .toList();
+        if (!missingRefereeRounds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Cannot publish schedule. Some races do not have assigned referees: "
+                            + String.join(", ", missingRefereeRounds)
+            );
+        }
+
+        List<TournamentParticipant> participants =
+                tournamentParticipantRepository.findAllByTournament_IdOrderByCreatedAtDesc(tournament.getId());
+        if (participants.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Lock accepted contracts into official participants before publishing the schedule"
+            );
+        }
+
+        for (TournamentParticipant participant : participants) {
+            for (Race race : races) {
+                if (raceParticipantRepository.existsByRace_IdAndHorse_Id(race.getId(), participant.getHorse().getId())) {
+                    continue;
+                }
+                raceParticipantRepository.save(RaceParticipant.registered(race, participant, null));
+            }
+        }
+    }
+
     private TournamentResponse mapToResponse(Tournament t) {
         return TournamentResponse.builder()
                 .id(t.getId())
@@ -145,6 +215,7 @@ public class TournamentService {
                 .registrationStartAt(t.getRegistrationStartAt())
                 .registrationEndAt(t.getRegistrationEndAt())
                 .maxHorses(t.getMaxHorses())
+                .maxHorsesPerOwner(t.getMaxHorsesPerOwner())
                 .status(t.getStatus())
                 .creatorName(t.getCreatedBy().getFullName())
                 .createdAt(t.getCreatedAt())

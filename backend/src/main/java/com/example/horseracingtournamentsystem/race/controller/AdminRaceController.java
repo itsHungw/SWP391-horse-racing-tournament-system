@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.race.controller;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
 import jakarta.validation.Valid;
@@ -35,12 +36,27 @@ public class AdminRaceController {
     }
 
     @GetMapping
-    public List<RaceResponse> listAll() {
-        return raceService.getAdminRaces();
+    public List<RaceResponse> listAll(@RequestParam(required = false) Long tournamentId) {
+        return raceService.getAdminRaces(tournamentId);
     }
 
     @GetMapping("/{id}")
     public RaceResponse getDetail(@PathVariable Long id) {
         return raceService.getRaceDetail(id);
+    }
+
+    @GetMapping("/{id}/participants")
+    public List<RaceParticipantResponse> listParticipants(@PathVariable Long id) {
+        return raceService.getRaceParticipants(id);
+    }
+
+    @PutMapping("/{id}/status")
+    public RaceResponse updateStatus(@PathVariable Long id, @RequestParam String status) {
+        return raceService.updateRaceStatus(id, status);
+    }
+
+    @PutMapping("/{id}/referee")
+    public RaceResponse assignReferee(@PathVariable Long id, @RequestParam Long refereeId) {
+        return raceService.assignReferee(id, refereeId);
     }
 }

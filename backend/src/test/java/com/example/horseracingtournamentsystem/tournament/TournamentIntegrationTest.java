@@ -4,6 +4,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -17,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
@@ -35,7 +38,13 @@ class TournamentIntegrationTest {
     private JwtService jwtService;
 
     @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private TournamentRepository tournamentRepository;
+
+    @Autowired
+    private RaceRepository raceRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -52,6 +61,8 @@ class TournamentIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TestDatabaseCleaner.clean(jdbcTemplate);
+        raceRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -82,10 +93,10 @@ class TournamentIntegrationTest {
                     "code": "SUMMER_26",
                     "description": "Premium summer racing tournament",
                     "location": "Saratoga Tracks",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 50
                 }
                 """;
@@ -133,6 +144,87 @@ class TournamentIntegrationTest {
     }
 
     @Test
+    void registrationStartInPastReturnsBadRequest() throws Exception {
+        String body = """
+                {
+                    "name": "Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Registration must not start in the past",
+                    "location": "Saratoga Tracks",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2000-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
+                    "maxHorses": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/tournaments")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration start time cannot be in the past"));
+    }
+
+    @Test
+    void registrationEndAtTournamentStartReturnsBadRequest() throws Exception {
+        String body = """
+                {
+                    "name": "Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Registration must finish before the tournament starts",
+                    "location": "Saratoga Tracks",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-07-01T00:00:00",
+                    "maxHorses": 50
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/admin/tournaments")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration end time must be before tournament start date"));
+    }
+
+    @Test
+    void updatingRegistrationEndAfterTournamentStartReturnsBadRequest() throws Exception {
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament tournament =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Future Derby", "FUTURE_DERBY", "Desc", "Loc",
+                LocalDate.of(2099, 7, 1), LocalDate.of(2099, 7, 15),
+                LocalDateTime.of(2099, 6, 1, 0, 0), LocalDateTime.of(2099, 6, 25, 0, 0),
+                20, adminUser
+            );
+        tournament = tournamentRepository.save(tournament);
+
+        String updateBody = """
+                {
+                    "name": "Updated Future Derby",
+                    "code": "FUTURE_DERBY",
+                    "description": "Desc",
+                    "location": "Loc",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-07-01T00:01:00",
+                    "maxHorses": 20
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Registration end time must be before tournament start date"));
+    }
+
+    @Test
     void adminCannotDeleteActiveTournament() throws Exception {
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t = 
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
@@ -167,10 +259,10 @@ class TournamentIntegrationTest {
                     "code": "DB_26",
                     "description": "Desc",
                     "location": "Loc",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 50
                 }
                 """;
@@ -197,6 +289,12 @@ class TournamentIntegrationTest {
         mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .param("status", "OPEN_REGISTRATION"))
+                .andExpect(status().isOk());
+
+        // Transition to ONGOING
+        mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "PARTICIPANTS_LOCKED"))
                 .andExpect(status().isOk());
 
         // Transition to ONGOING
@@ -233,10 +331,10 @@ class TournamentIntegrationTest {
                     "code": "DB_26",
                     "description": "Updated description",
                     "location": "New Location",
-                    "startDate": "2026-07-01",
-                    "endDate": "2026-07-15",
-                    "registrationStartAt": "2026-06-01T00:00:00",
-                    "registrationEndAt": "2026-06-25T00:00:00",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
                     "maxHorses": 40
                 }
                 """;
@@ -285,16 +383,39 @@ class TournamentIntegrationTest {
         t1.openRegistration();
         t1 = tournamentRepository.save(t1);
 
-        // 2. CLOSED_REGISTRATION past startDate -> ONGOING
+        // 2. CLOSED_REGISTRATION past startDate stays closed until participants are locked
         com.example.horseracingtournamentsystem.tournament.entity.Tournament t2 = 
             com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
                 "Derby 2", "DB_2", "Desc", "Loc", 
                 LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
                 LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
                 20, adminUser
-            );
+        );
         t2.closeRegistration();
         t2 = tournamentRepository.save(t2);
+
+        // 3. PARTICIPANTS_LOCKED past startDate stays locked until schedule is published
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t3 =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 3", "DB_3", "Desc", "Loc",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
+                20, adminUser
+            );
+        t3.lockParticipants();
+        t3 = tournamentRepository.save(t3);
+
+        // 4. SCHEDULE_PUBLISHED past startDate -> ONGOING
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament t4 =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Derby 4", "DB_4", "Desc", "Loc",
+                LocalDate.now().minusDays(1), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(5), LocalDateTime.now().minusDays(2),
+                20, adminUser
+            );
+        t4.lockParticipants();
+        t4.publishSchedule();
+        t4 = tournamentRepository.save(t4);
 
         // Run scheduler
         tournamentScheduler.checkTournamentStatusTransitions();
@@ -304,8 +425,14 @@ class TournamentIntegrationTest {
             tournamentRepository.findById(t1.getId()).orElseThrow();
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT2 = 
             tournamentRepository.findById(t2.getId()).orElseThrow();
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT3 =
+            tournamentRepository.findById(t3.getId()).orElseThrow();
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT4 =
+            tournamentRepository.findById(t4.getId()).orElseThrow();
 
         org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("PARTICIPANTS_LOCKED", updatedT3.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT4.getStatus());
     }
 }

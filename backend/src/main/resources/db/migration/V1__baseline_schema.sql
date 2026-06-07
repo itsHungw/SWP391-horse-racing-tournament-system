@@ -1,0 +1,3 @@
+-- Baseline marker for existing SQL Server deployments.
+-- The authoritative legacy DDL remains in classpath:schema.sql until the
+-- next migration converts the full schema into incremental Flyway scripts.

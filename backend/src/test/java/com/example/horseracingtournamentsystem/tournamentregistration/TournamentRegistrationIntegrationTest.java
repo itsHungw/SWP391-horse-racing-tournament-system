@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
@@ -31,6 +32,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.JsonPathExpectationsHelper;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
@@ -47,6 +49,9 @@ class TournamentRegistrationIntegrationTest {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private HorseRepository horseRepository;
@@ -81,6 +86,7 @@ class TournamentRegistrationIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TestDatabaseCleaner.clean(jdbcTemplate);
         horseDocumentRepository.deleteAll();
         horseRepository.deleteAll();
         tournamentRepository.deleteAll();
@@ -212,6 +218,33 @@ class TournamentRegistrationIntegrationTest {
                         .content(registrationBody(anotherOwnerHorse)))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Horse does not belong to current owner"));
+    }
+
+    @Test
+    void ownerCannotExceedTournamentHorseLimitPerOwner() throws Exception {
+        Horse secondHorse = createApprovedOwnerHorse("Second Horse", "H_SECOND");
+        Horse thirdHorse = createApprovedOwnerHorse("Third Horse", "H_THIRD");
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().plusDays(1));
+        addRequiredMedicalDocuments(secondHorse, openTournament.getEndDate().plusDays(1));
+        addRequiredMedicalDocuments(thirdHorse, openTournament.getEndDate().plusDays(1));
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(secondHorse)))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(thirdHorse)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Owner horse registration limit reached for this tournament"));
     }
 
     @Test
@@ -378,6 +411,18 @@ class TournamentRegistrationIntegrationTest {
                 "Saigon Equine Clinic",
                 "/uploads/horses/documents/health.pdf",
                 null
+        ));
+    }
+
+    private Horse createApprovedOwnerHorse(String name, String registrationCode) {
+        return horseRepository.save(Horse.create(
+                ownerUser,
+                name,
+                registrationCode,
+                "Thoroughbred",
+                "MALE",
+                LocalDate.of(2020, 1, 1),
+                "Bay"
         ));
     }
 

@@ -1,10 +1,11 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { httpClient } from "./httpClient";
+import { clearClientSession, getClientSession, setClientSession } from "../utils/authSession";
 
 describe("httpClient", () => {
   beforeEach(() => {
-    localStorage.clear();
+    clearClientSession({ notify: false });
     vi.restoreAllMocks();
   });
 
@@ -14,7 +15,7 @@ describe("httpClient", () => {
   });
 
   it("refreshes an expired session and retries the original request once", async () => {
-    localStorage.setItem("accessToken", "old-access-token");
+    setClientSession("old-access-token", "Nguyen Van A", "member@example.com");
     const refreshRequest = vi
       .spyOn(axios, "post")
       .mockResolvedValue({ data: { accessToken: "new-access-token" } });
@@ -55,7 +56,8 @@ describe("httpClient", () => {
     expect(refreshRequest).toHaveBeenCalledWith("/api/v1/auth/refresh", undefined, {
       withCredentials: true,
     });
-    expect(localStorage.getItem("accessToken")).toBe("new-access-token");
+    expect(getClientSession().accessToken).toBe("new-access-token");
+    expect(localStorage.getItem("accessToken")).toBeNull();
     expect(adapter).toHaveBeenCalledTimes(2);
   });
 
@@ -89,9 +91,7 @@ describe("httpClient", () => {
     vi.spyOn(axios, "post").mockRejectedValue(
       new AxiosError("Refresh failed", "ERR_BAD_REQUEST"),
     );
-    localStorage.setItem("accessToken", "old-access-token");
-    localStorage.setItem("fullName", "Nguyen Van A");
-    localStorage.setItem("email", "member@example.com");
+    setClientSession("old-access-token", "Nguyen Van A", "member@example.com");
     window.addEventListener("auth-session-changed", sessionChanged);
 
     await expect(

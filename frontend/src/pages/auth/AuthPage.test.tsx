@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { login, register } from "../../api/authApi";
+import { clearClientSession, getClientSession } from "../../utils/authSession";
 import { LoginPage } from "./LoginPage";
 import { RegisterPage } from "./RegisterPage";
 
@@ -23,7 +24,7 @@ function createAccessTokenWithRoles(roles: string[]) {
 
 describe("Auth pages", () => {
   beforeEach(() => {
-    localStorage.clear();
+    clearClientSession({ notify: false });
     mockedLogin.mockReset();
     mockedRegister.mockReset();
   });
@@ -58,7 +59,8 @@ describe("Auth pages", () => {
         password: "Password1",
       });
     });
-    expect(localStorage.getItem("accessToken")).toBe("access-token");
+    expect(getClientSession().accessToken).toBe("access-token");
+    expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("fullName")).toBe("Official User");
     expect(localStorage.getItem("email")).toBe("official@nyra.com");
   });

@@ -27,6 +27,21 @@ public class Race {
     @Column(name = "code", nullable = false, unique = true, length = 100)
     private String code;
 
+    @Column(name = "round_name", length = 100)
+    private String roundName;
+
+    @Column(name = "race_number")
+    private Integer raceNumber;
+
+    @Column(name = "track_name", length = 150)
+    private String trackName;
+
+    @Column(name = "track_condition", length = 50)
+    private String trackCondition;
+
+    @Column(name = "note")
+    private String note;
+
     @Column(name = "race_at", nullable = false)
     private LocalDateTime raceAt;
 
@@ -41,6 +56,10 @@ public class Race {
 
     @Column(name = "status", nullable = false, length = 40)
     private String status; // SCHEDULED / CHECKING / READY / ONGOING / FINISHED / RESULT_SUBMITTED / RESULT_CONFIRMED / PUBLISHED / CANCELLED
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "referee_id")
+    private User referee;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
@@ -82,6 +101,16 @@ public class Race {
 
     public void cancel() {
         this.status = "CANCELLED";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateStatus(String status) {
+        this.status = status;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignReferee(User referee) {
+        this.referee = referee;
         this.updatedAt = LocalDateTime.now();
     }
 

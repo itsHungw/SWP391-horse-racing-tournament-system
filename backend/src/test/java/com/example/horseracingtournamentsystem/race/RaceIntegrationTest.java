@@ -4,6 +4,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
+import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
+import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
+import com.example.horseracingtournamentsystem.points.service.PointsService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -38,6 +44,15 @@ class RaceIntegrationTest {
 
     @Autowired
     private RaceRepository raceRepository;
+
+    @Autowired
+    private RacePredictionRepository racePredictionRepository;
+
+    @Autowired
+    private PredictionSettlementJobRepository settlementJobRepository;
+
+    @Autowired
+    private PointsService pointsService;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -129,5 +144,126 @@ class RaceIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void adminCanListRacesForOneTournamentOnly() throws Exception {
+        Tournament otherTournament = tournamentRepository.save(Tournament.create(
+                "Autumn Cup", "AC_01", "Autumn Cup Desc", "West Track",
+                LocalDate.now().plusDays(20), LocalDate.now().plusDays(30),
+                LocalDateTime.now().plusDays(20), LocalDateTime.now().plusDays(22),
+                18, adminUser
+        ));
+
+        raceRepository.save(Race.create(
+                tournament, "Round 1", "MC_R1", LocalDateTime.of(2026, 6, 15, 14, 30),
+                1200, 12, adminUser
+        ));
+        raceRepository.save(Race.create(
+                otherTournament, "Other Round", "AC_R1", LocalDateTime.of(2026, 7, 15, 14, 30),
+                1400, 12, adminUser
+        ));
+
+        mockMvc.perform(get("/api/v1/admin/races")
+                        .param("tournamentId", tournament.getId().toString())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Round 1"))
+                .andExpect(jsonPath("$[0].code").value("MC_R1"))
+                .andExpect(jsonPath("$[1]").doesNotExist());
+    }
+
+    @Test
+    void adminCanAdvanceRaceOperationsStatus() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Round 2", "MC_R2", LocalDateTime.of(2026, 6, 16, 14, 30),
+                1600, 12, adminUser
+        ));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "CHECKING")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CHECKING"));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "PUBLISHED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void leavingScheduledStateLocksPendingPredictions() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Prediction Lock Round", "MC_LOCK", LocalDateTime.of(2026, 6, 17, 14, 30),
+                1600, 12, adminUser
+        ));
+        User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
+        RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+        ));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "CHECKING")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CHECKING"));
+
+        RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_LOCKED);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getLockedAt()).isNotNull();
+    }
+
+    @Test
+    void cancellingRaceRefundsPendingPredictions() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Prediction Refund Round", "MC_REFUND", LocalDateTime.of(2026, 6, 18, 14, 30),
+                1600, 12, adminUser
+        ));
+        User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
+        pointsService.initializeAccount(spectator, 100);
+        RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+        ));
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "CANCELLED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+        RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_REFUNDED);
+    }
+
+    @Test
+    void confirmingRaceResultCreatesOneSettlementJob() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Prediction Settlement Round", "MC_SETTLE", LocalDateTime.of(2026, 6, 19, 14, 30),
+                1600, 12, adminUser
+        ));
+        race.updateStatus("FINISHED");
+        raceRepository.save(race);
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "RESULT_SUBMITTED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "RESULT_CONFIRMED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RESULT_CONFIRMED"));
+
+        PredictionSettlementJob job = settlementJobRepository.findByRaceId(race.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJob.STATUS_PENDING);
+
+        mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
+                        .param("status", "PUBLISHED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(settlementJobRepository.findByRaceId(race.getId())).isPresent();
     }
 }

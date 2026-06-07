@@ -5,12 +5,9 @@ import {
   UserCheck, 
   Users, 
   Trophy, 
-  ClipboardList,
-  Flag, 
   Compass, 
   FileText, 
-  Award, 
-  Settings 
+  Settings,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -20,18 +17,33 @@ type AdminLayoutProps = {
   children: ReactNode;
 };
 
-const adminNavItems = [
-  { label: "Overview", href: "/admin", icon: LayoutDashboard },
-  { label: "Role Requests", href: "/admin/role-requests", icon: UserCheck },
-  { label: "Users", href: "/admin/users", icon: Users },
-  { label: "Horse Approvals", href: "/admin/horses", icon: Trophy },
-  { label: "Registrations", href: "/admin/tournament-registrations", icon: ClipboardList },
-  { label: "Tournaments", href: "/admin/tournaments", icon: Trophy },
-  { label: "Races", href: "/admin/races", icon: Flag },
-  { label: "Predictions", href: "/admin/predictions", icon: Compass },
-  { label: "Blog", href: "/admin/blog", icon: FileText },
-  { label: "Points", href: "/admin/points", icon: Award },
-  { label: "Settings", href: "/admin/settings", icon: Settings },
+const adminNavGroups = [
+  {
+    label: "OPERATIONS",
+    items: [
+      { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
+      { label: "Championships", href: "/admin/tournaments", icon: Trophy },
+    ],
+  },
+  {
+    label: "PEOPLE",
+    items: [
+      { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Role Requests", href: "/admin/role-requests", icon: UserCheck },
+      { label: "Horse Approvals", href: "/admin/horses", icon: Trophy },
+    ],
+  },
+  {
+    label: "ENGAGEMENT",
+    items: [
+      { label: "Predictions", href: "/admin/predictions", icon: Compass },
+      { label: "Blog", href: "/admin/blog", icon: FileText },
+    ],
+  },
+  {
+    label: "SYSTEM",
+    items: [{ label: "Settings", href: "/admin/settings", icon: Settings }],
+  },
 ];
 
 export function AdminLayout({ children }: AdminLayoutProps) {
@@ -48,7 +60,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="mx-auto min-h-screen max-w-[1680px] bg-[#f5f5f5] shadow-sm">
         <header
           aria-label="Admin operations header"
-          className="border-b border-[#d8d8d8] bg-white"
+          className="sticky top-0 z-40 border-b border-[#d8d8d8] bg-white/90 backdrop-blur-md"
           role="banner"
         >
           <div className="flex min-h-20 flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
@@ -71,7 +83,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <input
                 className="h-11 w-full rounded-full border border-[#111] bg-white px-5 text-sm outline-none transition focus-visible:ring-2 focus-visible:ring-[#b3193a]"
                 id="admin-search"
-                placeholder="Search users, tournaments, races, role requests..."
+                placeholder="Search users, championships, rounds, role requests..."
                 type="search"
               />
             </form>
@@ -95,25 +107,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         <div className="grid min-h-[calc(100vh-81px)] lg:grid-cols-[238px_1fr]">
-          <aside className="border-b border-[#d8d8d8] bg-[#f1f1f1] lg:border-b-0 lg:border-r">
-            <nav aria-label="Admin workspace" className="flex overflow-x-auto lg:block">
-              {adminNavItems.map((item) => (
-                <NavLink
-                  className={({ isActive }) =>
-                    [
-                      "flex min-h-14 min-w-max items-center gap-3 border-r border-[#dddddd] px-4 text-sm font-bold lg:border-r-0 lg:border-b",
-                      isActive
-                        ? "bg-white text-[#b3193a] shadow-[inset_4px_0_0_#b3193a]"
-                        : "text-[#171717] hover:bg-white",
-                    ].join(" ")
-                  }
-                  end={item.href === "/admin"}
-                  key={item.href}
-                  to={item.href}
-                >
-                  <item.icon className="h-5 w-5 opacity-80" aria-hidden="true" />
-                  {item.label}
-                </NavLink>
+          <aside className="border-b border-[#d8d8d8] bg-[#f1f1f1] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
+            <nav aria-label="Admin workspace" className="flex overflow-x-auto lg:block lg:px-3 lg:py-4">
+              {adminNavGroups.map((group) => (
+                <div key={group.label} className="contents lg:mb-5 lg:block">
+                  <p className="hidden px-3 pb-2 text-[11px] font-black tracking-[0.18em] text-slate-400 lg:block">
+                    {group.label}
+                  </p>
+                  <div className="flex lg:block lg:space-y-1">
+                    {group.items.map((item) => (
+                      <NavLink
+                        className={({ isActive }) =>
+                          [
+                            "flex min-h-14 min-w-max items-center gap-3 border-r border-[#dddddd] px-4 text-sm font-bold lg:min-h-11 lg:rounded-md lg:border-r-0 lg:px-3",
+                            isActive
+                              ? "bg-white text-[#b3193a] shadow-[inset_4px_0_0_#b3193a] lg:shadow-none"
+                              : "text-[#171717] hover:bg-white",
+                          ].join(" ")
+                        }
+                        end={item.href === "/admin"}
+                        key={item.href}
+                        to={item.href}
+                      >
+                        <item.icon className="h-5 w-5 opacity-80" aria-hidden="true" />
+                        {item.label}
+                      </NavLink>
+                    ))}
+                  </div>
+                </div>
               ))}
             </nav>
           </aside>

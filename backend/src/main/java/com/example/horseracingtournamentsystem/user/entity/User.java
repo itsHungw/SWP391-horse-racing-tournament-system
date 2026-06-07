@@ -6,6 +6,9 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -88,6 +91,9 @@ public class User {
 
     @OneToMany(mappedBy = "user")
     private Set<UserRole> userRoles = new HashSet<>();
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private RefereeProfile refereeProfile;
 
     public static User pending(String fullName, String email, String passwordHash) {
         return pending(fullName, email, passwordHash, null);

@@ -11,6 +11,7 @@ export interface CreateTournamentPayload {
   registrationStartAt: string;
   registrationEndAt: string;
   maxHorses?: number;
+  maxHorsesPerOwner?: number;
 }
 
 export async function getAdminTournaments(): Promise<Tournament[]> {
