@@ -1,0 +1,4 @@
+app:
+  auth:
+    refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:true}
+    refresh-cookie-same-site: Strict

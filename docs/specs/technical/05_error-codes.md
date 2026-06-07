@@ -1,0 +1,43 @@
+# Error Codes
+
+## 1. Response format
+
+```json
+{
+  "success": false,
+  "code": "PREDICTION_CLOSED",
+  "message": "Prediction deadline has passed.",
+  "errors": []
+}
+```
+
+## 2. Key modules
+
+### Auth
+- `AUTH_EMAIL_EXISTS`
+- `AUTH_INVALID_CREDENTIALS`
+- `AUTH_ACCOUNT_LOCKED`
+
+### Horse and tournament
+- `HORSE_NOT_APPROVED`
+- `TOURNAMENT_NOT_OPEN`
+- `TOURNAMENT_INVALID_TRANSITION`
+
+### Race and result
+- `RACE_INVALID_TRANSITION`
+- `REFEREE_NOT_ASSIGNED`
+- `RESULT_NOT_CONFIRMED`
+
+### Prediction game
+- `POINT_BALANCE_INSUFFICIENT`
+- `PREDICTION_CLOSED`
+- `PREDICTION_EXISTS`
+- `INVALID_PARTICIPANT`
+- `DUPLICATE_PREDICTION_PICKS`
+
+### Blog rewards
+- `BLOG_NOT_PUBLISHED`
+- `BLOG_REWARD_ALREADY_CLAIMED`
+- `BLOG_REWARD_REQUIREMENTS_NOT_MET`
+- `DAILY_POINT_LIMIT_REACHED`
+
