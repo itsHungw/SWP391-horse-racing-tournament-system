@@ -127,6 +127,12 @@ public class User {
         this.updatedAt = now;
     }
 
+    public void recordLogin() {
+        LocalDateTime now = LocalDateTime.now();
+        this.lastLoginAt = now;
+        this.updatedAt = now;
+    }
+
     public Set<String> getActiveRoleNames() {
         return userRoles.stream()
                 .filter(UserRole::isActive)

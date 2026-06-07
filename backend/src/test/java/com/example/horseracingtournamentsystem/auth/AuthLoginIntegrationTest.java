@@ -8,6 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.horseracingtournamentsystem.auth.dto.request.RegisterRequest;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
 import com.example.horseracingtournamentsystem.auth.service.AuthService;
+import com.example.horseracingtournamentsystem.point.entity.PointSetting;
+import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
+import com.example.horseracingtournamentsystem.point.repository.PointSettingRepository;
+import com.example.horseracingtournamentsystem.point.repository.PointTransactionRepository;
+import com.example.horseracingtournamentsystem.point.repository.UserPointAccountRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -46,11 +51,23 @@ class AuthLoginIntegrationTest {
     private AuthSessionRepository authSessionRepository;
 
     @Autowired
+    private PointTransactionRepository pointTransactionRepository;
+
+    @Autowired
+    private UserPointAccountRepository userPointAccountRepository;
+
+    @Autowired
+    private PointSettingRepository pointSettingRepository;
+
+    @Autowired
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authSessionRepository.deleteAll();
+        pointTransactionRepository.deleteAll();
+        userPointAccountRepository.deleteAll();
+        pointSettingRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
         userRepository.deleteAll();
@@ -84,6 +101,58 @@ class AuthLoginIntegrationTest {
         org.assertj.core.api.Assertions.assertThat(authSessionRepository.findAll()).hasSize(1);
         org.assertj.core.api.Assertions.assertThat(authSessionRepository.findAll().get(0).getRefreshTokenHash())
                 .doesNotContain("refresh_token");
+    }
+
+    @Test
+    void firstSuccessfulLoginGrantsConfiguredFirstLoginBonus() throws Exception {
+        setPointSetting(PointSettingKey.FIRST_LOGIN_BONUS, 25);
+        User user = registerVerifiedSpectator("Bonus User", "bonus@example.com");
+
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"bonus@example.com\",\"password\":\"validPassword123\"}"))
+                .andExpect(status().isOk());
+
+        org.assertj.core.api.Assertions.assertThat(userPointAccountRepository.findById(user.getId()))
+                .get()
+                .extracting("pointBalance")
+                .isEqualTo(25);
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll()).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll().get(0).getTransactionType().name())
+                .isEqualTo("FIRST_LOGIN_BONUS");
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll().get(0).getAmount()).isEqualTo(25);
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll().get(0).getDescription())
+                .contains("First login bonus");
+        org.assertj.core.api.Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getLastLoginAt())
+                .isNotNull();
+    }
+
+    @Test
+    void secondSuccessfulLoginDoesNotGrantFirstLoginBonusAgain() throws Exception {
+        setPointSetting(PointSettingKey.FIRST_LOGIN_BONUS, 25);
+        User user = registerVerifiedSpectator("Repeat Bonus User", "repeat-bonus@example.com");
+
+        login("repeat-bonus@example.com");
+        login("repeat-bonus@example.com");
+
+        org.assertj.core.api.Assertions.assertThat(userPointAccountRepository.findById(user.getId()))
+                .get()
+                .extracting("pointBalance")
+                .isEqualTo(25);
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll()).hasSize(1);
+    }
+
+    @Test
+    void zeroFirstLoginBonusDoesNotCreatePointRecords() throws Exception {
+        setPointSetting(PointSettingKey.FIRST_LOGIN_BONUS, 0);
+        User user = registerVerifiedSpectator("Zero Bonus User", "zero-bonus@example.com");
+
+        login("zero-bonus@example.com");
+
+        org.assertj.core.api.Assertions.assertThat(userPointAccountRepository.findById(user.getId())).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(pointTransactionRepository.findAll()).isEmpty();
+        org.assertj.core.api.Assertions.assertThat(userRepository.findById(user.getId()).orElseThrow().getLastLoginAt())
+                .isNotNull();
     }
 
     @Test
@@ -144,6 +213,33 @@ class AuthLoginIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"wrong@example.com\",\"password\":\"wrongpassword\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    private User registerVerifiedSpectator(String fullName, String email) {
+        roleRepository.save(Role.of("SPECTATOR", "Spectator Role"));
+        authService.register(new RegisterRequest(fullName, email, "validPassword123", null));
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.verifyEmail();
+        return userRepository.save(user);
+    }
+
+    private void login(String email) throws Exception {
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "email": "%s",
+                                  "password": "validPassword123"
+                                }
+                                """.formatted(email)))
+                .andExpect(status().isOk());
+    }
+
+    private void setPointSetting(PointSettingKey key, int value) {
+        PointSetting setting = pointSettingRepository.findById(key)
+                .orElseGet(() -> PointSetting.defaultSetting(key, key.name()));
+        setting.updateValue(value, null);
+        pointSettingRepository.save(setting);
     }
 
 }

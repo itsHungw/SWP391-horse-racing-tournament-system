@@ -74,8 +74,11 @@ public class SecurityConfig {
                                                                 "/swagger-ui.html")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/horses/**",
-                                                                "/api/v1/tournaments/**", "/api/v1/races/**")
+                                                                "/api/v1/tournaments/**", "/api/v1/races/**", "/api/v1/blogs/**")
                                                 .permitAll()
+                                                
+                                                       
+                                                       
                                                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                                                 .requestMatchers("/api/v1/owner/**").hasRole("HORSE_OWNER")
                                                 .requestMatchers("/api/v1/jockey/**").hasRole("JOCKEY")
@@ -91,6 +94,7 @@ public class SecurityConfig {
                 return new BCryptPasswordEncoder();
         }
 
+
         @Bean
         CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
                 CorsConfiguration configuration = new CorsConfiguration();
@@ -99,6 +103,7 @@ public class SecurityConfig {
                 configuration.setAllowedHeaders(properties.getAllowedHeaders());
                 configuration.setAllowCredentials(properties.isAllowCredentials());
                 configuration.setMaxAge(3600L);
+
 
                 UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);

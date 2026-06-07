@@ -1,51 +1,50 @@
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'resume_url') IS NULL
+-- Migration Script: Create/update blogs table
+IF OBJECT_ID('dbo.blogs', 'U') IS NULL
 BEGIN
-    ALTER TABLE dbo.role_requests ADD resume_url nvarchar(500) NULL
+    CREATE TABLE dbo.blogs (
+        id BIGINT IDENTITY(1,1) PRIMARY KEY,
+        title NVARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL UNIQUE,
+        summary NVARCHAR(500) NULL,
+        content NVARCHAR(MAX) NOT NULL,
+        thumbnail VARCHAR(255) NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+        created_at DATETIME2 NOT NULL DEFAULT GETDATE(),
+        updated_at DATETIME2 NULL,
+        author_id BIGINT NOT NULL,
+        CONSTRAINT FK_blogs_users FOREIGN KEY (author_id) REFERENCES dbo.users(id)
+    );
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'evidence_url') IS NOT NULL
+IF COL_LENGTH('dbo.blogs', 'thumbnail') IS NULL
 BEGIN
-    EXEC(N'UPDATE dbo.role_requests SET resume_url = evidence_url WHERE resume_url IS NULL AND evidence_url IS NOT NULL')
+    ALTER TABLE dbo.blogs ADD thumbnail VARCHAR(255) NULL;
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_status') IS NULL
+IF COL_LENGTH('dbo.blogs', 'thumbnail_url') IS NOT NULL
+   AND COL_LENGTH('dbo.blogs', 'thumbnail') IS NOT NULL
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_review_status nvarchar(30) NOT NULL CONSTRAINT DF_role_requests_cv_review_status DEFAULT N'NOT_REVIEWED'
+    EXEC('UPDATE dbo.blogs SET thumbnail = COALESCE(thumbnail, thumbnail_url) WHERE thumbnail IS NULL AND thumbnail_url IS NOT NULL');
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_note') IS NULL
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_blogs_slug'
+      AND object_id = OBJECT_ID('dbo.blogs')
+)
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_review_note nvarchar(max) NULL
+    CREATE INDEX IX_blogs_slug ON dbo.blogs(slug);
 END;
 
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_by') IS NULL
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE name = 'IX_blogs_status'
+      AND object_id = OBJECT_ID('dbo.blogs')
+)
 BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_reviewed_by bigint NULL
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_at') IS NULL
-BEGIN
-    ALTER TABLE dbo.role_requests ADD cv_reviewed_at datetime2 NULL
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.role_requests', N'cv_review_status') IS NOT NULL
-BEGIN
-    EXEC(N'UPDATE dbo.role_requests SET cv_review_status = N''NOT_REVIEWED'' WHERE cv_review_status IS NULL')
-END;
-
-IF OBJECT_ID(N'dbo.role_requests', N'U') IS NOT NULL
-   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
-   AND COL_LENGTH(N'dbo.role_requests', N'cv_reviewed_by') IS NOT NULL
-   AND NOT EXISTS (
-       SELECT 1
-       FROM sys.foreign_keys
-       WHERE name = N'FK_role_requests_cv_reviewed_by'
-         AND parent_object_id = OBJECT_ID(N'dbo.role_requests')
-   )
-BEGIN
-    ALTER TABLE dbo.role_requests
-    ADD CONSTRAINT FK_role_requests_cv_reviewed_by
-    FOREIGN KEY (cv_reviewed_by) REFERENCES dbo.users(id)
+    CREATE INDEX IX_blogs_status ON dbo.blogs(status);
 END;
 
 IF OBJECT_ID(N'dbo.horses', N'U') IS NOT NULL AND COL_LENGTH(N'dbo.horses', N'image_url') IS NULL
@@ -375,6 +374,81 @@ IF COL_LENGTH('horse_owner_profiles', 'created_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD created_at DATETIME2 NULL;
 IF COL_LENGTH('horse_owner_profiles', 'updated_at') IS NULL
 ALTER TABLE horse_owner_profiles ADD updated_at DATETIME2 NULL;
+
+
+IF OBJECT_ID(N'dbo.point_settings', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.point_settings (
+        setting_key VARCHAR(80) NOT NULL,
+        setting_value INT NOT NULL CONSTRAINT DF_point_settings_value DEFAULT 0,
+        description NVARCHAR(255) NULL,
+        updated_at DATETIME2 NOT NULL CONSTRAINT DF_point_settings_updated_at DEFAULT SYSUTCDATETIME(),
+        updated_by BIGINT NULL,
+        CONSTRAINT pk_point_settings PRIMARY KEY (setting_key),
+        CONSTRAINT chk_point_settings_value CHECK (setting_value >= 0)
+    )
+END;
+
+IF OBJECT_ID(N'dbo.point_settings', N'U') IS NOT NULL
+   AND OBJECT_ID(N'dbo.users', N'U') IS NOT NULL
+   AND COL_LENGTH(N'dbo.point_settings', N'updated_by') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.foreign_keys
+       WHERE name = N'FK_point_settings_updated_by'
+         AND parent_object_id = OBJECT_ID(N'dbo.point_settings')
+   )
+BEGIN
+    ALTER TABLE dbo.point_settings
+    ADD CONSTRAINT FK_point_settings_updated_by
+    FOREIGN KEY (updated_by) REFERENCES dbo.users(id)
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'FIRST_LOGIN_BONUS')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('FIRST_LOGIN_BONUS', 0, N'Points granted on first successful login when enabled.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'BLOG_REWARD_POINTS')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('BLOG_REWARD_POINTS', 0, N'Points awarded when an eligible blog reward is claimed.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'DAILY_BLOG_REWARD_LIMIT')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('DAILY_BLOG_REWARD_LIMIT', 0, N'Maximum blog reward points a user can earn per day.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'PREDICTION_ENTRY_COST')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('PREDICTION_ENTRY_COST', 0, N'Points spent to submit one race prediction.')
+END;
+
+IF NOT EXISTS (SELECT 1 FROM dbo.point_settings WHERE setting_key = 'PREDICTION_CORRECT_REWARD')
+BEGIN
+    INSERT INTO dbo.point_settings (setting_key, setting_value, description)
+    VALUES ('PREDICTION_CORRECT_REWARD', 0, N'Points awarded for a correct race prediction.')
+END;
+SELECT DB_NAME() AS current_db;
+
+ALTER TABLE dbo.point_transactions
+    DROP CONSTRAINT chk_pt_transaction_type;
+
+ALTER TABLE dbo.point_transactions
+    ADD CONSTRAINT chk_pt_transaction_type CHECK (
+        transaction_type IN (
+                             'FIRST_LOGIN_BONUS',
+                             'PREDICTION_ENTRY',
+                             'PREDICTION_REWARD',
+                             'BLOG_REWARD',
+                             'RACE_CANCEL_REFUND',
+                             'ADMIN_ADJUSTMENT'
+            )
+        );
 
 
 IF OBJECT_ID(N'dbo.jockey_tournament_applications', N'U') IS NULL
