@@ -1,35 +1,30 @@
 # AI Race Insight
 
-AI Race Insight is a support feature for spectators. It highlights notable participants before a race, but it never places predictions, never changes official results, and never replaces referee or admin decisions.
+## 1. Current Status
 
-## 1. Inputs
+The source tree contains an `aiinsight` package and database support for `ai_predictions` in legacy schema scripts, but the active implemented workflows focus on official race operations and spectator prediction. AI insight should be treated as an optional extension layer, not a source of official race truth.
 
-- horse recent form,
-- horse win rate,
-- jockey win rate,
-- distance compatibility,
-- track condition compatibility.
+## 2. Intended Boundary
 
-## 2. Suggested scoring
+AI race insight may provide:
 
-```text
-score =
-  horseWinRate * 0.35 +
-  jockeyWinRate * 0.25 +
-  recentForm * 0.25 +
-  distanceCompatibility * 0.15
-```
+- race context;
+- participant comparison;
+- probability-like educational hints;
+- post-race explanation.
 
-## 3. Outputs
+AI must not:
 
-- ranked participant list,
-- relative confidence,
-- explanation text for each highlighted participant.
+- decide official race results;
+- change referee submissions;
+- change tournament rankings;
+- allocate rewards directly;
+- introduce betting odds or cash language.
 
-## 4. Why this scope is appropriate
+## 3. Future Integration Shape
 
-- useful to spectators,
-- easy to demo,
-- testable with deterministic inputs,
-- small enough not to dominate the project.
+If implemented, AI output should be persisted separately from official result tables and exposed through read-only APIs. Any AI-generated insight should include timestamp, source model/config, and confidence fields so reviewers can distinguish it from official data.
 
+## 4. Report Note
+
+For the current project report, present AI insight as a future enhancement. The implemented engagement feature is the deterministic point-based prediction game.

@@ -1,75 +1,101 @@
 # Database Design
 
-## 1. Current source of truth
+## 1. Database Sources
 
-The database structure is defined by:
+The project targets SQL Server.
 
-- `database/001_create_tables.sql`
+Source files:
 
-Seed data is defined separately by:
+- `backend/src/main/resources/schema.sql`: authoritative legacy schema used by current source context.
+- `backend/src/main/resources/db/migration/V1__baseline_schema.sql`: Flyway baseline marker.
+- `backend/src/main/resources/db/migration/V2__blog_and_point_foundation.sql`: current idempotent migration for blog and point foundation.
+- `database/001_create_tables.sql`: full initial schema script.
+- `database/002_bootstrap_seed.sql`: role/admin seed.
+- `database/003_auth.sql`: auth session and token tables.
+- `database/004_owner_profile.sql`: owner profile extension.
+- `database/004_create_blogs_table.sql`: legacy blog table script.
+- `database/900_dev_seed.sql`: development seed data.
 
-- `database/002_bootstrap_seed.sql`
+## 2. Table Groups
 
-Optional local/demo data lives in:
+### Identity and roles
 
-- `database/900_dev_seed.sql`
+- `users`
+- `roles`
+- `user_roles`
+- `user_role_history`
+- `role_requests`
+- `auth_sessions`
+- `email_verification_tokens`
+- `password_reset_tokens`
 
-## 2. Main table groups
+### Profiles
 
-- identity and authorization,
-- auth sessions and one-time tokens,
-- profiles,
-- horse and tournament,
-- race operations,
-- result and ranking,
-- engagement and notifications,
-- blog rewards.
+- `horse_owner_profiles`
+- `jockey_profiles`
+- `referee_profiles`
 
-## 3. Bootstrap vs dev seed
+### Racing
 
-- bootstrap seed contains required roles and the default admin account,
-- dev seed contains demo users, approved sample roles, profiles, and horses,
-- production environments should not depend on dev seed data.
+- `horses`
+- `horse_documents`
+- `tournaments`
+- `tournament_prize_tiers`
+- `tournament_registrations`
+- `jockey_tournament_applications`
+- `jockey_invitations`
+- `tournament_participants`
+- `races`
+- `race_participants`
+- `pre_race_checks`
+- `violations`
+- `referee_reports`
+- `race_results`
+- `tournament_rankings`
 
-## 4. Virtual point model
+### Engagement and points
 
-The clean model uses:
+- `blogs`
+- `user_blog_rewards`
+- `user_daily_point_limits`
+- `user_point_accounts`
+- `point_transactions`
+- `point_settings`
+- `race_predictions`
+- `prediction_settlement_jobs`
+- `ai_predictions`
+- `notifications`
 
-- `user_point_accounts`,
-- `point_transactions`,
-- `race_predictions`,
-- blog reward tables.
+## 3. Key Integrity Rules
 
-## 5. Prediction schema
+- User, role, horse, tournament, race, result, point, and prediction statuses are constrained by `CHECK` constraints in SQL scripts.
+- Point balance cannot be negative.
+- Point transactions support reference type/reference id for idempotent business operations.
+- Blog reward claims are unique per user/blog.
+- Daily point limits are unique per user/date.
+- Top-3 prediction selections must be distinct.
+- Race result positions and time/penalty values must be positive/non-negative where required.
+- Tournament date and registration windows are validated by schema and service logic.
 
-The prediction model uses:
+## 4. Migration Strategy
 
-- `entry_cost_points`,
-- `reward_points`,
-- fixed reward rules,
-- refund only when a race is cancelled.
+Current Flyway setup:
 
-The schema intentionally excludes:
+- `V1` is a baseline marker for deployments that already use the legacy schema.
+- `V2` is intentionally idempotent because development databases may already contain some blog/point structures from manual scripts.
 
-- prediction pools,
-- reward multipliers,
-- system-retention calculations,
-- user-to-user redistribution semantics.
+For future work:
 
-## 6. Database-enforced invariants
+- Prefer new incremental `V3+` migrations.
+- Avoid editing old migrations once shared.
+- Keep `schema.sql` and docs synchronized until the project fully moves to incremental Flyway-only DDL.
 
-- unique ownership and registration constraints,
-- one pending role request per user and requested role,
-- one pending jockey invitation per race and horse,
-- distinct `TOP3` prediction picks,
-- explicit lifecycle constraints,
-- one-time blog reward claims,
-- append-only point transaction history.
+## 5. Report Summary
 
-## 7. Application-enforced rules
+The database design is relational and normalized around business ownership:
 
-- only open tournaments accept registrations,
-- only the assigned referee submits results,
-- predictions close before their deadline,
-- rankings update only after official publication,
-- anti-farming thresholds for blog rewards are checked by the backend.
+- users own profiles, roles, role requests, point accounts, predictions, and rewards;
+- owners own horses and registration requests;
+- tournaments own races and participant structures;
+- referees create operational records and results;
+- point ledger records explain all balance changes.
