@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { getMyProfile } from "../../api/profileApi";
-import { getMyRoleRequests, submitRoleRequest } from "../../api/roleRequestApi";
+import { getMyRoleRequests, submitRoleRequest, uploadResumeDocument } from "../../api/roleRequestApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { SkeletonLoader } from "../../components/common/SkeletonLoader";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -131,7 +131,7 @@ export function MyRoleRequestsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<RequestedRole>("JOCKEY");
   const [reason, setReason] = useState("");
-  const [resumeUrl, setResumeUrl] = useState("");
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -230,7 +230,6 @@ export function MyRoleRequestsPage() {
     event.preventDefault();
 
     const cleanReason = reason.trim();
-    const cleanResumeUrl = resumeUrl.trim();
 
     if (!profileCompleted) {
       setError("Complete your profile before submitting an application.");
@@ -247,8 +246,8 @@ export function MyRoleRequestsPage() {
       return;
     }
 
-    if (!cleanResumeUrl) {
-      setError("Resume PDF link is required before submitting an application.");
+    if (!resumeFile) {
+      setError("Resume PDF file is required before submitting an application.");
       return;
     }
 
@@ -256,11 +255,12 @@ export function MyRoleRequestsPage() {
       setError(null);
       setSuccess(null);
       setSubmitting(true);
-      const newRequest = await submitRoleRequest(selectedRole, cleanReason, cleanResumeUrl);
+      const uploadedResume = await uploadResumeDocument(resumeFile);
+      const newRequest = await submitRoleRequest(selectedRole, cleanReason, uploadedResume.url);
       setRequests((current) => [newRequest, ...current]);
       setSuccess("Application submitted. The operations team will review it soon.");
       setReason("");
-      setResumeUrl("");
+      setResumeFile(null);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -482,22 +482,21 @@ export function MyRoleRequestsPage() {
                   <div>
                     <label
                       className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen"
-                      htmlFor="resumeUrl"
+                      htmlFor="resumeFile"
                     >
-                      Resume PDF URL
+                      Resume PDF File
                     </label>
                     <input
-                      className="mt-2 h-12 w-full border border-slate-300 bg-white px-4 text-base font-bold text-slate-900 outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
+                      accept="application/pdf"
+                      className="mt-2 block w-full border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none transition file:mr-4 file:min-h-10 file:rounded-sm file:border-0 file:bg-nyraGreen file:px-4 file:text-sm file:font-black file:uppercase file:tracking-widest file:text-white focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
                       disabled={!profileCompleted || selectedRoleBlocked}
-                      id="resumeUrl"
-                      onChange={(event) => setResumeUrl(event.target.value)}
-                      placeholder="https://example.com/resume.pdf"
-                      required
-                      type="url"
-                      value={resumeUrl}
+                      id="resumeFile"
+                      onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
+                      type="file"
                     />
                     <p className="mt-2 text-xs font-bold text-slate-500">
-                      Required. Add a shareable PDF resume link for admin CV screening.
+                      Required. Upload a PDF resume for admin CV screening.
+                      {resumeFile ? ` Selected: ${resumeFile.name}` : ""}
                     </p>
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -107,5 +107,45 @@ describe("RefereeProfileDashboardPage", () => {
 
     const manageBtn = await screen.findByRole("link", { name: /Edit referee profile/i });
     expect(manageBtn).toHaveAttribute("href", "#edit-referee-profile");
+  });
+
+  it("uploads referee evidence before saving credential changes", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+    vi.spyOn(profileApi, "updateMyProfile").mockResolvedValue(mockProfile);
+    vi.spyOn(profileApi, "uploadRefereeEvidence").mockResolvedValue({
+      url: "/api/v1/files/private/referee-evidence.pdf",
+    });
+    vi.spyOn(profileApi, "updateMyRefereeProfile").mockResolvedValue({
+      licenseNumber: "REF-2026-X89",
+      certification: "FEI Certified Steward",
+      experienceYears: 8,
+      bio: "Veteran steward bio details.",
+      evidenceUrl: "/api/v1/files/private/referee-evidence.pdf",
+      status: "PENDING",
+    });
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Professional race official profile" })).toBeInTheDocument();
+
+    const evidenceFile = new File(["certificate"], "referee-evidence.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/certification evidence file/i), {
+      target: { files: [evidenceFile] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save referee profile/i }));
+
+    await waitFor(() => {
+      expect(profileApi.uploadRefereeEvidence).toHaveBeenCalledWith(evidenceFile);
+      expect(profileApi.updateMyRefereeProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evidenceUrl: "/api/v1/files/private/referee-evidence.pdf",
+        }),
+      );
+    });
   });
 });

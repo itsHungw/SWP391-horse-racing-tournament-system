@@ -153,4 +153,30 @@ class FileStorageSecurityIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    void jockeyAgreementUploadReturnsShareablePdfDownloadUrl() throws Exception {
+        MockMultipartFile agreementFile = new MockMultipartFile(
+                "file",
+                "agreement.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                "fake-pdf".getBytes()
+        );
+
+        String publicUrl = com.jayway.jsonpath.JsonPath.read(
+                mockMvc.perform(multipart("/api/v1/files/upload")
+                                .file(agreementFile)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken)
+                                .param("category", "JOCKEY_AGREEMENT"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.url").value(startsWith("/api/v1/files/download/")))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                "$.url"
+        );
+
+        mockMvc.perform(get(publicUrl))
+                .andExpect(status().isOk());
+    }
 }

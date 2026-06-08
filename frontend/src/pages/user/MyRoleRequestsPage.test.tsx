@@ -3,7 +3,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getMyProfile } from "../../api/profileApi";
-import { getMyRoleRequests, submitRoleRequest } from "../../api/roleRequestApi";
+import { getMyRoleRequests, submitRoleRequest, uploadResumeDocument } from "../../api/roleRequestApi";
 import { MyRoleRequestsPage } from "./MyRoleRequestsPage";
 
 vi.mock("../../api/profileApi", () => ({
@@ -13,6 +13,7 @@ vi.mock("../../api/profileApi", () => ({
 vi.mock("../../api/roleRequestApi", () => ({
   getMyRoleRequests: vi.fn(),
   submitRoleRequest: vi.fn(),
+  uploadResumeDocument: vi.fn(),
 }));
 
 function renderPage() {
@@ -85,9 +86,10 @@ describe("MyRoleRequestsPage", () => {
     expect(screen.getAllByRole("button", { name: /locked by active specialist role/i })).toHaveLength(3);
   });
 
-  it("submits a role request with resume url", async () => {
+  it("uploads a resume file before submitting a role request", async () => {
     vi.mocked(getMyProfile).mockResolvedValue(completedProfile);
     vi.mocked(getMyRoleRequests).mockResolvedValue([]);
+    vi.mocked(uploadResumeDocument).mockResolvedValue({ url: "/api/v1/files/private/resume.pdf" });
     vi.mocked(submitRoleRequest).mockResolvedValue({
       id: 10,
       userId: 1,
@@ -95,7 +97,7 @@ describe("MyRoleRequestsPage", () => {
       status: "PENDING",
       cvReviewStatus: "NOT_REVIEWED",
       reason: "I have tournament operations experience and can support fair review workflows.",
-      resumeUrl: "https://example.com/referee-resume.pdf",
+      resumeUrl: "/api/v1/files/private/resume.pdf",
       createdAt: "2026-05-24T00:00:00",
     });
 
@@ -107,16 +109,19 @@ describe("MyRoleRequestsPage", () => {
         value: "I have tournament operations experience and can support fair review workflows.",
       },
     });
-    fireEvent.change(screen.getByLabelText(/resume pdf url/i), {
-      target: { value: "https://example.com/referee-resume.pdf" },
+    const resumeFile = new File(["resume"], "referee-resume.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/resume pdf file/i), {
+      target: { files: [resumeFile] },
     });
+    expect(await screen.findByText(/selected: referee-resume.pdf/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /submit application/i }));
 
     await waitFor(() => {
+      expect(uploadResumeDocument).toHaveBeenCalledWith(resumeFile);
       expect(submitRoleRequest).toHaveBeenCalledWith(
         "REFEREE",
         "I have tournament operations experience and can support fair review workflows.",
-        "https://example.com/referee-resume.pdf",
+        "/api/v1/files/private/resume.pdf",
       );
     });
     expect(await screen.findByText(/application submitted/i)).toBeInTheDocument();

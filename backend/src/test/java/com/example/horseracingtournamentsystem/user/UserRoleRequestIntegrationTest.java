@@ -88,7 +88,7 @@ class UserRoleRequestIntegrationTest {
                 {
                     "requestedRole": "JOCKEY",
                     "reason": "I have race-day experience and want to join tournament lineups.",
-                    "resumeUrl": "https://example.com/resumes/minh-quan.pdf"
+                    "resumeUrl": "/api/v1/files/private/minh-quan.pdf"
                 }
                 """;
 
@@ -100,7 +100,7 @@ class UserRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.requestedRole").value("JOCKEY"))
                 .andExpect(jsonPath("$.status").value("PENDING"))
                 .andExpect(jsonPath("$.cvReviewStatus").value("NOT_REVIEWED"))
-                .andExpect(jsonPath("$.resumeUrl").value("https://example.com/resumes/minh-quan.pdf"))
+                .andExpect(jsonPath("$.resumeUrl").value("/api/v1/files/private/minh-quan.pdf"))
                 .andExpect(jsonPath("$.rejectReason").doesNotExist());
 
         mockMvc.perform(get("/api/v1/role-requests/my")
@@ -109,7 +109,7 @@ class UserRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$[0].requestedRole").value("JOCKEY"))
                 .andExpect(jsonPath("$[0].status").value("PENDING"))
                 .andExpect(jsonPath("$[0].cvReviewStatus").value("NOT_REVIEWED"))
-                .andExpect(jsonPath("$[0].resumeUrl").value("https://example.com/resumes/minh-quan.pdf"));
+                .andExpect(jsonPath("$[0].resumeUrl").value("/api/v1/files/private/minh-quan.pdf"));
     }
 
     @Test
@@ -126,7 +126,7 @@ class UserRoleRequestIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submitRequest))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.fieldErrors.resumeUrl").value("Resume URL is required"));
+                .andExpect(jsonPath("$.fieldErrors.resumeUrl").value("Resume file is required"));
     }
 
     @Test

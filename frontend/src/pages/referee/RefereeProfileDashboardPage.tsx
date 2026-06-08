@@ -17,7 +17,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { getAssignedRaces } from "../../api/refereeApi";
-import { getMyProfile, updateMyProfile, updateMyRefereeProfile } from "../../api/profileApi";
+import { getMyProfile, updateMyProfile, updateMyRefereeProfile, uploadRefereeEvidence } from "../../api/profileApi";
 import { useClientSession } from "../../hooks/useClientSession";
 import { normalizeAssignedRace } from "./race-day/refereeRaceDayAdapter";
 import { AssignedRace } from "./race-day/refereeRaceDayModels";
@@ -159,6 +159,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
     bio: "",
     evidenceUrl: "",
   });
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -181,6 +182,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
         bio: profileData.refereeProfile?.bio || "",
         evidenceUrl: profileData.refereeProfile?.evidenceUrl || "",
       });
+      setEvidenceFile(null);
     } catch {
       setError("Unable to load referee credential center.");
     } finally {
@@ -229,19 +231,24 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
         address: identityForm.address.trim(),
         avatarUrl: profile?.avatarUrl || "",
       });
+      const finalEvidenceUrl = evidenceFile
+        ? (await uploadRefereeEvidence(evidenceFile)).url
+        : credentialForm.evidenceUrl.trim();
 
       const updatedRefereeProfile = await updateMyRefereeProfile({
         licenseNumber: credentialForm.licenseNumber.trim() || undefined,
         certification: credentialForm.certification.trim() || undefined,
         experienceYears,
         bio: credentialForm.bio.trim() || undefined,
-        evidenceUrl: credentialForm.evidenceUrl.trim() || undefined,
+        evidenceUrl: finalEvidenceUrl || undefined,
       });
 
       setProfile({
         ...updatedProfile,
         refereeProfile: updatedRefereeProfile,
       });
+      setCredentialForm((current) => ({ ...current, evidenceUrl: updatedRefereeProfile.evidenceUrl || finalEvidenceUrl }));
+      setEvidenceFile(null);
       setFormSuccess("Referee profile updated. Credential changes are now ready for administrator review.");
     } catch (err: any) {
       setFormError(err?.response?.data?.message || err?.message || "Unable to update referee profile.");
@@ -621,15 +628,19 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-evidence">
-                  Certification evidence URL
+                  Certification evidence file
                 </label>
                 <input
+                  accept="application/pdf,image/jpeg,image/jpg,image/png,image/webp"
                   id="referee-evidence"
-                  value={credentialForm.evidenceUrl}
-                  onChange={(event) => setCredentialForm((current) => ({ ...current, evidenceUrl: event.target.value }))}
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 focus:border-[#007a68] focus:outline-none focus:ring-2 focus:ring-[#007a68]/20"
-                  placeholder="https://..."
+                  onChange={(event) => setEvidenceFile(event.target.files?.[0] ?? null)}
+                  className="mt-1 block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[#007a68] file:px-3 file:text-xs file:font-black file:text-white focus:border-[#007a68] focus:outline-none focus:ring-2 focus:ring-[#007a68]/20"
+                  type="file"
                 />
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  PDF, JPG, PNG, or WebP under 10MB.
+                  {evidenceFile ? ` Selected: ${evidenceFile.name}` : credentialForm.evidenceUrl ? " Existing file is attached." : ""}
+                </p>
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-bio">

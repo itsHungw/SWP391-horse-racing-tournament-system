@@ -29,6 +29,13 @@ public class FileStorageService {
             "image/png",
             "image/webp"
     );
+    private static final Set<String> EVIDENCE_TYPES = Set.of(
+            "application/pdf",
+            "image/jpeg",
+            "image/png",
+            "image/webp"
+    );
+    private static final Set<String> PDF_TYPES = Set.of("application/pdf");
 
     private static final Map<String, String> EXTENSIONS_BY_CONTENT_TYPE = Map.of(
             "image/jpeg", ".jpg",
@@ -40,12 +47,10 @@ public class FileStorageService {
     private static final Map<String, UploadPolicy> POLICIES = Map.of(
             "AVATAR", new UploadPolicy(false, IMAGE_MAX_BYTES, IMAGE_TYPES),
             "STABLE_LOGO", new UploadPolicy(false, IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "OWNER_EVIDENCE", new UploadPolicy(true, EVIDENCE_MAX_BYTES, Set.of(
-                    "application/pdf",
-                    "image/jpeg",
-                    "image/png",
-                    "image/webp"
-            ))
+            "OWNER_EVIDENCE", new UploadPolicy(true, EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
+            "REFEREE_EVIDENCE", new UploadPolicy(true, EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
+            "ROLE_REQUEST_RESUME", new UploadPolicy(true, EVIDENCE_MAX_BYTES, PDF_TYPES),
+            "JOCKEY_AGREEMENT", new UploadPolicy(false, EVIDENCE_MAX_BYTES, PDF_TYPES)
     );
 
     private final Path publicUploadDir = Paths.get("uploads", "public").toAbsolutePath().normalize();

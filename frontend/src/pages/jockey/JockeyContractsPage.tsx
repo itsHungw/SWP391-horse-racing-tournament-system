@@ -416,7 +416,7 @@ export function JockeyContractsPage() {
                           Uploaded by {selectedContract.ownerName}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
-                          {selectedContract.agreementUrl ? "Linked PDF document" : "No agreement URL attached"}
+                          {selectedContract.agreementUrl ? "Linked PDF document" : "No agreement file attached"}
                         </p>
                       </div>
                     </div>

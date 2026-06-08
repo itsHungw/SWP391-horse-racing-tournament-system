@@ -14,3 +14,11 @@ export async function submitRoleRequest(
   const response = await httpClient.post<RoleRequest>("/role-requests", { requestedRole, reason, resumeUrl });
   return response.data;
 }
+
+export async function uploadResumeDocument(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=ROLE_REQUEST_RESUME", formData);
+  return response.data;
+}

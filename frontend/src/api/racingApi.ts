@@ -233,6 +233,14 @@ export async function sendOwnerContract(
   return response.data;
 }
 
+export async function uploadAgreementDocument(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=JOCKEY_AGREEMENT", formData);
+  return response.data;
+}
+
 export async function getOwnerContracts(championshipId: number): Promise<JockeyInvitation[]> {
   const response = await httpClient.get<JockeyInvitation[]>(`/owner/championships/${championshipId}/contracts`);
   return response.data;
