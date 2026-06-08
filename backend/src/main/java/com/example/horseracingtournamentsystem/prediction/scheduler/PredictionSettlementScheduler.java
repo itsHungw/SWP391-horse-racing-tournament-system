@@ -1,7 +1,8 @@
 package com.example.horseracingtournamentsystem.prediction.scheduler;
 
-import com.example.horseracingtournamentsystem.points.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.points.service.PointsService;
+import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
+import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
@@ -29,7 +30,7 @@ public class PredictionSettlementScheduler {
     private final PredictionSettlementJobRepository jobRepo;
     private final RacePredictionRepository predictionRepo;
     private final RaceResultRepository resultRepo;
-    private final PointsService pointsService;
+    private final PointAccountService pointsService;
 
     @Autowired
     @Lazy
@@ -38,7 +39,7 @@ public class PredictionSettlementScheduler {
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
-                                         PointsService pointsService) {
+                                         PointAccountService pointsService) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.resultRepo = resultRepo;
@@ -119,7 +120,7 @@ public class PredictionSettlementScheduler {
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
                         pointsService.adjustPoints(
-                            p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
+                            p.getSpectator(), p.getEntryCostPoints(), PointTransactionType.RACE_CANCEL_REFUND,
                             PointTransaction.REF_RACE_PREDICTION, p.getId(), 
                             "Refunded " + p.getEntryCostPoints() + " entry cost points due to horse withdrawal"
                         );
@@ -167,7 +168,7 @@ public class PredictionSettlementScheduler {
 
                         // Credit reward (Idempotency checked by adjustPoints using index)
                         pointsService.adjustPoints(
-                            p.getSpectator(), reward, PointTransaction.TX_PREDICTION_REWARD, 
+                            p.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
                             PointTransaction.REF_RACE_PREDICTION, p.getId(), 
                             "Awarded " + reward + " reward points for correct prediction #" + p.getId()
                         );
@@ -213,7 +214,7 @@ public class PredictionSettlementScheduler {
                     p.setUpdatedAt(LocalDateTime.now());
                     predictionRepo.save(p);
                     pointsService.adjustPoints(
-                        p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
+                        p.getSpectator(), p.getEntryCostPoints(), PointTransactionType.RACE_CANCEL_REFUND,
                         PointTransaction.REF_RACE_PREDICTION, p.getId(), 
                         "Refunded " + p.getEntryCostPoints() + " entry cost points due to system error processing results"
                     );

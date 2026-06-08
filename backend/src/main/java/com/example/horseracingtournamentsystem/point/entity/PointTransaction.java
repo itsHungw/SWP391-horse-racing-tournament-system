@@ -1,25 +1,27 @@
-package com.example.horseracingtournamentsystem.points.entity;
+package com.example.horseracingtournamentsystem.point.entity;
 
 import com.example.horseracingtournamentsystem.user.entity.User;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Entity
 @Table(name = "point_transactions")
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PointTransaction {
-
-    public static final String TX_PREDICTION_ENTRY = "PREDICTION_ENTRY";
-    public static final String TX_PREDICTION_REWARD = "PREDICTION_REWARD";
-    public static final String TX_BLOG_REWARD = "BLOG_REWARD";
-    public static final String TX_RACE_CANCEL_REFUND = "RACE_CANCEL_REFUND";
-    public static final String TX_ADMIN_ADJUSTMENT = "ADMIN_ADJUSTMENT";
 
     public static final String REF_RACE_PREDICTION = "RACE_PREDICTION";
     public static final String REF_RACE_RESULT = "RACE_RESULT";
@@ -37,10 +39,11 @@ public class PointTransaction {
     private User user;
 
     @Column(name = "amount", nullable = false)
-    private Integer amount;
+    private int amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "transaction_type", nullable = false, length = 50)
-    private String transactionType;
+    private PointTransactionType transactionType;
 
     @Column(name = "reference_type", length = 50)
     private String referenceType;
@@ -54,15 +57,22 @@ public class PointTransaction {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    public static PointTransaction create(User user, int amount, String transactionType, String referenceType, Long referenceId, String description) {
-        PointTransaction tx = new PointTransaction();
-        tx.setUser(user);
-        tx.setAmount(amount);
-        tx.setTransactionType(transactionType);
-        tx.setReferenceType(referenceType);
-        tx.setReferenceId(referenceId);
-        tx.setDescription(description);
-        tx.setCreatedAt(LocalDateTime.now());
-        return tx;
+    public static PointTransaction create(
+            User user,
+            int amount,
+            PointTransactionType transactionType,
+            String referenceType,
+            Long referenceId,
+            String description
+    ) {
+        PointTransaction transaction = new PointTransaction();
+        transaction.user = user;
+        transaction.amount = amount;
+        transaction.transactionType = transactionType;
+        transaction.referenceType = referenceType;
+        transaction.referenceId = referenceId;
+        transaction.description = description;
+        transaction.createdAt = LocalDateTime.now();
+        return transaction;
     }
 }

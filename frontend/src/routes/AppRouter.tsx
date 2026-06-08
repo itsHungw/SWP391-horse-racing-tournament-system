@@ -5,6 +5,8 @@ import { AppLayout } from "../layouts/AppLayout";
 import { RoleDashboardPage } from "../pages/RoleDashboardPage";
 import { HomePage } from "../pages/public/HomePage";
 import { JoinUsPage } from "../pages/public/JoinUsPage";
+import { SpectatorBlogListPage } from "../pages/public/SpectatorBlogListPage";
+import { SpectatorBlogDetailPage } from "../pages/public/SpectatorBlogDetailPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
@@ -19,6 +21,9 @@ import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
 import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
+import { AdminPointSettingsPage } from "../pages/admin/AdminPointSettingsPage";
+import { AdminBlogListPage } from "../pages/admin/AdminBlogListPage";
+import { AdminBlogFormPage } from "../pages/admin/AdminBlogFormPage";
 import { AdminPredictionsWorkspace } from "../pages/admin/AdminPredictionsWorkspace";
 import { AdminRacePredictionDetailPage } from "../pages/admin/AdminRacePredictionDetailPage";
 import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
@@ -75,6 +80,8 @@ export function AppRouter() {
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
         <Route path="join-us" element={<JoinUsPage />} />
+        <Route path="blogs" element={<SpectatorBlogListPage />} />
+        <Route path="blogs/:slug" element={<SpectatorBlogDetailPage />} />
         
         {/* Authentication routes */}
         <Route path="login" element={<LoginPage />} />
@@ -157,25 +164,18 @@ export function AppRouter() {
             />
           )}
         />
+
+        <Route path="admin/blog" element={adminRoute(<AdminBlogListPage />)} />
+        <Route path="admin/blog/new" element={adminRoute(<AdminBlogFormPage />)} />
+        <Route path="admin/blog/edit/:id" element={adminRoute(<AdminBlogFormPage />)} />
+
         <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
-        <Route
-          path="admin/blog"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Blog"
-              description="Manage tournament posts, publishing state, and content reward eligibility."
-            />
-          )}
-        />
+        
+
         <Route
           path="admin/points"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Points"
-              description="Audit virtual point activity and prepare reward rule controls."
-            />
-          )}
+          element={adminRoute(<AdminPointSettingsPage />)}
         />
         <Route
           path="admin/settings"

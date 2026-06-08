@@ -8,6 +8,7 @@ import {
   getAdminTournaments,
 } from "../../api/adminTournamentApi";
 import type { Tournament } from "../../types/racing";
+import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
 
 const championshipPhases = ["Registration", "Pool Formation", "Assignment", "Schedule", "Racing", "Completed"];
 
@@ -128,13 +129,9 @@ export function AdminTournamentListPage() {
       return;
     }
 
-    if (new Date(form.endDate) < new Date(form.startDate)) {
-      setFormError("Championship end date cannot be before start date.");
-      return;
-    }
-
-    if (new Date(form.registrationEndAt) < new Date(form.registrationStartAt)) {
-      setFormError("Registration end time cannot be before start time.");
+    const dateValidationError = getTournamentDateValidationError(form);
+    if (dateValidationError) {
+      setFormError(dateValidationError);
       return;
     }
 

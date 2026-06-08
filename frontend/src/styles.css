@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700;900&family=Playfair+Display:wght@700&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -7,14 +6,14 @@
   --color-nyraDark: #1a1a1a;
   --color-nyraGold: #d4af37;
   --color-nyraRed: #e31837;
-  --font-sans: Roboto, sans-serif;
-  --font-serif: "Playfair Display", serif;
+  --font-sans: Aptos, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
 }
 
 @layer base {
   :root {
     font-family:
-      Roboto, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+      Aptos, "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
       sans-serif;
     color: #020617;
     background: #ffffff;

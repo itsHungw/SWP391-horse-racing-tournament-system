@@ -723,6 +723,7 @@ CREATE TABLE point_transactions (
 
     CONSTRAINT chk_pt_transaction_type CHECK (
         transaction_type IN (
+            'FIRST_LOGIN_BONUS',
             'PREDICTION_ENTRY',
             'PREDICTION_REWARD',
             'BLOG_REWARD',
@@ -1049,3 +1050,4 @@ CREATE INDEX idx_prt_expires_at ON password_reset_tokens(expires_at);
 -- =====================================================================
 -- END OF SCRIPT
 -- =====================================================================
+ 

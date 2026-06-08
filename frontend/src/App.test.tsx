@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { blogApi } from "./api/blogApi";
 import App from "./App";
 import { clearClientSession, getClientSession, setClientSession } from "./utils/authSession";
 
@@ -22,6 +23,17 @@ vi.mock("./api/adminUserApi", () => ({
   }),
 }));
 
+vi.mock("./api/pointSettingsApi", () => ({
+  getPointSettings: vi.fn().mockResolvedValue({
+    FIRST_LOGIN_BONUS: 0,
+    BLOG_REWARD_POINTS: 0,
+    DAILY_BLOG_REWARD_LIMIT: 0,
+    PREDICTION_ENTRY_COST: 0,
+    PREDICTION_CORRECT_REWARD: 0,
+  }),
+  updatePointSettings: vi.fn(),
+}));
+
 vi.mock("./api/racingApi", () => ({
   applyToJockeyChampionship: vi.fn(),
   approveAdminHorse: vi.fn(),
@@ -29,11 +41,13 @@ vi.mock("./api/racingApi", () => ({
   approveAdminTournamentRegistration: vi.fn(),
   createOwnerHorse: vi.fn(),
   createOwnerTournamentRegistration: vi.fn(),
+
   getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
   getAdminHorses: vi.fn(),
   getAdminTournamentRegistrations: vi.fn(),
   getJockeyChampionships: vi.fn().mockResolvedValue([]),
   getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
+
   getOwnerHorses: vi.fn(),
   getOwnerHorsesPage: vi.fn(),
   getOwnerAvailableJockeys: vi.fn(),
@@ -52,6 +66,20 @@ vi.mock("./api/racingApi", () => ({
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
+vi.mock("./api/blogApi", () => ({
+  blogApi: {
+    getPublishedBlogs: vi.fn(),
+  },
+}));
+
+const emptyBlogPage = {
+  content: [],
+  totalElements: 0,
+  totalPages: 0,
+  size: 3,
+  number: 0,
+};
+
 function createTokenWithRoles(roles: string[], exp = Math.floor(Date.now() / 1000) + 60 * 15) {
   const encode = (value: object) =>
     btoa(JSON.stringify(value))
@@ -67,10 +95,15 @@ describe("App", () => {
     localStorage.clear();
     clearClientSession({ notify: false });
     window.history.pushState({}, "", "/");
+    vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(emptyBlogPage);
   });
 
-  it("renders the Aqueduct public home page foundation", () => {
+  it("renders the Aqueduct public home page foundation", async () => {
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     expect(
       screen.getByRole("banner", { name: /client site header/i }),
@@ -115,7 +148,7 @@ describe("App", () => {
     );
     expect(within(primaryNav).getByRole("link", { name: /^blog$/i })).toHaveAttribute(
       "href",
-      "#blog",
+      "/blogs",
     );
     expect(within(primaryNav).getByRole("link", { name: /^leaderboard$/i })).toHaveAttribute(
       "href",
@@ -153,10 +186,16 @@ describe("App", () => {
     );
   });
 
+
   it("renders authenticated client header links and logs out", () => {
     setClientSession(createTokenWithRoles(["SPECTATOR"]), "Nguyen Van A", "member@example.com");
 
+
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
 
@@ -252,10 +291,16 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: /welcome back/i })).toBeInTheDocument();
   });
 
+
   it("keeps an expired access token session visible so refresh can recover it", () => {
     setClientSession(createTokenWithRoles(["SPECTATOR"], 1), "Nguyen Van A", "member@example.com");
 
+
     render(<App />);
+
+    await waitFor(() => {
+      expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
+    });
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
@@ -373,6 +418,20 @@ describe("App", () => {
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
+it("renders admin point settings inside the admin shell", async () => {
+  window.history.pushState({}, "", "/admin/points");
+  setClientSession(
+    createTokenWithRoles(["ADMIN"]),
+    "Admin Operator",
+    "admin@example.com",
+  );
+
+  render(<App />);
+
+  expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: /point settings/i })).toBeInTheDocument();
+  expect(screen.getByLabelText(/blog reward points/i)).toBeInTheDocument();
+});
   it("renders referee result packages as a read-only confirmed results archive", () => {
     window.history.pushState({}, "", "/referee/result-history");
     setClientSession(createTokenWithRoles(["REFEREE"]), "Julian Sterling", "referee@equine.com");
@@ -394,5 +453,6 @@ describe("App", () => {
     expect(within(resultsTable).getByText(/Warning: Lane drift/i)).toBeInTheDocument();
     expect(screen.queryByText("DRAFT")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /update|publish|save|edit/i })).not.toBeInTheDocument();
+
   });
 });
