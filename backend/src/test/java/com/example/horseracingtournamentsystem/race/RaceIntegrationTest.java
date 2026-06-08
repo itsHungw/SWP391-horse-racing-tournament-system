@@ -9,7 +9,7 @@ import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettl
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
-import com.example.horseracingtournamentsystem.points.service.PointsService;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -52,7 +52,7 @@ class RaceIntegrationTest {
     private PredictionSettlementJobRepository settlementJobRepository;
 
     @Autowired
-    private PointsService pointsService;
+    private PointAccountService pointsService;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -256,7 +256,7 @@ class RaceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESULT_CONFIRMED"));
 
-        PredictionSettlementJob job = settlementJobRepository.findByRaceId(race.getId()).orElseThrow();
+        PredictionSettlementJob job = settlementJobRepository.findByRace_Id(race.getId()).orElseThrow();
         org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJob.STATUS_PENDING);
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -264,6 +264,6 @@ class RaceIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
-        org.assertj.core.api.Assertions.assertThat(settlementJobRepository.findByRaceId(race.getId())).isPresent();
+        org.assertj.core.api.Assertions.assertThat(settlementJobRepository.findByRace_Id(race.getId())).isPresent();
     }
 }

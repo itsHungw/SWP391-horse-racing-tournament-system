@@ -1,7 +1,8 @@
 package com.example.horseracingtournamentsystem.prediction.service;
 
-import com.example.horseracingtournamentsystem.points.service.PointsService;
-import com.example.horseracingtournamentsystem.points.entity.PointTransaction;
+import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
+import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
@@ -21,12 +22,12 @@ public class PredictionService {
     private final RacePredictionRepository predictionRepo;
     private final PredictionSettlementJobRepository jobRepo;
     private final RaceRepository raceRepo;
-    private final PointsService pointsService;
+    private final PointAccountService pointsService;
 
     public PredictionService(RacePredictionRepository predictionRepo,
                              PredictionSettlementJobRepository jobRepo,
                              RaceRepository raceRepo,
-                             PointsService pointsService) {
+                             PointAccountService pointsService) {
         this.predictionRepo = predictionRepo;
         this.jobRepo = jobRepo;
         this.raceRepo = raceRepo;
@@ -72,7 +73,7 @@ public class PredictionService {
 
         // 2. Adjust points (deduct cost) and reference it back in the transaction ledger
         pointsService.adjustPoints(
-            spectator, -cost, PointTransaction.TX_PREDICTION_ENTRY, 
+            spectator, -cost, PointTransactionType.PREDICTION_ENTRY,
             PointTransaction.REF_RACE_PREDICTION, saved.getId(), 
             "Deducted " + cost + " virtual points for race prediction entry #" + saved.getId()
         );
@@ -142,7 +143,7 @@ public class PredictionService {
 
                 // Refund the points (Idempotency checked by adjustPoints using index)
                 pointsService.adjustPoints(
-                    p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
+                    p.getSpectator(), p.getEntryCostPoints(), PointTransactionType.RACE_CANCEL_REFUND,
                     PointTransaction.REF_RACE_PREDICTION, p.getId(), 
                     "Refunded " + p.getEntryCostPoints() + " entry cost points for cancelled race"
                 );

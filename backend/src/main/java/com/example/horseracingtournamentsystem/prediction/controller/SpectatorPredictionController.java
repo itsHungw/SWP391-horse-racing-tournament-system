@@ -1,6 +1,6 @@
 package com.example.horseracingtournamentsystem.prediction.controller;
 
-import com.example.horseracingtournamentsystem.points.service.PointsService;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionOptionsResponse;
@@ -28,13 +28,13 @@ public class SpectatorPredictionController {
     private final RacePredictionRepository predictionRepo;
     private final RaceRepository raceRepo;
     private final UserRepository userRepo;
-    private final PointsService pointsService;
+    private final PointAccountService pointsService;
 
     public SpectatorPredictionController(PredictionService predictionService,
                                          RacePredictionRepository predictionRepo,
                                          RaceRepository raceRepo,
                                          UserRepository userRepo,
-                                         PointsService pointsService) {
+                                         PointAccountService pointsService) {
         this.predictionService = predictionService;
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
