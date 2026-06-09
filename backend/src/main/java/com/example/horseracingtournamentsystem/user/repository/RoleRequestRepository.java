@@ -16,6 +16,11 @@ public interface RoleRequestRepository extends JpaRepository<RoleRequest, Long> 
 
     List<RoleRequest> findByUserEmailOrderByCreatedAtDesc(String email);
 
+    long countByStatus(String status);
+
+    @EntityGraph(attributePaths = {"user", "user.userRoles", "user.userRoles.role", "reviewedBy"})
+    List<RoleRequest> findTop5ByStatusOrderByCreatedAtDesc(String status);
+
     boolean existsByUserEmailAndRequestedRoleAndStatus(String email, String requestedRole, String status);
 
     boolean existsByUserEmailAndStatusAndRequestedRoleIn(
