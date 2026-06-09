@@ -528,7 +528,7 @@ export function AdminTournamentDetailPage() {
       setRegistrationError("");
       await approveAdminTournamentRegistration(registration.id);
       setSuccessMsg(`${registration.horseName} approved for this championship.`);
-      setPendingRegistrations((prev) =>
+      setRegistrations((prev) =>
         prev.map((r) => (r.id === registration.id ? { ...r, status: "APPROVED", rejectionReason: undefined } : r))
       );
     } catch (err) {
@@ -551,7 +551,7 @@ export function AdminTournamentDetailPage() {
       await rejectAdminTournamentRegistration(registration.id, reason);
       setHorseRejectReasons((current) => ({ ...current, [registration.id]: "" }));
       setSuccessMsg(`${registration.horseName} registration rejected.`);
-      setPendingRegistrations((prev) =>
+      setRegistrations((prev) =>
         prev.map((r) => (r.id === registration.id ? { ...r, status: "REJECTED", rejectionReason: reason } : r))
       );
     } catch (err) {
