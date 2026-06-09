@@ -136,7 +136,7 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
               : "text-slate-600 hover:text-slate-950"
           }`}
         >
-          Winner Pick (5 pts)
+          Winner Pick ({options.entryCost.winner} pts)
         </button>
         <button
           type="button"
@@ -147,18 +147,18 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
               : "text-slate-600 hover:text-slate-950"
           }`}
         >
-          Top 3 Pick (10 pts)
+          Top 3 Pick ({options.entryCost.top3} pts)
         </button>
       </div>
 
       <div className="mb-6 rounded-md bg-[#f3f6f4] border border-slate-200 px-4 py-3 text-xs font-bold text-slate-700">
         {predType === "WINNER" ? (
           <p>
-            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +10 points if your chosen horse finishes 1st.
+            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +{options.rewardConfig.winnerReward} points if your chosen horse finishes 1st.
           </p>
         ) : (
           <p className="leading-relaxed">
-            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +30 points for matching the exact order (1st, 2nd, 3rd) · Reward +15 points if all three horses finish in the Top 3 in a different order.
+            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +{options.rewardConfig.top3ExactReward} points for matching the exact order (1st, 2nd, 3rd) · Reward +{options.rewardConfig.top3AnyOrderReward} points if all three horses finish in the Top 3 in a different order.
           </p>
         )}
       </div>
@@ -177,7 +177,7 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         <div className="mb-6 rounded-md bg-rose-50 border border-rose-200 p-4 text-xs font-bold text-rose-800">
           {formError}
           {!pointsSufficient && !existingPred && (
-            <a href="#blog" className="mt-2 block text-xs font-black text-[#006d5b] underline">
+            <a href="/blogs" className="mt-2 block text-xs font-black text-[#006d5b] underline">
               Read articles to earn points
             </a>
           )}

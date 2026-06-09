@@ -198,38 +198,44 @@ export function SpectatorBlogDetailPage() {
 
       <main>
         <article>
-          <header className="relative min-h-[520px] overflow-hidden bg-nyraDark text-white">
+          <header className="relative h-[400px] md:h-[450px] overflow-hidden text-white" data-purpose="blog-hero">
             <img
               alt={blog.title}
-              className="absolute inset-0 h-full w-full object-cover opacity-65"
+              className="absolute inset-0 h-full w-full object-cover"
               src={blog.thumbnail || fallbackImage}
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/20" />
-            <div className="container relative mx-auto flex min-h-[520px] items-end px-4 py-12 md:py-16">
-              <div className="max-w-4xl">
+            <div className="hero-gradient absolute inset-0" />
+            <div className="container relative mx-auto flex h-full items-center px-4">
+              <div className="max-w-2xl text-white">
+                <div className="mb-4 flex items-center gap-3">
+                  <span className="flex w-1 h-4 bg-nyraGold text-shadow"></span>
+                  <p className="text-shadow text-xs font-black uppercase tracking-[0.24em] text-nyraGold">
+                    Tournament Blog
+                  </p>
+                </div>
+                <h1 className="text-shadow mb-8 text-5xl font-black uppercase leading-tight tracking-tighter md:text-6xl">
+                  {blog.title}
+                </h1>
+                <div className="text-shadow mb-8 flex flex-wrap items-center gap-x-4 gap-y-3 text-sm font-bold uppercase tracking-[0.18em]">
+                  <span>By {blog.authorName}</span>
+                  <span aria-hidden="true">&bull;</span>
+                  <time className="flex items-center gap-2" dateTime={blog.createdAt}>
+                    {formatBlogDate(blog.createdAt)}
+                  </time>
+                </div>
                 <Link
-                  className="mb-8 inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-nyraGold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+                  className="inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-nyraGold transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
                   to="/blogs"
                 >
                   &larr; Back to Blogs
                 </Link>
-                <p className="border-l-4 border-nyraGold pl-4 text-xs font-black uppercase tracking-[0.24em] text-nyraGold">
-                  Tournament Blog
-                </p>
-                <h1 className="mt-5 text-5xl font-black uppercase leading-none tracking-tight md:text-7xl">
-                  {blog.title}
-                </h1>
-                <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-xs font-black uppercase tracking-[0.18em] text-white/75">
-                  <span>By {blog.authorName}</span>
-                  <span aria-hidden="true">&bull;</span>
-                  <time dateTime={blog.createdAt}>{formatBlogDate(blog.createdAt)}</time>
-                </div>
               </div>
             </div>
           </header>
 
           <section className="bg-white py-12 md:py-16">
-            <div className="container mx-auto grid gap-10 px-4 lg:grid-cols-[260px_minmax(0,780px)] lg:items-start lg:justify-center">
+            <div className="container mx-auto px-4">
+              <div className="mx-auto grid gap-10 lg:grid-cols-[260px_minmax(0,780px)] lg:items-start lg:justify-center">
               <aside className="border-t-4 border-nyraGreen bg-[#f6f7f6] p-6">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Article details</p>
                 <dl className="mt-5 space-y-5">
@@ -288,7 +294,8 @@ export function SpectatorBlogDetailPage() {
                 />
               </div>
             </div>
-          </section>
+          </div>
+        </section>
         </article>
       </main>
 

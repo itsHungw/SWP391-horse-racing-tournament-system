@@ -29,7 +29,7 @@ export function PredictionArenaHeader({ pointBalance }: PredictionArenaHeaderPro
             <p className="mt-1 text-2xl font-black text-slate-950">{pointBalance} points available</p>
             <a
               className="mt-1 block text-xs font-black text-[#006d5b] hover:text-[#004d3d] hover:underline"
-              href="#blog"
+              href="/blogs"
             >
               Read articles to earn points
             </a>

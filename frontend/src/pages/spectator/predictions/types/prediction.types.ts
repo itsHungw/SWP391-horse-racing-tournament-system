@@ -35,6 +35,11 @@ export interface PredictionOptions {
     winner: number;
     top3: number;
   };
+  rewardConfig: {
+    winnerReward: number;
+    top3ExactReward: number;
+    top3AnyOrderReward: number;
+  };
   myPredictions: UserPrediction[];
   winnerDistributionVisible: boolean;
   top3DistributionVisible: boolean;
