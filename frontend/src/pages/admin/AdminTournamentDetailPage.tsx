@@ -154,9 +154,8 @@ function getChampionshipPhase(status: string) {
     case "CLOSED_REGISTRATION":
       return "Pool Formation";
     case "PARTICIPANTS_LOCKED":
-      return "Schedule Publication";
     case "SCHEDULE_PUBLISHED":
-      return "Published Schedule";
+      return "Assignment";
     case "ONGOING":
       return "Racing";
     case "COMPLETED":
@@ -278,6 +277,8 @@ export function AdminTournamentDetailPage() {
   const [refereeSearch, setRefereeSearch] = useState("");
   const [assigningRefereeId, setAssigningRefereeId] = useState<number | null>(null);
   const [highlightMissingReferees, setHighlightMissingReferees] = useState(false);
+  const [roundSearch, setRoundSearch] = useState("");
+  const [roundStatusFilter, setRoundStatusFilter] = useState("ALL");
 
   useDocumentTitle(tournament ? `${tournament.name} championship` : "Championship detail");
 
@@ -527,7 +528,9 @@ export function AdminTournamentDetailPage() {
       setRegistrationError("");
       await approveAdminTournamentRegistration(registration.id);
       setSuccessMsg(`${registration.horseName} approved for this championship.`);
-      await loadRegistrations();
+      setPendingRegistrations((prev) =>
+        prev.map((r) => (r.id === registration.id ? { ...r, status: "APPROVED", rejectionReason: undefined } : r))
+      );
     } catch (err) {
       setRegistrationError(getApiErrorMessage(err, "Failed to approve horse registration."));
     } finally {
@@ -548,7 +551,9 @@ export function AdminTournamentDetailPage() {
       await rejectAdminTournamentRegistration(registration.id, reason);
       setHorseRejectReasons((current) => ({ ...current, [registration.id]: "" }));
       setSuccessMsg(`${registration.horseName} registration rejected.`);
-      await loadRegistrations();
+      setPendingRegistrations((prev) =>
+        prev.map((r) => (r.id === registration.id ? { ...r, status: "REJECTED", rejectionReason: reason } : r))
+      );
     } catch (err) {
       setRegistrationError(getApiErrorMessage(err, "Failed to reject horse registration."));
     } finally {
@@ -695,7 +700,8 @@ export function AdminTournamentDetailPage() {
   const missingRefereeRounds = races.filter((race) => !race.refereeId);
   const allRoundsCreated = races.length > 0;
   const participantsLockedForSchedule = ["PARTICIPANTS_LOCKED", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
-  const officialParticipantsReady = participants.length > 0 || participantsLockedForSchedule;
+  const lockedParticipantsCount = participants.filter((p) => p.status !== "PENDING_LOCK").length;
+  const officialParticipantsReady = lockedParticipantsCount > 0 || participantsLockedForSchedule;
   const schedulePublicationReady = allRoundsCreated && officialParticipantsReady && missingRefereeRounds.length === 0;
   const scheduleBlockReason = !allRoundsCreated
     ? "Create at least one round before publishing the schedule."
@@ -707,6 +713,12 @@ export function AdminTournamentDetailPage() {
   const filteredReferees = referees.filter((referee) => {
     const haystack = `${referee.fullName} ${referee.email}`.toLowerCase();
     return haystack.includes(refereeSearch.trim().toLowerCase());
+  });
+  const filteredRaces = races.filter((race) => {
+    const haystack = `${race.name} ${race.code}`.toLowerCase();
+    const matchesSearch = haystack.includes(roundSearch.trim().toLowerCase());
+    const matchesStatus = roundStatusFilter === "ALL" || race.status === roundStatusFilter;
+    return matchesSearch && matchesStatus;
   });
   const participantCapacity = tournament.maxHorses ?? 0;
   const pendingRegistrations = registrations.filter((registration) => registration.status === "PENDING");
@@ -723,7 +735,7 @@ export function AdminTournamentDetailPage() {
         ? "Locked"
       : tournament.status === "SCHEDULE_PUBLISHED"
         ? "Schedule published"
-      : `${participants.length} / ${participantCapacity || "Unset"}`;
+      : `${lockedParticipantsCount} / ${participantCapacity || "Unset"}`;
   const registrationReadinessLabel = `${approvedRegistrations.length} horses approved, ${approvedJockeyPool.length} jockeys in pool, ${tournament.maxHorsesPerOwner ?? 2} horses per owner`;
   const nextActionLabel = getChampionshipNextActionLabel(tournament, nextRound);
   const getRefereeWorkload = (refereeId: number) => races.filter((race) => race.refereeId === refereeId).length;
@@ -1051,30 +1063,51 @@ export function AdminTournamentDetailPage() {
   );
 
   const renderRoundControlCenter = () => (
-    <div className="flex flex-col gap-5 rounded-lg border border-slate-200 bg-white p-5">
-      <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Round operations</p>
-          <h2 className="mt-1 text-2xl font-black text-slate-950">Round Control Center</h2>
-          <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500">
-            Operate championship rounds from scheduled checks through result publishing.
-          </p>
+    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/40">
+      <aside
+        aria-labelledby="control-center-title"
+        aria-modal="true"
+        role="dialog"
+        className="flex h-full w-full max-w-5xl flex-col overflow-hidden bg-slate-50 shadow-2xl"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-6 py-5">
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-[#b3193a]">Round operations</p>
+            <h2 id="control-center-title" className="mt-1 text-2xl font-black text-slate-950">
+              Round Control Center
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm font-medium text-slate-500">
+              Operate championship rounds from scheduled checks through result publishing.
+            </p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="hidden gap-2 text-center md:flex">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5">
+                <p className="text-lg font-black leading-none text-slate-950">{races.length}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Rounds</p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5">
+                <p className="text-lg font-black leading-none text-amber-800">{activeRaceCount}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700">Live ops</p>
+              </div>
+              <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-1.5">
+                <p className="text-lg font-black leading-none text-cyan-800">{resultReadyCount}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-cyan-700">Publish ready</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRoundControlOpen(false)}
+              className="rounded-md border border-slate-200 bg-white p-2 text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+              aria-label="Close control center"
+            >
+              <X className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-center sm:min-w-[360px]">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-            <p className="text-lg font-black text-slate-950">{races.length}</p>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">Rounds</p>
-          </div>
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-            <p className="text-lg font-black text-amber-800">{activeRaceCount}</p>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Live ops</p>
-          </div>
-          <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2">
-            <p className="text-lg font-black text-cyan-800">{resultReadyCount}</p>
-            <p className="text-[11px] font-bold uppercase tracking-wide text-cyan-700">Publish ready</p>
-          </div>
-        </div>
-      </div>
+
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex flex-col gap-5">
 
       {raceError && (
         <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-700">
@@ -1083,13 +1116,10 @@ export function AdminTournamentDetailPage() {
       )}
 
       {raceLoading ? (
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
-          <div className="space-y-3">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-24 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
-            ))}
-          </div>
-          <div className="h-72 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-24 animate-pulse rounded-lg border border-slate-100 bg-slate-50" />
+          ))}
         </div>
       ) : races.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
@@ -1101,42 +1131,7 @@ export function AdminTournamentDetailPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.35fr)]">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 flex items-center justify-between px-1">
-              <p className="text-xs font-black uppercase tracking-wider text-slate-500">Round timeline</p>
-              <p className="text-xs font-bold text-slate-500">{publishedRaceCount} published</p>
-            </div>
-            <div className="space-y-2">
-              {races.map((race, index) => {
-                const meta = getRaceStatusMeta(race.status);
-                const isSelected = selectedRace?.id === race.id;
-                return (
-                  <button
-                    key={race.id}
-                    type="button"
-                    onClick={() => setSelectedRaceId(race.id)}
-                    className={`w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] ${
-                      isSelected ? "border-[#b3193a]/40 bg-white shadow-sm" : "border-transparent bg-white/70"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-400">Round {index + 1}</p>
-                        <p className="mt-1 text-sm font-black text-slate-950">{race.name}</p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">{formatRaceDate(race.raceDateTime)}</p>
-                        <p className="mt-2 text-xs font-semibold text-slate-500">{meta.helper}</p>
-                      </div>
-                      <span className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${meta.className}`}>
-                        {meta.label}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
+        <div className="w-full">
           {selectedRace && selectedRaceMeta && (
             <section aria-labelledby="selected-race-title" className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
@@ -1222,6 +1217,9 @@ export function AdminTournamentDetailPage() {
           )}
         </div>
       )}
+          </div>
+        </div>
+      </aside>
     </div>
   );
 
@@ -1602,9 +1600,14 @@ export function AdminTournamentDetailPage() {
                           </button>
                           </div>
                         ) : (
-                          <p className="text-xs font-black uppercase tracking-wider text-slate-400">
-                            {registration.status === "APPROVED" ? "Ready for pairing" : "Review closed"}
-                          </p>
+                          <div>
+                            <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                              {registration.status === "APPROVED" ? "Ready for pairing" : "Review closed"}
+                            </p>
+                            {registration.status === "REJECTED" && registration.rejectionReason && (
+                              <p className="mt-1 text-xs font-bold text-rose-700">{registration.rejectionReason}</p>
+                            )}
+                          </div>
                         )}
                       </div>
                     </article>
@@ -1744,7 +1747,7 @@ export function AdminTournamentDetailPage() {
             <div className="mt-5 grid gap-3 md:grid-cols-3">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Locked pairs</p>
-                <p className="mt-2 text-2xl font-black text-slate-950">{participants.length}</p>
+                <p className="mt-2 text-2xl font-black text-slate-950">{lockedParticipantsCount}</p>
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Capacity</p>
@@ -1753,7 +1756,7 @@ export function AdminTournamentDetailPage() {
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Accepted contract lock</p>
                 <p className="mt-2 text-sm font-black text-slate-950">
-                  {participants.length > 0 ? "Participant roster established" : "Waiting for admin lock"}
+                  {lockedParticipantsCount > 0 ? "Participant roster established" : "Waiting for admin lock"}
                 </p>
               </div>
             </div>
@@ -1805,7 +1808,9 @@ export function AdminTournamentDetailPage() {
                           ? "border-emerald-200 bg-emerald-50 text-emerald-800"
                           : participant.status === "DISQUALIFIED"
                             ? "border-rose-200 bg-rose-50 text-rose-800"
-                            : "border-slate-200 bg-slate-50 text-slate-700"
+                            : participant.status === "PENDING_LOCK"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-slate-200 bg-slate-50 text-slate-700"
                       }`}
                     >
                       {participant.status.replaceAll("_", " ")}
@@ -1844,13 +1849,52 @@ export function AdminTournamentDetailPage() {
             <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                 <h3 className="text-lg font-black text-slate-950">Season Timeline</h3>
-                <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                  {["Registration Closed", "Pool Approved", "Participants Locked"].map((item) => (
-                    <div key={item} className="flex items-center gap-3 rounded-md border border-emerald-200 bg-white p-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-700" aria-hidden="true" />
-                      <span className="text-sm font-black text-slate-900">{item}</span>
-                    </div>
-                  ))}
+                <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    { label: "Registration Opened", status: "OPEN_REGISTRATION" },
+                    { label: "Registration Closed", status: "CLOSED_REGISTRATION" },
+                    { label: "Participants Locked", status: "PARTICIPANTS_LOCKED" },
+                    { label: "Schedule Published", status: "SCHEDULE_PUBLISHED" }
+                  ].map((item) => {
+                    const statusOrder = [
+                      "DRAFT",
+                      "OPEN_REGISTRATION",
+                      "CLOSED_REGISTRATION",
+                      "PARTICIPANTS_LOCKED",
+                      "SCHEDULE_PUBLISHED",
+                      "ONGOING",
+                      "COMPLETED"
+                    ];
+                    const currentIndex = statusOrder.indexOf(tournament.status);
+                    const itemIndex = statusOrder.indexOf(item.status);
+                    const isPassed = currentIndex >= itemIndex && currentIndex !== -1;
+
+                    return (
+                      <div
+                        key={item.label}
+                        className={`flex flex-col gap-2 rounded-md border p-3 ${
+                          isPassed
+                            ? "border-emerald-200 bg-emerald-50"
+                            : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isPassed ? (
+                            <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-slate-300 bg-slate-100" />
+                          )}
+                          <span
+                            className={`text-sm font-black ${
+                              isPassed ? "text-emerald-950" : "text-slate-500"
+                            }`}
+                          >
+                            {item.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1918,6 +1962,37 @@ export function AdminTournamentDetailPage() {
               </aside>
             </div>
 
+            {races.length > 0 && (
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+                  <input
+                    type="search"
+                    value={roundSearch}
+                    onChange={(e) => setRoundSearch(e.target.value)}
+                    placeholder="Search rounds by name or code..."
+                    className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+                  />
+                </div>
+                <select
+                  value={roundStatusFilter}
+                  onChange={(e) => setRoundStatusFilter(e.target.value)}
+                  className="rounded-md border border-slate-300 py-2 pl-3 pr-8 text-sm font-semibold text-slate-900 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20 sm:w-48"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="SCHEDULED">Scheduled</option>
+                  <option value="CHECKING">Checking</option>
+                  <option value="READY">Ready</option>
+                  <option value="ONGOING">Ongoing</option>
+                  <option value="FINISHED">Finished</option>
+                  <option value="RESULT_SUBMITTED">Result Submitted</option>
+                  <option value="RESULT_CONFIRMED">Result Confirmed</option>
+                  <option value="PUBLISHED">Published</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            )}
+
             {raceLoading ? (
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {[1, 2, 3].map((item) => (
@@ -1933,8 +2008,19 @@ export function AdminTournamentDetailPage() {
                 </p>
               </div>
             ) : (
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {races.map((race, index) => {
+              <>
+                {filteredRaces.length === 0 && races.length > 0 ? (
+                  <div className="mt-5 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
+                    <Search className="mx-auto h-10 w-10 text-slate-400" aria-hidden="true" />
+                    <h3 className="mt-3 text-lg font-black text-slate-900">No rounds found</h3>
+                    <p className="mx-auto mt-2 max-w-xl text-sm font-medium text-slate-500">
+                      Try adjusting your search query or status filter.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredRaces.map((race) => {
+                      const absoluteIndex = races.findIndex(r => r.id === race.id);
                   const meta = getRaceStatusMeta(race.status);
                   const isCurrent = race.id === nextRound?.id;
                   const isMissingReferee = !race.refereeId;
@@ -1953,7 +2039,7 @@ export function AdminTournamentDetailPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Round {index + 1}</p>
+                          <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">Round {absoluteIndex + 1} • {race.code}</p>
                           <h3 className="mt-1 text-base font-black text-slate-950">{race.name}</h3>
                         </div>
                         <span className={`rounded-md border px-2 py-1 text-[11px] font-black uppercase tracking-wide ${meta.className}`}>
@@ -2004,10 +2090,10 @@ export function AdminTournamentDetailPage() {
                     </article>
                   );
                 })}
-              </div>
+                  </div>
+                )}
+              </>
             )}
-
-            {roundControlOpen && <div className="mt-5">{renderRoundControlCenter()}</div>}
           </section>
         )}
 
@@ -2466,6 +2552,8 @@ export function AdminTournamentDetailPage() {
           </div>
         </div>
       )}
+
+      {roundControlOpen && renderRoundControlCenter()}
     </AdminLayout>
   );
 }
