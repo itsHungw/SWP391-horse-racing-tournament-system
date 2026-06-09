@@ -7,6 +7,10 @@ public record UserPredictionResponse(
         Long id,
         Long raceId,
         String raceName,
+        String roundName,
+        Integer roundNumber,
+        String roundCode,
+        String championshipName,
         String predictionType,
         Long predictedWinnerId,
         String predictedWinnerName,
@@ -24,14 +28,18 @@ public record UserPredictionResponse(
         LocalDateTime updatedAt
 ) {
     public static UserPredictionResponse from(RacePrediction prediction) {
-        return from(prediction, java.util.Map.of());
+        return from(prediction, java.util.Map.of(), null);
     }
 
-    public static UserPredictionResponse from(RacePrediction prediction, java.util.Map<Long, String> horseNames) {
+    public static UserPredictionResponse from(RacePrediction prediction, java.util.Map<Long, String> horseNames, Integer roundNumber) {
         return new UserPredictionResponse(
                 prediction.getId(),
                 prediction.getRace().getId(),
                 prediction.getRace().getName(),
+                prediction.getRace().getRoundName(),
+                roundNumber,
+                prediction.getRace().getCode(),
+                prediction.getRace().getTournament() != null ? prediction.getRace().getTournament().getName() : null,
                 prediction.getPredictionType(),
                 prediction.getPredictedWinnerId(),
                 horseNames.get(prediction.getPredictedWinnerId()),
