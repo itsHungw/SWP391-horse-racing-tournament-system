@@ -139,10 +139,6 @@ public class TournamentRegistrationService {
         if (!"OPEN_REGISTRATION".equals(tournament.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is not open for registration");
         }
-        LocalDateTime now = LocalDateTime.now();
-        if (now.isBefore(tournament.getRegistrationStartAt()) || now.isAfter(tournament.getRegistrationEndAt())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Registration window is closed");
-        }
         if (registrationRepository.existsByTournament_IdAndHorse_IdAndStatusIn(
             tournament.getId(),
             horse.getId(),
