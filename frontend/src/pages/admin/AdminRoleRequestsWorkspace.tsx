@@ -13,7 +13,7 @@ export function AdminRoleRequestsWorkspace() {
 
   const [requests, setRequests] = useState<RoleRequest[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState("PENDING");
+  const [selectedStatus, setSelectedStatus] = useState("ALL");
   const [currentView, setCurrentView] = useState<"LIST" | "DETAIL">("LIST");
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [isRejectOpen, setIsRejectOpen] = useState(false);

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { Calendar, ChevronRight, Filter, Compass } from "lucide-react";
+import { Calendar, ChevronRight, Search, Compass } from "lucide-react";
 import { getAdminPredictionRaces } from "../../api/adminPredictionApi";
 
 export function AdminPredictionsWorkspace() {
@@ -11,7 +11,7 @@ export function AdminPredictionsWorkspace() {
   const [races, setRaces] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterTournament, setFilterTournament] = useState("");
+  const [filterChampionship, setFilterChampionship] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -77,67 +77,67 @@ export function AdminPredictionsWorkspace() {
   };
 
   const filteredRaces = races.filter((race) => {
-    const matchesTournament = !filterTournament || race.tournamentName.toLowerCase().includes(filterTournament.toLowerCase());
+    const matchesChampionship = !filterChampionship || race.tournamentName.toLowerCase().includes(filterChampionship.toLowerCase());
     const matchesStatus = !filterStatus || race.predictionStatus === filterStatus;
     const matchesSearch = !searchQuery || race.raceName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTournament && matchesStatus && matchesSearch;
+    return matchesChampionship && matchesStatus && matchesSearch;
   });
 
   return (
     <AdminLayout>
       <section aria-labelledby="prediction-monitor-title" className="space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
-              Game economy controls
-            </p>
-            <h1 id="prediction-monitor-title" className="mt-2 text-4xl font-black tracking-tight flex items-center gap-2">
-              <Compass className="h-9 w-9 text-[#b3193a]" />
-              Predictions Monitor
-            </h1>
-            <p className="mt-2 max-w-3xl text-base text-slate-600">
-              Manage and monitor spectator predictions for each race. Audit point reward transactions and handle resolution jobs.
-            </p>
-          </div>
+        <div>
+          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+            Game economy controls
+          </p>
+          <h1 id="prediction-monitor-title" className="mt-2 text-4xl font-black tracking-tight flex items-center gap-2">
+            <Compass className="h-9 w-9 text-[#b3193a]" />
+            Predictions Monitor
+          </h1>
+          <p className="mt-2 max-w-3xl text-base text-slate-600">
+            Manage and monitor spectator predictions for each race. Audit point reward transactions and handle resolution jobs.
+          </p>
         </div>
 
-        {/* Filter controls */}
-        <div className="rounded-lg border border-[#d8d8d8] bg-white p-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-          <div className="flex flex-wrap gap-3 w-full md:w-auto">
-            <div className="relative">
-              <Filter className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-              <select
-                className="h-10 pl-9 pr-6 rounded-md border border-[#ccc] bg-white text-sm font-medium outline-none focus:border-[#b3193a]"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">All Prediction Statuses</option>
-                <option value="OPEN">Open</option>
-                <option value="LOCKED">Locked</option>
-                <option value="SETTLEMENT_PENDING">Settlement Pending</option>
-                <option value="PROCESSING">Processing</option>
-                <option value="COMPLETED">Completed</option>
-                <option value="FAILED">Failed</option>
-                <option value="REFUNDED">Refunded</option>
-              </select>
+        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
+          <label className="flex-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            Search
+            <div className="relative mt-2">
+              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+              <input
+                className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Find race name..."
+                value={searchQuery}
+              />
             </div>
-
+          </label>
+          <label className="w-full sm:w-64 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            Championship
             <input
-              className="h-10 px-4 rounded-md border border-[#ccc] bg-white text-sm outline-none focus:border-[#b3193a]"
-              placeholder="Tournament..."
-              type="text"
-              value={filterTournament}
-              onChange={(e) => setFilterTournament(e.target.value)}
+              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+              onChange={(e) => setFilterChampionship(e.target.value)}
+              placeholder="Filter championship..."
+              value={filterChampionship}
             />
-          </div>
-
-          <input
-            className="h-10 w-full md:max-w-xs px-4 rounded-md border border-[#ccc] bg-white text-sm outline-none focus:border-[#b3193a]"
-            placeholder="Search race..."
-            type="search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          </label>
+          <label className="w-full sm:w-56 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            Status
+            <select
+              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+              onChange={(e) => setFilterStatus(e.target.value)}
+              value={filterStatus}
+            >
+              <option value="">All Statuses</option>
+              <option value="OPEN">Open</option>
+              <option value="LOCKED">Locked</option>
+              <option value="SETTLEMENT_PENDING">Settlement Pending</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="FAILED">Failed</option>
+              <option value="REFUNDED">Refunded</option>
+            </select>
+          </label>
         </div>
 
         {/* Races table */}
