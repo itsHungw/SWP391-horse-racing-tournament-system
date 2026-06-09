@@ -22,6 +22,12 @@ export function AdminRoleRequestsPage({
   onViewDetail,
   onRefresh,
 }: Props) {
+  const sortedRequests = [...requests].sort((a, b) => {
+    if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+    if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+    return b.id - a.id;
+  });
+
   return (
     <section aria-labelledby="admin-role-requests-title" className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -63,7 +69,7 @@ export function AdminRoleRequestsPage({
         <div className="flex items-center justify-center rounded-lg border border-[#d8d8d8] bg-white py-16">
           <p className="text-sm font-bold text-slate-500">Loading role requests...</p>
         </div>
-      ) : requests.length === 0 ? (
+      ) : sortedRequests.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#bdbdbd] bg-white py-16 text-center">
           <p className="text-sm font-bold text-slate-500">No role requests match this filter.</p>
         </div>
@@ -81,7 +87,7 @@ export function AdminRoleRequestsPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#ececec] bg-white">
-              {requests.map((request) => (
+              {sortedRequests.map((request) => (
                 <tr className="transition-colors hover:bg-[#fafafa]" key={request.id}>
                   <td className="px-6 py-4">
                     <div className="font-black text-[#171717]">{request.fullName}</div>
