@@ -2,7 +2,9 @@ package com.example.horseracingtournamentsystem.prediction.service;
 
 import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
 import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
+import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
 import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
@@ -23,15 +25,18 @@ public class PredictionService {
     private final PredictionSettlementJobRepository jobRepo;
     private final RaceRepository raceRepo;
     private final PointAccountService pointsService;
+    private final PointSettingsService pointSettingsService;
 
     public PredictionService(RacePredictionRepository predictionRepo,
                              PredictionSettlementJobRepository jobRepo,
                              RaceRepository raceRepo,
-                             PointAccountService pointsService) {
+                             PointAccountService pointsService,
+                             PointSettingsService pointSettingsService) {
         this.predictionRepo = predictionRepo;
         this.jobRepo = jobRepo;
         this.raceRepo = raceRepo;
         this.pointsService = pointsService;
+        this.pointSettingsService = pointSettingsService;
     }
 
     @Transactional
@@ -49,7 +54,9 @@ public class PredictionService {
             throw new IllegalStateException("You have already submitted a prediction of type " + request.getPredictionType() + " for this race");
         }
 
-        int cost = RacePrediction.TYPE_WINNER.equals(request.getPredictionType()) ? 5 : 10;
+        int cost = RacePrediction.TYPE_WINNER.equals(request.getPredictionType()) 
+            ? pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_ENTRY_COST) 
+            : pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ENTRY_COST);
 
         // Perform validations for TOP3 selections
         if (RacePrediction.TYPE_TOP3.equals(request.getPredictionType())) {

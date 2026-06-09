@@ -12,6 +12,7 @@ public class PredictionOptionsResponse {
     private String raceStatus;
     private boolean predictionOpen;
     private EntryCost entryCost = new EntryCost();
+    private RewardConfig rewardConfig = new RewardConfig();
     private List<UserPredictionResponse> myPredictions;
     private boolean winnerDistributionVisible;
     private boolean top3DistributionVisible;
@@ -20,8 +21,16 @@ public class PredictionOptionsResponse {
     @Getter
     @Setter
     public static class EntryCost {
-        private int winner = 5;
-        private int top3 = 10;
+        private int winner;
+        private int top3;
+    }
+
+    @Getter
+    @Setter
+    public static class RewardConfig {
+        private int winnerReward;
+        private int top3ExactReward;
+        private int top3AnyOrderReward;
     }
 
     @Getter

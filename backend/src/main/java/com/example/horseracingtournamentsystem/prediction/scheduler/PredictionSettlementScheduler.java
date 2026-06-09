@@ -1,8 +1,10 @@
 package com.example.horseracingtournamentsystem.prediction.scheduler;
 
+import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
 import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
 import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
 import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
@@ -31,6 +33,7 @@ public class PredictionSettlementScheduler {
     private final RacePredictionRepository predictionRepo;
     private final RaceResultRepository resultRepo;
     private final PointAccountService pointsService;
+    private final PointSettingsService pointSettingsService;
 
     @Autowired
     @Lazy
@@ -39,11 +42,13 @@ public class PredictionSettlementScheduler {
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
-                                         PointAccountService pointsService) {
+                                         PointAccountService pointsService,
+                                         PointSettingsService pointSettingsService) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.resultRepo = resultRepo;
         this.pointsService = pointsService;
+        this.pointSettingsService = pointSettingsService;
     }
 
     @Scheduled(fixedDelay = 5000)
@@ -134,7 +139,7 @@ public class PredictionSettlementScheduler {
                         Integer pos = participantPositions.get(p.getPredictedWinnerId());
                         if (pos != null && pos == 1) {
                             isCorrect = true;
-                            reward = 10;
+                            reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_REWARD);
                         }
                     } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
                         if (actualTop3.size() >= 3) {
@@ -146,7 +151,7 @@ public class PredictionSettlementScheduler {
                                 p.getPredictedSecondId().equals(actual2) &&
                                 p.getPredictedThirdId().equals(actual3)) {
                                 isCorrect = true;
-                                reward = 30; // Exact order
+                                reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD); // Exact order
                             } else {
                                 // Correct horses, wrong order
                                 boolean hasWinner = actualTop3.contains(p.getPredictedWinnerId());
@@ -154,7 +159,7 @@ public class PredictionSettlementScheduler {
                                 boolean hasThird = actualTop3.contains(p.getPredictedThirdId());
                                 if (hasWinner && hasSecond && hasThird) {
                                     isCorrect = true;
-                                    reward = 15;
+                                    reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD);
                                 }
                             }
                         }
