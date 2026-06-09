@@ -30,6 +30,11 @@ public interface RacePredictionRepository extends JpaRepository<RacePrediction, 
     List<Object[]> findParticipantHorseNamesByRaceId(@org.springframework.data.repository.query.Param("raceId") Long raceId);
 
     @org.springframework.data.jpa.repository.Query(value = 
+        "SELECT rp.id, h.name FROM race_participants rp JOIN horses h ON rp.horse_id = h.id WHERE rp.id IN :participantIds", 
+        nativeQuery = true)
+    List<Object[]> findParticipantHorseNamesByIds(@org.springframework.data.repository.query.Param("participantIds") java.util.Collection<Long> participantIds);
+
+    @org.springframework.data.jpa.repository.Query(value = 
         "SELECT rp.id, rp.start_number, rp.lane_number, h.name AS horse_name, u.full_name AS jockey_name " +
         "FROM race_participants rp " +
         "JOIN horses h ON rp.horse_id = h.id " +

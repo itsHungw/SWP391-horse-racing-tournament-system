@@ -135,7 +135,8 @@ public class SpectatorPredictionController {
                 List<RacePrediction> racePreds = myPreds.stream()
                     .filter(p -> p.getRace().getId().equals(raceId))
                     .collect(Collectors.toList());
-                res.setMyPredictions(racePreds.stream().map(UserPredictionResponse::from).toList());
+                Map<Long, String> horseNames = getHorseNamesForPredictions(racePreds);
+                res.setMyPredictions(racePreds.stream().map(p -> UserPredictionResponse.from(p, horseNames)).toList());
 
                 hasWinnerPred = racePreds.stream().anyMatch(p -> "WINNER".equals(p.getPredictionType()));
                 hasTop3Pred = racePreds.stream().anyMatch(p -> "TOP3".equals(p.getPredictionType()));
@@ -183,7 +184,7 @@ public class SpectatorPredictionController {
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         RacePrediction prediction = predictionService.submitPrediction(spectator, request);
-        return ResponseEntity.ok(UserPredictionResponse.from(prediction));
+        return ResponseEntity.ok(UserPredictionResponse.from(prediction, getHorseNamesForPredictions(List.of(prediction))));
     }
 
     @PutMapping("/predictions/{id}")
@@ -192,7 +193,7 @@ public class SpectatorPredictionController {
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         RacePrediction prediction = predictionService.updatePrediction(spectator, id, request);
-        return ResponseEntity.ok(UserPredictionResponse.from(prediction));
+        return ResponseEntity.ok(UserPredictionResponse.from(prediction, getHorseNamesForPredictions(List.of(prediction))));
     }
 
     @GetMapping("/predictions/my")
@@ -201,7 +202,25 @@ public class SpectatorPredictionController {
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
         List<RacePrediction> predictions = predictionService.getMyPredictions(spectator);
-        return ResponseEntity.ok(predictions.stream().map(UserPredictionResponse::from).toList());
+        Map<Long, String> horseNames = getHorseNamesForPredictions(predictions);
+        return ResponseEntity.ok(predictions.stream().map(p -> UserPredictionResponse.from(p, horseNames)).toList());
+    }
+
+    private Map<Long, String> getHorseNamesForPredictions(List<RacePrediction> preds) {
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        for (RacePrediction p : preds) {
+            if (p.getPredictedWinnerId() != null) ids.add(p.getPredictedWinnerId());
+            if (p.getPredictedSecondId() != null) ids.add(p.getPredictedSecondId());
+            if (p.getPredictedThirdId() != null) ids.add(p.getPredictedThirdId());
+        }
+        if (ids.isEmpty()) return java.util.Map.of();
+        
+        List<Object[]> names = predictionRepo.findParticipantHorseNamesByIds(ids);
+        java.util.Map<Long, String> map = new java.util.HashMap<>();
+        for (Object[] row : names) {
+            map.put(((Number) row[0]).longValue(), (String) row[1]);
+        }
+        return map;
     }
 
     @GetMapping("/point-accounts/me")
