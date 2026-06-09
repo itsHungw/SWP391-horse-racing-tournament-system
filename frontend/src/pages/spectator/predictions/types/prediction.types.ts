@@ -63,6 +63,9 @@ export interface UserPrediction {
   raceId: number;
   raceName?: string;
   roundName?: string;
+  roundNumber?: number;
+  roundCode?: string;
+  championshipName?: string;
   predictionType: PredictionType;
   predictedWinnerId: number;
   predictedWinnerName?: string;
