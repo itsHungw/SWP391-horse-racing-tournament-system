@@ -42,7 +42,10 @@ const adminNavGroups = [
   },
   {
     label: "SYSTEM",
-    items: [{ label: "Settings", href: "/admin/settings", icon: Settings }],
+    items: [
+      { label: "Point Settings", href: "/admin/points", icon: Settings },
+      { label: "Settings", href: "/admin/settings", icon: Settings },
+    ],
   },
 ];
 

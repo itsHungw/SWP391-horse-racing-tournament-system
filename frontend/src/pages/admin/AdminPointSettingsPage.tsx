@@ -28,14 +28,29 @@ const fields: PointSettingField[] = [
     helper: "Maximum blog rewards a spectator can earn per day later.",
   },
   {
-    key: "PREDICTION_ENTRY_COST",
-    label: "Prediction entry cost",
-    helper: "Points spent later to submit one race prediction.",
+    key: "PREDICTION_WINNER_ENTRY_COST",
+    label: "Prediction winner entry cost",
+    helper: "Points spent to submit one Winner pick prediction.",
   },
   {
-    key: "PREDICTION_CORRECT_REWARD",
-    label: "Prediction correct reward",
-    helper: "Points paid later for a correct prediction.",
+    key: "PREDICTION_TOP3_ENTRY_COST",
+    label: "Prediction top 3 entry cost",
+    helper: "Points spent to submit one Top 3 prediction.",
+  },
+  {
+    key: "PREDICTION_WINNER_REWARD",
+    label: "Prediction winner reward",
+    helper: "Points awarded for a correct Winner pick prediction.",
+  },
+  {
+    key: "PREDICTION_TOP3_EXACT_REWARD",
+    label: "Prediction top 3 exact reward",
+    helper: "Points awarded for matching the exact Top 3 order.",
+  },
+  {
+    key: "PREDICTION_TOP3_ANY_ORDER_REWARD",
+    label: "Prediction top 3 any order reward",
+    helper: "Points awarded for predicting the Top 3 in any order.",
   },
 ];
 
