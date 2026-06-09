@@ -30,6 +30,8 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
       case "LOCKED":
         return "bg-amber-50 text-amber-800 border-amber-200";
       case "CORRECT":
+      case "CORRECT_EXACT":
+      case "CORRECT_ANY_ORDER":
         return "bg-emerald-50 text-emerald-800 border-emerald-200";
       case "INCORRECT":
         return "bg-slate-100 text-slate-500 border-slate-200";
@@ -125,7 +127,7 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                   </div>
                 </div>
 
-                {(pred.status === "CORRECT" || pred.status === "INCORRECT" || pred.status === "REFUNDED" || pred.status === "CANCELLED") && (
+                {(pred.status === "CORRECT" || pred.status === "CORRECT_EXACT" || pred.status === "CORRECT_ANY_ORDER" || pred.status === "INCORRECT" || pred.status === "REFUNDED" || pred.status === "CANCELLED") && (
                   <PredictionResultCard 
                     status={pred.status}
                     resultCategory={pred.resultCategory}

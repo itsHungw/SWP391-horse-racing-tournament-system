@@ -21,14 +21,16 @@ export function PredictionResultCard({ status, resultCategory, rewardPoints, ent
   }
 
   const isCorrect = status === "CORRECT" || 
+                    status === "CORRECT_EXACT" ||
+                    status === "CORRECT_ANY_ORDER" ||
                     resultCategory === "WINNER_CORRECT" || 
                     resultCategory === "TOP3_EXACT" || 
                     resultCategory === "TOP3_ANY_ORDER";
 
   if (isCorrect) {
     let label = "Correct Prediction";
-    if (resultCategory === "TOP3_EXACT") label = "Correct Prediction (Exact Order)";
-    else if (resultCategory === "TOP3_ANY_ORDER") label = "Correct Prediction (Any Order)";
+    if (resultCategory === "TOP3_EXACT" || status === "CORRECT_EXACT") label = "Correct Prediction (Exact Order)";
+    else if (resultCategory === "TOP3_ANY_ORDER" || status === "CORRECT_ANY_ORDER") label = "Correct Prediction (Any Order)";
 
     return (
       <div className="rounded bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-emerald-800 flex items-center gap-2">

@@ -1,11 +1,13 @@
 export type PredictionType = "WINNER" | "TOP3";
 
-export type PredictionStatus = "PENDING" | "LOCKED" | "CORRECT" | "INCORRECT" | "CANCELLED" | "REFUNDED";
+export type PredictionStatus = "PENDING" | "LOCKED" | "CORRECT" | "CORRECT_EXACT" | "CORRECT_ANY_ORDER" | "INCORRECT" | "CANCELLED" | "REFUNDED";
 
 export const predictionStatusLabel: Record<PredictionStatus, string> = {
   PENDING: "Pending",
   LOCKED: "Locked",
   CORRECT: "Correct",
+  CORRECT_EXACT: "Correct",
+  CORRECT_ANY_ORDER: "Correct",
   INCORRECT: "Incorrect",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
