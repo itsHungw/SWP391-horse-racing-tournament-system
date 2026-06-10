@@ -9,6 +9,7 @@ export interface RefereeProfileInfo {
 }
 
 export interface Profile {
+  email: string;
   fullName: string;
   phone: string;
   gender?: string;
