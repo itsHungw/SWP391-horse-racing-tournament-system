@@ -29,9 +29,11 @@ public record OwnerHorseRequest(
         String color,
 
         @Positive(message = "Height must be greater than 0")
+        @jakarta.validation.constraints.Max(value = 9999, message = "Height cannot exceed 9999 cm")
         Integer heightCm,
 
         @Positive(message = "Weight must be greater than 0")
+        @jakarta.validation.constraints.Max(value = 9999, message = "Weight cannot exceed 9999 kg")
         Integer weightKg,
 
         @Size(max = 50)

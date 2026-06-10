@@ -148,10 +148,45 @@ public class JockeyInvitationContractService {
     @Transactional(readOnly = true)
     public List<TournamentParticipantResponse> listParticipants(Long championshipId) {
         ensureTournamentExists(championshipId);
-        return participantRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId)
+        List<TournamentParticipantResponse> officialParticipants = new java.util.ArrayList<>(participantRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId)
                 .stream()
                 .map(this::mapParticipantToResponse)
-                .toList();
+                .toList());
+
+        List<JockeyInvitation> acceptedContracts = invitationRepository.findAllByTournament_IdAndStatusOrderByAcceptedAtAsc(championshipId, JockeyInvitation.STATUS_ACCEPTED);
+
+        for (JockeyInvitation contract : acceptedContracts) {
+            boolean alreadyLocked = officialParticipants.stream()
+                    .anyMatch(p -> contract.getId().equals(p.jockeyInvitationId()));
+            if (!alreadyLocked) {
+                officialParticipants.add(mapInvitationToParticipantResponse(contract));
+            }
+        }
+        return officialParticipants;
+    }
+
+    private TournamentParticipantResponse mapInvitationToParticipantResponse(JockeyInvitation invitation) {
+        Tournament tournament = invitation.getTournament();
+        TournamentRegistration registration = invitation.getTournamentRegistration();
+        User owner = invitation.getOwner();
+        User jockey = invitation.getJockey();
+        return TournamentParticipantResponse.builder()
+                .id(-invitation.getId())
+                .championshipId(tournament.getId())
+                .championshipName(tournament.getName())
+                .horseRegistrationId(registration.getId())
+                .horseId(invitation.getHorse().getId())
+                .horseName(invitation.getHorse().getName())
+                .ownerId(owner.getId())
+                .ownerName(owner.getFullName())
+                .jockeyId(jockey.getId())
+                .jockeyName(jockey.getFullName())
+                .jockeyInvitationId(invitation.getId())
+                .status("PENDING_LOCK")
+                .points(0)
+                .createdAt(invitation.getCreatedAt())
+                .updatedAt(invitation.getUpdatedAt())
+                .build();
     }
 
     @Transactional(readOnly = true)

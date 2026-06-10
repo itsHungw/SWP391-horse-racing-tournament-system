@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { X, Check, Eye, Inbox, FileText, Search } from "lucide-react";
 
 import { approveAdminHorse, getAdminHorses, rejectAdminHorse } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -6,16 +7,96 @@ import { AdminLayout } from "../../layouts/AdminLayout";
 import type { Horse, HorseStatus } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 
+function HorseDetailsModal({ horse, onClose }: { horse: Horse; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 p-5">
+          <h2 className="text-xl font-black text-slate-950">Horse Details: {horse.name}</h2>
+          <button
+            aria-label="Close modal"
+            className="rounded-md p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            onClick={onClose}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-5">
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div>
+              {horse.imageUrl ? (
+                <img
+                  alt={horse.name}
+                  className="h-48 w-full rounded-lg border border-slate-200 object-cover shadow-sm"
+                  src={horse.imageUrl}
+                />
+              ) : (
+                <div className="flex h-48 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium text-slate-400">
+                  No Image Available
+                </div>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-500">Basic Info</p>
+                <div className="mt-2 grid grid-cols-2 gap-y-2 text-sm">
+                  <span className="font-semibold text-slate-600">Gender:</span>
+                  <span className="font-bold text-slate-950">{horse.gender}</span>
+                  <span className="font-semibold text-slate-600">Breed:</span>
+                  <span className="font-bold text-slate-950">{horse.breed || "N/A"}</span>
+                  <span className="font-semibold text-slate-600">Color:</span>
+                  <span className="font-bold text-slate-950">{horse.color || "N/A"}</span>
+                  <span className="font-semibold text-slate-600">D.O.B:</span>
+                  <span className="font-bold text-slate-950">{horse.dateOfBirth || "N/A"}</span>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-500">Physical</p>
+                <div className="mt-2 grid grid-cols-2 gap-y-2 text-sm">
+                  <span className="font-semibold text-slate-600">Height:</span>
+                  <span className="font-bold text-slate-950">{horse.heightCm ? `${horse.heightCm} cm` : "N/A"}</span>
+                  <span className="font-semibold text-slate-600">Weight:</span>
+                  <span className="font-bold text-slate-950">{horse.weightKg ? `${horse.weightKg} kg` : "N/A"}</span>
+                  <span className="font-semibold text-slate-600">Health:</span>
+                  <span className="font-bold text-slate-950">{horse.healthStatus || "N/A"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          {(horse.description || horse.medicalNote) && (
+            <div className="mt-6 space-y-4 border-t border-slate-200 pt-6">
+              {horse.description && (
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">Description</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{horse.description}</p>
+                </div>
+              )}
+              {horse.medicalNote && (
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-slate-500">Medical Note</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{horse.medicalNote}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const statusOptions: Array<"ALL" | HorseStatus> = ["PENDING", "APPROVED", "REJECTED", "ALL"];
 
 export function AdminHorsesPage() {
   useDocumentTitle("Admin horse approvals");
 
   const [horses, setHorses] = useState<Horse[]>([]);
-  const [status, setStatus] = useState<"ALL" | HorseStatus>("PENDING");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [status, setStatus] = useState<"ALL" | HorseStatus>("ALL");
   const [loading, setLoading] = useState(false);
   const [processingId, setProcessingId] = useState<number | null>(null);
   const [rejectReasons, setRejectReasons] = useState<Record<number, string>>({});
+  const [selectedHorse, setSelectedHorse] = useState<Horse | null>(null);
   const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
   const showToast = (text: string, type: "success" | "error" = "success") => {
@@ -45,7 +126,9 @@ export function AdminHorsesPage() {
     try {
       await approveAdminHorse(horse.id);
       showToast(`${horse.name} approved.`);
-      await loadHorses();
+      setHorses((prev) =>
+        prev.map((h) => (h.id === horse.id ? { ...h, status: "APPROVED", rejectionReason: undefined } : h))
+      );
     } catch (error) {
       showToast(getApiErrorMessage(error, "Could not approve this horse."), "error");
     } finally {
@@ -63,14 +146,31 @@ export function AdminHorsesPage() {
     try {
       await rejectAdminHorse(horse.id, reason);
       showToast(`${horse.name} rejected.`);
+      setHorses((prev) =>
+        prev.map((h) => (h.id === horse.id ? { ...h, status: "REJECTED", rejectionReason: reason } : h))
+      );
       setRejectReasons((current) => ({ ...current, [horse.id]: "" }));
-      await loadHorses();
     } catch (error) {
       showToast(getApiErrorMessage(error, "Could not reject this horse."), "error");
     } finally {
       setProcessingId(null);
     }
   };
+
+  const filteredHorses = horses
+    .filter(
+      (horse) =>
+        horse.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (horse.ownerName && horse.ownerName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (horse.registrationCode && horse.registrationCode.toLowerCase().includes(searchQuery.toLowerCase()))
+    )
+    .sort((a, b) => {
+      // PENDING at the top
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+      // Then descending by ID (newest first)
+      return b.id - a.id;
+    });
 
   return (
     <AdminLayout>
@@ -102,34 +202,52 @@ export function AdminHorsesPage() {
             </p>
           </div>
 
-          <label className="w-full max-w-xs text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Status
-            <select
-              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 focus:border-[#b3193a] focus:outline-none"
-              onChange={(event) => setStatus(event.target.value as "ALL" | HorseStatus)}
-              value={status}
-            >
-              {statusOptions.map((option) => (
-                <option key={option} value={option}>
-                  {option === "ALL" ? "All Statuses" : option}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="flex w-full max-w-[500px] flex-col gap-3 sm:flex-row sm:items-end">
+            <label className="flex-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              Search
+              <div className="relative mt-2">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                <input
+                  className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Find horse or owner..."
+                  value={searchQuery}
+                />
+              </div>
+            </label>
+            <label className="w-full sm:w-40 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+              Status
+              <select
+                className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+                onChange={(event) => setStatus(event.target.value as "ALL" | HorseStatus)}
+                value={status}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option === "ALL" ? "All Statuses" : option}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
           {loading ? (
-            <div className="flex h-64 items-center justify-center text-sm font-bold text-slate-500">
-              Loading horse approvals...
+            <div className="flex h-64 flex-col items-center justify-center text-slate-400">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#b3193a]"></div>
+              <p className="mt-4 text-sm font-bold">Loading horse approvals...</p>
             </div>
-          ) : horses.length === 0 ? (
+          ) : filteredHorses.length === 0 ? (
             <div className="flex h-64 flex-col items-center justify-center text-slate-500">
-              <p className="font-bold">No horses match this filter.</p>
-              <p className="text-sm">New owner submissions will appear here.</p>
+              <Inbox className="mb-3 h-10 w-10 text-slate-300" strokeWidth={1.5} />
+              <p className="text-base font-bold text-slate-700">No horses found</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {searchQuery ? "No horses match your search query." : "There are no horses matching the current filter."}
+              </p>
             </div>
           ) : (
-            <table className="min-w-[980px] text-left text-sm">
+            <table className="min-w-[980px] w-full text-left text-sm">
               <thead className="bg-[#f7f7f7] text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Horse</th>
@@ -140,7 +258,7 @@ export function AdminHorsesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#ececec]">
-                {horses.map((horse) => {
+                {filteredHorses.map((horse) => {
                   const isPending = horse.status === "PENDING";
                   return (
                     <tr className="hover:bg-[#fafafa]" key={horse.id}>
@@ -165,58 +283,89 @@ export function AdminHorsesPage() {
                       <td className="px-5 py-4">
                         {horse.evidenceUrl ? (
                           <a
-                            className="font-black text-[#b3193a] underline"
+                            className="inline-flex items-center gap-1.5 text-sm font-black text-[#b3193a] transition-colors hover:text-[#8a132c]"
                             href={horse.evidenceUrl}
                             rel="noreferrer"
                             target="_blank"
                           >
+                            <FileText className="h-4 w-4" />
                             Evidence
                           </a>
                         ) : (
-                          <span className="text-slate-500">Missing</span>
+                          <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400">
+                            <FileText className="h-4 w-4 opacity-50" />
+                            Missing
+                          </span>
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <span className="rounded-full bg-[#f1f1f1] px-3 py-1 text-xs font-black text-slate-700">
+                        <span
+                          className={`inline-flex items-center rounded-md px-2.5 py-1 text-xs font-black uppercase tracking-wider ${
+                            horse.status === "APPROVED"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : horse.status === "REJECTED"
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : horse.status === "PENDING"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-slate-100 text-slate-700 border border-slate-200"
+                          }`}
+                        >
                           {horse.status}
                         </span>
                         {horse.rejectionReason && (
-                          <p className="mt-2 max-w-xs text-xs font-bold text-rose-700">{horse.rejectionReason}</p>
+                          <div className="mt-2 max-w-xs rounded-md bg-rose-50 p-2 text-xs font-medium text-rose-700 border border-rose-100">
+                            <span className="font-bold">Reason:</span> {horse.rejectionReason}
+                          </div>
                         )}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex min-w-[300px] flex-col gap-2">
+                        <div className="flex min-w-[320px] flex-col gap-3">
                           <div className="flex gap-2">
                             <button
+                              aria-label={`View details of ${horse.name}`}
+                              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 shadow-sm transition-colors hover:bg-slate-50 hover:text-slate-900"
+                              onClick={() => setSelectedHorse(horse)}
+                              type="button"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Details
+                            </button>
+                            <button
                               aria-label={`Approve ${horse.name}`}
-                              className="min-h-11 rounded-md bg-[#a6ff3f] px-4 text-xs font-black text-[#07110d] hover:bg-[#c4ff72] disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-black text-white shadow-sm transition-all hover:bg-emerald-700 hover:shadow disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={!isPending || processingId === horse.id}
                               onClick={() => handleApprove(horse)}
                               type="button"
                             >
+                              <Check className="h-3.5 w-3.5" />
                               Approve
                             </button>
                             <button
                               aria-label={`Reject ${horse.name}`}
-                              className="min-h-11 rounded-md border border-[#b3193a] px-4 text-xs font-black text-[#b3193a] hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                              className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-md border border-rose-600 px-3 text-xs font-black text-rose-600 shadow-sm transition-colors hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                               disabled={!isPending || processingId === horse.id}
                               onClick={() => handleReject(horse)}
                               type="button"
                             >
+                              <X className="h-3.5 w-3.5" />
                               Reject
                             </button>
                           </div>
-                          <label className="text-xs font-bold text-slate-600">
-                            Rejection reason
+                          <div className="relative">
+                            <label className="sr-only" htmlFor={`reject-reason-${horse.id}`}>
+                              Rejection reason
+                            </label>
                             <input
-                              className="mt-1 min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm focus:border-[#b3193a] focus:outline-none"
+                              id={`reject-reason-${horse.id}`}
+                              className="min-h-10 w-full rounded-md border border-slate-300 bg-slate-50 px-3 text-sm transition-colors focus:border-rose-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-rose-500 disabled:opacity-60"
+                              placeholder="Reason if rejecting..."
                               disabled={!isPending}
                               onChange={(event) =>
                                 setRejectReasons((current) => ({ ...current, [horse.id]: event.target.value }))
                               }
                               value={rejectReasons[horse.id] || ""}
                             />
-                          </label>
+                          </div>
                         </div>
                       </td>
                     </tr>
@@ -227,6 +376,10 @@ export function AdminHorsesPage() {
           )}
         </div>
       </section>
+
+      {selectedHorse && (
+        <HorseDetailsModal horse={selectedHorse} onClose={() => setSelectedHorse(null)} />
+      )}
     </AdminLayout>
   );
 }

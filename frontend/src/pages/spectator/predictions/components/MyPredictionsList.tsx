@@ -87,10 +87,28 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
               <div key={pred.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="text-base font-black text-slate-950">{pred.raceName || "Race"}</h3>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase mt-0.5">
-                      {pred.roundName || "Round"}
-                    </p>
+                    <h3 className="text-base font-black text-[#006d5b] uppercase tracking-wide">
+                      {pred.championshipName || "Championship"}
+                    </h3>
+                    <div className="mt-2 flex flex-col gap-1">
+                      <div className="flex flex-wrap items-center gap-1.5 text-xs font-black text-slate-700 uppercase tracking-wide">
+                        <span>
+                          {pred.roundName || `Round ${pred.roundNumber ?? 1}`}
+                        </span>
+                        {pred.roundCode && (
+                          <>
+                            <span className="text-slate-300">•</span>
+                            <span>{pred.roundCode}</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {pred.raceName && (
+                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mt-0.5">
+                          {pred.raceName}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <span className={`border px-2.5 py-0.5 rounded-full font-black text-[10px] uppercase tracking-wider ${getStatusBadge(pred.status)}`}>
                     {predictionStatusLabel[pred.status] || pred.status}

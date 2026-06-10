@@ -3,7 +3,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useAdminDashboard } from "./hooks/useAdminDashboard";
 import { RefreshCw } from "lucide-react";
 
-const dayTabs = ["Today", "Pending Reviews", "Upcoming", "Race Day", "Content Queue"];
+
 
 export function AdminOverviewPage() {
   useDocumentTitle("Admin operations");
@@ -69,21 +69,7 @@ export function AdminOverviewPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
-          <div className="flex min-w-[760px]">
-            {dayTabs.map((tab) => (
-              <button
-                className={`min-h-14 flex-1 border-r border-[#d8d8d8] px-5 text-sm font-bold last:border-r-0 ${
-                  tab === "Today" ? "bg-white text-[#b3193a]" : "bg-[#f7f7f7] text-[#171717]"
-                }`}
-                key={tab}
-                type="button"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
+
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {dynamicMetrics.map((metric) => (
