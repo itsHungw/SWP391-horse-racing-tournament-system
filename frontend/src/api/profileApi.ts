@@ -4,6 +4,7 @@ import { Profile, RefereeProfileInfo, UpdateProfileRequest, UpdateRefereeProfile
 const USE_MOCK = false;
 
 const mockProfile: Profile = {
+  email: "test@example.com",
   fullName: "Nguyen Van A",
   phone: "0987654321",
   gender: "MALE",

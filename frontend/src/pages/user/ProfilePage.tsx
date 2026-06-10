@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Circle, ShieldCheck, UploadCloud, UserRound } from "lucide-react";
 
 import { getMyProfile, updateMyProfile, uploadAvatar } from "../../api/profileApi";
+import { useClientSession } from "../../hooks/useClientSession";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Profile } from "../../types/profile";
@@ -55,6 +56,7 @@ function ReadinessMark({ ready }: { ready: boolean }) {
 
 export function ProfilePage() {
   useDocumentTitle("Profile | Horse Racing Tournament");
+  const { session } = useClientSession();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -500,6 +502,19 @@ export function ProfilePage() {
                     />
                   </div>
                   <p className="mt-2 text-xs font-bold text-slate-500">Vietnam mobile format is validated before saving.</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="emailAddress">
+                    Email address
+                  </label>
+                  <input
+                    className="mt-2 block min-h-12 w-full cursor-not-allowed rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base font-bold text-slate-500 outline-none"
+                    id="emailAddress"
+                    readOnly
+                    type="email"
+                    value={profile?.email || session?.email || ""}
+                  />
                 </div>
               </div>
             </div>

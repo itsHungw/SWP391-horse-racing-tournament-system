@@ -535,6 +535,17 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
                 </div>
               </div>
               <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-email">
+                  Email address
+                </label>
+                <input
+                  id="referee-email"
+                  readOnly
+                  value={profile?.email || session?.email || ""}
+                  className="mt-1 w-full cursor-not-allowed rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-500 focus:outline-none"
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-gender">
                   Gender
                 </label>

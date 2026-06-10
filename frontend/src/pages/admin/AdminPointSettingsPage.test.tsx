@@ -15,8 +15,11 @@ const defaultSettings: PointSettings = {
   FIRST_LOGIN_BONUS: 0,
   BLOG_REWARD_POINTS: 10,
   DAILY_BLOG_REWARD_LIMIT: 3,
-  PREDICTION_ENTRY_COST: 5,
-  PREDICTION_CORRECT_REWARD: 25,
+  PREDICTION_WINNER_ENTRY_COST: 5,
+  PREDICTION_TOP3_ENTRY_COST: 5,
+  PREDICTION_WINNER_REWARD: 25,
+  PREDICTION_TOP3_EXACT_REWARD: 100,
+  PREDICTION_TOP3_ANY_ORDER_REWARD: 50,
 };
 
 function renderPage() {
@@ -41,8 +44,8 @@ describe("AdminPointSettingsPage", () => {
     expect(screen.getByLabelText(/first login bonus/i)).toHaveValue(0);
     expect(screen.getByLabelText(/blog reward points/i)).toHaveValue(10);
     expect(screen.getByLabelText(/daily blog reward limit/i)).toHaveValue(3);
-    expect(screen.getByLabelText(/prediction entry cost/i)).toHaveValue(5);
-    expect(screen.getByLabelText(/prediction correct reward/i)).toHaveValue(25);
+    expect(screen.getByLabelText(/prediction winner entry cost/i)).toHaveValue(5);
+    expect(screen.getByLabelText(/prediction winner reward/i)).toHaveValue(25);
   });
 
   it("saves edited point settings", async () => {
@@ -64,7 +67,7 @@ describe("AdminPointSettingsPage", () => {
   it("blocks negative values before saving", async () => {
     renderPage();
 
-    const entryCostInput = await screen.findByLabelText(/prediction entry cost/i);
+    const entryCostInput = await screen.findByLabelText(/prediction winner entry cost/i);
     fireEvent.change(entryCostInput, { target: { value: "-1" } });
     fireEvent.click(screen.getByRole("button", { name: /save settings/i }));
 

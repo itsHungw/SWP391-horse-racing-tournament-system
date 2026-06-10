@@ -160,7 +160,7 @@ export function SubmitResultsPage() {
                       onChange={(event) => handleNumberChange(index, "position", event.target.value)}
                       placeholder="1"
                       type="number"
-                      value={entry.position}
+                      value={entry.position ?? ""}
                     />
                   </label>
                   <label className="block">
@@ -170,7 +170,7 @@ export function SubmitResultsPage() {
                       onChange={(event) => handleNumberChange(index, "finishTimeSeconds", event.target.value)}
                       placeholder="94.25"
                       type="text"
-                      value={entry.finishTimeSeconds}
+                      value={entry.finishTimeSeconds ?? ""}
                     />
                   </label>
                   <label className="block">

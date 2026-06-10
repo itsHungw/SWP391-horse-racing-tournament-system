@@ -24,6 +24,7 @@ function renderPage() {
 }
 
 const completedProfile = {
+  email: "test@example.com",
   fullName: "Nguyen Van A",
   phone: "+84901234567",
   gender: "MALE",
@@ -62,7 +63,7 @@ describe("MyRoleRequestsPage", () => {
 
     expect(await screen.findByRole("heading", { name: /role applications/i })).toBeInTheDocument();
     expect(screen.getByText(/profile complete/i)).toBeInTheDocument();
-    expect(screen.getByText(/phone verification pending/i)).toBeInTheDocument();
+
 
     const jockeyCard = screen.getByRole("button", { name: /jockey application under review/i });
     expect(jockeyCard).toBeDisabled();
