@@ -74,7 +74,9 @@ public class SecurityConfig {
                                                                 "/swagger-ui.html")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/horses/**",
-                                                                "/api/v1/tournaments/**", "/api/v1/races/**", "/api/v1/blogs/**")
+                                                                "/api/v1/tournaments/**", "/api/v1/races/**", "/api/v1/blogs/**",
+                                                                "/api/v1/standings/**", "/api/v1/championships/*/standings",
+                                                                "/api/v1/leaderboard/**")
                                                 .permitAll()
                                                 
                                                        

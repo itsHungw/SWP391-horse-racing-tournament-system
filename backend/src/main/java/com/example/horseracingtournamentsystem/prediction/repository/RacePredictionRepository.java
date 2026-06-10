@@ -3,10 +3,13 @@ package com.example.horseracingtournamentsystem.prediction.repository;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
+import java.util.Collection;
 import java.util.List;
 
 @Repository
 public interface RacePredictionRepository extends JpaRepository<RacePrediction, Long> {
+
+    List<RacePrediction> findByStatusIn(Collection<String> statuses);
 
     List<RacePrediction> findByRace_Id(Long raceId);
 
