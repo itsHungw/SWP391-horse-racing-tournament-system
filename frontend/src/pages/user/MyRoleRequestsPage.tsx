@@ -192,11 +192,7 @@ export function MyRoleRequestsPage() {
       ready: profileCompleted,
       helper: "Required before applications can be reviewed.",
     },
-    {
-      label: profile?.phoneVerified ? "Phone verified" : "Phone verification pending",
-      ready: Boolean(profile?.phoneVerified),
-      helper: "Recommended for faster admin review.",
-    },
+
     {
       label: profile?.ageVerified ? "Age verified" : "Age verification pending",
       ready: Boolean(profile?.ageVerified),

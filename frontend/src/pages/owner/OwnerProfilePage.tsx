@@ -83,7 +83,7 @@ export function OwnerProfilePage() {
         setOwnerName(nextProfile.ownerName || coreProfile.fullName || session?.fullName || "");
         setDescription(nextProfile.description || nextProfile.bio || "");
         setContactPhone(nextProfile.contactPhone || coreProfile.phone || "");
-        setContactEmail(nextProfile.contactEmail || session?.email || "");
+        setContactEmail(nextProfile.contactEmail || coreProfile.email || session?.email || "");
         setContactAddress(nextProfile.contactAddress || coreProfile.address || "");
         setLogoUrl(nextProfile.logoUrl || "");
         setMessage(null);
@@ -302,7 +302,7 @@ export function OwnerProfilePage() {
                   Tournament Operations Contact
                 </h2>
               </div>
-              <div className="mt-5 grid gap-5 md:grid-cols-2">
+              <div className="mt-5 grid gap-5">
                 <div>
                   <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600" htmlFor="contactPhone">
                     Phone
@@ -325,10 +325,9 @@ export function OwnerProfilePage() {
                   <div className="relative mt-2">
                     <Mail className="pointer-events-none absolute left-3 top-3.5 h-4 w-4 text-slate-400" aria-hidden="true" />
                     <input
-                      className="min-h-12 w-full rounded-md border border-slate-300 pl-10 pr-4 font-bold text-slate-950 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
+                      className="min-h-12 w-full cursor-not-allowed rounded-md border border-slate-300 bg-slate-50 pl-10 pr-4 font-bold text-slate-500 outline-none"
                       id="contactEmail"
-                      onChange={(event) => setContactEmail(event.target.value)}
-                      placeholder="stable@example.com"
+                      readOnly
                       type="email"
                       value={contactEmail}
                     />

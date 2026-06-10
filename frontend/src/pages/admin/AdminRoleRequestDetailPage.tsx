@@ -29,21 +29,6 @@ function formatDate(value?: string | null) {
   }).format(date);
 }
 
-function verificationLabel(isVerified: boolean | undefined, verifiedText: string, unverifiedText: string) {
-  return isVerified ? verifiedText : unverifiedText;
-}
-
-function VerificationItem({ label, verified }: { label: string; verified: boolean | undefined }) {
-  return (
-    <span
-      className={`inline-flex rounded-md px-2.5 py-1 text-xs font-black ${
-        verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-      }`}
-    >
-      {label}
-    </span>
-  );
-}
 
 function CvReviewBadge({ status }: { status?: RoleRequest["cvReviewStatus"] }) {
   const passed = status === "PASSED";
@@ -136,27 +121,7 @@ export function AdminRoleRequestDetailPage({
               </div>
             </dl>
 
-            <div className="rounded-md border border-[#ececec] bg-[#fafafa] p-4">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Verification</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <VerificationItem
-                  label={verificationLabel(account?.emailVerified, "Email verified", "Email not verified")}
-                  verified={account?.emailVerified}
-                />
-                <VerificationItem
-                  label={verificationLabel(account?.phoneVerified, "Phone verified", "Phone not verified")}
-                  verified={account?.phoneVerified}
-                />
-                <VerificationItem
-                  label={verificationLabel(account?.ageVerified, "Age verified", "Age not verified")}
-                  verified={account?.ageVerified}
-                />
-                <VerificationItem
-                  label={verificationLabel(account?.profileCompleted, "Profile complete", "Profile incomplete")}
-                  verified={account?.profileCompleted}
-                />
-              </div>
-            </div>
+
 
             <div>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Current roles</p>
