@@ -1,8 +1,11 @@
 package com.example.horseracingtournamentsystem.filestorage;
 
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,6 +16,7 @@ import com.example.horseracingtournamentsystem.user.entity.UserRole;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
+import java.net.URI;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +27,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -45,12 +50,18 @@ class FileStorageSecurityIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @MockitoBean
+    private ObjectStorage objectStorage;
+
     private String spectatorToken;
     private String otherSpectatorToken;
     private String adminToken;
 
     @BeforeEach
     void setUp() {
+        when(objectStorage.createPresignedGetUrl(anyString(), anyString(), anyString()))
+                .thenReturn(URI.create("https://example-bucket.s3.amazonaws.com/presigned-file"));
+
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
         userRepository.deleteAll();
@@ -121,7 +132,8 @@ class FileStorageSecurityIntegrationTest {
 
         mockMvc.perform(get(privateUrl)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://example-bucket.s3.amazonaws.com/presigned-file"));
     }
 
     @Test
@@ -151,6 +163,63 @@ class FileStorageSecurityIntegrationTest {
 
         mockMvc.perform(get(privateUrl)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.url").value("https://example-bucket.s3.amazonaws.com/presigned-file"));
+    }
+
+    @Test
+    void publicAvatarDownloadRedirectsToPresignedUrl() throws Exception {
+        MockMultipartFile avatarFile = new MockMultipartFile(
+                "file",
+                "avatar.png",
+                MediaType.IMAGE_PNG_VALUE,
+                "fake-image".getBytes()
+        );
+
+        String publicUrl = com.jayway.jsonpath.JsonPath.read(
+                mockMvc.perform(multipart("/api/v1/files/upload")
+                                .file(avatarFile)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken)
+                                .param("category", "AVATAR"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.url").value(startsWith("/api/v1/files/download/")))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                "$.url"
+        );
+
+        mockMvc.perform(get(publicUrl))
+                .andExpect(status().isFound())
+                .andExpect(header().string(
+                        HttpHeaders.LOCATION,
+                        "https://example-bucket.s3.amazonaws.com/presigned-file"
+                ));
+    }
+
+    @Test
+    void jockeyAgreementUploadReturnsPrivateDownloadUrl() throws Exception {
+        MockMultipartFile agreementFile = new MockMultipartFile(
+                "file",
+                "agreement.pdf",
+                MediaType.APPLICATION_PDF_VALUE,
+                "fake-pdf".getBytes()
+        );
+
+        String privateUrl = com.jayway.jsonpath.JsonPath.read(
+                mockMvc.perform(multipart("/api/v1/files/upload")
+                                .file(agreementFile)
+                                .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken)
+                                .param("category", "JOCKEY_AGREEMENT"))
+                        .andExpect(status().isOk())
+                        .andExpect(jsonPath("$.url").value(startsWith("/api/v1/files/private/")))
+                        .andReturn()
+                        .getResponse()
+                        .getContentAsString(),
+                "$.url"
+        );
+
+        mockMvc.perform(get(privateUrl))
+                .andExpect(status().isUnauthorized());
     }
 }

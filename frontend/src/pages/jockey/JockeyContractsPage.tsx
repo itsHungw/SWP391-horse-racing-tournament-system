@@ -17,6 +17,7 @@ import {
   getJockeyContracts,
   rejectJockeyContract,
 } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { JockeyLayout } from "../../layouts/JockeyLayout";
 import type { JockeyInvitation, JockeyInvitationStatus } from "../../types/racing";
@@ -416,7 +417,7 @@ export function JockeyContractsPage() {
                           Uploaded by {selectedContract.ownerName}
                         </p>
                         <p className="mt-1 text-xs font-bold text-slate-500">
-                          {selectedContract.agreementUrl ? "Linked PDF document" : "No agreement URL attached"}
+                          {selectedContract.agreementUrl ? "Linked PDF document" : "No agreement file attached"}
                         </p>
                       </div>
                     </div>
@@ -430,7 +431,7 @@ export function JockeyContractsPage() {
                         <Eye className="h-4 w-4" aria-hidden="true" />
                         Preview PDF
                       </button>
-                      <a
+                      <AuthenticatedFileLink
                         className={[
                           "inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]",
                           !selectedContract.agreementUrl ? "pointer-events-none opacity-50" : "",
@@ -441,7 +442,7 @@ export function JockeyContractsPage() {
                       >
                         <Download className="h-4 w-4" aria-hidden="true" />
                         Download
-                      </a>
+                      </AuthenticatedFileLink>
                     </div>
                   </div>
 

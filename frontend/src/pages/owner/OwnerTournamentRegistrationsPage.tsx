@@ -8,6 +8,7 @@ import {
   getOwnerTournamentRegistrationsPage,
   getPublicTournaments,
   sendOwnerContract,
+  uploadAgreementDocument,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
 import { PaginationControls } from "../../components/common/PaginationControls";
@@ -58,7 +59,7 @@ export function OwnerTournamentRegistrationsPage() {
   const [availableJockeys, setAvailableJockeys] = useState<JockeyPoolApplication[]>([]);
   const [selectedJockeyApplicationId, setSelectedJockeyApplicationId] = useState<number | "">("");
   const [contractMessage, setContractMessage] = useState("");
-  const [agreementUrl, setAgreementUrl] = useState("");
+  const [agreementFile, setAgreementFile] = useState<File | null>(null);
   const [agreementFileName, setAgreementFileName] = useState("");
   const [contractLoading, setContractLoading] = useState(false);
   const [contractSubmitting, setContractSubmitting] = useState(false);
@@ -191,7 +192,7 @@ export function OwnerTournamentRegistrationsPage() {
     setContractRegistration(registration);
     setSelectedJockeyApplicationId("");
     setContractMessage(`We would like you to ride ${registration.horseName} in ${registration.tournamentName}.`);
-    setAgreementUrl("");
+    setAgreementFile(null);
     setAgreementFileName(`${registration.tournamentName.toLowerCase().replaceAll(" ", "-")}-assignment-agreement.pdf`);
     setContractError("");
     setContractLoading(true);
@@ -211,6 +212,7 @@ export function OwnerTournamentRegistrationsPage() {
     setAvailableJockeys([]);
     setSelectedJockeyApplicationId("");
     setContractError("");
+    setAgreementFile(null);
   };
 
   const handleSendContract = async () => {
@@ -219,12 +221,13 @@ export function OwnerTournamentRegistrationsPage() {
     setContractSubmitting(true);
     setContractError("");
     try {
+      const uploadedAgreement = agreementFile ? await uploadAgreementDocument(agreementFile) : null;
       const contract = await sendOwnerContract(contractRegistration.tournamentId, {
         horseRegistrationId: contractRegistration.id,
         jockeyApplicationId: selectedJockeyApplicationId,
         message: contractMessage.trim() || undefined,
-        agreementUrl: agreementUrl.trim() || undefined,
-        agreementFileName: agreementFileName.trim() || undefined,
+        agreementUrl: uploadedAgreement?.url,
+        agreementFileName: agreementFile ? agreementFile.name : agreementFileName.trim() || undefined,
       });
       setPageMessage(
         `Contract sent to ${contract.jockeyName} for ${contract.horseName}. Waiting for jockey response.`,
@@ -507,18 +510,27 @@ export function OwnerTournamentRegistrationsPage() {
                     </label>
 
                     <label className="block">
-                      <span className="text-sm font-black text-slate-800">Agreement URL</span>
+                      <span className="text-sm font-black text-slate-800">Agreement file</span>
                       <input
-                        className="mt-2 min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-900 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
-                        onChange={(event) => setAgreementUrl(event.target.value)}
-                        placeholder="https://..."
-                        type="url"
-                        value={agreementUrl}
+                        accept="application/pdf"
+                        className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-bold text-slate-900 outline-none file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[#006d5b] file:px-3 file:text-xs file:font-black file:text-white focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          setAgreementFile(file);
+                          if (file) {
+                            setAgreementFileName(file.name);
+                          }
+                        }}
+                        type="file"
                       />
+                      <span className="mt-2 block text-xs font-bold text-slate-500">
+                        Optional PDF agreement.
+                        {agreementFile ? ` Selected: ${agreementFile.name}` : ""}
+                      </span>
                     </label>
 
                     <label className="block">
-                      <span className="text-sm font-black text-slate-800">Agreement file name</span>
+                      <span className="text-sm font-black text-slate-800">Uploaded file name</span>
                       <input
                         className="mt-2 min-h-11 w-full rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-900 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
                         onChange={(event) => setAgreementFileName(event.target.value)}

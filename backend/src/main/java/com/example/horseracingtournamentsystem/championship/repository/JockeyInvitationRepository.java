@@ -22,4 +22,6 @@ public interface JockeyInvitationRepository extends JpaRepository<JockeyInvitati
     );
 
     boolean existsByTournament_IdAndJockey_IdAndStatusIn(Long tournamentId, Long jockeyId, List<String> statuses);
+
+    boolean existsByAgreementUrlAndJockey_Email(String agreementUrl, String jockeyEmail);
 }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,7 @@ import {
   getPublicTournaments,
   getOwnerHorseDocuments,
   sendOwnerContract,
+  uploadAgreementDocument,
 } from "../../api/racingApi";
 import { OwnerTournamentRegistrationsPage } from "./OwnerTournamentRegistrationsPage";
 
@@ -21,6 +22,7 @@ vi.mock("../../api/racingApi", () => ({
   getPublicTournaments: vi.fn(),
   getOwnerHorseDocuments: vi.fn(),
   sendOwnerContract: vi.fn(),
+  uploadAgreementDocument: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
@@ -104,10 +106,11 @@ describe("OwnerTournamentRegistrationsPage", () => {
     await waitFor(() => {
       expect(getOwnerHorseDocuments).toHaveBeenCalledWith(3);
     });
-    const validBadges = await screen.findAllByText(/✓ Valid/i);
-    expect(validBadges).toHaveLength(2);
+    await screen.findByText(/Coggins test certificate/i);
+    expect(screen.getByText(/Health certificate/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Ready/i)).toHaveLength(3);
 
-    const nextButton = screen.getByRole("button", { name: /continue →/i });
+    const nextButton = screen.getByRole("button", { name: /continue/i });
     fireEvent.click(nextButton);
 
     // --- STEP 3: Confirm ---
@@ -154,6 +157,62 @@ describe("OwnerTournamentRegistrationsPage", () => {
 
     expect(await screen.findByText("Cup 9")).toBeInTheDocument();
     expect(screen.queryByText("Cup 1")).not.toBeInTheDocument();
+  });
+
+  it("uploads an agreement file before sending a jockey contract", async () => {
+    vi.mocked(getOwnerTournamentRegistrationsPage).mockResolvedValue(
+      pageOf([
+        {
+          id: 8,
+          tournamentId: 1,
+          tournamentName: "Spring Cup",
+          horseId: 3,
+          horseName: "Approved Horse",
+          status: "APPROVED",
+        },
+      ]),
+    );
+    vi.mocked(getOwnerAvailableJockeys).mockResolvedValue([
+      {
+        id: 5,
+        championshipId: 1,
+        championshipName: "Spring Cup",
+        jockeyId: 7,
+        jockeyName: "Jockey",
+        status: "APPROVED_FOR_POOL",
+      },
+    ]);
+    vi.mocked(uploadAgreementDocument).mockResolvedValue({
+      url: "/api/v1/files/download/agreement.pdf",
+    });
+
+    render(
+      <MemoryRouter>
+        <OwnerTournamentRegistrationsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /jockey pool/i }));
+    const contractDialog = await screen.findByRole("dialog", { name: /send assignment contract/i });
+    fireEvent.click(within(contractDialog).getByRole("button", { name: /jockey/i }));
+
+    const agreementFile = new File(["agreement"], "agreement.pdf", { type: "application/pdf" });
+    fireEvent.change(within(contractDialog).getByLabelText(/agreement file/i), {
+      target: { files: [agreementFile] },
+    });
+    expect(await screen.findByText(/selected: agreement.pdf/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /send contract/i }));
+
+    await waitFor(() => {
+      expect(uploadAgreementDocument).toHaveBeenCalledWith(agreementFile);
+      expect(sendOwnerContract).toHaveBeenCalledWith(1, {
+        horseRegistrationId: 8,
+        jockeyApplicationId: 5,
+        message: "We would like you to ride Approved Horse in Spring Cup.",
+        agreementUrl: "/api/v1/files/download/agreement.pdf",
+        agreementFileName: "agreement.pdf",
+      });
+    });
   });
 });
 

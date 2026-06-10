@@ -10,6 +10,8 @@ frontend/dist/
 
 .playwright-cli/
 
+.claude
 output/
 .superpowers/
 backend/uploads/
+/pptx

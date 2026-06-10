@@ -13,9 +13,9 @@ public record SubmitRoleRequestRequest(
         @Size(min = 20, max = 500, message = "Reason must be between 20 and 500 characters")
         String reason,
 
-        @NotBlank(message = "Resume URL is required")
-        @Size(max = 500, message = "Resume URL must not exceed 500 characters")
-        @Pattern(regexp = "https?://.+", message = "Resume URL must be a valid HTTP(S) link")
+        @NotBlank(message = "Resume file is required")
+        @Size(max = 500, message = "Resume file link must not exceed 500 characters")
+        @Pattern(regexp = "^(https?://.+|/api/v1/files/private/.+)$", message = "Resume file link must be an uploaded file or valid HTTP(S) link")
         String resumeUrl
 ) {
 }

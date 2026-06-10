@@ -40,6 +40,14 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
   return response.data;
 }
 
+export async function uploadRefereeEvidence(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=REFEREE_EVIDENCE", formData);
+  return response.data;
+}
+
 export async function updateMyProfile(data: UpdateProfileRequest): Promise<Profile> {
   if (USE_MOCK) {
     await new Promise((resolve) => setTimeout(resolve, 500));

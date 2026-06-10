@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { X, Check, Eye, Inbox, FileText, Search } from "lucide-react";
 
 import { approveAdminHorse, getAdminHorses, rejectAdminHorse } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import type { Horse, HorseStatus } from "../../types/racing";
@@ -282,7 +283,7 @@ export function AdminHorsesPage() {
                       <td className="px-5 py-4 font-bold text-slate-700">{horse.ownerName || "Unknown owner"}</td>
                       <td className="px-5 py-4">
                         {horse.evidenceUrl ? (
-                          <a
+                          <AuthenticatedFileLink
                             className="inline-flex items-center gap-1.5 text-sm font-black text-[#b3193a] transition-colors hover:text-[#8a132c]"
                             href={horse.evidenceUrl}
                             rel="noreferrer"
@@ -290,7 +291,7 @@ export function AdminHorsesPage() {
                           >
                             <FileText className="h-4 w-4" />
                             Evidence
-                          </a>
+                          </AuthenticatedFileLink>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-400">
                             <FileText className="h-4 w-4 opacity-50" />

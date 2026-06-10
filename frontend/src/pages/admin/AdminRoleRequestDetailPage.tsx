@@ -1,3 +1,4 @@
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { RoleRequestStatusBadge } from "../../components/RoleRequestStatusBadge";
 import { RoleRequest } from "../../types/adminRoleRequest";
 
@@ -186,14 +187,14 @@ export function AdminRoleRequestDetailPage({
               <div>
                 <dt className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Resume PDF</dt>
                 <dd className="mt-1">
-                  <a
+                  <AuthenticatedFileLink
                     className="break-all font-bold text-[#006d5b] underline"
                     href={request.resumeUrl}
                     rel="noopener noreferrer"
                     target="_blank"
                   >
                     {request.resumeUrl}
-                  </a>
+                  </AuthenticatedFileLink>
                 </dd>
               </div>
             )}

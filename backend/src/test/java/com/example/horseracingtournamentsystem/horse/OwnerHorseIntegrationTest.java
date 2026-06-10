@@ -1,10 +1,13 @@
 package com.example.horseracingtournamentsystem.horse;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.filestorage.ObjectStorage;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
@@ -14,6 +17,7 @@ import com.example.horseracingtournamentsystem.user.entity.UserRole;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
+import java.net.URI;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 @SpringBootTest
@@ -50,6 +55,9 @@ class OwnerHorseIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @MockitoBean
+    private ObjectStorage objectStorage;
+
     private String ownerToken;
     private String spectatorToken;
     private User ownerUser;
@@ -57,6 +65,9 @@ class OwnerHorseIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        when(objectStorage.createPresignedGetUrl(anyString(), anyString(), anyString()))
+                .thenReturn(URI.create("https://example-bucket.s3.amazonaws.com/presigned-horse-image"));
+
         horseRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -85,7 +96,7 @@ class OwnerHorseIntegrationTest {
     }
 
     @Test
-    void ownerCreatesPendingHorseWithLocalUploadsWithoutOwnerId() throws Exception {
+    void ownerCreatesPendingHorseWithS3UploadsWithoutOwnerId() throws Exception {
         MvcResult result = mockMvc.perform(multipart("/api/v1/owner/horses")
                         .file(imageFile())
                         .file(evidenceFile())
@@ -98,13 +109,13 @@ class OwnerHorseIntegrationTest {
                 .andExpect(jsonPath("$.name").value("Nova"))
                 .andExpect(jsonPath("$.ownerId").value(ownerUser.getId()))
                 .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.imageUrl").value(org.hamcrest.Matchers.startsWith("/uploads/horses/images/horse-")))
-                .andExpect(jsonPath("$.evidenceUrl").value(org.hamcrest.Matchers.startsWith("/uploads/horses/evidence/horse-")))
+                .andExpect(jsonPath("$.imageUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/files/download/")))
+                .andExpect(jsonPath("$.evidenceUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/files/private/")))
                 .andReturn();
 
         String imageUrl = com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.imageUrl");
         mockMvc.perform(get(imageUrl))
-                .andExpect(status().isOk());
+                .andExpect(status().isFound());
     }
 
     @Test
@@ -216,7 +227,7 @@ class OwnerHorseIntegrationTest {
                 .andExpect(jsonPath("$.documentType").value("HEALTH_CERTIFICATE"))
                 .andExpect(jsonPath("$.referenceNumber").value("HC-2026-001"))
                 .andExpect(jsonPath("$.issuer").value("Saigon Equine Clinic"))
-                .andExpect(jsonPath("$.fileUrl").value(org.hamcrest.Matchers.startsWith("/uploads/horses/documents/horse-")));
+                .andExpect(jsonPath("$.fileUrl").value(org.hamcrest.Matchers.startsWith("/api/v1/files/private/")));
 
         mockMvc.perform(get("/api/v1/owner/horses/{id}/documents", horse.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken))
