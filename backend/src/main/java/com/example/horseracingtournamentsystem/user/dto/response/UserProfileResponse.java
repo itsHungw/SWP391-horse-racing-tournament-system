@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.Set;
 
 public record UserProfileResponse(
+        String email,
         String fullName,
         String phone,
         String gender,
@@ -19,6 +20,7 @@ public record UserProfileResponse(
 ) {
     public static UserProfileResponse from(User user) {
         return new UserProfileResponse(
+                user.getEmail(),
                 user.getFullName(),
                 user.getPhone(),
                 user.getGender(),

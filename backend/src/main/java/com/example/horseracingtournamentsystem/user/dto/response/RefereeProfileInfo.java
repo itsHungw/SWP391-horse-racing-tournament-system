@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.user.entity.RefereeProfile;
 import java.time.LocalDateTime;
 
 public record RefereeProfileInfo(
+        String email,
         String licenseNumber,
         String certification,
         int experienceYears,
@@ -17,6 +18,7 @@ public record RefereeProfileInfo(
             return null;
         }
         return new RefereeProfileInfo(
+                profile.getUser().getEmail(),
                 profile.getLicenseNumber(),
                 profile.getCertification(),
                 profile.getExperienceYears(),
