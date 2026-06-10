@@ -17,6 +17,12 @@ spring:
   flyway:
     enabled: false
 
+aws:
+  s3:
+    bucket-name: test-private-bucket
+    region: ap-southeast-1
+    presigned-url-ttl: 5m
+
 app:
   cors:
     allowed-origins: http://localhost:5173

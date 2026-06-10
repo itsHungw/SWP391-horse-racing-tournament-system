@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { getMyProfile } from "../../api/profileApi";
 import { getMyRoleRequests, submitRoleRequest, uploadResumeDocument } from "../../api/roleRequestApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { SkeletonLoader } from "../../components/common/SkeletonLoader";
 import { StatusBadge } from "../../components/StatusBadge";
@@ -567,9 +568,12 @@ export function MyRoleRequestsPage() {
                             <dt className="font-black uppercase tracking-widest text-slate-400">Resume</dt>
                             <dd className="mt-1 font-bold text-slate-700">
                               {request.resumeUrl ? (
-                                <a className="text-nyraGreen underline" href={request.resumeUrl}>
+                                <AuthenticatedFileLink
+                                  className="text-nyraGreen underline"
+                                  href={request.resumeUrl}
+                                >
                                   Open resume
-                                </a>
+                                </AuthenticatedFileLink>
                               ) : (
                                 "Not provided"
                               )}

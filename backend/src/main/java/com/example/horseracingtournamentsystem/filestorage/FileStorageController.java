@@ -1,14 +1,8 @@
 package com.example.horseracingtournamentsystem.filestorage;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.net.URI;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,29 +31,17 @@ public class FileStorageController {
     }
 
     @GetMapping("/download/{filename:.+}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String filename) throws IOException {
-        Path filePath = fileStorageService.loadPublicFile(filename);
-        return buildFileResponse(filePath, "inline");
+    public ResponseEntity<Void> downloadFile(@PathVariable String filename) {
+        URI presignedUrl = fileStorageService.createPublicDownloadUrl(filename);
+        return ResponseEntity.status(302).location(presignedUrl).build();
     }
 
     @GetMapping("/private/{filename:.+}")
-    public ResponseEntity<Resource> downloadPrivateFile(@PathVariable String filename, Authentication authentication) throws IOException {
-        fileStorageService.assertCanReadPrivateFile(filename, authentication);
-        Path filePath = fileStorageService.loadPrivateFile(filename);
-        return buildFileResponse(filePath, "attachment");
-    }
-
-    private ResponseEntity<Resource> buildFileResponse(Path filePath, String disposition) throws IOException {
-        Resource resource = new UrlResource(filePath.toUri());
-
-        String contentType = Files.probeContentType(filePath);
-        if (contentType == null) {
-            contentType = "application/octet-stream";
-        }
-
-        return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, disposition + "; filename=\"" + resource.getFilename() + "\"")
-                .body(resource);
+    public Map<String, String> downloadPrivateFile(
+            @PathVariable String filename,
+            Authentication authentication
+    ) {
+        URI presignedUrl = fileStorageService.createPrivateDownloadUrl(filename, authentication);
+        return Map.of("url", presignedUrl.toString());
     }
 }

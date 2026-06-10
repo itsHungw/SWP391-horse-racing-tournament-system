@@ -9,6 +9,7 @@ import {
   getOwnerTournamentRegistrationsPage,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
@@ -517,24 +518,24 @@ function DocumentStatusCard({
           <p className="font-bold text-slate-900">{document.referenceNumber}</p>
           <p>Issued by {document.issuer}</p>
           <p>Expires {document.expiryDate}</p>
-          <a
+          <AuthenticatedFileLink
             aria-label={`Open ${title}`}
             className="inline-flex min-h-11 items-center font-black text-[#dc2626] hover:text-[#991b1b]"
             href={document.fileUrl}
           >
             Open document
-          </a>
+          </AuthenticatedFileLink>
         </div>
       ) : fallbackUrl ? (
         <div className="mt-4 space-y-2 text-sm text-slate-600">
           <p>No structured document yet.</p>
-          <a
+          <AuthenticatedFileLink
             aria-label={`Open ${title}`}
             className="inline-flex min-h-11 items-center font-black text-[#dc2626] hover:text-[#991b1b]"
             href={fallbackUrl}
           >
             Open initial evidence
-          </a>
+          </AuthenticatedFileLink>
         </div>
       ) : (
         <div className="mt-4 space-y-2 text-sm text-slate-600">

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { approveAdminHorse, getAdminHorses, rejectAdminHorse } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import type { Horse, HorseStatus } from "../../types/racing";
@@ -164,14 +165,14 @@ export function AdminHorsesPage() {
                       <td className="px-5 py-4 font-bold text-slate-700">{horse.ownerName || "Unknown owner"}</td>
                       <td className="px-5 py-4">
                         {horse.evidenceUrl ? (
-                          <a
+                          <AuthenticatedFileLink
                             className="font-black text-[#b3193a] underline"
                             href={horse.evidenceUrl}
                             rel="noreferrer"
                             target="_blank"
                           >
                             Evidence
-                          </a>
+                          </AuthenticatedFileLink>
                         ) : (
                           <span className="text-slate-500">Missing</span>
                         )}

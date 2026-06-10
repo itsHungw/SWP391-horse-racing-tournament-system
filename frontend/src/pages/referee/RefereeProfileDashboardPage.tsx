@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -17,7 +17,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { getAssignedRaces } from "../../api/refereeApi";
-import { getMyProfile, updateMyProfile, updateMyRefereeProfile, uploadRefereeEvidence } from "../../api/profileApi";
+import { getMyProfile, updateMyProfile, updateMyRefereeProfile, uploadAvatar, uploadRefereeEvidence } from "../../api/profileApi";
 import { useClientSession } from "../../hooks/useClientSession";
 import { normalizeAssignedRace } from "./race-day/refereeRaceDayAdapter";
 import { AssignedRace } from "./race-day/refereeRaceDayModels";
@@ -159,6 +159,8 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
     bio: "",
     evidenceUrl: "",
   });
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState("");
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
 
   const loadData = useCallback(async () => {
@@ -182,6 +184,8 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
         bio: profileData.refereeProfile?.bio || "",
         evidenceUrl: profileData.refereeProfile?.evidenceUrl || "",
       });
+      setAvatarFile(null);
+      setAvatarPreview(profileData.avatarUrl || "");
       setEvidenceFile(null);
     } catch {
       setError("Unable to load referee credential center.");
@@ -193,6 +197,47 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreview.startsWith("blob:") && typeof URL.revokeObjectURL === "function") {
+        URL.revokeObjectURL(avatarPreview);
+      }
+    };
+  }, [avatarPreview]);
+
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      setAvatarFile(null);
+      setAvatarPreview(profile?.avatarUrl || "");
+      return;
+    }
+
+    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!allowedTypes.has(file.type)) {
+      event.target.value = "";
+      setAvatarFile(null);
+      setAvatarPreview(profile?.avatarUrl || "");
+      setFormError("Profile photo must be JPG, PNG, or WebP.");
+      setFormSuccess("");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      event.target.value = "";
+      setAvatarFile(null);
+      setAvatarPreview(profile?.avatarUrl || "");
+      setFormError("Profile photo must be 5MB or smaller.");
+      setFormSuccess("");
+      return;
+    }
+
+    setAvatarFile(file);
+    setAvatarPreview(typeof URL.createObjectURL === "function" ? URL.createObjectURL(file) : "");
+    setFormError("");
+    setFormSuccess("");
+  };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
@@ -223,13 +268,16 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
       setFormError("");
       setFormSuccess("");
 
+      const finalAvatarUrl = avatarFile
+        ? (await uploadAvatar(avatarFile)).url
+        : profile?.avatarUrl || "";
       const updatedProfile = await updateMyProfile({
         fullName: identityForm.fullName.trim(),
         phone: cleanedPhone,
         gender: identityForm.gender,
         dateOfBirth: identityForm.dateOfBirth,
         address: identityForm.address.trim(),
-        avatarUrl: profile?.avatarUrl || "",
+        avatarUrl: finalAvatarUrl,
       });
       const finalEvidenceUrl = evidenceFile
         ? (await uploadRefereeEvidence(evidenceFile)).url
@@ -247,6 +295,8 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
         ...updatedProfile,
         refereeProfile: updatedRefereeProfile,
       });
+      setAvatarFile(null);
+      setAvatarPreview(updatedProfile.avatarUrl || finalAvatarUrl);
       setCredentialForm((current) => ({ ...current, evidenceUrl: updatedRefereeProfile.evidenceUrl || finalEvidenceUrl }));
       setEvidenceFile(null);
       setFormSuccess("Referee profile updated. Credential changes are now ready for administrator review.");
@@ -329,8 +379,8 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
         <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-5 border-b border-slate-100 pb-5 sm:flex-row sm:items-center">
             <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#007a68] text-3xl font-black uppercase text-white shadow-sm">
-              {profile?.avatarUrl ? (
-                <img alt="Referee avatar" className="h-full w-full object-cover" src={profile.avatarUrl} />
+              {avatarPreview || profile?.avatarUrl ? (
+                <img alt="Referee avatar" className="h-full w-full object-cover" src={avatarPreview || profile?.avatarUrl} />
               ) : (
                 <span>{getInitials(displayName)}</span>
               )}
@@ -512,6 +562,37 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
           <fieldset className="rounded-lg border border-slate-200 bg-slate-50 p-5">
             <legend className="px-2 text-sm font-black text-slate-950">Basic Identity</legend>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-avatar">
+                  Profile photo
+                </label>
+                <div className="mt-2 flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 sm:flex-row sm:items-center">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#007a68] text-2xl font-black uppercase text-white">
+                    {avatarPreview || profile?.avatarUrl ? (
+                      <img
+                        alt="Referee profile photo preview"
+                        className="h-full w-full object-cover"
+                        src={avatarPreview || profile?.avatarUrl}
+                      />
+                    ) : (
+                      <span>{getInitials(identityForm.fullName || displayName)}</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <input
+                      accept="image/jpeg,image/png,image/webp"
+                      id="referee-avatar"
+                      onChange={handleAvatarChange}
+                      className="block w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900 file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-[#007a68] file:px-3 file:text-xs file:font-black file:text-white focus:border-[#007a68] focus:outline-none focus:ring-2 focus:ring-[#007a68]/20"
+                      type="file"
+                    />
+                    <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                      JPG, PNG, or WebP up to 5MB.
+                      {avatarFile ? ` Selected: ${avatarFile.name}` : profile?.avatarUrl ? " Current photo is displayed." : ""}
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-black uppercase tracking-wider text-slate-600" htmlFor="referee-full-name">
                   Full name

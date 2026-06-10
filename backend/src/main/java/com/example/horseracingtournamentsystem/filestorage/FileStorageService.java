@@ -2,10 +2,7 @@ package com.example.horseracingtournamentsystem.filestorage;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.net.URI;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -45,39 +42,53 @@ public class FileStorageService {
     );
 
     private static final Map<String, UploadPolicy> POLICIES = Map.of(
-            "AVATAR", new UploadPolicy(false, IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "STABLE_LOGO", new UploadPolicy(false, IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "OWNER_EVIDENCE", new UploadPolicy(true, EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
-            "REFEREE_EVIDENCE", new UploadPolicy(true, EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
-            "ROLE_REQUEST_RESUME", new UploadPolicy(true, EVIDENCE_MAX_BYTES, PDF_TYPES),
-            "JOCKEY_AGREEMENT", new UploadPolicy(false, EVIDENCE_MAX_BYTES, PDF_TYPES)
+            "AVATAR", new UploadPolicy(false, "public/avatars", IMAGE_MAX_BYTES, IMAGE_TYPES),
+            "STABLE_LOGO", new UploadPolicy(false, "public/stable-logos", IMAGE_MAX_BYTES, IMAGE_TYPES),
+            "OWNER_EVIDENCE", new UploadPolicy(true, "private/owner-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
+            "REFEREE_EVIDENCE", new UploadPolicy(true, "private/referee-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
+            "ROLE_REQUEST_RESUME", new UploadPolicy(true, "private/role-resumes", EVIDENCE_MAX_BYTES, PDF_TYPES),
+            "JOCKEY_AGREEMENT", new UploadPolicy(true, "private/jockey-agreements", EVIDENCE_MAX_BYTES, PDF_TYPES),
+            "BLOG", new UploadPolicy(false, "public/blog", IMAGE_MAX_BYTES, IMAGE_TYPES),
+            "HORSE_IMAGE", new UploadPolicy(false, "public/horses/images", IMAGE_MAX_BYTES, IMAGE_TYPES),
+            "HORSE_EVIDENCE", new UploadPolicy(true, "private/horses/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
+            "HORSE_DOCUMENT", new UploadPolicy(true, "private/horses/documents", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)
     );
 
-    private final Path publicUploadDir = Paths.get("uploads", "public").toAbsolutePath().normalize();
-    private final Path privateUploadDir = Paths.get("uploads", "private").toAbsolutePath().normalize();
-
+    private final ObjectStorage objectStorage;
     private final StoredFileMetadataRepository storedFileMetadataRepository;
     private final UserRepository userRepository;
+    private final FileAccessAuthorizationService accessAuthorizationService;
 
-    public FileStorageService(StoredFileMetadataRepository storedFileMetadataRepository, UserRepository userRepository) {
+    public FileStorageService(
+            ObjectStorage objectStorage,
+            StoredFileMetadataRepository storedFileMetadataRepository,
+            UserRepository userRepository,
+            FileAccessAuthorizationService accessAuthorizationService
+    ) {
+        this.objectStorage = objectStorage;
         this.storedFileMetadataRepository = storedFileMetadataRepository;
         this.userRepository = userRepository;
-        try {
-            Files.createDirectories(publicUploadDir);
-            Files.createDirectories(privateUploadDir);
-        } catch (IOException e) {
-            throw new RuntimeException("Could not create upload directory", e);
-        }
+        this.accessAuthorizationService = accessAuthorizationService;
     }
 
     public StoredFile storeFile(MultipartFile file, String category, String uploaderEmail) {
+        User uploader = userRepository.findByEmail(normalizeEmail(uploaderEmail))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+        return storeFile(file, category, uploader);
+    }
+
+    public StoredFile storeFileForUserId(MultipartFile file, String category, Long uploaderId) {
+        User uploader = userRepository.findById(uploaderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
+        return storeFile(file, category, uploader);
+    }
+
+    private StoredFile storeFile(MultipartFile file, String category, User uploader) {
         String normalizedCategory = normalizeCategory(category);
         UploadPolicy policy = POLICIES.get(normalizedCategory);
         if (policy == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported upload category");
         }
-        User uploader = userRepository.findByEmail(normalizeEmail(uploaderEmail))
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user not found"));
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is required");
         }
@@ -92,64 +103,71 @@ public class FileStorageService {
 
         String extension = EXTENSIONS_BY_CONTENT_TYPE.get(contentType);
         String filename = UUID.randomUUID() + extension;
-        Path root = policy.privateFile() ? privateUploadDir : publicUploadDir;
-        Path targetLocation = root.resolve(filename).normalize();
-        ensureInsideRoot(targetLocation, root, filename);
+        String objectKey = policy.keyPrefix() + "/" + filename;
+        String originalFilename = normalizeOriginalFilename(file.getOriginalFilename(), filename);
 
         try {
             try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, targetLocation, StandardCopyOption.REPLACE_EXISTING);
+                objectStorage.upload(objectKey, inputStream, file.getSize(), contentType);
             }
             String url = policy.privateFile()
                     ? "/api/v1/files/private/" + filename
                     : "/api/v1/files/download/" + filename;
-            storedFileMetadataRepository.save(StoredFileMetadata.create(
-                    filename,
-                    normalizedCategory,
-                    contentType,
-                    policy.privateFile(),
-                    uploader
-            ));
+            try {
+                storedFileMetadataRepository.save(StoredFileMetadata.create(
+                        filename,
+                        objectKey,
+                        originalFilename,
+                        normalizedCategory,
+                        contentType,
+                        policy.privateFile(),
+                        file.getSize(),
+                        uploader
+                ));
+            } catch (RuntimeException exception) {
+                objectStorage.delete(objectKey);
+                throw exception;
+            }
             return new StoredFile(filename, url, contentType, policy.privateFile());
         } catch (IOException e) {
             throw new RuntimeException("Failed to store file: " + filename, e);
         }
     }
 
-    public Path loadPublicFile(String filename) {
-        return loadFile(filename, publicUploadDir);
+    public URI createPublicDownloadUrl(String filename) {
+        StoredFileMetadata metadata = findMetadata(filename);
+        if (metadata.isPrivateFile()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
+        }
+        return createPresignedUrl(metadata);
     }
 
-    public Path loadPrivateFile(String filename) {
-        return loadFile(filename, privateUploadDir);
-    }
-
-    public void assertCanReadPrivateFile(String filename, Authentication authentication) {
+    public URI createPrivateDownloadUrl(String filename, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication is required");
         }
-        String safeFilename = normalizeFilename(filename);
-        StoredFileMetadata metadata = storedFileMetadataRepository.findByFilename(safeFilename)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        StoredFileMetadata metadata = findMetadata(filename);
         if (!metadata.isPrivateFile()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File is not private");
         }
-        boolean admin = authentication.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
-        boolean uploader = metadata.getUploadedBy().getEmail().equalsIgnoreCase(authentication.getName());
-        if (!admin && !uploader) {
+        if (!accessAuthorizationService.canRead(metadata, authentication)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to access this file");
         }
+        return createPresignedUrl(metadata);
     }
 
-    private Path loadFile(String filename, Path root) {
+    private StoredFileMetadata findMetadata(String filename) {
         String safeFilename = normalizeFilename(filename);
-        Path filePath = root.resolve(safeFilename).normalize();
-        ensureInsideRoot(filePath, root, safeFilename);
-        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found");
-        }
-        return filePath;
+        return storedFileMetadataRepository.findByFilename(safeFilename)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+    }
+
+    private URI createPresignedUrl(StoredFileMetadata metadata) {
+        return objectStorage.createPresignedGetUrl(
+                metadata.getObjectKey(),
+                metadata.getContentType(),
+                metadata.getOriginalFilename()
+        );
     }
 
     private String normalizeCategory(String category) {
@@ -186,15 +204,28 @@ public class FileStorageService {
         return email.trim().toLowerCase(Locale.ROOT);
     }
 
-    private void ensureInsideRoot(Path path, Path root, String filename) {
-        if (!path.startsWith(root)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid file name: " + filename);
+    private String normalizeOriginalFilename(String originalFilename, String fallback) {
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return fallback;
         }
+        String normalized = originalFilename.replace("\\", "/");
+        int separator = normalized.lastIndexOf('/');
+        String basename = separator >= 0 ? normalized.substring(separator + 1) : normalized;
+        String safeName = basename.replace("\r", "").replace("\n", "").replace("\"", "_").trim();
+        if (safeName.isBlank()) {
+            return fallback;
+        }
+        return safeName.length() <= 255 ? safeName : safeName.substring(safeName.length() - 255);
     }
 
     public record StoredFile(String filename, String url, String contentType, boolean privateFile) {
     }
 
-    private record UploadPolicy(boolean privateFile, long maxBytes, Set<String> allowedContentTypes) {
+    private record UploadPolicy(
+            boolean privateFile,
+            String keyPrefix,
+            long maxBytes,
+            Set<String> allowedContentTypes
+    ) {
     }
 }
