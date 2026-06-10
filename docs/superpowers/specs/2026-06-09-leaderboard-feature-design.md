@@ -2,7 +2,10 @@
 
 ## Status
 
-Approved direction. Frontend implemented with a ready-to-wire data layer and a premium empty-state. Backend endpoints are **proposed and not yet implemented** — this spec defines the contract the backend must deliver for live data.
+Approved direction. **Frontend and backend both implemented.**
+
+- Frontend: ready-to-wire data layer + premium empty-state (`LeaderboardPage.tsx`, `leaderboardApi.ts`, `leaderboardTypes.ts`).
+- Backend (implemented, compiles): `leaderboard/controller/LeaderboardController.java`, `leaderboard/service/LeaderboardService.java`, `leaderboard/dto/response/*`, repo methods `RaceResultRepository.findByStatusIn` + `RacePredictionRepository.findByStatusIn`, and public GET whitelist in `SecurityConfig`. Standings are aggregated in Java from existing entities (`RaceResult.points`/`position` for Horse/Jockey; `UserPointAccount` + settled `RacePrediction` for Spectator) inside a read-only transaction — no native SQL, no schema change. Not yet integration-tested against a live SQL Server DB.
 
 ## Goal
 
