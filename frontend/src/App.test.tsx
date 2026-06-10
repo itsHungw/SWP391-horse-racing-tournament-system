@@ -28,8 +28,11 @@ vi.mock("./api/pointSettingsApi", () => ({
     FIRST_LOGIN_BONUS: 0,
     BLOG_REWARD_POINTS: 0,
     DAILY_BLOG_REWARD_LIMIT: 0,
-    PREDICTION_ENTRY_COST: 0,
-    PREDICTION_CORRECT_REWARD: 0,
+    PREDICTION_WINNER_ENTRY_COST: 0,
+    PREDICTION_TOP3_ENTRY_COST: 0,
+    PREDICTION_WINNER_REWARD: 0,
+    PREDICTION_TOP3_EXACT_REWARD: 0,
+    PREDICTION_TOP3_ANY_ORDER_REWARD: 0,
   }),
   updatePointSettings: vi.fn(),
 }));
@@ -43,8 +46,20 @@ vi.mock("./api/racingApi", () => ({
   createOwnerTournamentRegistration: vi.fn(),
 
   getAdminJockeyPoolApplications: vi.fn().mockResolvedValue([]),
-  getAdminHorses: vi.fn(),
-  getAdminTournamentRegistrations: vi.fn(),
+  getAdminHorses: vi.fn().mockResolvedValue({
+    content: [],
+    number: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 1,
+  }),
+  getAdminTournamentRegistrations: vi.fn().mockResolvedValue({
+    content: [],
+    number: 0,
+    size: 10,
+    totalElements: 0,
+    totalPages: 1,
+  }),
   getJockeyChampionships: vi.fn().mockResolvedValue([]),
   getJockeyPoolApplications: vi.fn().mockResolvedValue([]),
 
@@ -187,9 +202,8 @@ describe("App", () => {
   });
 
 
-  it("renders authenticated client header links and logs out", () => {
+  it("renders Member UI layout for SPECTATOR role", async () => {
     setClientSession(createTokenWithRoles(["SPECTATOR"]), "Nguyen Van A", "member@example.com");
-
 
     render(<App />);
 
@@ -292,7 +306,7 @@ describe("App", () => {
   });
 
 
-  it("keeps an expired access token session visible so refresh can recover it", () => {
+  it("keeps an expired access token session visible so refresh can recover it", async () => {
     setClientSession(createTokenWithRoles(["SPECTATOR"], 1), "Nguyen Van A", "member@example.com");
 
 

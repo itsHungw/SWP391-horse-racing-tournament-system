@@ -27,6 +27,8 @@ describe("ProfilePage", () => {
 
   it("shows profile readiness and the application path", async () => {
     vi.mocked(profileApi.getMyProfile).mockResolvedValue({
+      email: "test@example.com",
+      roles: ["SPECTATOR"],
       fullName: "Nguyen Van A",
       phone: "0901234567",
       gender: "MALE",
@@ -53,6 +55,8 @@ describe("ProfilePage", () => {
 
   it("updates profile information with clean form feedback", async () => {
     vi.mocked(profileApi.getMyProfile).mockResolvedValue({
+      email: "test@example.com",
+      roles: [],
       fullName: "",
       phone: "",
       gender: "",
@@ -64,6 +68,8 @@ describe("ProfilePage", () => {
       ageVerified: false,
     });
     vi.mocked(profileApi.updateMyProfile).mockResolvedValue({
+      email: "test@example.com",
+      roles: [],
       fullName: "Nguyen Van B",
       phone: "0901234567",
       gender: "FEMALE",
@@ -89,7 +95,7 @@ describe("ProfilePage", () => {
     fireEvent.change(screen.getByLabelText(/date of birth/i), {
       target: { value: "1999-06-15" },
     });
-    fireEvent.change(screen.getByLabelText(/address/i), {
+    fireEvent.change(screen.getByLabelText(/^address$/i), {
       target: { value: "District 3, Ho Chi Minh City" },
     });
     fireEvent.click(screen.getByRole("button", { name: /save profile/i }));

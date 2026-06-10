@@ -30,6 +30,7 @@ const mockRaces = [
 ];
 
 const mockProfile = {
+  email: "referee@equine.com",
   fullName: "Julian Sterling",
   phone: "0909123456",
   gender: "MALE",
