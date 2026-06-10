@@ -80,8 +80,11 @@ class AdminPointSettingsIntegrationTest {
                 .andExpect(jsonPath("$.FIRST_LOGIN_BONUS").value(0))
                 .andExpect(jsonPath("$.BLOG_REWARD_POINTS").value(0))
                 .andExpect(jsonPath("$.DAILY_BLOG_REWARD_LIMIT").value(0))
-                .andExpect(jsonPath("$.PREDICTION_ENTRY_COST").value(0))
-                .andExpect(jsonPath("$.PREDICTION_CORRECT_REWARD").value(0));
+                .andExpect(jsonPath("$.PREDICTION_WINNER_ENTRY_COST").value(0))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_ENTRY_COST").value(0))
+                .andExpect(jsonPath("$.PREDICTION_WINNER_REWARD").value(0))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_EXACT_REWARD").value(0))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_ANY_ORDER_REWARD").value(0));
     }
 
     @Test
@@ -94,22 +97,31 @@ class AdminPointSettingsIntegrationTest {
                                   "FIRST_LOGIN_BONUS": 1,
                                   "BLOG_REWARD_POINTS": 2,
                                   "DAILY_BLOG_REWARD_LIMIT": 3,
-                                  "PREDICTION_ENTRY_COST": 4,
-                                  "PREDICTION_CORRECT_REWARD": 5
+                                  "PREDICTION_WINNER_ENTRY_COST": 4,
+                                  "PREDICTION_TOP3_ENTRY_COST": 5,
+                                  "PREDICTION_WINNER_REWARD": 6,
+                                  "PREDICTION_TOP3_EXACT_REWARD": 7,
+                                  "PREDICTION_TOP3_ANY_ORDER_REWARD": 8
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.FIRST_LOGIN_BONUS").value(1))
                 .andExpect(jsonPath("$.BLOG_REWARD_POINTS").value(2))
                 .andExpect(jsonPath("$.DAILY_BLOG_REWARD_LIMIT").value(3))
-                .andExpect(jsonPath("$.PREDICTION_ENTRY_COST").value(4))
-                .andExpect(jsonPath("$.PREDICTION_CORRECT_REWARD").value(5));
+                .andExpect(jsonPath("$.PREDICTION_WINNER_ENTRY_COST").value(4))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_ENTRY_COST").value(5))
+                .andExpect(jsonPath("$.PREDICTION_WINNER_REWARD").value(6))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_EXACT_REWARD").value(7))
+                .andExpect(jsonPath("$.PREDICTION_TOP3_ANY_ORDER_REWARD").value(8));
 
         assertSettingValue(PointSettingKey.FIRST_LOGIN_BONUS, 1);
         assertSettingValue(PointSettingKey.BLOG_REWARD_POINTS, 2);
         assertSettingValue(PointSettingKey.DAILY_BLOG_REWARD_LIMIT, 3);
-        assertSettingValue(PointSettingKey.PREDICTION_ENTRY_COST, 4);
-        assertSettingValue(PointSettingKey.PREDICTION_CORRECT_REWARD, 5);
+        assertSettingValue(PointSettingKey.PREDICTION_WINNER_ENTRY_COST, 4);
+        assertSettingValue(PointSettingKey.PREDICTION_TOP3_ENTRY_COST, 5);
+        assertSettingValue(PointSettingKey.PREDICTION_WINNER_REWARD, 6);
+        assertSettingValue(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD, 7);
+        assertSettingValue(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD, 8);
     }
 
     @Test
@@ -122,8 +134,11 @@ class AdminPointSettingsIntegrationTest {
                                   "FIRST_LOGIN_BONUS": -1,
                                   "BLOG_REWARD_POINTS": 0,
                                   "DAILY_BLOG_REWARD_LIMIT": 0,
-                                  "PREDICTION_ENTRY_COST": 0,
-                                  "PREDICTION_CORRECT_REWARD": 0
+                                  "PREDICTION_WINNER_ENTRY_COST": 0,
+                                  "PREDICTION_TOP3_ENTRY_COST": 0,
+                                  "PREDICTION_WINNER_REWARD": 0,
+                                  "PREDICTION_TOP3_EXACT_REWARD": 0,
+                                  "PREDICTION_TOP3_ANY_ORDER_REWARD": 0
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
