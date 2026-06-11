@@ -15,3 +15,10 @@ output/
 .superpowers/
 backend/uploads/
 /pptx
+
+# Secrets / local env — never commit. Keep .env.example as the template.
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml

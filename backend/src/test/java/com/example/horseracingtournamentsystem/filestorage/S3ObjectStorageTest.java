@@ -95,7 +95,7 @@ class S3ObjectStorageTest {
         return new S3ObjectStorage(
                 s3Client,
                 s3Presigner,
-                new S3Properties("test-private-bucket", "ap-southeast-1", Duration.ofMinutes(5))
+                new S3Properties("test-private-bucket", "ap-southeast-1", Duration.ofMinutes(5), null, null, null)
         );
     }
 }
