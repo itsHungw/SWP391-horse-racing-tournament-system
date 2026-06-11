@@ -2,11 +2,13 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ReactNode } from "react";
 
 import { AppLayout } from "../layouts/AppLayout";
-import { RoleDashboardPage } from "../pages/RoleDashboardPage";
 import { HomePage } from "../pages/public/HomePage";
 import { JoinUsPage } from "../pages/public/JoinUsPage";
 import { SpectatorBlogListPage } from "../pages/public/SpectatorBlogListPage";
 import { SpectatorBlogDetailPage } from "../pages/public/SpectatorBlogDetailPage";
+import { ChampionshipsPage } from "../pages/public/ChampionshipsPage";
+import { RacesPage } from "../pages/public/RacesPage";
+import { LeaderboardPage } from "../pages/public/LeaderboardPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
@@ -80,6 +82,9 @@ export function AppRouter() {
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
         <Route path="join-us" element={<JoinUsPage />} />
+        <Route path="championships" element={<ChampionshipsPage />} />
+        <Route path="races" element={<RacesPage />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="blogs" element={<SpectatorBlogListPage />} />
         <Route path="blogs/:slug" element={<SpectatorBlogDetailPage />} />
         
@@ -92,9 +97,6 @@ export function AppRouter() {
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
 
-
-<Route path="spectator" element={<Navigate to="/spectator/dashboard" replace />} />
-<Route path="spectator/dashboard" element={<RoleDashboardPage role="Spectator" />} />
 
 <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
 <Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />

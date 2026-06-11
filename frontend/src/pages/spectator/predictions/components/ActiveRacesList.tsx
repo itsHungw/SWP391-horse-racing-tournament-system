@@ -16,38 +16,28 @@ function CountdownText({ targetDate }: { targetDate: string }) {
       const now = new Date().getTime();
       const target = new Date(targetDate).getTime();
       const diff = target - now;
-
       if (diff <= 0) {
         setTimeLeft("Closed");
         return;
       }
-
       const hours = Math.floor(diff / (1000 * 60 * 60));
       const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      
-      if (hours > 0) {
-        setTimeLeft(`Closes in ${hours}h ${minutes}m`);
-      } else {
-        setTimeLeft(`Closes in ${minutes}m`);
-      }
+      setTimeLeft(hours > 0 ? `Closes in ${hours}h ${minutes}m` : `Closes in ${minutes}m`);
     }
-
     updateCountdown();
     const interval = setInterval(updateCountdown, 60000);
     return () => clearInterval(interval);
   }, [targetDate]);
 
-  return <span className="font-bold text-amber-700">{timeLeft}</span>;
+  return <span className="font-data font-semibold text-gold-300">{timeLeft}</span>;
 }
 
 export function ActiveRacesList({ races, selectedRace, onSelectRace }: ActiveRacesListProps) {
   return (
     <div className="space-y-4">
-      <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b] mb-4">
-        Open Races
-      </h2>
+      <h2 className="eyebrow text-emerald-soft">Open Races</h2>
       {races.length === 0 ? (
-        <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-slate-500 font-bold">
+        <div className="rounded-2xl border border-white/8 bg-turf-900 p-8 text-center text-sm font-semibold text-ivory-dim">
           There are currently no races open for prediction.
         </div>
       ) : (
@@ -58,47 +48,45 @@ export function ActiveRacesList({ races, selectedRace, onSelectRace }: ActiveRac
             <button
               key={race.raceId}
               onClick={() => onSelectRace(race)}
-              className={`w-full text-left rounded-lg border p-5 transition shadow-sm bg-white cursor-pointer ${
-                isSelected 
-                  ? "border-[#006d5b] ring-2 ring-[#006d5b]/10" 
-                  : "border-slate-200 hover:border-slate-300"
+              className={`w-full cursor-pointer rounded-2xl border p-5 text-left transition-all duration-300 ${
+                isSelected
+                  ? "border-gold-400/60 bg-gradient-to-b from-turf-800 to-turf-950 shadow-[0_24px_60px_-30px_rgba(212,175,55,0.4)]"
+                  : "border-white/8 bg-turf-900 hover:border-white/20"
               }`}
             >
-              <div className="flex justify-between items-start">
-                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider">
+              <div className="flex items-start justify-between gap-2">
+                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 font-data text-[10px] uppercase tracking-[0.16em] text-ivory-dim">
                   {race.roundName || "Qualifiers"}
                 </span>
                 {userPredicted && (
-                  <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-black text-[10px] uppercase tracking-wider">
+                  <span className="rounded-full border border-emerald-glow/40 bg-emerald-glow/10 px-2.5 py-0.5 font-data text-[10px] uppercase tracking-[0.16em] text-emerald-soft">
                     Submitted
                   </span>
                 )}
               </div>
-              
-              <h3 className="mt-3 text-lg font-black text-slate-950">{race.raceName}</h3>
-              <p className="text-xs font-bold text-slate-500 uppercase mt-0.5">
+
+              <h3 className="mt-3 font-display text-xl font-medium tracking-tight text-ivory">{race.raceName}</h3>
+              <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-ivory-faint">
                 {race.tournamentName}
               </p>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs font-bold text-slate-600">
+              <div className="mt-5 grid grid-cols-2 gap-3 border-t border-white/8 pt-4 text-xs font-semibold text-ivory-dim">
                 <p className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 opacity-60" />
-                  {new Date(race.raceAt).toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit"
-                  })} · {new Date(race.raceAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric"
-                  })}
+                  <Calendar className="h-3.5 w-3.5 text-gold-400/70" />
+                  {new Date(race.raceAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })} ·{" "}
+                  {new Date(race.raceAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </p>
-                <p className="flex items-center gap-1.5 text-right justify-end">
-                  <Users className="h-3.5 w-3.5 opacity-60" />
+                <p className="flex items-center justify-end gap-1.5 text-right">
+                  <Users className="h-3.5 w-3.5 text-gold-400/70" />
                   {race.totalPredictions} predictions
                 </p>
               </div>
-              
-              <div className="mt-3 bg-amber-50 border border-amber-200 rounded px-3 py-1.5 text-[11px] flex justify-between items-center">
-                <span className="font-black text-amber-800 uppercase tracking-wide">Prediction Open</span>
+
+              <div className="mt-4 flex items-center justify-between rounded-lg border border-gold-600/25 bg-gold-400/5 px-3 py-1.5 text-[11px]">
+                <span className="flex items-center gap-1.5 font-data uppercase tracking-[0.14em] text-gold-300">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-soft live-pulse" />
+                  Prediction Open
+                </span>
                 <CountdownText targetDate={race.raceAt} />
               </div>
             </button>

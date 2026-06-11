@@ -113,65 +113,49 @@ describe("App", () => {
     vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(emptyBlogPage);
   });
 
-  it("renders the Aqueduct public home page foundation", async () => {
+  it("renders the cinematic public home page foundation", async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
     });
 
-    expect(
-      screen.getByRole("banner", { name: /client site header/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
     expect(
-      screen.getByRole("heading", { name: /aqueduct racetrack/i }),
+      screen.getByRole("heading", { name: /night at the/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /log in/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^log in$/i })).toHaveAttribute(
       "href",
       "/login",
     );
-    expect(screen.getByRole("link", { name: /^sign up$/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^join now$/i })).toHaveAttribute(
       "href",
       "/register",
     );
     expect(screen.queryByRole("link", { name: /^dashboard$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^profile$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^logout$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /view tournaments/i })).toHaveAttribute(
+    expect(within(primaryNav).getByRole("link", { name: /^championships$/i })).toHaveAttribute(
       "href",
-      "#tournaments",
-    );
-    expect(screen.getAllByRole("link", { name: /^join us/i })[0]).toHaveAttribute(
-      "href",
-      "/join-us",
-    );
-    expect(screen.getByText(/live racing in nyc/i)).toBeInTheDocument();
-    expect(screen.getByText(/visit aqueduct/i)).toBeInTheDocument();
-    expect(screen.getByText(/watch on fox sports/i)).toBeInTheDocument();
-    expect(within(primaryNav).getByRole("link", { name: /^tournaments$/i })).toHaveAttribute(
-      "href",
-      "#tournaments",
+      "/championships",
     );
     expect(within(primaryNav).getByRole("link", { name: /^races$/i })).toHaveAttribute(
       "href",
-      "#races",
+      "/races",
     );
     expect(within(primaryNav).getByRole("link", { name: /^predictions$/i })).toHaveAttribute(
       "href",
-      "#predictions",
+      "/spectator/predictions",
     );
-    expect(within(primaryNav).getByRole("link", { name: /^blog$/i })).toHaveAttribute(
+    expect(within(primaryNav).getByRole("link", { name: /^newsroom$/i })).toHaveAttribute(
       "href",
       "/blogs",
     );
     expect(within(primaryNav).getByRole("link", { name: /^leaderboard$/i })).toHaveAttribute(
       "href",
-      "#leaderboard",
+      "/leaderboard",
     );
-    expect(
-      within(primaryNav).queryByRole("link", { name: /^role request$/i }),
-    ).not.toBeInTheDocument();
     expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
       "href",
       "/join-us",
@@ -183,17 +167,13 @@ describe("App", () => {
       within(primaryNav).queryByRole("link", { name: /^dashboard$/i }),
     ).not.toBeInTheDocument();
     expect(
-      within(primaryNav).queryByRole("link", { name: /^profile$/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /latest tournament blog/i }),
+      screen.getByRole("heading", { name: /from the championship desk/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /2026 preakness preview/i }),
+      screen.getByRole("heading", { name: /read the race/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /follow us/i })).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /sign up for free points/i }),
+      screen.getByRole("heading", { name: /join the/i }),
     ).toBeInTheDocument();
     expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
       "href",
@@ -202,7 +182,7 @@ describe("App", () => {
   });
 
 
-  it("renders Member UI layout for SPECTATOR role", async () => {
+  it("renders authenticated client header links and logs out", async () => {
     setClientSession(createTokenWithRoles(["SPECTATOR"]), "Nguyen Van A", "member@example.com");
 
     render(<App />);
@@ -223,25 +203,14 @@ describe("App", () => {
     );
     expect(screen.getByRole("button", { name: /^logout$/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /^log in$/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /^sign up$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^join now$/i })).not.toBeInTheDocument();
     expect(within(primaryNav).getByRole("link", { name: /^join us$/i })).toHaveAttribute(
       "href",
       "/join-us",
     );
     expect(
-      screen.getByRole("heading", { name: /latest tournament blog/i }),
+      screen.getByRole("heading", { name: /from the championship desk/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /2026 preakness preview/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /follow us/i })).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /sign up for free points/i }),
-    ).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /create account/i })[0]).toHaveAttribute(
-      "href",
-      "/register",
-    );
 
     fireEvent.click(screen.getByRole("button", { name: /^logout$/i }));
 
@@ -262,12 +231,12 @@ describe("App", () => {
     expect(document.querySelectorAll("main")).toHaveLength(1);
   });
 
-  it("renders the Join Us hiring page with application path", () => {
+  it("renders the Join Us paddock page with application path", () => {
     window.history.pushState({}, "", "/join-us");
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /we are hiring/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /join the/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^jockey$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^owner$/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /^referee$/i })).toBeInTheDocument();

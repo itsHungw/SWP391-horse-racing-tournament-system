@@ -62,7 +62,7 @@ describe("public blog pages", () => {
 
     expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /more blog posts/i })).toHaveAttribute("href", "/blogs");
+    expect(screen.getByRole("link", { name: /all stories/i })).toHaveAttribute("href", "/blogs");
     expect(screen.getByRole("link", { name: /read derby weekend track notes/i })).toHaveAttribute(
       "href",
       `/blogs/${blog.slug}`,
@@ -78,15 +78,14 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("banner", { name: /client site header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /read derby weekend track notes/i })).toHaveAttribute(
       "href",
       `/blogs/${blog.slug}`,
     );
-    expect(screen.getByRole("link", { name: /back to home/i })).toHaveTextContent("\u2190 Back to home");
 
-    fireEvent.change(screen.getByRole("searchbox", { name: /search blog posts/i }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: /search stories/i }), {
       target: { value: "derby" },
     });
 
@@ -104,7 +103,7 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/no published blog posts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/newsroom opens with the season/i)).toBeInTheDocument();
   });
 
   it("shows an error state when the public blog list cannot load", async () => {
@@ -116,7 +115,7 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/could not load published blog posts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/could not load published stories/i)).toBeInTheDocument();
   });
 
   it("renders a published blog article by slug", async () => {
@@ -131,13 +130,13 @@ describe("public blog pages", () => {
     );
 
     expect(blogApi.getPublishedBlogBySlug).toHaveBeenCalledWith(blog.slug);
-    expect(await screen.findByRole("banner", { name: /client site header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
     expect(screen.getByText(/final track notes for spectators/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /back to blogs/i })).toHaveAttribute("href", "/blogs");
+    expect(screen.getAllByRole("link", { name: /back to newsroom/i })[0]).toHaveAttribute("href", "/blogs");
   });
 
-  it("tracks reward eligibility without rendering timer or progress values", async () => {
+  it("shows reward progress and gates the claim button until eligible", async () => {
     vi.useFakeTimers();
     vi.mocked(blogApi.getPublishedBlogBySlug).mockResolvedValue(blog);
 
@@ -154,10 +153,9 @@ describe("public blog pages", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("Read the article and scroll to unlock reward.")).toBeInTheDocument();
+    expect(screen.getByText(/reading time/i)).toBeInTheDocument();
+    expect(screen.getByText(/scroll progress/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /claim reward/i })).toBeDisabled();
-    expect(screen.queryByText(/^Time$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Scroll$/i)).not.toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
@@ -169,8 +167,6 @@ describe("public blog pages", () => {
       fireEvent.scroll(window);
     });
 
-    expect(screen.queryByText("30s")).not.toBeInTheDocument();
-    expect(screen.queryByText("100%")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /claim reward/i })).toBeEnabled();
   });
 
@@ -220,7 +216,7 @@ describe("public blog pages", () => {
       readingSeconds: 30,
       scrollPercent: 100,
     });
-    expect(screen.getByText("You earned 10 points.")).toBeInTheDocument();
+    expect(screen.getByText("You earned 10 virtual points.")).toBeInTheDocument();
   });
 
   it("shows already claimed and daily limit reward responses", async () => {

@@ -1,4 +1,4 @@
--- Blog, rewards, and point settings foundation.
+  -- Blog, rewards, and point settings foundation.
 -- Idempotent on purpose: existing development databases may already have part
 -- of this schema from manual scripts.
 

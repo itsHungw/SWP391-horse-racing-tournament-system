@@ -8,6 +8,34 @@
   --color-nyraRed: #e31837;
   --font-sans: Aptos, "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
+
+  /* ── Cinematic client theme: "Night at the Races" ─────────────── */
+  /* Deep racing turf — near-black green base scale */
+  --color-turf-950: #04140f;
+  --color-turf-900: #06201a;
+  --color-turf-850: #082821;
+  --color-turf-800: #0a3026;
+  --color-turf-700: #0e3c30;
+  --color-turf-600: #135041;
+  --color-turf-500: #1a6b56;
+  /* Emerald highlight / live glow */
+  --color-emerald-glow: #1f9d76;
+  --color-emerald-soft: #2bbd8f;
+  /* Gold leaf accent scale */
+  --color-gold-200: #f1e0a8;
+  --color-gold-300: #e8cd7e;
+  --color-gold-400: #d4af37;
+  --color-gold-500: #b8912b;
+  --color-gold-600: #8f6f1f;
+  /* Editorial ivory / bone for text on dark */
+  --color-ivory: #f5f1e6;
+  --color-ivory-dim: #cbc7b6;
+  --color-ivory-faint: #8f8c7e;
+
+  /* Distinctive type system (client-scoped via utility classes) */
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-grotesk: "Hanken Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-mono-data: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
 }
 
 @layer base {
@@ -104,5 +132,154 @@
   .race-day-row-motion {
     animation: none;
     transition: none;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Cinematic client theme utilities — "Night at the Races"
+   Scoped by usage: these classes only appear on client/public pages,
+   so admin / referee / owner / jockey workspaces stay untouched.
+   ════════════════════════════════════════════════════════════════ */
+
+.client-theme {
+  font-family: var(--font-grotesk);
+  font-feature-settings: "ss01", "cv01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Editorial display serif with optical sizing for big headings */
+.font-display {
+  font-family: var(--font-display);
+  font-optical-sizing: auto;
+}
+
+.font-grotesk {
+  font-family: var(--font-grotesk);
+}
+
+/* Timing-board mono for race numbers, stats, counts */
+.font-data {
+  font-family: var(--font-mono-data);
+  font-feature-settings: "tnum", "zero";
+  letter-spacing: -0.01em;
+}
+
+/* Eyebrow label — small uppercase tag with a gold tick */
+.eyebrow {
+  font-family: var(--font-mono-data);
+  font-size: 0.6875rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+/* Film grain overlay — cinematic texture without an image asset */
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+
+/* Gold leaf hairline — used under eyebrows and as section rules */
+.gold-rule {
+  background: linear-gradient(
+    90deg,
+    var(--color-gold-400) 0%,
+    var(--color-gold-300) 45%,
+    rgba(212, 175, 55, 0) 100%
+  );
+}
+
+/* Gold foil text — shimmering metallic numerals / accents */
+.text-foil {
+  background: linear-gradient(
+    100deg,
+    #b8912b 0%,
+    #e8cd7e 30%,
+    #f5edc6 48%,
+    #e8cd7e 64%,
+    #b8912b 100%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: foil-pan 6s linear infinite;
+}
+
+/* Cinematic radial vignette to seat content over imagery */
+.turf-vignette {
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(4, 20, 15, 0) 0%, rgba(4, 20, 15, 0.55) 55%, var(--color-turf-950) 100%),
+    linear-gradient(180deg, rgba(4, 20, 15, 0) 40%, var(--color-turf-950) 100%);
+}
+
+/* Animated track rail — thin sweeping gold line evoking a finish rail */
+.rail-sweep {
+  position: relative;
+  overflow: hidden;
+}
+
+.rail-sweep::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 38%;
+  background: linear-gradient(
+    90deg,
+    rgba(232, 205, 126, 0) 0%,
+    rgba(232, 205, 126, 0.65) 50%,
+    rgba(232, 205, 126, 0) 100%
+  );
+  transform: translateX(-120%);
+  animation: rail-run 4.5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+/* Soft emerald pulse for "live" status dots */
+.live-pulse {
+  box-shadow: 0 0 0 0 rgba(43, 189, 143, 0.6);
+  animation: live-ping 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes foil-pan {
+  to {
+    background-position: 220% 0;
+  }
+}
+
+@keyframes rail-run {
+  to {
+    transform: translateX(360%);
+  }
+}
+
+@keyframes live-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(43, 189, 143, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(43, 189, 143, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(43, 189, 143, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-foil,
+  .rail-sweep::before,
+  .live-pulse {
+    animation: none;
+  }
+  .text-foil {
+    background-position: 0 0;
   }
 }

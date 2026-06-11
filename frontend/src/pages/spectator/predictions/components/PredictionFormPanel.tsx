@@ -14,26 +14,33 @@ interface PredictionFormPanelProps {
     predictedSecondId?: number | null;
     predictedThirdId?: number | null;
   }) => Promise<void>;
-  onUpdate: (predictionId: number, payload: {
-    raceId: number;
-    predictionType: "WINNER" | "TOP3";
-    predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
-  }) => Promise<void>;
+  onUpdate: (
+    predictionId: number,
+    payload: {
+      raceId: number;
+      predictionType: "WINNER" | "TOP3";
+      predictedWinnerId: number;
+      predictedSecondId?: number | null;
+      predictedThirdId?: number | null;
+    },
+  ) => Promise<void>;
 }
+
+const selectClass =
+  "mt-2 block min-h-12 w-full rounded-lg border border-white/12 bg-turf-950 px-4 py-3 text-base font-semibold text-ivory outline-none transition-colors focus:border-emerald-glow [&>option]:bg-turf-900 [&>option]:text-ivory disabled:opacity-50";
+const labelClass = "eyebrow block text-emerald-soft";
 
 export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onUpdate }: PredictionFormPanelProps) {
   const [predType, setPredType] = useState<"WINNER" | "TOP3">("WINNER");
   const [winnerId, setWinnerId] = useState<string>("");
   const [secondId, setSecondId] = useState<string>("");
   const [thirdId, setThirdId] = useState<string>("");
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const existingPred = options?.myPredictions?.find(p => p.predictionType === predType);
+  const existingPred = options?.myPredictions?.find((p) => p.predictionType === predType);
   const predictionOpen = options?.predictionOpen ?? false;
 
   useEffect(() => {
@@ -51,8 +58,8 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
 
   if (!race || !options) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-12 text-center text-slate-500 font-bold h-full flex flex-col justify-center items-center">
-        <ShieldAlert className="h-12 w-12 text-slate-300 mb-4" />
+      <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-white/8 bg-turf-900 p-12 text-center text-sm font-semibold text-ivory-dim">
+        <ShieldAlert className="mb-4 h-12 w-12 text-ivory-faint/50" />
         Select a race on the left to start predicting.
       </div>
     );
@@ -60,10 +67,10 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
 
   const cost = predType === "WINNER" ? options.entryCost.winner : options.entryCost.top3;
   const pointsSufficient = pointBalance >= cost;
-  
+
   const getHorseNameById = (idStr: string) => {
-    const opt = options.options.find(o => o.raceParticipantId.toString() === idStr);
-    return opt ? `#${opt.startNumber} {${opt.horseName}} (${opt.jockeyName})` : "";
+    const opt = options.options.find((o) => o.raceParticipantId.toString() === idStr);
+    return opt ? `#${opt.startNumber} ${opt.horseName} (${opt.jockeyName})` : "";
   };
 
   const handleValidateSubmit = (e: React.FormEvent) => {
@@ -74,7 +81,6 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
       setFormError("Please select a horse for 1st place.");
       return;
     }
-
     if (predType === "TOP3") {
       if (!secondId || !thirdId) {
         setFormError("Please select horses for all 3 places.");
@@ -85,12 +91,10 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         return;
       }
     }
-
     if (!existingPred && !pointsSufficient) {
       setFormError(`Insufficient point balance. You need ${cost - pointBalance} more points.`);
       return;
     }
-
     setShowConfirm(true);
   };
 
@@ -104,7 +108,6 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         predictedSecondId: predType === "TOP3" ? Number(secondId) : null,
         predictedThirdId: predType === "TOP3" ? Number(thirdId) : null,
       };
-
       if (existingPred) {
         await onUpdate(existingPred.id, payload);
       } else {
@@ -121,19 +124,16 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
   const showCommunity = predType === "WINNER" ? options.winnerDistributionVisible : options.top3DistributionVisible;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm relative">
-      <h2 className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b] mb-4">
-        Prediction Details: {race.raceName}
-      </h2>
+    <div className="relative rounded-2xl border border-white/8 bg-turf-900 p-6 md:p-7">
+      <h2 className="eyebrow text-emerald-soft">Prediction · {race.raceName}</h2>
 
-      <div className="grid grid-cols-2 gap-3 mb-6 bg-slate-50 p-1.5 rounded-lg">
+      {/* Type toggle */}
+      <div className="mt-5 mb-6 grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-turf-950 p-1.5">
         <button
           type="button"
           onClick={() => setPredType("WINNER")}
-          className={`py-3 text-center text-sm font-black rounded-md transition cursor-pointer ${
-            predType === "WINNER"
-              ? "bg-white text-slate-950 shadow-sm"
-              : "text-slate-600 hover:text-slate-950"
+          className={`cursor-pointer rounded-lg py-3 text-center text-sm font-bold transition-colors ${
+            predType === "WINNER" ? "bg-emerald-glow text-turf-950" : "text-ivory-dim hover:text-ivory"
           }`}
         >
           Winner Pick ({options.entryCost.winner} pts)
@@ -141,44 +141,45 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         <button
           type="button"
           onClick={() => setPredType("TOP3")}
-          className={`py-3 text-center text-sm font-black rounded-md transition cursor-pointer ${
-            predType === "TOP3"
-              ? "bg-white text-slate-950 shadow-sm"
-              : "text-slate-600 hover:text-slate-950"
+          className={`cursor-pointer rounded-lg py-3 text-center text-sm font-bold transition-colors ${
+            predType === "TOP3" ? "bg-emerald-glow text-turf-950" : "text-ivory-dim hover:text-ivory"
           }`}
         >
           Top 3 Pick ({options.entryCost.top3} pts)
         </button>
       </div>
 
-      <div className="mb-6 rounded-md bg-[#f3f6f4] border border-slate-200 px-4 py-3 text-xs font-bold text-slate-700">
+      {/* Reward explainer */}
+      <div className="mb-6 rounded-xl border border-gold-600/25 bg-gold-400/5 px-4 py-3 text-xs font-semibold leading-relaxed text-ivory-dim">
         {predType === "WINNER" ? (
           <p>
-            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +{options.rewardConfig.winnerReward} points if your chosen horse finishes 1st.
+            <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +{options.rewardConfig.winnerReward} points if your chosen horse finishes 1st.
           </p>
         ) : (
           <p className="leading-relaxed">
-            <span className="font-black text-[#006d5b] uppercase">Potential Payout:</span> Reward +{options.rewardConfig.top3ExactReward} points for matching the exact order (1st, 2nd, 3rd) · Reward +{options.rewardConfig.top3AnyOrderReward} points if all three horses finish in the Top 3 in a different order.
+            <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +{options.rewardConfig.top3ExactReward} points for matching the exact order (1st, 2nd, 3rd) · +{options.rewardConfig.top3AnyOrderReward} points if all three horses finish in the Top 3 in any order.
           </p>
         )}
       </div>
 
       {!predictionOpen && (
-        <div className="mb-6 rounded-md bg-rose-50 border border-rose-200 p-4 text-xs font-bold text-rose-800 flex items-start gap-2.5">
-          <AlertCircle className="h-5 w-5 shrink-0 text-rose-600" />
+        <div className="mb-6 flex items-start gap-2.5 rounded-xl border border-gold-600/30 bg-gold-400/5 p-4 text-xs font-semibold text-gold-200">
+          <AlertCircle className="h-5 w-5 shrink-0 text-gold-300" />
           <div>
-            <p className="font-black uppercase tracking-wide">Predictions Locked</p>
-            <p className="mt-0.5 leading-relaxed">Predictions are closed as paddock checks have started or the race has finished.</p>
+            <p className="font-data uppercase tracking-[0.14em] text-gold-300">Predictions Locked</p>
+            <p className="mt-0.5 leading-relaxed text-ivory-dim">
+              Predictions are closed — paddock checks have started or the race has finished.
+            </p>
           </div>
         </div>
       )}
 
       {formError && (
-        <div className="mb-6 rounded-md bg-rose-50 border border-rose-200 p-4 text-xs font-bold text-rose-800">
+        <div className="mb-6 rounded-xl border border-nyraRed/40 bg-rose-500/10 p-4 text-xs font-semibold text-rose-300">
           {formError}
           {!pointsSufficient && !existingPred && (
-            <a href="/blogs" className="mt-2 block text-xs font-black text-[#006d5b] underline">
-              Read articles to earn points
+            <a href="/blogs" className="mt-2 block font-bold text-emerald-soft underline">
+              Read stories to earn points
             </a>
           )}
         </div>
@@ -186,17 +187,11 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
 
       <form onSubmit={handleValidateSubmit} className="space-y-6">
         <div>
-          <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="winner">
+          <label className={labelClass} htmlFor="winner">
             {predType === "WINNER" ? "Select Winning Horse" : "1st Place (Winner)"}
           </label>
-          <select
-            id="winner"
-            disabled={!predictionOpen}
-            className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none focus:border-[#006d5b]"
-            value={winnerId}
-            onChange={(e) => setWinnerId(e.target.value)}
-          >
-            <option value="">Select horse...</option>
+          <select id="winner" disabled={!predictionOpen} className={selectClass} value={winnerId} onChange={(e) => setWinnerId(e.target.value)}>
+            <option value="">Select horse…</option>
             {options.options.map((opt) => (
               <option key={opt.raceParticipantId} value={opt.raceParticipantId}>
                 #{opt.startNumber} {opt.horseName} ({opt.jockeyName})
@@ -208,17 +203,11 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         {predType === "TOP3" && (
           <div className="grid gap-6 sm:grid-cols-2">
             <div>
-              <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="second">
-                2nd Place (Second)
+              <label className={labelClass} htmlFor="second">
+                2nd Place
               </label>
-              <select
-                id="second"
-                disabled={!predictionOpen}
-                className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none focus:border-[#006d5b]"
-                value={secondId}
-                onChange={(e) => setSecondId(e.target.value)}
-              >
-                <option value="">Select horse...</option>
+              <select id="second" disabled={!predictionOpen} className={selectClass} value={secondId} onChange={(e) => setSecondId(e.target.value)}>
+                <option value="">Select horse…</option>
                 {options.options.map((opt) => (
                   <option key={opt.raceParticipantId} value={opt.raceParticipantId}>
                     #{opt.startNumber} {opt.horseName} ({opt.jockeyName})
@@ -227,17 +216,11 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
               </select>
             </div>
             <div>
-              <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="third">
-                3rd Place (Third)
+              <label className={labelClass} htmlFor="third">
+                3rd Place
               </label>
-              <select
-                id="third"
-                disabled={!predictionOpen}
-                className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none focus:border-[#006d5b]"
-                value={thirdId}
-                onChange={(e) => setThirdId(e.target.value)}
-              >
-                <option value="">Select horse...</option>
+              <select id="third" disabled={!predictionOpen} className={selectClass} value={thirdId} onChange={(e) => setThirdId(e.target.value)}>
+                <option value="">Select horse…</option>
                 {options.options.map((opt) => (
                   <option key={opt.raceParticipantId} value={opt.raceParticipantId}>
                     #{opt.startNumber} {opt.horseName} ({opt.jockeyName})
@@ -249,20 +232,20 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         )}
 
         {predictionOpen && (
-          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-xs font-bold text-slate-700 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-xl border border-white/8 bg-turf-950 p-4 text-xs font-semibold text-ivory-dim">
             <div className="flex justify-between">
-              <span>Entry cost:</span>
-              <span className="font-black text-slate-950">{cost} points</span>
+              <span>Entry cost</span>
+              <span className="font-data text-ivory">{cost} points</span>
             </div>
             {!existingPred && (
-              <div className="flex justify-between border-t border-slate-200 pt-2 text-emerald-800">
-                <span>Estimated balance after submission:</span>
-                <span className="font-black">{pointBalance - cost} points</span>
+              <div className="flex justify-between border-t border-white/8 pt-2 text-emerald-soft">
+                <span>Estimated balance after</span>
+                <span className="font-data">{pointBalance - cost} points</span>
               </div>
             )}
             {existingPred && (
-              <p className="text-emerald-700 font-bold mt-1 text-[11px]">
-                * This prediction was already submitted. Editing your selections does not cost extra points.
+              <p className="mt-1 text-[11px] font-semibold text-emerald-soft">
+                * Already submitted. Editing your selections costs no extra points.
               </p>
             )}
           </div>
@@ -271,54 +254,52 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
         {predictionOpen && (
           <button
             type="submit"
-            className="w-full inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#006d5b] px-8 py-4 text-sm font-black text-white hover:bg-[#004d3d] transition disabled:opacity-60 shadow-md cursor-pointer"
+            className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-emerald-glow px-8 py-4 text-sm font-bold uppercase tracking-[0.12em] text-turf-950 shadow-[0_16px_40px_-16px_rgba(31,157,118,0.8)] transition-colors hover:bg-emerald-soft disabled:opacity-60"
           >
-            {existingPred ? "Confirm Update Selection" : "Confirm Submit Prediction"}
+            {existingPred ? "Confirm Update" : "Confirm Prediction"}
           </button>
         )}
       </form>
 
-      {showCommunity && (
-        <CommunityChoices options={options.options} predictionType={predType} />
-      )}
+      {showCommunity && <CommunityChoices options={options.options} predictionType={predType} />}
 
       {showConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white border border-slate-200 rounded-lg p-6 max-w-md w-full shadow-2xl animate-auth-panel-in text-xs font-bold text-slate-700">
-            <h3 className="text-lg font-black text-slate-950 mb-4 flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5 text-[#006d5b]" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="auth-panel-motion w-full max-w-md rounded-2xl border border-white/10 bg-turf-900 p-6 text-xs font-semibold text-ivory-dim shadow-2xl">
+            <h3 className="mb-4 flex items-center gap-2 font-display text-xl font-medium text-ivory">
+              <CheckCircle2 className="h-5 w-5 text-emerald-soft" />
               Confirm Prediction
             </h3>
-            
-            <ul className="space-y-3 mb-6 bg-slate-50 p-4 border border-slate-200 rounded-md">
-              <li className="flex justify-between border-b border-slate-200 pb-2">
-                <span>Type:</span>
-                <span className="font-black text-slate-950">{predType === "WINNER" ? "Winner Pick" : "Top 3 Pick"}</span>
+
+            <ul className="mb-6 space-y-3 rounded-xl border border-white/8 bg-turf-950 p-4">
+              <li className="flex justify-between border-b border-white/8 pb-2">
+                <span>Type</span>
+                <span className="font-data uppercase text-ivory">{predType === "WINNER" ? "Winner Pick" : "Top 3 Pick"}</span>
               </li>
               <li>
-                <p className="text-slate-500 mb-1">Selected Horses:</p>
-                <p className="font-black text-slate-950 leading-relaxed">
-                  1st: {getHorseNameById(winnerId)}
+                <p className="mb-1 text-ivory-faint">Selected horses</p>
+                <p className="font-semibold leading-relaxed text-ivory">
+                  <span className="font-data text-gold-300">1st</span> {getHorseNameById(winnerId)}
                 </p>
                 {predType === "TOP3" && (
                   <>
-                    <p className="font-black text-slate-950 leading-relaxed mt-1">
-                      2nd: {getHorseNameById(secondId)}
+                    <p className="mt-1 font-semibold leading-relaxed text-ivory">
+                      <span className="font-data text-gold-300">2nd</span> {getHorseNameById(secondId)}
                     </p>
-                    <p className="font-black text-slate-950 leading-relaxed mt-1">
-                      3rd: {getHorseNameById(thirdId)}
+                    <p className="mt-1 font-semibold leading-relaxed text-ivory">
+                      <span className="font-data text-gold-300">3rd</span> {getHorseNameById(thirdId)}
                     </p>
                   </>
                 )}
               </li>
-              <li className="flex justify-between border-t border-slate-200 pt-2">
-                <span>Entry Cost:</span>
-                <span className="font-black text-slate-950">{existingPred ? "0" : cost} points</span>
+              <li className="flex justify-between border-t border-white/8 pt-2">
+                <span>Entry cost</span>
+                <span className="font-data text-ivory">{existingPred ? "0" : cost} points</span>
               </li>
               {!existingPred && (
-                <li className="flex justify-between text-emerald-800">
-                  <span>Balance after submission:</span>
-                  <span className="font-black">{pointBalance - cost} points</span>
+                <li className="flex justify-between text-emerald-soft">
+                  <span>Balance after</span>
+                  <span className="font-data">{pointBalance - cost} points</span>
                 </li>
               )}
             </ul>
@@ -327,7 +308,7 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
               <button
                 type="button"
                 onClick={() => setShowConfirm(false)}
-                className="flex-1 min-h-12 border border-slate-300 rounded-md hover:bg-slate-50 font-black cursor-pointer"
+                className="min-h-12 flex-1 cursor-pointer rounded-lg border border-white/15 font-bold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-white/5"
               >
                 Cancel
               </button>
@@ -335,9 +316,9 @@ export function PredictionFormPanel({ race, options, pointBalance, onSubmit, onU
                 type="button"
                 disabled={isSubmitting}
                 onClick={handleConfirmSubmit}
-                className="flex-1 min-h-12 bg-[#006d5b] text-white hover:bg-[#004d3d] rounded-md font-black cursor-pointer disabled:opacity-50"
+                className="min-h-12 flex-1 cursor-pointer rounded-lg bg-emerald-glow font-bold uppercase tracking-[0.12em] text-turf-950 transition-colors hover:bg-emerald-soft disabled:opacity-50"
               >
-                {isSubmitting ? "Processing..." : "Confirm"}
+                {isSubmitting ? "Processing…" : "Confirm"}
               </button>
             </div>
           </div>
