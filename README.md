@@ -40,8 +40,24 @@ npm run dev
 
 - MinIO S3 API: `http://localhost:9000` — console: `http://localhost:9001`
   (user/pass from `.env`, default `minioadmin` / `minioadmin`).
-- SQL Server: `localhost:1433` (sa / `DB_SA_PASSWORD` from `.env`).
+- SQL Server: `localhost:14330` (sa / `DB_SA_PASSWORD` from `.env`). Host port
+  14330 is used so the container does not clash with a locally installed SQL
+  Server on 1433.
 - `.env` is gitignored — never commit real secrets. Keep `.env.example` current.
+- Dev admin (dev profile only, seeded on first boot): `admin@local.dev` /
+  `Admin@12345`.
+
+### Database schema
+
+The schema is owned solely by the Flyway baseline
+`backend/src/main/resources/db/migration/V1__baseline.sql` (generated from the
+JPA entities). There is no `schema.sql` or `database/` script anymore — Flyway
+builds the database on first boot.
+
+> **One-time wipe after pulling the schema consolidation:** the migration history
+> changed, so run `docker compose down -v` once to drop your old local database,
+> then `docker compose up -d` and start the backend so Flyway applies the new
+> baseline to an empty database.
 
 ## Tests
 

@@ -11,7 +11,7 @@ The documentation follows the source structure in `backend/src` and `frontend/sr
 
 - Backend: Spring Boot 4, Java 21, Spring Web, Spring Data JPA, Spring Security, Flyway, SQL Server.
 - Frontend: React 19, Vite 6, TypeScript, React Router 7, Axios, Tailwind CSS 4.
-- Database: SQL Server DDL in `backend/src/main/resources/schema.sql`, Flyway migrations in `backend/src/main/resources/db/migration`, legacy scripts in `database/`.
+- Database: schema is owned solely by the Flyway baseline in `backend/src/main/resources/db/migration/V1__baseline.sql` (SQL Server), generated from the JPA entities.
 - Tests: backend integration/unit tests under `backend/src/test`, frontend Vitest tests under `frontend/src`.
 
 ## Reading Path For Project Report

@@ -17,9 +17,6 @@ spring:
     enabled: ${APP_FLYWAY_ENABLED:true}
     baseline-on-migrate: ${APP_FLYWAY_BASELINE_ON_MIGRATE:true}
     locations: classpath:db/migration
-  # sql:
-  #   init:
-  #     mode: always
   servlet:
     multipart:
       max-file-size: 10MB
