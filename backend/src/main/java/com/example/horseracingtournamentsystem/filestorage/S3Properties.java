@@ -7,6 +7,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record S3Properties(
         String bucketName,
         String region,
-        Duration presignedUrlTtl
+        Duration presignedUrlTtl,
+        String endpoint,
+        String accessKey,
+        String secretKey
 ) {
+    public boolean hasCustomEndpoint() {
+        return endpoint != null && !endpoint.isBlank();
+    }
+
+    public boolean hasStaticCredentials() {
+        return accessKey != null && !accessKey.isBlank()
+                && secretKey != null && !secretKey.isBlank();
+    }
 }

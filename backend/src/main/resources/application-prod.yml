@@ -2,3 +2,13 @@ app:
   auth:
     refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:true}
     refresh-cookie-same-site: Strict
+
+# Production uses the real AWS S3 endpoint and the instance IAM role:
+# - AWS_S3_BUCKET is required (no default in application.yml -> fail fast).
+# - endpoint / access-key / secret-key stay blank so the AWS SDK resolves the
+#   real endpoint and DefaultCredentialsProvider (IAM role) is used.
+aws:
+  s3:
+    endpoint:
+    access-key:
+    secret-key:
