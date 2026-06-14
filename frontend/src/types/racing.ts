@@ -91,6 +91,27 @@ export type Tournament = {
   status: string;
 };
 
+export type TournamentSummary = {
+  id: number;
+  name: string;
+  code?: string;
+  description?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  registrationEndAt?: string;
+  maxHorses?: number;
+  status: string;
+  raceCount: number;
+  participantCount: number;
+  nextRace?: {
+    id: number;
+    name: string;
+    raceDateTime: string;
+    status: string;
+  } | null;
+};
+
 export type RaceStatus =
   | "SCHEDULED"
   | "CHECKING"
@@ -117,6 +138,51 @@ export type Race = {
   creatorName?: string;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type RaceSummary = {
+  id: number;
+  name: string;
+  roundName?: string | null;
+  code: string;
+  tournamentId: number;
+  tournamentName: string;
+  raceDateTime: string;
+  location?: string;
+  distanceMeters: number;
+  maxParticipants: number;
+  participantCount: number;
+  status: RaceStatus | string;
+  predictionOpen: boolean;
+  predictionCloseTime: string;
+  resultOfficial: boolean;
+  winner?: {
+    horseName: string;
+    jockeyName?: string | null;
+    finishTimeSeconds?: number | null;
+  } | null;
+};
+
+export type PublicRaceResult = {
+  raceId: number;
+  official: boolean;
+  publishedAt?: string | null;
+  entries: Array<{
+    position?: number | null;
+    horseName: string;
+    jockeyName?: string | null;
+    finishTimeSeconds?: number | null;
+    penaltySeconds?: number | null;
+    points: number;
+    resultStatus: string;
+  }>;
+};
+
+export type PublicRacingSummary = {
+  raceCount: number;
+  raceDayCount: number;
+  championshipCount: number;
+  seasonFinale?: string | null;
 };
 
 export type RacePayload = {

@@ -4,6 +4,8 @@ import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RaceParticipantRepository extends JpaRepository<RaceParticipant, Long> {
 
@@ -19,4 +21,13 @@ public interface RaceParticipantRepository extends JpaRepository<RaceParticipant
     );
 
     boolean existsByRace_IdAndHorse_Id(Long raceId, Long horseId);
+
+    @Query("""
+            SELECT participant.race.id, COUNT(participant)
+            FROM RaceParticipant participant
+            WHERE participant.race.id IN :raceIds
+              AND participant.status NOT IN ('WITHDRAWN', 'DISQUALIFIED')
+            GROUP BY participant.race.id
+            """)
+    List<Object[]> countActiveByRaceIds(@Param("raceIds") List<Long> raceIds);
 }

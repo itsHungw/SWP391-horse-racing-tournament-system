@@ -17,4 +17,15 @@ public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
     List<RaceResult> findAllByRace_IdOrderByPositionAscCreatedAtAsc(Long raceId);
 
     Optional<RaceResult> findByRace_IdAndParticipant_Id(Long raceId, Long participantId);
+
+    List<RaceResult> findAllByRace_IdInAndPositionAndStatusIn(
+            Collection<Long> raceIds,
+            Integer position,
+            Collection<String> statuses
+    );
+
+    List<RaceResult> findAllByRace_IdAndStatusInOrderByPositionAscCreatedAtAsc(
+            Long raceId,
+            Collection<String> statuses
+    );
 }

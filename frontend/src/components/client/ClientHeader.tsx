@@ -62,7 +62,7 @@ export function ClientHeader() {
         <div className="mx-auto flex max-w-[1400px] items-center justify-between px-12 py-1.5">
           <p className="eyebrow text-gold-400/90">
             <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-soft align-middle live-pulse" />
-            Championship Season — Live racing weekly through June 2026
+            Championship Season — Official schedules, race cards, and results
           </p>
           <p className="eyebrow text-ivory-faint">Virtual points only · No real-money betting</p>
         </div>

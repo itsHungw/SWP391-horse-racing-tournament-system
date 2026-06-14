@@ -1,9 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { ArrowRight, CheckCircle2, Circle, ShieldCheck, UploadCloud, UserRound } from "lucide-react";
+import { ArrowRight, UploadCloud } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { getMyProfile, updateMyProfile, uploadAvatar } from "../../api/profileApi";
-import { useClientSession } from "../../hooks/useClientSession";
+import { ClientFooter } from "../../components/client/ClientFooter";
 import { ClientHeader } from "../../components/client/ClientHeader";
+import { Eyebrow, MotionReveal } from "../../components/client/primitives";
+import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Profile } from "../../types/profile";
 import { sanitizePhoneNumber, validateVietnamesePhone } from "../../utils/validation";
@@ -15,6 +18,11 @@ type ReadinessItem = {
 };
 
 const defaultAvatar = "";
+
+/* Ledger-style fields: no boxes — a hairline rule the member writes upon. */
+const ledgerLabel = "eyebrow block text-gold-300";
+const ledgerInput =
+  "mt-3 block w-full border-0 border-b border-white/15 bg-transparent pb-3 font-display text-2xl font-light tracking-tight text-ivory outline-none transition-colors [color-scheme:dark] placeholder:text-white/20 focus:border-gold-400";
 
 function normalizePhoneForInput(value: string) {
   if (value.startsWith("+84")) {
@@ -46,16 +54,29 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
-function ReadinessMark({ ready }: { ready: boolean }) {
+/** Gold corner ticks — frames the portrait like a numbered saddle plate. */
+function FrameTicks() {
   return (
-    <span aria-hidden="true" className={`mt-0.5 shrink-0 ${ready ? "text-[#006d5b]" : "text-amber-600"}`}>
-      {ready ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-    </span>
+    <>
+      <span aria-hidden="true" className="absolute -left-1.5 -top-1.5 h-3.5 w-3.5 border-l border-t border-gold-400" />
+      <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 h-3.5 w-3.5 border-r border-t border-gold-400" />
+      <span aria-hidden="true" className="absolute -bottom-1.5 -left-1.5 h-3.5 w-3.5 border-b border-l border-gold-400" />
+      <span aria-hidden="true" className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 border-b border-r border-gold-400" />
+    </>
+  );
+}
+
+function ReadinessDiamond({ ready }: { ready: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`h-2 w-2 shrink-0 rotate-45 ${ready ? "bg-emerald-soft" : "border border-ivory-faint"}`}
+    />
   );
 }
 
 export function ProfilePage() {
-  useDocumentTitle("Profile | Horse Racing Tournament");
+  useDocumentTitle("Profile | Night at the Races");
   const { session } = useClientSession();
 
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -226,226 +247,211 @@ export function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-[#f3f6f4] text-slate-950">
+      <div className="client-theme min-h-screen bg-turf-950 text-ivory">
         <ClientHeader />
-        <section className="mx-auto max-w-[1536px] px-5 py-8 sm:px-7 lg:px-8">
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#006d5b]">Loading profile</p>
-            <div className="mt-5 grid gap-6 lg:grid-cols-[0.72fr_1.28fr]">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-5">
-                <div className="h-24 w-24 rounded-full bg-slate-200" />
-                <div className="mt-5 h-7 w-56 rounded-md bg-slate-200" />
-                <div className="mt-3 h-4 w-64 rounded-md bg-slate-100" />
-              </div>
-              <div className="rounded-lg border border-slate-200 bg-white p-5">
-                <div className="h-7 w-72 rounded-md bg-slate-200" />
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  {[1, 2, 3, 4].map((item) => (
-                    <div className="h-12 rounded-md bg-slate-100" key={item} />
-                  ))}
-                </div>
-              </div>
-            </div>
+        <main className="mx-auto max-w-[1400px] px-6 py-16 md:px-12">
+          <p className="eyebrow text-gold-300">Opening the members&apos; book</p>
+          <div className="mt-10 h-64 animate-pulse border border-white/10 bg-turf-900" />
+          <div className="mt-8 grid grid-cols-2 gap-px md:grid-cols-6">
+            {[0, 1, 2, 3, 4, 5].map((item) => (
+              <div key={item} className="h-32 animate-pulse border border-white/5 bg-turf-900/60" />
+            ))}
           </div>
-        </section>
+          <div className="mt-8 h-96 animate-pulse border border-white/10 bg-turf-900/40" />
+        </main>
+        <ClientFooter />
       </div>
     );
   }
 
   return (
-    <div className="min-h-dvh bg-[#f3f6f4] text-slate-950">
+    <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
 
-      <section className="mx-auto max-w-[1536px] px-5 py-8 sm:px-7 lg:px-8">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
-            <div>
-              <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Credential workspace</p>
-              <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-950 md:text-5xl">Member Credentials</h1>
-              <p className="mt-3 max-w-2xl text-base font-bold leading-7 text-slate-600">
-                Keep your account ready for tournament applications, specialist role requests, and admin review.
-              </p>
-            </div>
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Profile completion</p>
-                  <p className="mt-2 text-4xl font-black text-slate-950">{readinessPercent}%</p>
-                </div>
-                <ShieldCheck className="h-10 w-10 text-[#006d5b]" aria-hidden="true" />
-              </div>
-              <div className="mt-4 h-2 rounded-full bg-white">
-                <div
+      <main>
+        {/* ═══ Identity hero — the member is the headline ═══════════════ */}
+        <section className="grain relative isolate overflow-hidden border-b border-white/10">
+          <div className="turf-vignette absolute inset-0 -z-10" />
+          <div className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.12),transparent_60%)]" />
+          <div className="mx-auto max-w-[1400px] px-6 pb-14 pt-12 md:px-12 md:pb-16 md:pt-16">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <Eyebrow tone="gold">The Members&apos; Book · Season 2026</Eyebrow>
+              <span
+                className={`inline-flex items-center gap-2 rounded-full border bg-turf-950/60 px-3 py-1 ${
+                  profileComplete ? "border-emerald-glow/40" : "border-gold-400/40"
+                }`}
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${profileComplete ? "bg-emerald-soft" : "bg-gold-300"}`}
                   aria-hidden="true"
-                  className="h-full rounded-full bg-[#006d5b] transition-all"
-                  style={{ width: `${readinessPercent}%` }}
                 />
-              </div>
-              <p className="mt-3 text-sm font-bold text-emerald-900">{readinessLabel}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto grid max-w-[1536px] gap-8 px-5 pb-12 sm:px-7 lg:grid-cols-[0.78fr_1.22fr] lg:px-8">
-        <aside className="space-y-6">
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-5">
-              <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#006d5b] text-3xl font-black uppercase text-white ring-4 ring-emerald-50">
-                {avatarPreview ? (
-                  <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
-                ) : (
-                  <span>{getInitials(fullName)}</span>
-                )}
-              </div>
-              <div>
-                <p className={`text-xs font-black uppercase tracking-[0.16em] ${profileComplete ? "text-[#006d5b]" : "text-amber-700"}`}>
+                <span className={`eyebrow ${profileComplete ? "text-emerald-soft" : "text-gold-300"}`}>
                   {profileComplete ? "Profile Complete" : "Needs Update"}
-                </p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+                </span>
+              </span>
+            </div>
+
+            <h1 className="mt-6 font-display text-xl font-light tracking-tight text-ivory-dim md:text-2xl">
+              Member Credentials<span className="text-foil">.</span>
+            </h1>
+
+            <div className="mt-10 grid gap-10 lg:grid-cols-[auto_1fr_auto] lg:items-end">
+              <div className="relative h-32 w-32 md:h-40 md:w-40">
+                <FrameTicks />
+                <div className="flex h-full w-full items-center justify-center overflow-hidden bg-turf-900 font-display text-4xl font-light text-gold-200">
+                  {avatarPreview ? (
+                    <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
+                  ) : (
+                    <span>{getInitials(fullName)}</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="min-w-0">
+                <p className="font-display text-5xl font-light leading-[0.95] tracking-tight text-ivory md:text-7xl">
                   {fullName.trim() || "Unnamed Member"}
-                </h2>
-                <p className="mt-2 text-sm font-bold text-slate-500">
+                </p>
+                <p className="mt-5 max-w-xl text-base leading-relaxed text-ivory-dim">
                   {profileComplete
                     ? "Your account is ready for specialist role applications."
                     : "Complete required fields before applying for a role."}
                 </p>
               </div>
-            </div>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
-              <a
-                className="inline-flex min-h-12 items-center justify-center rounded-md bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-[#006d5b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-                href="/join-us"
-              >
-                Go to Join Us
-              </a>
-              <a
-                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-4 py-3 text-center text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b] ${
-                  profileComplete
-                    ? "bg-[#006d5b] text-white hover:bg-[#004d3d]"
-                    : "border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-                }`}
-                href={profileComplete ? "/my-role-requests" : "#profile-form"}
-              >
-                {profileComplete ? "Continue to Role Application" : "Complete Required Fields"}
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </a>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Application readiness</p>
-                <h2 className="mt-2 text-3xl font-black tracking-tight text-slate-950">{readinessLabel}</h2>
-              </div>
-              <div className="text-right text-5xl font-black tracking-tight text-[#006d5b]">
-                {readinessPercent}%
-              </div>
-            </div>
-
-            <div className="mt-6 h-2 rounded-full bg-slate-200">
-              <div
-                aria-hidden="true"
-                className="h-full rounded-full bg-[#006d5b] transition-all"
-                style={{ width: `${readinessPercent}%` }}
-              />
-            </div>
-
-            <ul className="mt-7 space-y-5">
-              {readinessItems.map((item) => (
-                <li className="flex gap-3" key={item.label}>
-                  <ReadinessMark ready={item.ready} />
-                  <div>
-                    <p className="text-sm font-black text-slate-950">{item.label}</p>
-                    <p className="mt-1 text-sm font-bold leading-6 text-slate-500">{item.helper}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </aside>
-
-        <section id="profile-form" className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm" aria-labelledby="profile-form-title">
-          <div className="mb-8 flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Profile details</p>
-              <h2 id="profile-form-title" className="mt-2 text-4xl font-black tracking-tight text-slate-950">
-                Review Your Information
-              </h2>
-            </div>
-            <p className="max-w-sm text-sm font-bold leading-6 text-slate-500">
-              These details are shown to administrators during role request review.
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800" role="alert">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mb-6 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800" role="status">
-              {success}
-            </div>
-          )}
-
-          <form className="space-y-7" onSubmit={handleSubmit}>
-            <div className="grid gap-6 lg:grid-cols-[0.7fr_1.3fr]">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="avatar">
-                  Avatar
-                </label>
-                <div className="mt-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#006d5b] text-xl font-black uppercase text-white">
-                      {avatarPreview ? (
-                        <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
-                      ) : (
-                        <span>{getInitials(fullName)}</span>
-                      )}
-                    </div>
-                    <div>
-                      <p className="flex items-center gap-2 text-sm font-black text-slate-950">
-                        <UploadCloud className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
-                        Upload profile image
-                      </p>
-                      <p className="mt-1 text-xs font-bold leading-5 text-slate-500">JPG or PNG, up to 2MB.</p>
-                    </div>
-                  </div>
-                  <input
-                    accept="image/jpeg,image/jpg,image/png"
-                    className="mt-4 block w-full text-sm font-bold text-slate-600 file:mr-4 file:min-h-11 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-xs file:font-black file:text-white hover:file:bg-[#006d5b]"
-                    id="avatar"
-                    onChange={handleFileChange}
-                    type="file"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-6">
+              <div className="flex flex-col gap-5 lg:items-end lg:text-right">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="fullName">
-                    Full name
-                  </label>
-                  <input
-                    className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
-                    id="fullName"
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Nguyen Van A"
-                    type="text"
-                    value={fullName}
-                  />
+                  <p className="font-data text-foil text-6xl font-semibold leading-none">{readinessPercent}%</p>
+                  <p className="eyebrow mt-3 text-ivory-faint">Application readiness</p>
                 </div>
+                <div className="flex flex-wrap gap-3">
+                  <Link
+                    to="/join-us"
+                    className="inline-flex min-h-11 items-center border border-white/15 px-4 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60 hover:text-gold-200"
+                  >
+                    Go to Join Us
+                  </Link>
+                  {profileComplete ? (
+                    <Link
+                      to="/my-role-requests"
+                      className="inline-flex min-h-11 items-center gap-2 bg-gold-400 px-4 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300"
+                    >
+                      Continue to Role Application
+                      <ArrowRight size={14} aria-hidden="true" />
+                    </Link>
+                  ) : (
+                    <a
+                      href="#profile-form"
+                      className="inline-flex min-h-11 items-center gap-2 border border-gold-400/50 px-4 text-xs font-bold uppercase tracking-[0.14em] text-gold-300 transition-colors hover:bg-gold-400 hover:text-turf-950"
+                    >
+                      Complete Required Fields
+                      <ArrowRight size={14} aria-hidden="true" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </div>
 
-                <div className="grid gap-6 sm:grid-cols-2">
+            {/* Finish-line readiness track */}
+            <div className="mt-14">
+              <div className="relative h-px w-full bg-white/10">
+                <div
+                  aria-hidden="true"
+                  className="gold-rule absolute inset-y-0 left-0 transition-all duration-700"
+                  style={{ width: `${readinessPercent}%` }}
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1/2 h-2.5 w-2.5 -translate-y-1/2 rotate-45 bg-gold-400 transition-all duration-700"
+                  style={{ left: `calc(${readinessPercent}% - 5px)` }}
+                />
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="font-data text-[10px] uppercase tracking-[0.22em] text-ivory-faint">Paddock</p>
+                <p className="font-data text-xs uppercase tracking-[0.18em] text-gold-300">{readinessLabel}</p>
+                <p className="font-data text-[10px] uppercase tracking-[0.22em] text-ivory-faint">Finish Post</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ═══ Form guide — six numbered gates ══════════════════════════ */}
+        <MotionReveal as="section" className="border-b border-white/10 bg-turf-900/40">
+          <ol className="mx-auto grid max-w-[1400px] grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+            {readinessItems.map((item, index) => (
+              <li
+                key={item.label}
+                className="border-b border-r border-white/5 p-6 transition-colors last:border-r-0 hover:bg-white/[0.02] md:border-b-0"
+              >
+                <div className="flex items-center justify-between">
+                  <span className={`font-data text-xs ${item.ready ? "text-emerald-soft" : "text-ivory-faint"}`}>
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <ReadinessDiamond ready={item.ready} />
+                </div>
+                <p className="mt-5 text-sm font-bold text-ivory">{item.label}</p>
+                <p className="mt-1.5 text-xs leading-5 text-ivory-faint">{item.helper}</p>
+              </li>
+            ))}
+          </ol>
+        </MotionReveal>
+
+        {/* ═══ The ledger — write your record ═══════════════════════════ */}
+        <MotionReveal as="section" delay={0.08} className="mx-auto max-w-5xl px-6 py-16 md:px-12 md:py-20">
+          <div id="profile-form" aria-labelledby="profile-form-title">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <div>
+                <Eyebrow tone="gold">Profile details</Eyebrow>
+                <h2 id="profile-form-title" className="mt-4 font-display text-4xl font-light tracking-tight md:text-5xl">
+                  Write your record.
+                </h2>
+              </div>
+              <p className="max-w-xs text-sm leading-relaxed text-ivory-dim">
+                These details are shown to administrators during role request review.
+              </p>
+            </div>
+
+            {error && (
+              <div className="mt-9 border-l-2 border-nyraRed bg-turf-900 px-5 py-4 text-sm text-rose-300" role="alert">
+                {error}
+              </div>
+            )}
+            {success && (
+              <div
+                className="mt-9 border-l-2 border-emerald-glow bg-turf-900 px-5 py-4 text-sm text-emerald-soft"
+                role="status"
+              >
+                {success}
+              </div>
+            )}
+
+            <form className="mt-6" onSubmit={handleSubmit}>
+              {/* 01 · Identity */}
+              <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
+                <div>
+                  <span className="font-data text-xs text-gold-300">01</span>
+                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Identity</h3>
+                  <p className="mt-2 text-xs leading-5 text-ivory-faint">Who appears in the members&apos; book.</p>
+                </div>
+                <div className="grid gap-10 sm:grid-cols-2">
+                  <div className="sm:col-span-2">
+                    <label className={ledgerLabel} htmlFor="fullName">
+                      Full name
+                    </label>
+                    <input
+                      className={ledgerInput}
+                      id="fullName"
+                      onChange={(event) => setFullName(event.target.value)}
+                      placeholder="Nguyen Van A"
+                      type="text"
+                      value={fullName}
+                    />
+                  </div>
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="gender">
+                    <label className={ledgerLabel} htmlFor="gender">
                       Gender
                     </label>
                     <select
-                      className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
+                      className={`${ledgerInput} text-xl`}
                       id="gender"
                       onChange={(event) => setGender(event.target.value)}
                       value={gender}
@@ -457,13 +463,12 @@ export function ProfilePage() {
                       <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="dateOfBirth">
+                    <label className={ledgerLabel} htmlFor="dateOfBirth">
                       Date of birth
                     </label>
                     <input
-                      className="mt-2 block min-h-12 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
+                      className={`${ledgerInput} text-xl`}
                       id="dateOfBirth"
                       max={new Date().toISOString().slice(0, 10)}
                       onChange={(event) => setDateOfBirth(event.target.value)}
@@ -472,82 +477,137 @@ export function ProfilePage() {
                     />
                   </div>
                 </div>
+              </div>
 
+              {/* 02 · Contact */}
+              <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="phone">
-                    Phone number
-                  </label>
-                  <div className="mt-2 grid grid-cols-[112px_1fr]">
-                    <label className="sr-only" htmlFor="countryCode">
-                      Country code
+                  <span className="font-data text-xs text-gold-300">02</span>
+                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Contact</h3>
+                  <p className="mt-2 text-xs leading-5 text-ivory-faint">How operations reaches you on race day.</p>
+                </div>
+                <div className="grid gap-10 sm:grid-cols-2">
+                  <div>
+                    <label className={ledgerLabel} htmlFor="phone">
+                      Phone number
                     </label>
-                    <select
-                      className="min-h-12 rounded-l-md border border-r-0 border-slate-300 bg-slate-50 px-3 text-sm font-black text-slate-950 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
-                      id="countryCode"
-                      onChange={(event) => setCountryCode(event.target.value)}
-                      value={countryCode}
-                    >
-                      <option value="+84">VN +84</option>
-                      <option value="+1">US +1</option>
-                      <option value="+81">JP +81</option>
-                    </select>
+                    <div className="mt-3 flex items-end gap-4 border-b border-white/15 transition-colors focus-within:border-gold-400">
+                      <label className="sr-only" htmlFor="countryCode">
+                        Country code
+                      </label>
+                      <select
+                        className="border-0 bg-transparent pb-3 font-data text-sm text-ivory-dim outline-none [color-scheme:dark]"
+                        id="countryCode"
+                        onChange={(event) => setCountryCode(event.target.value)}
+                        value={countryCode}
+                      >
+                        <option value="+84">VN +84</option>
+                        <option value="+1">US +1</option>
+                        <option value="+81">JP +81</option>
+                      </select>
+                      <input
+                        className="block w-full border-0 bg-transparent pb-3 font-display text-2xl font-light tracking-tight text-ivory outline-none placeholder:text-white/20"
+                        id="phone"
+                        inputMode="tel"
+                        onChange={(event) => setPhone(event.target.value)}
+                        placeholder="901234567"
+                        type="text"
+                        value={phone}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-ivory-faint">Vietnam mobile format is validated before saving.</p>
+                  </div>
+                  <div>
+                    <label className={ledgerLabel} htmlFor="emailAddress">
+                      Email address
+                    </label>
                     <input
-                      className="min-h-12 rounded-r-md border border-slate-300 px-4 py-3 text-base font-bold text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
-                      id="phone"
-                      inputMode="tel"
-                      onChange={(event) => setPhone(event.target.value)}
-                      placeholder="901234567"
-                      type="text"
-                      value={phone}
+                      className={`${ledgerInput} cursor-not-allowed text-xl text-ivory-faint`}
+                      id="emailAddress"
+                      readOnly
+                      type="email"
+                      value={profile?.email || session?.email || ""}
                     />
                   </div>
-                  <p className="mt-2 text-xs font-bold text-slate-500">Vietnam mobile format is validated before saving.</p>
                 </div>
+              </div>
 
+              {/* 03 · Residence */}
+              <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="emailAddress">
-                    Email address
+                  <span className="font-data text-xs text-gold-300">03</span>
+                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Residence</h3>
+                  <p className="mt-2 text-xs leading-5 text-ivory-faint">Required before role requests are reviewed.</p>
+                </div>
+                <div>
+                  <label className={ledgerLabel} htmlFor="address">
+                    Address
                   </label>
-                  <input
-                    className="mt-2 block min-h-12 w-full cursor-not-allowed rounded-md border border-slate-300 bg-slate-50 px-4 py-3 text-base font-bold text-slate-500 outline-none"
-                    id="emailAddress"
-                    readOnly
-                    type="email"
-                    value={profile?.email || session?.email || ""}
+                  <textarea
+                    className="mt-3 block min-h-20 w-full resize-y border-0 border-b border-white/15 bg-transparent pb-3 font-display text-2xl font-light leading-snug tracking-tight text-ivory outline-none transition-colors placeholder:text-white/20 focus:border-gold-400"
+                    id="address"
+                    onChange={(event) => setAddress(event.target.value)}
+                    placeholder="District 1, Ho Chi Minh City"
+                    value={address}
                   />
                 </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]" htmlFor="address">
-                Address
-              </label>
-              <textarea
-                className="mt-2 block min-h-28 w-full rounded-md border border-slate-300 px-4 py-3 text-base font-bold leading-7 text-slate-950 outline-none transition focus:border-[#006d5b] focus:ring-2 focus:ring-[#006d5b]/20"
-                id="address"
-                onChange={(event) => setAddress(event.target.value)}
-                placeholder="District 1, Ho Chi Minh City"
-                value={address}
-              />
-            </div>
+              {/* 04 · Portrait */}
+              <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
+                <div>
+                  <span className="font-data text-xs text-gold-300">04</span>
+                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Portrait</h3>
+                  <p className="mt-2 text-xs leading-5 text-ivory-faint">JPG or PNG, up to 2MB.</p>
+                </div>
+                <div className="flex flex-wrap items-start gap-8">
+                  <div className="relative h-24 w-24 shrink-0">
+                    <FrameTicks />
+                    <div className="flex h-full w-full items-center justify-center overflow-hidden bg-turf-900 font-display text-2xl font-light text-gold-200">
+                      {avatarPreview ? (
+                        <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
+                      ) : (
+                        <span>{getInitials(fullName)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <label className={ledgerLabel} htmlFor="avatar">
+                      Avatar
+                    </label>
+                    <p className="mt-3 flex items-center gap-2 text-sm text-ivory-dim">
+                      <UploadCloud size={15} className="text-gold-400" aria-hidden="true" />
+                      Upload profile image
+                    </p>
+                    <input
+                      accept="image/jpeg,image/jpg,image/png"
+                      className="mt-4 block w-full text-xs text-ivory-faint file:mr-4 file:min-h-10 file:cursor-pointer file:border file:border-gold-400/50 file:bg-transparent file:px-4 file:text-xs file:font-bold file:uppercase file:tracking-[0.14em] file:text-gold-300 hover:file:bg-gold-400 hover:file:text-turf-950"
+                      id="avatar"
+                      onChange={handleFileChange}
+                      type="file"
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex flex-col gap-4 border-t border-slate-200 pt-6 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm font-bold text-slate-500">
-                Saving updates your application readiness immediately.
-              </p>
-              <button
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#006d5b] px-8 py-4 text-sm font-black text-white shadow-[0_16px_34px_rgba(0,77,61,0.18)] transition hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-                disabled={saving}
-                type="submit"
-              >
-                <UserRound className="h-4 w-4" aria-hidden="true" />
-                {saving ? "Saving Profile..." : "Save Profile"}
-              </button>
-            </div>
-          </form>
-        </section>
-      </section>
+              {/* Sign the book */}
+              <div className="flex flex-col gap-6 border-t border-white/10 pt-10 sm:flex-row sm:items-center sm:justify-between">
+                <p className="max-w-sm text-sm leading-relaxed text-ivory-faint">
+                  Saving updates your application readiness immediately.
+                </p>
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-2 bg-gold-400 px-10 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={saving}
+                  type="submit"
+                >
+                  {saving ? "Saving Profile..." : "Save Profile"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </MotionReveal>
+      </main>
+      <ClientFooter />
     </div>
   );
 }

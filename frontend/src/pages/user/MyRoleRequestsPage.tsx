@@ -1,11 +1,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ArrowUpRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { getMyProfile } from "../../api/profileApi";
 import { getMyRoleRequests, submitRoleRequest, uploadResumeDocument } from "../../api/roleRequestApi";
 import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
+import { ClientFooter } from "../../components/client/ClientFooter";
 import { ClientHeader } from "../../components/client/ClientHeader";
-import { SkeletonLoader } from "../../components/common/SkeletonLoader";
-import { StatusBadge } from "../../components/StatusBadge";
+import { Eyebrow, GoldRule, MotionReveal } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Profile } from "../../types/profile";
 import { RoleRequest, RequestedRole } from "../../types/roleRequest";
@@ -77,18 +79,6 @@ function formatDate(value: string) {
   });
 }
 
-function statusTone(status: RoleRequest["status"]) {
-  if (status === "APPROVED") {
-    return "success";
-  }
-
-  if (status === "REJECTED" || status === "CANCELLED") {
-    return "critical";
-  }
-
-  return "draft";
-}
-
 function statusLabel(status: RoleRequest["status"]) {
   const labels: Record<RoleRequest["status"], string> = {
     PENDING: "Under review",
@@ -98,6 +88,23 @@ function statusLabel(status: RoleRequest["status"]) {
   };
 
   return labels[status];
+}
+
+const statusPillClasses: Record<RoleRequest["status"], { dot: string; text: string; ring: string }> = {
+  PENDING: { dot: "bg-gold-300 live-pulse", text: "text-gold-300", ring: "border-gold-400/40" },
+  APPROVED: { dot: "bg-emerald-soft", text: "text-emerald-soft", ring: "border-emerald-glow/40" },
+  REJECTED: { dot: "bg-rose-400", text: "text-rose-300", ring: "border-nyraRed/50" },
+  CANCELLED: { dot: "bg-ivory-faint", text: "text-ivory-faint", ring: "border-white/15" },
+};
+
+function RoleStatusPill({ status }: { status: RoleRequest["status"] }) {
+  const tone = statusPillClasses[status];
+  return (
+    <span className={`inline-flex items-center gap-2 rounded-full border ${tone.ring} bg-turf-950/60 px-3 py-1`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} aria-hidden="true" />
+      <span className={`eyebrow ${tone.text}`}>{statusLabel(status)}</span>
+    </span>
+  );
 }
 
 function getApiErrorMessage(error: unknown) {
@@ -113,19 +120,17 @@ function getApiErrorMessage(error: unknown) {
   return "Unable to submit application.";
 }
 
-function ReadinessDot({ ready }: { ready: boolean }) {
+function ReadinessDiamond({ ready }: { ready: boolean }) {
   return (
     <span
       aria-hidden="true"
-      className={`mt-1 h-4 w-4 shrink-0 rounded-full border-4 ${
-        ready ? "border-nyraGreen bg-nyraGreen" : "border-slate-300 bg-white"
-      }`}
+      className={`mt-1.5 h-2 w-2 shrink-0 rotate-45 ${ready ? "bg-emerald-soft" : "border border-ivory-faint"}`}
     />
   );
 }
 
 export function MyRoleRequestsPage() {
-  useDocumentTitle("Role Applications | Horse Racing Tournament");
+  useDocumentTitle("Role Applications | Night at the Races");
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [requests, setRequests] = useState<RoleRequest[]>([]);
@@ -193,7 +198,6 @@ export function MyRoleRequestsPage() {
       ready: profileCompleted,
       helper: "Required before applications can be reviewed.",
     },
-
     {
       label: profile?.ageVerified ? "Age verified" : "Age verification pending",
       ready: Boolean(profile?.ageVerified),
@@ -266,336 +270,387 @@ export function MyRoleRequestsPage() {
   };
 
   return (
-    <div className="min-h-dvh bg-white text-[#171717]">
+    <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
 
-      <main className="mx-auto max-w-[1536px] px-6 py-12 md:px-11 md:py-16">
+      <main>
         {loading ? (
-          <div className="mx-auto max-w-5xl">
-            <SkeletonLoader />
+          <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-12">
+            <p className="eyebrow text-gold-300">Opening the application desk</p>
+            <div className="mt-10 grid gap-px md:grid-cols-3">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-96 animate-pulse border border-white/10 bg-turf-900" />
+              ))}
+            </div>
           </div>
         ) : (
-          <div className="space-y-10">
-            <section className="grid gap-8 border-b border-slate-200 pb-10 lg:grid-cols-[1fr_420px]">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.22em] text-nyraGreen">Join the circuit</p>
-                <h1 className="mt-3 text-5xl font-black uppercase leading-none tracking-tight text-nyraDark md:text-6xl">
-                  Role Applications
-                </h1>
-                <p className="mt-5 max-w-3xl text-lg font-bold leading-8 text-slate-600">
-                  Choose the role that matches your track, submit a concise reason, and keep your application status in
-                  one review queue.
-                </p>
-              </div>
-
-              <aside className="border border-slate-200 bg-slate-50 p-6" aria-labelledby="readiness-title">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">Account readiness</p>
-                    <h2 id="readiness-title" className="mt-2 text-2xl font-black uppercase tracking-tight">
-                      Review Gate
-                    </h2>
-                  </div>
-                  <StatusBadge tone={profileCompleted ? "success" : "draft"}>
-                    {profileCompleted ? "Ready" : "Action needed"}
-                  </StatusBadge>
+          <>
+            {/* ═══ Statement hero + readiness gates ═══════════════════ */}
+            <section className="grain relative isolate overflow-hidden border-b border-white/10">
+              <div className="turf-vignette absolute inset-0 -z-10" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 -z-10 w-2/3 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.1),transparent_60%)]" />
+              <div className="mx-auto max-w-[1400px] px-6 pb-12 pt-14 md:px-12 md:pt-18">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <Eyebrow tone="gold">Join the Circuit</Eyebrow>
+                  <span
+                    className={`inline-flex items-center gap-2 rounded-full border bg-turf-950/60 px-3 py-1 ${
+                      profileCompleted ? "border-emerald-glow/40" : "border-gold-400/40"
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${profileCompleted ? "bg-emerald-soft" : "bg-gold-300"}`}
+                      aria-hidden="true"
+                    />
+                    <span className={`eyebrow ${profileCompleted ? "text-emerald-soft" : "text-gold-300"}`}>
+                      {profileCompleted ? "Ready for review" : "Action needed"}
+                    </span>
+                  </span>
                 </div>
+                <h1 className="mt-6 max-w-4xl font-display text-5xl font-light leading-[0.95] tracking-tight md:text-7xl">
+                  Role Applications<span className="text-foil">.</span>
+                </h1>
+                <p className="mt-6 max-w-xl text-lg leading-relaxed text-ivory-dim">
+                  Choose the track that matches your craft, submit a concise reason, and follow your application
+                  through one review queue.
+                </p>
 
-                <ul aria-label="Application readiness" className="mt-6 space-y-4">
+                <ul
+                  aria-label="Application readiness"
+                  className="mt-12 grid gap-px border-y border-white/10 bg-white/5 sm:grid-cols-3"
+                >
                   {readinessItems.map((item) => (
-                    <li className="flex gap-3" key={item.label}>
-                      <ReadinessDot ready={item.ready} />
+                    <li className="flex gap-3 bg-turf-950 p-5" key={item.label}>
+                      <ReadinessDiamond ready={item.ready} />
                       <div>
-                        <p className="text-sm font-black text-slate-900">{item.label}</p>
-                        <p className="text-xs font-bold leading-5 text-slate-500">{item.helper}</p>
+                        <p className="text-sm font-bold text-ivory">{item.label}</p>
+                        <p className="mt-0.5 text-xs leading-5 text-ivory-faint">{item.helper}</p>
                       </div>
                     </li>
                   ))}
                 </ul>
 
                 {!profileCompleted && (
-                  <a
-                    className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-lime-400 px-5 py-3 text-sm font-black uppercase tracking-widest text-black transition hover:bg-[#b7ff4a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
-                    href="/profile"
+                  <Link
+                    className="mt-8 inline-flex min-h-12 items-center justify-center bg-gold-400 px-8 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300"
+                    to="/profile"
                   >
                     Complete Profile
-                  </a>
+                  </Link>
                 )}
-              </aside>
+              </div>
             </section>
 
-            {!profileCompleted ? (
-              <section className="border border-slate-200 bg-white p-8 shadow-sm" aria-labelledby="profile-needed">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Application locked</p>
-                <h2 id="profile-needed" className="mt-3 text-4xl font-black uppercase tracking-tight">
-                  Complete Your Profile
-                </h2>
-                <p className="mt-4 max-w-3xl text-base font-bold leading-7 text-slate-600">
-                  Admin needs your name, phone number, date of birth, gender, and address before reviewing a specialist
-                  role request. Finish that first, then return here to choose your track.
-                </p>
-              </section>
-            ) : (
-              <section className="space-y-8" aria-labelledby="role-selection-title">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Open applications</p>
-                  <h2 id="role-selection-title" className="mt-3 text-4xl font-black uppercase tracking-tight">
-                    Choose Your Track
-                  </h2>
-                </div>
-
-                {activeSpecialistRole && (
-                  <div className="border-l-4 border-nyraGreen bg-emerald-50 p-5 text-sm font-bold text-emerald-900">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">
-                      Active specialist role
-                    </p>
-                    <p className="mt-2">
-                      You currently hold {roleTitle(activeSpecialistRole)} access. Contact admin if you need to change
-                      your specialist track.
-                    </p>
-                  </div>
-                )}
-
-                {!activeSpecialistRole && pendingSpecialistRequest && (
-                  <div className="border-l-4 border-amber-500 bg-amber-50 p-5 text-sm font-bold text-amber-900">
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-700">
-                      Specialist application pending
-                    </p>
-                    <p className="mt-2">
-                      Your {roleTitle(pendingSpecialistRequest.requestedRole)} application is under review. Wait for
-                      admin decision before applying for another specialist track.
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid gap-5 lg:grid-cols-3">
-                  {roleOptions.map((option) => {
-                    const request = latestByRole[option.role];
-                    const pending = request?.status === "PENDING";
-                    const approved = request?.status === "APPROVED";
-                    const lockedByPendingSpecialist = Boolean(
-                      pendingSpecialistRequest && pendingSpecialistRequest.requestedRole !== option.role,
-                    );
-                    const blocked = specialistApplicationsLocked || pending || approved;
-                    const selected = selectedRole === option.role;
-                    let buttonLabel = `Select ${option.title} role`;
-                    if (activeSpecialistRole) {
-                      buttonLabel = "Locked by active specialist role";
-                    } else if (lockedByPendingSpecialist) {
-                      buttonLabel = "Locked while another specialist application is pending";
-                    } else if (pending) {
-                      buttonLabel = `${option.title} application under review`;
-                    } else if (approved) {
-                      buttonLabel = `${option.title} role already granted`;
-                    }
-
-                    return (
-                      <button
-                        aria-pressed={selected}
-                        className={`min-h-[330px] cursor-pointer border bg-white p-6 text-left shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen disabled:cursor-not-allowed disabled:opacity-70 ${
-                          selected ? "border-nyraGreen shadow-xl" : "border-slate-200 hover:-translate-y-1 hover:border-nyraGreen"
-                        }`}
-                      disabled={blocked}
-                        key={option.role}
-                        onClick={() => setSelectedRole(option.role)}
-                        type="button"
-                      >
-                        <div className="flex h-full flex-col justify-between">
-                          <div>
-                            <div className="flex items-start justify-between gap-4">
-                              <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">
-                                {option.eyebrow}
-                              </p>
-                              {request && <StatusBadge tone={statusTone(request.status)}>{statusLabel(request.status)}</StatusBadge>}
-                            </div>
-                            <h3 className="mt-5 text-4xl font-black uppercase tracking-tight text-nyraDark">
-                              {option.title}
-                            </h3>
-                            <p className="mt-4 text-base font-bold leading-7 text-slate-600">{option.description}</p>
-                            <ul className="mt-6 space-y-3">
-                              {option.requirements.map((requirement) => (
-                                <li className="flex gap-3 text-sm font-bold text-slate-700" key={requirement}>
-                                  <ReadinessDot ready />
-                                  <span>{requirement}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                          <span className="mt-7 block border-t border-slate-200 pt-4 text-sm font-black uppercase tracking-widest text-nyraGreen">
-                            {buttonLabel}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]" aria-labelledby="application-form-title">
-              <form
-                className="border border-slate-200 bg-white p-6 shadow-sm md:p-8"
-                onSubmit={handleApply}
-              >
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Selected role</p>
-                <h2 id="application-form-title" className="mt-3 text-3xl font-black uppercase tracking-tight">
-                  {selectedOption.title} Application
-                </h2>
-                <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{selectedOption.description}</p>
-
-                {error && (
-                  <div className="mt-6 border border-red-200 bg-red-50 p-4 text-sm font-bold text-red-800" role="alert">
-                    {error}
-                  </div>
-                )}
-                {success && (
-                  <div
-                    aria-live="polite"
-                    className="mt-6 border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"
+            <div className="mx-auto max-w-[1400px] space-y-20 px-6 py-16 md:px-12">
+              {!profileCompleted ? (
+                <MotionReveal>
+                  <section
+                    aria-labelledby="profile-needed"
+                    className="relative overflow-hidden border border-white/10 bg-turf-900 px-8 py-14 text-center md:py-18"
                   >
-                    {success}
-                  </div>
-                )}
-
-                <div className="mt-6 space-y-5">
-                  <div>
-                    <label className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen" htmlFor="reason">
-                      Application reason
-                    </label>
-                    <textarea
-                      className="mt-2 min-h-[150px] w-full resize-y border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none transition focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
-                      disabled={!profileCompleted || selectedRoleBlocked}
-                      id="reason"
-                      maxLength={500}
-                      minLength={20}
-                      onChange={(event) => setReason(event.target.value)}
-                      placeholder="Tell the operations team why this role fits your experience."
-                      required
-                      value={reason}
-                    />
-                    <p className="mt-2 text-xs font-bold text-slate-500">{reason.length}/500 characters</p>
-                  </div>
-
-                  <div>
-                    <label
-                      className="block text-xs font-black uppercase tracking-[0.16em] text-nyraGreen"
-                      htmlFor="resumeFile"
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 font-display text-[200px] font-light leading-none text-white/[0.03]"
                     >
-                      Resume PDF File
-                    </label>
-                    <input
-                      accept="application/pdf"
-                      className="mt-2 block w-full border border-slate-300 bg-white px-4 py-3 text-base font-bold text-slate-900 outline-none transition file:mr-4 file:min-h-10 file:rounded-sm file:border-0 file:bg-nyraGreen file:px-4 file:text-sm file:font-black file:uppercase file:tracking-widest file:text-white focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/20"
-                      disabled={!profileCompleted || selectedRoleBlocked}
-                      id="resumeFile"
-                      onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
-                      type="file"
-                    />
-                    <p className="mt-2 text-xs font-bold text-slate-500">
-                      Required. Upload a PDF resume for admin CV screening.
-                      {resumeFile ? ` Selected: ${resumeFile.name}` : ""}
+                      §
+                    </span>
+                    <Eyebrow tone="gold" className="justify-center">
+                      Application locked
+                    </Eyebrow>
+                    <h2 id="profile-needed" className="mt-5 font-display text-4xl font-light tracking-tight md:text-5xl">
+                      Complete Your Profile
+                    </h2>
+                    <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ivory-dim">
+                      Admin needs your name, phone number, date of birth, gender, and address before reviewing a
+                      specialist role request. Finish that first, then return here to choose your track.
+                    </p>
+                  </section>
+                </MotionReveal>
+              ) : (
+                <MotionReveal>
+                  <section className="space-y-10" aria-labelledby="role-selection-title">
+                  <div className="flex items-end justify-between gap-5">
+                    <div>
+                      <Eyebrow tone="gold">Open applications</Eyebrow>
+                      <h2 id="role-selection-title" className="mt-4 font-display text-4xl font-light tracking-tight md:text-5xl">
+                        Choose your track.
+                      </h2>
+                      <GoldRule className="mt-5 w-20" />
+                    </div>
+                    <p className="hidden font-data text-xs uppercase tracking-[0.18em] text-ivory-faint md:block">
+                      {String(roleOptions.length).padStart(2, "0")} tracks open
                     </p>
                   </div>
-                </div>
 
-                <button
-                  className="mt-7 inline-flex min-h-12 w-full items-center justify-center rounded-sm bg-nyraGreen px-5 py-3 text-sm font-black uppercase tracking-widest text-white transition hover:bg-[#006d5b] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
-                  disabled={!canSubmit}
-                  type="submit"
-                >
-                  {submitting ? "Submitting..." : "Submit Application"}
-                </button>
-              </form>
-
-              <section className="border border-slate-200 bg-slate-50 p-6 md:p-8" aria-labelledby="application-history-title">
-                <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">My applications</p>
-                    <h2 id="application-history-title" className="mt-3 text-3xl font-black uppercase tracking-tight">
-                      Review Queue
-                    </h2>
-                  </div>
-                  <p className="text-sm font-bold text-slate-500">{requests.length} total</p>
-                </div>
-
-                <div className="mt-6 space-y-4">
-                  {requests.length === 0 ? (
-                    <div className="border border-dashed border-slate-300 bg-white p-8 text-center">
-                      <p className="text-sm font-black uppercase tracking-widest text-slate-500">No applications yet</p>
-                      <p className="mt-2 text-sm font-bold text-slate-500">
-                        Select a role and submit your first application.
+                  {activeSpecialistRole && (
+                    <div className="border-l-2 border-emerald-glow bg-turf-900 px-6 py-5">
+                      <p className="eyebrow text-emerald-soft">Active specialist role</p>
+                      <p className="mt-2 text-sm leading-relaxed text-ivory-dim">
+                        You currently hold {roleTitle(activeSpecialistRole)} access. Contact admin if you need to
+                        change your specialist track.
                       </p>
                     </div>
-                  ) : (
-                    requests.map((request) => (
-                      <article className="border border-slate-200 bg-white p-5" key={request.id}>
-                        <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-                          <div>
-                            <p className="text-xs font-black uppercase tracking-[0.18em] text-nyraGreen">
-                              {roleTitle(request.requestedRole)}
-                            </p>
-                            <h3 className="mt-2 text-xl font-black uppercase tracking-tight text-nyraDark">
-                              {statusLabel(request.status)}
-                            </h3>
-                          </div>
-                          <StatusBadge tone={statusTone(request.status)}>{statusLabel(request.status)}</StatusBadge>
-                        </div>
-                        <ol className="mt-5 grid gap-2 text-xs font-black uppercase tracking-widest text-slate-500 md:grid-cols-3">
-                          <li className="border-l-4 border-nyraGreen bg-slate-50 p-3">Submitted</li>
-                          <li className="border-l-4 border-amber-500 bg-slate-50 p-3">Under review</li>
-                          <li
-                            className={`border-l-4 bg-slate-50 p-3 ${
-                              request.status === "APPROVED"
-                                ? "border-emerald-600"
-                                : request.status === "REJECTED"
-                                  ? "border-red-600"
-                                  : "border-slate-300"
+                  )}
+
+                  {!activeSpecialistRole && pendingSpecialistRequest && (
+                    <div className="border-l-2 border-gold-400 bg-turf-900 px-6 py-5">
+                      <p className="eyebrow text-gold-300">Specialist application pending</p>
+                      <p className="mt-2 text-sm leading-relaxed text-ivory-dim">
+                        Your {roleTitle(pendingSpecialistRequest.requestedRole)} application is under review. Wait for
+                        admin decision before applying for another specialist track.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* The triptych — three museum panels, one choice */}
+                  <div className="grid border border-white/10 lg:grid-cols-3">
+                    {roleOptions.map((option, index) => {
+                      const request = latestByRole[option.role];
+                      const pending = request?.status === "PENDING";
+                      const approved = request?.status === "APPROVED";
+                      const lockedByPendingSpecialist = Boolean(
+                        pendingSpecialistRequest && pendingSpecialistRequest.requestedRole !== option.role,
+                      );
+                      const blocked = specialistApplicationsLocked || pending || approved;
+                      const selected = selectedRole === option.role;
+                      let buttonLabel = `Select ${option.title} role`;
+                      if (activeSpecialistRole) {
+                        buttonLabel = "Locked by active specialist role";
+                      } else if (lockedByPendingSpecialist) {
+                        buttonLabel = "Locked while another specialist application is pending";
+                      } else if (pending) {
+                        buttonLabel = `${option.title} application under review`;
+                      } else if (approved) {
+                        buttonLabel = `${option.title} role already granted`;
+                      }
+
+                      return (
+                        <button
+                          aria-pressed={selected}
+                          className={`group relative flex min-h-[440px] cursor-pointer flex-col justify-between overflow-hidden border-b border-white/10 p-9 text-left transition-colors duration-300 last:border-b-0 lg:border-b-0 lg:border-r lg:last:border-r-0 ${
+                            selected ? "bg-turf-900" : "bg-turf-950 hover:bg-turf-900/50"
+                          } disabled:cursor-not-allowed disabled:opacity-40`}
+                          disabled={blocked}
+                          key={option.role}
+                          onClick={() => setSelectedRole(option.role)}
+                          type="button"
+                        >
+                          {selected && (
+                            <span aria-hidden="true" className="pointer-events-none absolute inset-3 border border-gold-400/50" />
+                          )}
+                          <span
+                            aria-hidden="true"
+                            className="pointer-events-none absolute -bottom-10 -right-4 font-display text-[180px] font-light leading-none text-white/[0.04]"
+                          >
+                            {String(index + 1).padStart(2, "0")}
+                          </span>
+                          <span className="relative block">
+                            <span className="flex items-start justify-between gap-4">
+                              <Eyebrow tone={selected ? "gold" : "ivory"}>{option.eyebrow}</Eyebrow>
+                              {request && <RoleStatusPill status={request.status} />}
+                            </span>
+                            <span
+                              className={`mt-8 block font-display text-5xl font-light tracking-tight transition-colors ${
+                                selected ? "text-gold-200" : "text-ivory group-hover:text-gold-200"
+                              }`}
+                            >
+                              {option.title}
+                            </span>
+                            <span className="mt-5 block max-w-xs text-sm leading-relaxed text-ivory-dim">
+                              {option.description}
+                            </span>
+                            <span className="mt-8 block space-y-3 border-t border-white/10 pt-6">
+                              {option.requirements.map((requirement) => (
+                                <span className="flex gap-3 text-sm text-ivory-dim" key={requirement}>
+                                  <ReadinessDiamond ready />
+                                  <span>{requirement}</span>
+                                </span>
+                              ))}
+                            </span>
+                          </span>
+                          <span
+                            className={`relative mt-10 block font-data text-[10px] uppercase tracking-[0.2em] ${
+                              selected ? "text-gold-300" : "text-ivory-faint group-hover:text-gold-300"
                             }`}
                           >
-                            Decision
-                          </li>
-                        </ol>
-                        <dl className="mt-5 grid gap-4 text-sm md:grid-cols-2">
-                          <div>
-                            <dt className="font-black uppercase tracking-widest text-slate-400">Submitted on</dt>
-                            <dd className="mt-1 font-bold text-slate-700">{formatDate(request.createdAt)}</dd>
+                            {buttonLabel}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  </section>
+                </MotionReveal>
+              )}
+
+              {/* ═══ The application desk — centered telegram ═══════════ */}
+              <MotionReveal delay={0.08}>
+                <section aria-labelledby="application-form-title">
+                <div className="mx-auto max-w-3xl">
+                  <div className="text-center">
+                    <Eyebrow tone="gold" className="justify-center">
+                      The application desk
+                    </Eyebrow>
+                    <h2 id="application-form-title" className="mt-4 font-display text-4xl font-light tracking-tight">
+                      {selectedOption.title} Application
+                    </h2>
+                    <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-ivory-dim">
+                      {selectedOption.description}
+                    </p>
+                  </div>
+
+                  {error && (
+                    <div className="mt-8 border-l-2 border-nyraRed bg-turf-900 px-5 py-4 text-sm text-rose-300" role="alert">
+                      {error}
+                    </div>
+                  )}
+                  {success && (
+                    <div
+                      aria-live="polite"
+                      className="mt-8 border-l-2 border-emerald-glow bg-turf-900 px-5 py-4 text-sm text-emerald-soft"
+                    >
+                      {success}
+                    </div>
+                  )}
+
+                  <form className="mt-9 border border-white/10 bg-turf-900 p-7 md:p-10" onSubmit={handleApply}>
+                    <div className="space-y-8">
+                      <div>
+                        <label className="eyebrow block text-gold-300" htmlFor="reason">
+                          Application reason
+                        </label>
+                        <textarea
+                          className="mt-3 min-h-[150px] w-full resize-y border border-white/15 bg-turf-950 px-4 py-3 text-sm leading-relaxed text-ivory outline-none transition-colors placeholder:text-ivory-faint focus:border-gold-400/70 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={!profileCompleted || selectedRoleBlocked}
+                          id="reason"
+                          maxLength={500}
+                          minLength={20}
+                          onChange={(event) => setReason(event.target.value)}
+                          placeholder="Tell the operations team why this role fits your experience."
+                          required
+                          value={reason}
+                        />
+                        <p className="mt-2 text-right font-data text-xs text-ivory-faint">{reason.length}/500 characters</p>
+                      </div>
+
+                      <div>
+                        <label className="eyebrow block text-gold-300" htmlFor="resumeFile">
+                          Resume PDF File
+                        </label>
+                        <input
+                          accept="application/pdf"
+                          className="mt-3 block w-full border border-dashed border-white/20 bg-turf-950 px-4 py-4 text-xs text-ivory-dim outline-none transition-colors file:mr-4 file:min-h-10 file:cursor-pointer file:border-0 file:bg-gold-400 file:px-4 file:text-xs file:font-bold file:uppercase file:tracking-[0.14em] file:text-turf-950 hover:file:bg-gold-300 focus:border-gold-400/70 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={!profileCompleted || selectedRoleBlocked}
+                          id="resumeFile"
+                          onChange={(event) => setResumeFile(event.target.files?.[0] ?? null)}
+                          type="file"
+                        />
+                        <p className="mt-2 text-xs leading-5 text-ivory-faint">
+                          Required. Upload a PDF resume for admin CV screening.
+                          {resumeFile ? ` Selected: ${resumeFile.name}` : ""}
+                        </p>
+                      </div>
+
+                      <button
+                        className="inline-flex min-h-12 w-full items-center justify-center bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-ivory-faint"
+                        disabled={!canSubmit}
+                        type="submit"
+                      >
+                        {submitting ? "Submitting..." : "Submit Application"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+                </section>
+              </MotionReveal>
+
+              {/* ═══ The review queue — season record rows ═══════════════ */}
+              <MotionReveal delay={0.05}>
+                <section aria-labelledby="application-history-title">
+                <div className="flex items-end justify-between gap-5 border-b border-white/10 pb-6">
+                  <div>
+                    <Eyebrow tone="gold">My applications</Eyebrow>
+                    <h2 id="application-history-title" className="mt-4 font-display text-4xl font-light tracking-tight">
+                      The review queue.
+                    </h2>
+                    <GoldRule className="mt-5 w-20" />
+                  </div>
+                  <p className="font-data text-xs uppercase tracking-[0.18em] text-ivory-faint">{requests.length} total</p>
+                </div>
+
+                {requests.length === 0 ? (
+                  <div className="mt-8 border border-dashed border-white/15 bg-turf-900/50 px-8 py-14 text-center">
+                    <p className="eyebrow text-ivory-faint">No applications yet</p>
+                    <p className="mt-3 text-sm text-ivory-dim">Select a role and submit your first application.</p>
+                  </div>
+                ) : (
+                  <div>
+                    {requests.map((request) => (
+                      <article
+                        className="group grid gap-5 border-b border-white/10 py-8 transition-colors hover:border-gold-400/30 md:grid-cols-[150px_1fr_auto] md:items-start"
+                        key={request.id}
+                      >
+                        <time className="font-data text-sm text-gold-200" dateTime={request.createdAt}>
+                          {formatDate(request.createdAt)}
+                        </time>
+                        <div className="min-w-0">
+                          <h3 className="font-display text-3xl font-light tracking-tight text-ivory transition-colors group-hover:text-gold-200">
+                            {roleTitle(request.requestedRole)}
+                          </h3>
+                          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 font-data text-[10px] uppercase tracking-[0.16em] text-ivory-faint">
+                            <span className="inline-flex items-center gap-2">
+                              <span aria-hidden="true" className="h-1.5 w-1.5 rotate-45 bg-emerald-soft" /> Submitted
+                            </span>
+                            <span className="inline-flex items-center gap-2">
+                              <span aria-hidden="true" className="h-1.5 w-1.5 rotate-45 bg-gold-300" /> Under review
+                            </span>
+                            <span className="inline-flex items-center gap-2">
+                              <span
+                                aria-hidden="true"
+                                className={`h-1.5 w-1.5 rotate-45 ${
+                                  request.status === "APPROVED"
+                                    ? "bg-emerald-soft"
+                                    : request.status === "REJECTED"
+                                      ? "bg-rose-400"
+                                      : "border border-ivory-faint"
+                                }`}
+                              />
+                              Decision
+                            </span>
                           </div>
-                          <div>
-                            <dt className="font-black uppercase tracking-widest text-slate-400">Resume</dt>
-                            <dd className="mt-1 font-bold text-slate-700">
-                              {request.resumeUrl ? (
+                          <p className="mt-3 text-sm text-ivory-dim">
+                            {request.cvReviewStatus === "PASSED" ? "Passed CV screening" : "Waiting for CV review"}
+                            {request.resumeUrl ? (
+                              <>
+                                {" · "}
                                 <AuthenticatedFileLink
-                                  className="text-nyraGreen underline"
+                                  className="inline-flex items-center gap-1 text-gold-300 underline decoration-gold-400/40 underline-offset-4 transition-colors hover:text-gold-200"
                                   href={request.resumeUrl}
                                 >
-                                  Open resume
+                                  Open resume <ArrowUpRight size={13} aria-hidden="true" />
                                 </AuthenticatedFileLink>
-                              ) : (
-                                "Not provided"
-                              )}
-                            </dd>
-                          </div>
-                          <div>
-                            <dt className="font-black uppercase tracking-widest text-slate-400">CV screening</dt>
-                            <dd className="mt-1 font-bold text-slate-700">
-                              {request.cvReviewStatus === "PASSED" ? "Passed CV screening" : "Waiting for CV review"}
-                            </dd>
-                          </div>
-                        </dl>
-                        {request.rejectReason && (
-                          <p className="mt-4 border-l-4 border-red-600 bg-red-50 p-4 text-sm font-bold text-red-800">
-                            {request.rejectReason}
+                              </>
+                            ) : (
+                              " · Resume not provided"
+                            )}
                           </p>
-                        )}
+                          {request.rejectReason && (
+                            <p className="mt-4 border-l-2 border-nyraRed bg-turf-900 px-4 py-3 text-sm text-rose-300">
+                              {request.rejectReason}
+                            </p>
+                          )}
+                        </div>
+                        <RoleStatusPill status={request.status} />
                       </article>
-                    ))
-                  )}
-                </div>
-              </section>
-            </section>
-          </div>
+                    ))}
+                  </div>
+                )}
+                </section>
+              </MotionReveal>
+            </div>
+          </>
         )}
       </main>
+      <ClientFooter />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 import { ArrowRight, ArrowUpRight, Play, Trophy, MapPin, BarChart3 } from "lucide-react";
 
 import { blogApi } from "../../api/blogApi";
+import { getPublicRacingSummary, searchPublicRaces } from "../../api/racingApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { ClientFooter } from "../../components/client/ClientFooter";
 import {
@@ -16,21 +17,16 @@ import {
 } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { Blog } from "../../types/blog";
+import type { PublicRacingSummary, RaceSummary } from "../../types/racing";
 import heroImage from "../../assets/slide.jpg";
+import { StatusPill } from "./components/StatusPill";
+import { formatDistance, formatPostTime, raceStatus } from "./publicRacingData";
+import { selectNextToPost } from "./racingDiscovery";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const fallbackNews =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuD3saKgDU0-ot9kioPQkTnU-C4T2VptX_iWNLBeQbVxehn21O8bD1RE9UShnD3qRvwvY14_AsQL3YyApeN3SrSP0Ebvm6nIbIv0A_fv-p2O_UWKt7PhZKQb_yY0fP_9eodHg13F0jBkZQ26xuS3PPbase_pms-XnBF-bAvTr1cxfSZtCyP1SRLXB94ddDXR3sDXxdieralZiuHP3f04FygdlJhKiub8gd3okHWLbSCfUJl56P5njmpz3WshFQU5618TcctmqF3yxNs";
-
-const marquee = [
-  "Night at the Races",
-  "24 Stakes Races",
-  "Live Through June 2026",
-  "Free-to-Play Predictions",
-  "The Paddock Club",
-  "Virtual Points Only",
-];
 
 const pillars = [
   {
@@ -62,12 +58,27 @@ function formatBlogDate(value: string) {
   );
 }
 
+function formatFinaleDate(value?: string) {
+  if (!value) return "TBA";
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return "TBA";
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
+
 export function HomePage() {
   useDocumentTitle("Aqueduct — Night at the Races | Championship Horse Racing");
   const reduce = useReducedMotion();
   const [latestBlogs, setLatestBlogs] = useState<Blog[]>([]);
   const [blogsLoading, setBlogsLoading] = useState(true);
   const [blogsError, setBlogsError] = useState<string | null>(null);
+  const [featuredRace, setFeaturedRace] = useState<RaceSummary | null>(null);
+  const [featuredRaceLoading, setFeaturedRaceLoading] = useState(true);
+  const [featuredRaceError, setFeaturedRaceError] = useState<string | null>(null);
+  const [publicSummary, setPublicSummary] = useState<PublicRacingSummary | null>(null);
 
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.3], ["0%", "18%"]);
@@ -96,6 +107,57 @@ export function HomePage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadFeaturedRace() {
+      setFeaturedRaceLoading(true);
+      setFeaturedRaceError(null);
+      try {
+        const [upcoming, results, summary] = await Promise.all([
+          searchPublicRaces({ scope: "UPCOMING", sortBy: "NEXT_RACE", page: 0, size: 3 }),
+          searchPublicRaces({ scope: "RESULTS", sortBy: "LATEST_RESULT", page: 0, size: 1 }),
+          getPublicRacingSummary(),
+        ]);
+        if (isMounted) {
+          setFeaturedRace(selectNextToPost(upcoming.content, results.content));
+          setPublicSummary(summary);
+        }
+      } catch (err) {
+        console.error("Public featured race unavailable.", err);
+        if (isMounted) {
+          setFeaturedRace(null);
+          setPublicSummary(null);
+          setFeaturedRaceError("Could not load the featured race right now.");
+        }
+      } finally {
+        if (isMounted) setFeaturedRaceLoading(false);
+      }
+    }
+
+    loadFeaturedRace();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const featuredStatus = featuredRace ? raceStatus(featuredRace.status) : null;
+  const featuredDistance = featuredRace ? formatDistance(featuredRace.distanceMeters) : null;
+  const homeStats = [
+    { value: publicSummary ? String(publicSummary.raceCount) : "—", label: "Races on Calendar" },
+    { value: publicSummary ? String(publicSummary.raceDayCount) : "—", label: "Race Days" },
+    { value: publicSummary ? String(publicSummary.championshipCount) : "—", label: "Championships" },
+    { value: publicSummary ? formatFinaleDate(publicSummary.seasonFinale ?? undefined) : "—", label: "Season Finale" },
+  ];
+  const marquee = [
+    "Night at the Races",
+    `${homeStats[0].value} Races on Calendar`,
+    `${homeStats[1].value} Race Days`,
+    `${homeStats[2].value} Championships`,
+    `${homeStats[3].value} Season Finale`,
+    "Virtual Points Only",
+  ];
 
   return (
     <div className="client-theme bg-turf-950 text-ivory">
@@ -126,8 +188,8 @@ export function HomePage() {
             </MotionStaggerItem>
             <MotionStaggerItem>
               <p className="mt-8 max-w-xl text-lg font-light leading-relaxed text-ivory-dim sm:text-xl">
-                Follow the form, read the newsroom, and step into the Prediction Arena. The championship
-                runs live, weekly, through June 2026.
+                Follow the form, read the newsroom, and step into the Prediction Arena across every
+                published race day.
               </p>
             </MotionStaggerItem>
             <MotionStaggerItem>
@@ -161,10 +223,10 @@ export function HomePage() {
           y={0}
         >
           <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-x divide-white/10 px-6 md:grid-cols-4 md:px-12">
-            <FoilStat value="24" label="Stakes Races" className="py-7 pr-6" />
-            <FoilStat value="06" label="Race Days / Week" className="py-7 px-6" />
-            <FoilStat value="∞" label="Free Predictions" className="py-7 px-6" />
-            <FoilStat value="'26" label="Season Finale" className="py-7 pl-6" />
+            <FoilStat value={homeStats[0].value} label={homeStats[0].label} className="py-7 pr-6" />
+            <FoilStat value={homeStats[1].value} label={homeStats[1].label} className="py-7 px-6" />
+            <FoilStat value={homeStats[2].value} label={homeStats[2].label} className="py-7 px-6" />
+            <FoilStat value={homeStats[3].value} label={homeStats[3].label} className="py-7 pl-6" />
           </div>
         </MotionReveal>
       </section>
@@ -223,36 +285,69 @@ export function HomePage() {
       <section id="races" className="relative overflow-hidden bg-turf-900 py-24 md:py-32">
         <div className="mx-auto grid max-w-[1400px] items-center gap-14 px-6 md:px-12 lg:grid-cols-2">
           <MotionReveal>
-            <Eyebrow tone="gold">Featured Card · Season Preview</Eyebrow>
-            <h2 className="mt-5 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
-              The Aqueduct
-              <span className="block italic text-gold-300">Gold Cup.</span>
-            </h2>
-            <p className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim">
-              The signature card of the season — a mile and a quarter of the finest thoroughbreds chasing
-              the championship's richest purse.
-            </p>
+            {featuredRaceLoading ? (
+              <div aria-label="Loading featured race" className="animate-pulse">
+                <div className="h-3 w-36 rounded-full bg-white/10" />
+                <div className="mt-6 h-14 w-4/5 rounded bg-white/10" />
+                <div className="mt-3 h-14 w-3/5 rounded bg-white/10" />
+                <div className="mt-10 h-28 rounded-xl bg-white/10" />
+              </div>
+            ) : featuredRace && featuredStatus ? (
+              <>
+                <Eyebrow tone="gold">Featured Race</Eyebrow>
+                <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-ivory-faint">
+                  {featuredRace.tournamentName}
+                </p>
+                <h2 className="mt-3 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
+                  {featuredRace.name}
+                </h2>
+                <p className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim">
+                  Open the race card for post time, distance, and the latest field details.
+                </p>
 
-            <dl className="mt-10 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5">
-              {[
-                ["Post Time", "4:30 PM"],
-                ["Distance", "1¼ MI"],
-                ["Field", "12 RUN"],
-              ].map(([label, value]) => (
-                <div key={label} className="bg-turf-950 px-5 py-6">
-                  <dt className="eyebrow text-ivory-faint">{label}</dt>
-                  <dd className="font-data mt-2 text-2xl font-semibold text-ivory">{value}</dd>
-                </div>
-              ))}
-            </dl>
+                <dl className="mt-10 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                  {[
+                    ["Post Time", formatPostTime(featuredRace.raceDateTime)],
+                    ["Distance", featuredDistance ?? "TBA"],
+                    ["Max Field", `${featuredRace.maxParticipants} max`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="bg-turf-950 px-5 py-6">
+                      <dt className="eyebrow text-ivory-faint">{label}</dt>
+                      <dd className="font-data mt-2 text-2xl font-semibold text-ivory">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
 
-            <Link
-              to="/races"
-              className="group mt-10 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200"
-            >
-              View the Full Calendar
-              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-            </Link>
+                <Link
+                  to={`/races/${featuredRace.id}`}
+                  aria-label={`Open ${featuredRace.name} race card`}
+                  className="group mt-10 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200"
+                >
+                  Open Race Card
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </>
+            ) : (
+              <>
+                <Eyebrow tone="gold">Featured Race</Eyebrow>
+                <h2 className="mt-5 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
+                  Race Calendar
+                </h2>
+                <p
+                  role={featuredRaceError ? "alert" : undefined}
+                  className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim"
+                >
+                  {featuredRaceError ?? "No races are on the card yet."}
+                </p>
+                <Link
+                  to="/races"
+                  className="group mt-10 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200"
+                >
+                  View the Full Calendar
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </>
+            )}
           </MotionReveal>
 
           <MotionReveal delay={0.15}>
@@ -265,13 +360,16 @@ export function HomePage() {
               <div className="absolute inset-0 bg-gradient-to-t from-turf-950 via-turf-950/20 to-transparent" />
               <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-7">
                 <div>
-                  <p className="font-data text-[11px] uppercase tracking-[0.3em] text-gold-300">Race 07</p>
-                  <p className="mt-2 font-display text-2xl font-medium text-ivory">Championship Stakes</p>
+                  <p className="font-data text-[11px] uppercase tracking-[0.3em] text-gold-300">
+                    {featuredRace?.code ?? "Race card"}
+                  </p>
+                  <p className="mt-2 font-display text-2xl font-medium text-ivory">
+                    {featuredRace?.name ?? "Full calendar"}
+                  </p>
                 </div>
-                <span className="flex items-center gap-2 rounded-full border border-emerald-glow/40 bg-turf-950/70 px-3.5 py-1.5 backdrop-blur-sm">
-                  <span className="h-2 w-2 rounded-full bg-emerald-soft live-pulse" />
-                  <span className="eyebrow text-emerald-soft">Preview</span>
-                </span>
+                {featuredStatus ? (
+                  <StatusPill label={featuredStatus.label} tone={featuredStatus.tone} />
+                ) : null}
               </div>
             </div>
           </MotionReveal>

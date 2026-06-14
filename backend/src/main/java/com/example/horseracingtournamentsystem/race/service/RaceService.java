@@ -5,6 +5,9 @@ import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceSummaryResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.PublicRaceResultResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.PublicRacingSummaryResponse;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
@@ -19,13 +22,19 @@ import com.example.horseracingtournamentsystem.championship.entity.TournamentPar
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +64,12 @@ public class RaceService {
             "SCHEDULE_PUBLISHED",
             "ONGOING",
             "COMPLETED"
+    );
+    private static final List<String> PUBLIC_TOURNAMENT_STATUSES = List.of(
+            "OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
+    );
+    private static final Set<String> PUBLIC_RESULT_STATUSES = Set.of(
+            RaceResult.STATUS_CONFIRMED, RaceResult.STATUS_PUBLISHED
     );
 
     @Transactional
@@ -173,6 +188,86 @@ public class RaceService {
                 .collect(Collectors.toList());
     }
 
+    public Page<RaceSummaryResponse> searchPublicRaces(
+            String scope,
+            LocalDateTime fromDate,
+            LocalDateTime toDate,
+            Long tournamentId,
+            String search,
+            String sortBy,
+            Pageable pageable
+    ) {
+        String normalizedScope = scope == null ? "UPCOMING" : scope.trim().toUpperCase(Locale.ROOT);
+        String normalizedSort = sortBy == null
+                ? ("RESULTS".equals(normalizedScope) ? "LATEST_RESULT" : "NEXT_RACE")
+                : sortBy.trim().toUpperCase(Locale.ROOT);
+        if (!Set.of("UPCOMING", "RESULTS").contains(normalizedScope)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid race discovery scope");
+        }
+        if (!Set.of("NEXT_RACE", "LATEST_RESULT").contains(normalizedSort)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid race discovery sort");
+        }
+        if (fromDate != null && toDate != null && toDate.isBefore(fromDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race discovery end date cannot be before start date");
+        }
+
+        Page<Race> races = raceRepository.searchPublic(
+                normalizedScope,
+                fromDate,
+                toDate,
+                tournamentId,
+                search == null ? "" : search.trim(),
+                normalizedSort,
+                pageable
+        );
+        if (races.isEmpty()) {
+            return races.map(race -> mapToSummary(race, 0, null));
+        }
+
+        List<Long> raceIds = races.getContent().stream().map(Race::getId).toList();
+        Map<Long, Long> participantCounts = toCountMap(raceParticipantRepository.countActiveByRaceIds(raceIds));
+        Map<Long, RaceResult> winners = raceResultRepository
+                .findAllByRace_IdInAndPositionAndStatusIn(raceIds, 1, PUBLIC_RESULT_STATUSES)
+                .stream()
+                .collect(Collectors.toMap(RaceResult::getRaceId, Function.identity(), (first, ignored) -> first));
+        return races.map(race -> mapToSummary(
+                race,
+                participantCounts.getOrDefault(race.getId(), 0L),
+                winners.get(race.getId())
+        ));
+    }
+
+    public PublicRaceResultResponse getPublicRaceResults(Long raceId) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        boolean official = Set.of("RESULT_CONFIRMED", "PUBLISHED").contains(race.getStatus());
+        if (!official) {
+            return PublicRaceResultResponse.builder()
+                    .raceId(raceId)
+                    .official(false)
+                    .entries(List.of())
+                    .build();
+        }
+        List<RaceResult> results = raceResultRepository
+                .findAllByRace_IdAndStatusInOrderByPositionAscCreatedAtAsc(raceId, PUBLIC_RESULT_STATUSES);
+        return PublicRaceResultResponse.builder()
+                .raceId(raceId)
+                .official(true)
+                .publishedAt(results.stream().map(RaceResult::getPublishedAt).filter(java.util.Objects::nonNull)
+                        .max(LocalDateTime::compareTo).orElse(null))
+                .entries(results.stream().map(this::mapPublicResultEntry).toList())
+                .build();
+    }
+
+    public PublicRacingSummaryResponse getPublicRacingSummary() {
+        return PublicRacingSummaryResponse.builder()
+                .raceCount(raceRepository.countByDeletedAtIsNull())
+                .raceDayCount(raceRepository.countDistinctRaceDays())
+                .championshipCount(tournamentRepository.countByStatusInAndDeletedAtIsNull(PUBLIC_TOURNAMENT_STATUSES))
+                .seasonFinale(tournamentRepository.findPublicSeasonFinale(PUBLIC_TOURNAMENT_STATUSES))
+                .build();
+    }
+
     public List<RaceParticipantResponse> getRaceParticipants(Long raceId) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
@@ -214,6 +309,54 @@ public class RaceService {
                 .creatorName(r.getCreatedBy().getFullName())
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
+                .build();
+    }
+
+    private Map<Long, Long> toCountMap(List<Object[]> rows) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    private RaceSummaryResponse mapToSummary(Race race, long participantCount, RaceResult winner) {
+        boolean resultOfficial = Set.of("RESULT_CONFIRMED", "PUBLISHED").contains(race.getStatus());
+        return RaceSummaryResponse.builder()
+                .id(race.getId())
+                .name(race.getName())
+                .roundName(race.getRoundName())
+                .code(race.getCode())
+                .tournamentId(race.getTournament().getId())
+                .tournamentName(race.getTournament().getName())
+                .raceDateTime(race.getRaceAt())
+                .location(race.getTrackName() == null ? race.getTournament().getLocation() : race.getTrackName())
+                .distanceMeters(race.getDistanceMeter())
+                .maxParticipants(race.getMaxParticipants())
+                .participantCount(participantCount)
+                .status(race.getStatus())
+                .predictionOpen("SCHEDULED".equals(race.getStatus()) && race.getRaceAt().isAfter(LocalDateTime.now()))
+                .predictionCloseTime(race.getRaceAt())
+                .resultOfficial(resultOfficial)
+                .winner(!resultOfficial || winner == null ? null : RaceSummaryResponse.WinnerSummary.builder()
+                        .horseName(winner.getParticipant().getHorse().getName())
+                        .jockeyName(winner.getParticipant().getJockey() == null
+                                ? null : winner.getParticipant().getJockey().getFullName())
+                        .finishTimeSeconds(winner.getFinishTimeSeconds())
+                        .build())
+                .build();
+    }
+
+    private PublicRaceResultResponse.Entry mapPublicResultEntry(RaceResult result) {
+        return PublicRaceResultResponse.Entry.builder()
+                .position(result.getPosition())
+                .horseName(result.getParticipant().getHorse().getName())
+                .jockeyName(result.getParticipant().getJockey() == null
+                        ? null : result.getParticipant().getJockey().getFullName())
+                .finishTimeSeconds(result.getFinishTimeSeconds())
+                .penaltySeconds(result.getPenaltySeconds())
+                .points(result.getPoints())
+                .resultStatus(result.getResultStatus())
                 .build();
     }
 

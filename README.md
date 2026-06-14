@@ -46,6 +46,15 @@ npm run dev
 - `.env` is gitignored — never commit real secrets. Keep `.env.example` current.
 - Dev admin (dev profile only, seeded on first boot): `admin@local.dev` /
   `Admin@12345`.
+- Client demo accounts (dev profile only, all use `Demo@12345`):
+  - Horse owner: `owner@local.dev`
+  - Jockeys: `jockey1@local.dev` through `jockey4@local.dev`
+  - Spectators: `spectator@local.dev`, `spectator2@local.dev`
+
+The client demo seed includes two championships, three races, active race
+fields, a published result, and both pending and settled predictions. It is
+idempotent, so restarting the dev backend fills missing demo records without
+duplicating existing ones.
 
 ### Database schema
 

@@ -3,6 +3,8 @@ package com.example.horseracingtournamentsystem.championship.repository;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface TournamentParticipantRepository extends JpaRepository<TournamentParticipant, Long> {
 
@@ -13,4 +15,13 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
     boolean existsByTournament_IdAndHorse_Id(Long tournamentId, Long horseId);
 
     boolean existsByTournament_IdAndJockey_Id(Long tournamentId, Long jockeyId);
+
+    @Query("""
+            SELECT participant.tournament.id, COUNT(participant)
+            FROM TournamentParticipant participant
+            WHERE participant.tournament.id IN :tournamentIds
+              AND participant.status = 'ACTIVE'
+            GROUP BY participant.tournament.id
+            """)
+    List<Object[]> countActiveByTournamentIds(@Param("tournamentIds") List<Long> tournamentIds);
 }

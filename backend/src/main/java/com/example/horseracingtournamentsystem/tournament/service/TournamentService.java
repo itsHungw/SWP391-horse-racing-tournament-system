@@ -8,23 +8,38 @@ import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRe
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.dto.request.TournamentRequest;
 import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentResponse;
+import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentSummaryResponse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TournamentService {
+
+    private static final List<String> PUBLIC_STATUSES = List.of(
+            "OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
+    );
+    private static final Set<String> DISCOVERY_SORTS = Set.of(
+            "LATEST", "REGISTRATION_CLOSING_SOON", "ONGOING_FIRST"
+    );
 
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
@@ -118,9 +133,51 @@ public class TournamentService {
     }
 
     public List<TournamentResponse> getPublicTournaments() {
-        return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED")
-        ).stream().map(this::mapToResponse).collect(Collectors.toList());
+        return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(PUBLIC_STATUSES)
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    public Page<TournamentSummaryResponse> searchPublicTournaments(
+            String search,
+            String status,
+            Integer year,
+            String sortBy,
+            Pageable pageable
+    ) {
+        String normalizedSearch = search == null ? "" : search.trim();
+        String normalizedStatus = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
+        String normalizedSort = sortBy == null ? "ONGOING_FIRST" : sortBy.trim().toUpperCase(Locale.ROOT);
+        if (!normalizedStatus.isEmpty() && !PUBLIC_STATUSES.contains(normalizedStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid public tournament status");
+        }
+        if (!DISCOVERY_SORTS.contains(normalizedSort)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament discovery sort");
+        }
+
+        Page<Tournament> tournaments = tournamentRepository.searchPublic(
+                normalizedSearch, normalizedStatus, year, normalizedSort, PUBLIC_STATUSES, pageable
+        );
+        if (tournaments.isEmpty()) {
+            return tournaments.map(tournament -> mapToSummary(tournament, 0, 0, null));
+        }
+
+        List<Long> tournamentIds = tournaments.getContent().stream().map(Tournament::getId).toList();
+        Map<Long, Long> raceCounts = toCountMap(raceRepository.countByTournamentIds(tournamentIds));
+        Map<Long, Long> participantCounts =
+                toCountMap(tournamentParticipantRepository.countActiveByTournamentIds(tournamentIds));
+        Map<Long, Race> nextRaces = raceRepository.findNextByTournamentIds(tournamentIds, LocalDateTime.now()).stream()
+                .collect(Collectors.toMap(
+                        race -> race.getTournament().getId(),
+                        Function.identity(),
+                        (first, ignored) -> first
+                ));
+
+        return tournaments.map(tournament -> mapToSummary(
+                tournament,
+                raceCounts.getOrDefault(tournament.getId(), 0L),
+                participantCounts.getOrDefault(tournament.getId(), 0L),
+                nextRaces.get(tournament.getId())
+        ));
     }
 
     @Transactional
@@ -220,6 +277,42 @@ public class TournamentService {
                 .creatorName(t.getCreatedBy().getFullName())
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
+                .build();
+    }
+
+    private Map<Long, Long> toCountMap(List<Object[]> rows) {
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : rows) {
+            counts.put((Long) row[0], (Long) row[1]);
+        }
+        return counts;
+    }
+
+    private TournamentSummaryResponse mapToSummary(
+            Tournament tournament,
+            long raceCount,
+            long participantCount,
+            Race nextRace
+    ) {
+        return TournamentSummaryResponse.builder()
+                .id(tournament.getId())
+                .name(tournament.getName())
+                .code(tournament.getCode())
+                .description(tournament.getDescription())
+                .location(tournament.getLocation())
+                .startDate(tournament.getStartDate())
+                .endDate(tournament.getEndDate())
+                .registrationEndAt(tournament.getRegistrationEndAt())
+                .maxHorses(tournament.getMaxHorses())
+                .status(tournament.getStatus())
+                .raceCount(raceCount)
+                .participantCount(participantCount)
+                .nextRace(nextRace == null ? null : TournamentSummaryResponse.NextRaceSummary.builder()
+                        .id(nextRace.getId())
+                        .name(nextRace.getName())
+                        .raceDateTime(nextRace.getRaceAt())
+                        .status(nextRace.getStatus())
+                        .build())
                 .build();
     }
 }

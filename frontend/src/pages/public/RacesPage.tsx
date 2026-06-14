@@ -1,272 +1,212 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, CalendarDays, Clock3, List, Search, Trophy, Users } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
 
-import { getPublicTournaments } from "../../api/racingApi";
-import { ClientHeader } from "../../components/client/ClientHeader";
-import { ClientFooter } from "../../components/client/ClientFooter";
-import {
-  Eyebrow,
-  GoldRule,
-  MotionReveal,
-  MotionStagger,
-  MotionStaggerItem,
-} from "../../components/client/primitives";
-import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import type { Tournament } from "../../types/racing";
+import { searchPublicRaces, searchPublicTournaments } from "../../api/racingApi";
 import heroImage from "../../assets/slide.jpg";
-import {
-  championshipStatus,
-  formatDateRange,
-  formatLongDate,
-  isRegistrationOpen,
-  toneClasses,
-} from "./publicRacingData";
+import { ClientFooter } from "../../components/client/ClientFooter";
+import { ClientHeader } from "../../components/client/ClientHeader";
+import { Countdown } from "../../components/client/Countdown";
+import { Eyebrow, GoldRule, MotionReveal } from "../../components/client/primitives";
+import { useClientSession } from "../../hooks/useClientSession";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { usePublicQuery } from "../../hooks/usePublicQuery";
+import type { PageResponse, RaceSummary } from "../../types/racing";
+import { formatDistance, formatPostTime, raceStatus } from "./publicRacingData";
+import { parseRaceDiscoveryQuery, racesByDay, selectNextToPost } from "./racingDiscovery";
+import { PublicPagination } from "./components/PublicPagination";
+import { RaceAgenda } from "./components/RaceAgenda";
+import { RaceCalendar } from "./components/RaceCalendar";
+import { RaceDayPanel } from "./components/RaceDayPanel";
+import { StatusPill } from "./components/StatusPill";
 
-type MeetGroup = { key: string; label: string; sort: number; meets: Tournament[] };
+const EMPTY_RACES: PageResponse<RaceSummary> = { content: [], number: 0, size: 20, totalElements: 0, totalPages: 0 };
+const CALENDAR_BOUND = 100;
 
-function groupByMonth(list: Tournament[]): MeetGroup[] {
-  const groups = new Map<string, MeetGroup>();
-  for (const t of list) {
-    const d = t.startDate ? new Date(t.startDate) : null;
-    const valid = d && !Number.isNaN(d.getTime());
-    const key = valid ? `${d!.getFullYear()}-${String(d!.getMonth()).padStart(2, "0")}` : "tba";
-    const label = valid
-      ? new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(d!)
-      : "Dates to be announced";
-    const sort = valid ? d!.getFullYear() * 12 + d!.getMonth() : Number.MAX_SAFE_INTEGER;
-    if (!groups.has(key)) groups.set(key, { key, label, sort, meets: [] });
-    groups.get(key)!.meets.push(t);
-  }
-  const result = [...groups.values()].sort((a, b) => a.sort - b.sort);
-  for (const g of result) {
-    g.meets.sort((a, b) => {
-      const da = a.startDate ? new Date(a.startDate).getTime() : Infinity;
-      const db = b.startDate ? new Date(b.startDate).getTime() : Infinity;
-      return da - db;
-    });
-  }
-  return result;
-}
-
-function dayBadge(value?: string): { day: string; mon: string } {
-  if (!value) return { day: "—", mon: "TBA" };
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return { day: "—", mon: "TBA" };
+function monthRange(month: string) {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const end = new Date(year, monthNumber, 0);
   return {
-    day: String(d.getDate()).padStart(2, "0"),
-    mon: new Intl.DateTimeFormat("en", { month: "short" }).format(d).toUpperCase(),
+    from: `${month}-01`,
+    to: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`,
   };
 }
 
+function NextToPost({
+  race,
+  latestResult,
+  authenticated,
+}: {
+  race: RaceSummary;
+  latestResult: boolean;
+  authenticated: boolean;
+}) {
+  const status = raceStatus(race.status);
+  return (
+    <article className="relative overflow-hidden border border-gold-400/30 bg-turf-950 p-7 md:p-10">
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.12),transparent_65%)]" />
+      <div className="relative grid gap-9 lg:grid-cols-[1fr_330px] lg:items-end">
+        <div>
+          <div className="flex flex-wrap items-center gap-4">
+            <p className="eyebrow text-gold-300">{latestResult ? "Latest Result" : "Next To Post"}</p>
+            <StatusPill tone={status.tone} label={latestResult ? (race.resultOfficial ? "Official Result Published" : "Awaiting Official Result") : status.label} />
+          </div>
+          <p className="mt-6 font-data text-[10px] uppercase tracking-[0.22em] text-ivory-faint">{race.tournamentName}</p>
+          <h2 className="mt-3 font-display text-4xl font-light leading-[1] tracking-tight text-ivory md:text-6xl">{race.name}</h2>
+          <div className="mt-6 flex flex-wrap gap-x-7 gap-y-3 text-sm text-ivory-dim">
+            <span className="inline-flex items-center gap-2"><Clock3 size={15} className="text-gold-400" /> {formatPostTime(race.raceDateTime)}</span>
+            <span>{formatDistance(race.distanceMeters)}</span>
+            <span className="inline-flex items-center gap-2"><Users size={15} className="text-gold-400" /> {race.participantCount} runners</span>
+          </div>
+          {latestResult && race.winner ? <p className="mt-6 text-sm text-ivory-dim">Winner <strong className="font-display text-xl font-medium text-gold-200">{race.winner.horseName}</strong></p> : null}
+          <div className="mt-8 flex flex-wrap gap-3">
+            {!latestResult && race.predictionOpen ? (
+              <Link to={authenticated ? `/spectator/predictions?raceId=${race.id}` : "/login"} className="inline-flex min-h-11 items-center gap-2 bg-emerald-glow px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-emerald-soft">
+                {authenticated ? "Make Prediction" : "Login to Predict"} <ArrowRight size={14} />
+              </Link>
+            ) : null}
+            <Link to={`/races/${race.id}`} className="inline-flex min-h-11 items-center gap-2 bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300">
+              {latestResult && race.resultOfficial ? "View Full Result" : "View Race Card"} <ArrowRight size={14} />
+            </Link>
+          </div>
+        </div>
+        <div className="border-l border-white/10 pl-7">
+          {latestResult ? (
+            <><Trophy size={28} className="text-gold-400/70" /><p className="mt-4 text-sm leading-relaxed text-ivory-dim">{race.resultOfficial ? "The official finish order is available on the race card." : "Results are being reviewed before publication."}</p></>
+          ) : (
+            <><p className="font-data text-[10px] uppercase tracking-[0.22em] text-ivory-faint">Countdown to post</p><div className="mt-5"><Countdown target={race.raceDateTime} doneLabel="Underway" /></div><p className="mt-5 text-sm text-ivory-dim">{race.location || "Track location TBA"}</p></>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 export function RacesPage() {
-  useDocumentTitle("Race Calendar | Night at the Races");
-  const reduce = useReducedMotion();
-  const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  useDocumentTitle("Races | Night at the Races");
+  const { isAuthenticated } = useClientSession();
+  const [params, setParams] = useSearchParams();
+  const state = useMemo(() => parseRaceDiscoveryQuery(params), [params]);
+  const [draftSearch, setDraftSearch] = useState(state.search);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
-  const { scrollYProgress } = useScroll();
-  const heroY = useTransform(scrollYProgress, [0, 0.25], ["0%", "20%"]);
+  useEffect(() => setDraftSearch(state.search), [state.search]);
+  useEffect(() => setSelectedDay(null), [state.month, state.scope, state.view]);
 
-  useEffect(() => {
-    let mounted = true;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getPublicTournaments();
-        if (mounted) setTournaments(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Public race calendar unavailable.", err);
-        if (mounted) {
-          setTournaments([]);
-          setError("Could not load the race calendar right now.");
-        }
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      mounted = false;
+  const listParams = useMemo(() => {
+    const calendarRange = state.view === "calendar" ? monthRange(state.month) : null;
+    return {
+      scope: state.scope,
+      sortBy: (state.scope === "RESULTS" ? "LATEST_RESULT" : "NEXT_RACE") as "LATEST_RESULT" | "NEXT_RACE",
+      search: state.search || undefined,
+      tournamentId: state.tournamentId,
+      from: state.from || calendarRange?.from,
+      to: state.to || calendarRange?.to,
+      page: state.view === "calendar" ? 0 : state.page,
+      size: state.view === "calendar" ? CALENDAR_BOUND : 20,
     };
-  }, []);
+  }, [state]);
+  const listQuery = usePublicQuery(`races:list:${JSON.stringify(listParams)}`, () => searchPublicRaces(listParams));
+  const heroUpcomingQuery = usePublicQuery("races:hero:upcoming", () =>
+    searchPublicRaces({ scope: "UPCOMING", sortBy: "NEXT_RACE", page: 0, size: 3 }),
+  );
+  const heroResultsQuery = usePublicQuery("races:hero:results", () =>
+    searchPublicRaces({ scope: "RESULTS", sortBy: "LATEST_RESULT", page: 0, size: 3 }),
+  );
+  const tournamentsQuery = usePublicQuery("tournaments:filter-options", () =>
+    searchPublicTournaments({ page: 0, size: 48, sortBy: "ONGOING_FIRST" }),
+  );
 
-  const groups = useMemo(() => groupByMonth(tournaments), [tournaments]);
+  const pageData = listQuery.data ?? EMPTY_RACES;
+  const heroUpcoming = heroUpcomingQuery.data?.content ?? [];
+  const heroResults = heroResultsQuery.data?.content ?? [];
+  const tournaments = tournamentsQuery.data?.content ?? [];
+  const heroLoading = heroUpcomingQuery.loading || heroResultsQuery.loading;
+  const heroFailed =
+    (heroUpcomingQuery.error && !heroUpcomingQuery.data) || (heroResultsQuery.error && !heroResultsQuery.data);
+
+  const updateParams = (updates: Record<string, string | number | undefined>) => {
+    const next = new URLSearchParams(params);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === undefined || value === "") next.delete(key);
+      else next.set(key, String(value));
+    }
+    setParams(next);
+  };
+  const featured = selectNextToPost(heroUpcoming, heroResults);
+  const latestResult = Boolean(featured && heroUpcoming.every((race) => race.id !== featured.id));
+  const selectedRaces = selectedDay ? racesByDay(pageData.content).get(selectedDay) ?? [] : [];
 
   return (
-    <div className="client-theme bg-turf-950 text-ivory">
+    <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
+      <main>
+        <section className="grain relative isolate overflow-hidden border-b border-white/10">
+          <img src={heroImage} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30" />
+          <div className="turf-vignette absolute inset-0 -z-10" />
+          <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-12 md:py-20">
+            <Eyebrow tone="gold">The Race Programme</Eyebrow>
+            <h1 className="mt-5 font-display text-5xl font-light tracking-tight md:text-7xl">Races<span className="text-foil">.</span></h1>
+            <p className="mt-5 max-w-xl text-lg leading-relaxed text-ivory-dim">Find the next post, make your prediction, or revisit the official finish order.</p>
+          </div>
+        </section>
 
-      {/* Hero */}
-      <section className="grain relative isolate overflow-hidden">
-        <motion.div style={reduce ? undefined : { y: heroY }} className="absolute inset-0 -z-10">
-          <img src={heroImage} alt="" className="h-full w-full object-cover object-center opacity-45" />
-        </motion.div>
-        <div className="turf-vignette absolute inset-0 -z-10" />
-        <div className="pointer-events-none absolute inset-0 -z-10 opacity-50">
-          <div className="absolute left-[28%] top-0 h-full w-px bg-gradient-to-b from-transparent via-gold-400/20 to-transparent" />
-          <div className="absolute right-[30%] top-0 h-full w-px bg-gradient-to-b from-transparent via-emerald-glow/20 to-transparent" />
-        </div>
-        <div className="mx-auto max-w-[1400px] px-6 pb-14 pt-24 md:px-12 md:pb-20 md:pt-32">
-          <MotionStagger className="max-w-3xl" gap={0.12}>
-            <MotionStaggerItem>
-              <Eyebrow tone="gold">Post Times · The Calendar</Eyebrow>
-            </MotionStaggerItem>
-            <MotionStaggerItem>
-              <h1 className="mt-6 font-display text-[clamp(2.8rem,7vw,6rem)] font-light leading-[0.9] tracking-[-0.02em]">
-                Race <span className="italic text-foil">Calendar.</span>
-              </h1>
-            </MotionStaggerItem>
-            <MotionStaggerItem>
-              <p className="mt-6 max-w-xl text-lg font-light leading-relaxed text-ivory-dim">
-                The full running of the season, meet by meet. Track every championship date and see which
-                gates are open for entry.
-              </p>
-            </MotionStaggerItem>
-          </MotionStagger>
-        </div>
-      </section>
+        <section className="bg-turf-900 py-16 md:py-20" aria-labelledby="next-post-title">
+          <div className="mx-auto max-w-[1400px] px-6 md:px-12">
+            <h2 id="next-post-title" className="sr-only">Next to post</h2>
+            {heroLoading ? <div className="h-80 animate-pulse border border-white/10 bg-turf-950" aria-label="Loading next to post" /> : featured ? <NextToPost race={featured} latestResult={latestResult} authenticated={isAuthenticated} /> : heroFailed ? (
+              <div role="alert" className="border-l-2 border-nyraRed bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">The next race could not be loaded.</h3><p className="mt-3 text-ivory-dim">Check your connection and try again in a moment.</p></div>
+            ) : (
+              <div className="border-l-2 border-gold-400 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">No race is on the card right now.</h3><p className="mt-3 text-ivory-dim">Check back when the next programme is published.</p></div>
+            )}
+          </div>
+        </section>
 
-      {/* Calendar agenda */}
-      <section className="bg-turf-900 py-20 md:py-28">
-        <div className="mx-auto max-w-[1400px] px-6 md:px-12">
-          {loading ? (
-            <div className="space-y-10" aria-label="Loading race calendar">
-              {[0, 1].map((g) => (
-                <div key={g} className="grid gap-8 lg:grid-cols-[260px_1fr]">
-                  <div className="h-10 w-40 animate-pulse bg-white/5" />
-                  <div className="space-y-4">
-                    {[0, 1].map((i) => (
-                      <div key={i} className="h-28 animate-pulse rounded-2xl border border-white/8 bg-turf-950" />
-                    ))}
-                  </div>
+        <section className="bg-turf-950 pb-24" aria-labelledby="programme-title">
+          <div className="sticky top-[68px] z-30 border-y border-white/10 bg-turf-950/95 backdrop-blur-xl">
+            <div className="mx-auto max-w-[1400px] px-6 py-4 md:px-12">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex border border-white/15">
+                  {(["UPCOMING", "RESULTS"] as const).map((scope) => <button key={scope} type="button" onClick={() => updateParams({ scope, page: 0 })} className={`min-h-11 px-5 text-xs font-bold uppercase tracking-[0.14em] ${state.scope === scope ? "bg-gold-400 text-turf-950" : "text-ivory-dim hover:text-ivory"}`}>{scope === "UPCOMING" ? "Upcoming" : "Results"}</button>)}
                 </div>
-              ))}
+                <div className="flex border border-white/15">
+                  <button type="button" aria-label="Agenda" onClick={() => updateParams({ view: "agenda", page: 0 })} className={`inline-flex min-h-11 items-center gap-2 px-4 text-xs font-bold uppercase tracking-[0.14em] ${state.view === "agenda" ? "bg-emerald-glow text-turf-950" : "text-ivory-dim"}`}><List size={15} /> Agenda</button>
+                  <button type="button" aria-label="Calendar" onClick={() => updateParams({ view: "calendar", page: 0 })} className={`inline-flex min-h-11 items-center gap-2 px-4 text-xs font-bold uppercase tracking-[0.14em] ${state.view === "calendar" ? "bg-emerald-glow text-turf-950" : "text-ivory-dim"}`}><CalendarDays size={15} /> Calendar</button>
+                </div>
+              </div>
+              <form className="mt-3 grid gap-3 md:grid-cols-[1fr_250px_160px_160px_auto]" onSubmit={(event) => { event.preventDefault(); updateParams({ search: draftSearch, page: 0 }); }}>
+                <label className="relative"><span className="sr-only">Search races</span><Search size={16} className="pointer-events-none absolute left-4 top-3.5 text-ivory-faint" /><input type="search" aria-label="Search races" value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search races..." className="h-11 w-full border border-white/15 bg-turf-900 pl-11 pr-4 text-sm text-ivory outline-none placeholder:text-ivory-faint focus:border-gold-400/70" /></label>
+                <select aria-label="Championship filter" value={state.tournamentId ?? ""} onChange={(event) => updateParams({ tournamentId: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70"><option value="">All championships</option>{tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}</select>
+                <input aria-label="From date" type="date" value={state.from ?? ""} onChange={(event) => updateParams({ from: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70" />
+                <input aria-label="To date" type="date" value={state.to ?? ""} onChange={(event) => updateParams({ to: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70" />
+                <button type="submit" className="h-11 bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 hover:bg-gold-300">Search</button>
+              </form>
             </div>
-          ) : error ? (
-            <div
-              className="rounded-2xl border-l-4 border-nyraRed bg-turf-950 px-7 py-8 text-sm font-semibold text-rose-300"
-              role="alert"
-            >
-              {error}
-            </div>
-          ) : groups.length === 0 ? (
-            <div className="rounded-2xl border-l-4 border-gold-400 bg-turf-950 px-7 py-10">
-              <Eyebrow tone="gold">No fixtures yet</Eyebrow>
-              <p className="mt-4 max-w-lg font-display text-2xl font-light text-ivory">
-                The race calendar opens with the season. Check back soon for post times.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-16">
-              {groups.map((group) => (
-                <MotionReveal key={group.key} className="grid gap-8 lg:grid-cols-[260px_1fr]">
-                  <div className="lg:sticky lg:top-28 lg:self-start">
-                    <Eyebrow tone="emerald">Meet</Eyebrow>
-                    <h2 className="mt-4 font-display text-3xl font-light leading-tight tracking-tight md:text-4xl">
-                      {group.label}
-                    </h2>
-                    <GoldRule className="mt-5 w-16" />
-                    <p className="mt-4 font-data text-xs uppercase tracking-[0.2em] text-ivory-faint">
-                      {String(group.meets.length).padStart(2, "0")}{" "}
-                      {group.meets.length === 1 ? "Championship" : "Championships"}
-                    </p>
-                  </div>
+          </div>
 
-                  <MotionStagger className="space-y-4" gap={0.08}>
-                    {group.meets.map((t) => {
-                      const status = championshipStatus(t.status);
-                      const c = toneClasses[status.tone];
-                      const badge = dayBadge(t.startDate);
-                      const regOpen = isRegistrationOpen(t);
-                      return (
-                        <MotionStaggerItem key={t.id}>
-                          <article className="group flex items-stretch gap-6 overflow-hidden rounded-2xl border border-white/8 bg-turf-950 p-6 transition-all duration-500 hover:border-gold-400/40 hover:shadow-[0_24px_60px_-30px_rgba(0,0,0,0.8)]">
-                            <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-turf-900 px-5 py-4 text-center">
-                              <span className="font-data text-3xl font-semibold leading-none text-foil">
-                                {badge.day}
-                              </span>
-                              <span className="font-data mt-1 text-[10px] uppercase tracking-[0.2em] text-ivory-faint">
-                                {badge.mon}
-                              </span>
-                            </div>
-
-                            <div className="flex min-w-0 flex-1 flex-col justify-center">
-                              <div className="flex flex-wrap items-center gap-3">
-                                <span className={`inline-flex items-center gap-2 ${c.text}`}>
-                                  <span className={`h-1.5 w-1.5 rounded-full ${c.dot} ${regOpen ? "live-pulse" : ""}`} />
-                                  <span className="eyebrow">{status.label}</span>
-                                </span>
-                                {t.code ? (
-                                  <span className="font-data text-[11px] uppercase tracking-[0.2em] text-ivory-faint">
-                                    {t.code}
-                                  </span>
-                                ) : null}
-                              </div>
-                              <h3 className="mt-2 truncate font-display text-2xl font-medium tracking-tight text-ivory transition-colors group-hover:text-gold-200">
-                                {t.name}
-                              </h3>
-                              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-ivory-dim">
-                                <span className="font-data text-[13px]">{formatDateRange(t.startDate, t.endDate)}</span>
-                                {t.location ? (
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <MapPin size={14} className="text-gold-400/80" />
-                                    {t.location}
-                                  </span>
-                                ) : null}
-                              </div>
-                            </div>
-
-                            <div className="hidden flex-col items-end justify-center text-right sm:flex">
-                              {regOpen ? (
-                                <span className="text-xs font-semibold text-emerald-soft">
-                                  Entry open
-                                  {t.registrationEndAt ? (
-                                    <span className="mt-1 block font-data text-[11px] text-ivory-faint">
-                                      closes {formatLongDate(t.registrationEndAt)}
-                                    </span>
-                                  ) : null}
-                                </span>
-                              ) : (
-                                <span className="text-xs font-semibold text-ivory-faint">
-                                  {t.registrationStartAt
-                                    ? `Opens ${formatLongDate(t.registrationStartAt)}`
-                                    : "By invitation"}
-                                </span>
-                              )}
-                            </div>
-                          </article>
-                        </MotionStaggerItem>
-                      );
-                    })}
-                  </MotionStagger>
-                </MotionReveal>
-              ))}
-            </div>
-          )}
-
-          <MotionReveal className="mt-20 flex flex-col items-start gap-6 rounded-2xl border border-emerald-glow/25 bg-gradient-to-br from-turf-800 to-turf-950 p-9 md:flex-row md:items-center md:justify-between">
-            <div className="max-w-xl">
-              <Eyebrow tone="emerald">Make your pick</Eyebrow>
-              <h2 className="mt-4 font-display text-3xl font-light tracking-tight md:text-4xl">
-                Predict the field before the gates open.
-              </h2>
-              <p className="mt-3 text-ivory-dim">Free-to-play, virtual points only — never a real-money bet.</p>
-            </div>
-            <Link
-              to="/spectator/predictions"
-              className="group inline-flex items-center gap-2.5 rounded-sm bg-emerald-glow px-8 py-4 text-[13px] font-bold uppercase tracking-[0.16em] text-turf-950 transition-colors hover:bg-emerald-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ivory"
-            >
-              Enter the Arena
-              <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-            </Link>
-          </MotionReveal>
-        </div>
-      </section>
-
+          <div className="mx-auto max-w-[1400px] px-6 pt-12 md:px-12">
+            <MotionReveal className="mb-10 flex items-end justify-between gap-5 border-b border-white/10 pb-6">
+              <div><h2 id="programme-title" className="font-display text-4xl font-light tracking-tight">{state.scope === "UPCOMING" ? "The next race days." : "Official record & review."}</h2><GoldRule className="mt-5 w-20" /></div>
+              <p role="status" aria-live="polite" className="font-data text-xs uppercase tracking-[0.18em] text-ivory-faint">{pageData.totalElements} races</p>
+            </MotionReveal>
+            {listQuery.loading ? <div className="space-y-4" aria-label="Loading race programme">{[0, 1, 2, 3].map((item) => <div key={item} className="h-32 animate-pulse border-t border-white/10 bg-white/[0.02]" />)}</div> : listQuery.error && !listQuery.data ? (
+              <div role="alert" className="border-l-2 border-nyraRed bg-turf-900 px-6 py-7"><p className="text-rose-300">Could not load the race programme right now.</p><button type="button" onClick={listQuery.retry} className="mt-5 inline-flex min-h-11 items-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60">Try again</button></div>
+            ) : pageData.content.length === 0 ? <div className="border-l-2 border-gold-400 bg-turf-900 px-7 py-9"><h3 className="font-display text-3xl font-light">{state.scope === "UPCOMING" ? "No upcoming races match this view." : "No results match this view."}</h3><p className="mt-3 text-ivory-dim">Adjust the filters or explore another championship.</p></div> : (
+              <div aria-busy={listQuery.fetching} className={`transition-opacity duration-300 ${listQuery.fetching ? "opacity-50" : "opacity-100"}`}>
+                {state.view === "calendar" && pageData.totalElements > CALENDAR_BOUND ? (
+                  <p className="mb-6 border border-gold-400/30 bg-turf-900 px-5 py-4 text-sm text-ivory-dim">
+                    This month has {pageData.totalElements} races — the calendar shows the first {CALENDAR_BOUND}.{" "}
+                    <button type="button" onClick={() => updateParams({ view: "agenda", page: 0 })} className="font-bold uppercase tracking-[0.12em] text-gold-300 underline-offset-4 hover:underline">Browse all in the agenda</button>
+                  </p>
+                ) : null}
+                {state.view === "calendar" ? <RaceCalendar races={pageData.content} month={state.month} onMonthChange={(month) => updateParams({ month, page: 0 })} onSelectDay={setSelectedDay} /> : <RaceAgenda races={pageData.content} results={state.scope === "RESULTS"} />}
+              </div>
+            )}
+            {state.view === "agenda" ? <PublicPagination page={pageData.number} totalPages={pageData.totalPages} onChange={(page) => updateParams({ page })} /> : null}
+          </div>
+        </section>
+      </main>
+      {selectedDay ? <RaceDayPanel day={selectedDay} races={selectedRaces} onClose={() => setSelectedDay(null)} /> : null}
       <ClientFooter />
     </div>
   );

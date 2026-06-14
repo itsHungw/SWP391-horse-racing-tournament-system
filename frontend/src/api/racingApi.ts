@@ -13,7 +13,12 @@ import type {
   LockParticipantsResponse,
   OwnerContractPayload,
   PageResponse,
+  PublicRaceResult,
+  PublicRacingSummary,
+  Race,
+  RaceSummary,
   Tournament,
+  TournamentSummary,
   TournamentParticipant,
   TournamentRegistration,
   TournamentRegistrationPayload,
@@ -22,6 +27,59 @@ import type {
 
 export async function getPublicTournaments(): Promise<Tournament[]> {
   const response = await httpClient.get<Tournament[]>("/tournaments");
+  return response.data;
+}
+
+export async function getPublicTournament(id: number): Promise<Tournament> {
+  const response = await httpClient.get<Tournament>(`/tournaments/${id}`);
+  return response.data;
+}
+
+export async function searchPublicTournaments(params: {
+  page?: number;
+  size?: number;
+  search?: string;
+  status?: string;
+  year?: number;
+  sortBy?: "ONGOING_FIRST" | "REGISTRATION_CLOSING_SOON" | "LATEST";
+}): Promise<PageResponse<TournamentSummary>> {
+  const response = await httpClient.get<PageResponse<TournamentSummary>>("/tournaments/search", { params });
+  return response.data;
+}
+
+export async function getPublicRaces(tournamentId?: number): Promise<Race[]> {
+  const response = await httpClient.get<Race[]>("/races", {
+    params: tournamentId ? { tournamentId } : undefined,
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
+export async function getPublicRace(id: number): Promise<Race> {
+  const response = await httpClient.get<Race>(`/races/${id}`);
+  return response.data;
+}
+
+export async function searchPublicRaces(params: {
+  scope?: "UPCOMING" | "RESULTS";
+  from?: string;
+  to?: string;
+  tournamentId?: number;
+  search?: string;
+  sortBy?: "NEXT_RACE" | "LATEST_RESULT";
+  page?: number;
+  size?: number;
+}): Promise<PageResponse<RaceSummary>> {
+  const response = await httpClient.get<PageResponse<RaceSummary>>("/races/search", { params });
+  return response.data;
+}
+
+export async function getPublicRaceResults(id: number): Promise<PublicRaceResult> {
+  const response = await httpClient.get<PublicRaceResult>(`/races/${id}/results`);
+  return response.data;
+}
+
+export async function getPublicRacingSummary(): Promise<PublicRacingSummary> {
+  const response = await httpClient.get<PublicRacingSummary>("/racing-summary");
   return response.data;
 }
 

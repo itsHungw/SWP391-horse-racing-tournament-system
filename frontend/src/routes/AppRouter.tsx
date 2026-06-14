@@ -7,7 +7,9 @@ import { JoinUsPage } from "../pages/public/JoinUsPage";
 import { SpectatorBlogListPage } from "../pages/public/SpectatorBlogListPage";
 import { SpectatorBlogDetailPage } from "../pages/public/SpectatorBlogDetailPage";
 import { ChampionshipsPage } from "../pages/public/ChampionshipsPage";
+import { ChampionshipDetailPage } from "../pages/public/ChampionshipDetailPage";
 import { RacesPage } from "../pages/public/RacesPage";
+import { RaceDetailPage } from "../pages/public/RaceDetailPage";
 import { LeaderboardPage } from "../pages/public/LeaderboardPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
@@ -83,7 +85,9 @@ export function AppRouter() {
         <Route index element={<HomePage />} />
         <Route path="join-us" element={<JoinUsPage />} />
         <Route path="championships" element={<ChampionshipsPage />} />
+        <Route path="championships/:id" element={<ChampionshipDetailPage />} />
         <Route path="races" element={<RacesPage />} />
+        <Route path="races/:id" element={<RaceDetailPage />} />
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="blogs" element={<SpectatorBlogListPage />} />
         <Route path="blogs/:slug" element={<SpectatorBlogDetailPage />} />

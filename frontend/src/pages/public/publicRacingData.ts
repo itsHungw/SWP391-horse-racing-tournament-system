@@ -37,6 +37,50 @@ function toTitle(s: string) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Race lifecycle → shared tone/label, same visual language as championships. */
+export function raceStatus(status: string | undefined): { label: string; tone: StatusTone } {
+  const s = (status ?? "").toUpperCase();
+  switch (s) {
+    case "SCHEDULED":
+      return { label: "Scheduled", tone: "soon" };
+    case "CHECKING":
+      return { label: "Paddock Check", tone: "live" };
+    case "READY":
+      return { label: "At the Gate", tone: "live" };
+    case "ONGOING":
+      return { label: "Running", tone: "live" };
+    case "FINISHED":
+    case "RESULT_SUBMITTED":
+    case "RESULT_CONFIRMED":
+      return { label: "Finished", tone: "done" };
+    case "PUBLISHED":
+      return { label: "Results In", tone: "done" };
+    case "CANCELLED":
+      return { label: "Cancelled", tone: "neutral" };
+    default:
+      return { label: s ? toTitle(s) : "Scheduled", tone: "neutral" };
+  }
+}
+
+/** True once a race has run (results exist or are being processed). */
+export function isRaceConcluded(status: string | undefined): boolean {
+  return raceStatus(status).tone === "done";
+}
+
+export function formatPostTime(value?: string): string {
+  if (!value) return "Post time TBA";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Post time TBA";
+  const time = new Intl.DateTimeFormat("en", { hour: "numeric", minute: "2-digit" }).format(d);
+  const day = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(d);
+  return `${time} · ${day}`;
+}
+
+export function formatDistance(meters?: number): string | null {
+  if (!meters || meters <= 0) return null;
+  return `${new Intl.NumberFormat("en").format(meters)} m`;
+}
+
 export function formatLongDate(value?: string): string | null {
   if (!value) return null;
   const d = new Date(value);
