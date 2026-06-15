@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.tournament.entity;
 
+import com.example.horseracingtournamentsystem.organization.entity.Organization;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -53,6 +54,20 @@ public class Tournament {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_reason", length = 255)
+    private String rejectionReason;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -144,6 +159,32 @@ public class Tournament {
 
     public void completeTournament() {
         this.status = "COMPLETED";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignOrganization(Organization organization) {
+        this.organization = organization;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /** Cổng 2 / BR-17: DRAFT -> chờ admin duyệt. Service kiểm tra điều kiện chuyển trạng thái. */
+    public void submitForApproval() {
+        this.status = "PENDING_APPROVAL";
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void approveLaunch(User reviewer) {
+        this.status = "APPROVED";
+        this.approvedBy = reviewer;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectionReason = null;
+        this.updatedAt = this.approvedAt;
+    }
+
+    public void rejectLaunch(User reviewer, String reason) {
+        this.status = "DRAFT";
+        this.approvedBy = reviewer;
+        this.rejectionReason = reason;
         this.updatedAt = LocalDateTime.now();
     }
 

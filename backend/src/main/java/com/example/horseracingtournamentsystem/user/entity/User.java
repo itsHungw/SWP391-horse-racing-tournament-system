@@ -29,6 +29,7 @@ public class User {
 
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_PENDING_EMAIL_VERIFY = "PENDING_EMAIL_VERIFY";
+    public static final String STATUS_SUSPENDED = "SUSPENDED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -131,6 +132,17 @@ public class User {
         LocalDateTime now = LocalDateTime.now();
         this.lastLoginAt = now;
         this.updatedAt = now;
+    }
+
+    /** Đình chỉ tài khoản (BR-10/BR-13). CustomUserDetailsService chặn login/authz khi status != ACTIVE. */
+    public void suspend() {
+        this.status = STATUS_SUSPENDED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reactivate() {
+        this.status = STATUS_ACTIVE;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Set<String> getActiveRoleNames() {

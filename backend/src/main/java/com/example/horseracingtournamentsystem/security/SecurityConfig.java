@@ -85,6 +85,7 @@ public class SecurityConfig {
                                                 .requestMatchers("/api/v1/owner/**").hasRole("HORSE_OWNER")
                                                 .requestMatchers("/api/v1/jockey/**").hasRole("JOCKEY")
                                                 .requestMatchers("/api/v1/referee/**").hasRole("REFEREE")
+                                                .requestMatchers("/api/v1/organizer/**").hasRole("ORGANIZER")
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(rateLimitingFilter(), UsernamePasswordAuthenticationFilter.class)
                                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

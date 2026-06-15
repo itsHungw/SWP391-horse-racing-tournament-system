@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.tournament.controller;
 
+import com.example.horseracingtournamentsystem.tournament.dto.request.RejectTournamentRequest;
 import com.example.horseracingtournamentsystem.tournament.dto.request.TournamentRequest;
 import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentResponse;
 import com.example.horseracingtournamentsystem.tournament.service.TournamentService;
@@ -47,5 +48,20 @@ public class AdminTournamentController {
     @PutMapping("/{id}/status")
     public void updateStatus(@PathVariable Long id, @RequestParam String status) {
         tournamentService.updateStatus(id, status);
+    }
+
+    // Cổng 2 (BR-17): admin duyệt / từ chối giải do Ban tổ chức gửi lên.
+    @PostMapping("/{id}/approve")
+    public TournamentResponse approveLaunch(@PathVariable Long id, Principal principal) {
+        return tournamentService.approveLaunch(id, principal.getName());
+    }
+
+    @PostMapping("/{id}/reject")
+    public TournamentResponse rejectLaunch(
+            @PathVariable Long id,
+            @Valid @RequestBody RejectTournamentRequest req,
+            Principal principal
+    ) {
+        return tournamentService.rejectLaunch(id, principal.getName(), req.reason());
     }
 }
