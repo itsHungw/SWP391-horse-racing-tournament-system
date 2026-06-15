@@ -7,6 +7,8 @@ import {
   createTournament,
   getAdminTournaments,
 } from "../../api/adminTournamentApi";
+import { approveTournamentLaunch, rejectTournamentLaunch } from "../../api/racingApi";
+import { getApiErrorMessage } from "../../utils/apiError";
 import type { Tournament } from "../../types/racing";
 import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
 import {
@@ -70,6 +72,10 @@ function getStatusBadgeClass(status: string) {
       return "border-[#b3193a]/25 bg-[#b3193a]/5 text-[#b3193a]";
     case "SCHEDULE_PUBLISHED":
       return "border-sky-200 bg-sky-50 text-sky-800";
+    case "PENDING_APPROVAL":
+      return "border-amber-200 bg-amber-50 text-amber-800";
+    case "APPROVED":
+      return "border-emerald-200 bg-emerald-50 text-emerald-800";
     default:
       return "border-slate-200 bg-slate-50 text-slate-700";
   }
@@ -122,6 +128,7 @@ export function AdminTournamentListPage() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<CreateTournamentPayload>(emptyForm);
   const [formError, setFormError] = useState("");
+  const [reviewingId, setReviewingId] = useState<number | null>(null);
 
   const loadData = async () => {
     try {
@@ -176,6 +183,32 @@ export function AdminTournamentListPage() {
       setFormError(err.response?.data?.message || "Failed to create championship.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleApprove = async (id: number) => {
+    setReviewingId(id);
+    try {
+      await approveTournamentLaunch(id);
+      await loadData();
+    } catch (err) {
+      alert(getApiErrorMessage(err, "Could not approve this tournament."));
+    } finally {
+      setReviewingId(null);
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    const reason = window.prompt("Rejection reason (sent to the organizer):");
+    if (!reason || !reason.trim()) return;
+    setReviewingId(id);
+    try {
+      await rejectTournamentLaunch(id, reason.trim());
+      await loadData();
+    } catch (err) {
+      alert(getApiErrorMessage(err, "Could not reject this tournament."));
+    } finally {
+      setReviewingId(null);
     }
   };
 
@@ -286,6 +319,8 @@ export function AdminTournamentListPage() {
             >
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="APPROVED">Approved</option>
               <option value="OPEN_REGISTRATION">Open Registration</option>
               <option value="CLOSED_REGISTRATION">Closed Registration</option>
               <option value="PARTICIPANTS_LOCKED">Participants Locked</option>
@@ -450,13 +485,35 @@ export function AdminTournamentListPage() {
                           {nextAction}
                         </p>
                       </div>
-                      <Link
-                        to={`/admin/tournaments/${t.id}`}
-                        className="group flex min-h-[40px] items-center gap-2 rounded-lg bg-[#070f4f] px-5 text-sm font-bold text-white transition-colors hover:bg-[#0a1570] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#070f4f]"
-                      >
-                        Manage
-                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        {t.status === "PENDING_APPROVAL" && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={reviewingId === t.id}
+                              onClick={() => handleApprove(t.id)}
+                              className="min-h-[40px] rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition-colors hover:bg-emerald-700 disabled:opacity-50"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              disabled={reviewingId === t.id}
+                              onClick={() => handleReject(t.id)}
+                              className="min-h-[40px] rounded-lg border border-rose-300 px-4 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50"
+                            >
+                              Reject
+                            </button>
+                          </>
+                        )}
+                        <Link
+                          to={`/admin/tournaments/${t.id}`}
+                          className="group flex min-h-[40px] items-center gap-2 rounded-lg bg-[#070f4f] px-5 text-sm font-bold text-white transition-colors hover:bg-[#0a1570] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#070f4f]"
+                        >
+                          Manage
+                          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Link>
+                      </div>
                     </div>
                   </article>
                 );
