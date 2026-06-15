@@ -19,7 +19,9 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.entity.RefereeContract;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
@@ -48,6 +50,7 @@ public class RaceService {
     private final PredictionService predictionService;
     private final RaceResultRepository raceResultRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
+    private final RefereeContractRepository refereeContractRepository;
 
     private static final Map<String, Set<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             "SCHEDULED", Set.of("CHECKING", "CANCELLED"),
@@ -170,6 +173,20 @@ public class RaceService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Referee not found"));
         if (!refereeWithRoles.getActiveRoleNames().contains("REFEREE")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not an approved referee");
+        }
+        // BR-07: referee phải có hợp đồng ACTIVE với giải của race này.
+        if (!refereeContractRepository.existsByTournament_IdAndReferee_IdAndStatus(
+                race.getTournament().getId(), referee.getId(), RefereeContract.STATUS_ACTIVE)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Referee has no active contract for this tournament");
+        }
+        // BR-12: chống trùng lịch — không gán nếu referee đã có race khác quanh khung giờ này (±2h).
+        long conflicts = raceRepository.countRefereeScheduleConflicts(
+                referee.getId(), race.getId(),
+                race.getRaceAt().minusHours(2), race.getRaceAt().plusHours(2));
+        if (conflicts > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Referee is already assigned to another race around this time");
         }
         race.assignReferee(referee);
         raceRepository.save(race);
