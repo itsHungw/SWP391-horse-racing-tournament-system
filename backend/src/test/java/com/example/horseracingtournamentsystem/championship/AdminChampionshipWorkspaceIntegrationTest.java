@@ -12,6 +12,7 @@ import com.example.horseracingtournamentsystem.championship.repository.JockeyTou
 import com.example.horseracingtournamentsystem.point.repository.PointTransactionRepository;
 import com.example.horseracingtournamentsystem.point.repository.UserPointAccountRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -120,7 +121,7 @@ class AdminChampionshipWorkspaceIntegrationTest {
                 tournament, "Round 1 - Opening Sprint", "SUM_R1", LocalDateTime.of(2026, 6, 6, 11, 0),
                 1600, 12, adminUser
         );
-        publishedRound.updateStatus("PUBLISHED");
+        publishedRound.updateStatus(RaceStatus.PUBLISHED);
         raceRepository.save(publishedRound);
 
         Race currentRound = raceRepository.save(Race.create(

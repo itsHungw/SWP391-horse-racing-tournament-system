@@ -6,8 +6,11 @@ import com.example.horseracingtournamentsystem.dashboard.dto.AdminDashboardRespo
 import com.example.horseracingtournamentsystem.dashboard.dto.AdminDashboardResponse.DashboardMetrics;
 import com.example.horseracingtournamentsystem.dashboard.dto.AdminDashboardResponse.DashboardQueueRow;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.user.entity.RoleRequest;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import com.example.horseracingtournamentsystem.user.repository.RoleRequestRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,9 +32,14 @@ public class AdminDashboardService {
 
     @Transactional(readOnly = true)
     public AdminDashboardResponse getDashboardData() {
-        long pendingRoleRequests = roleRequestRepository.countByStatus(RoleRequest.STATUS_PENDING);
-        long upcomingTournaments = tournamentRepository.countByStatusInAndDeletedAtIsNull(List.of("DRAFT", "OPEN_REGISTRATION", "SCHEDULE_PUBLISHED", "PARTICIPANTS_LOCKED"));
-        long activeUsers = userRepository.countByStatusAndDeletedAtIsNull(User.STATUS_ACTIVE);
+        long pendingRoleRequests = roleRequestRepository.countByStatus(RoleRequestStatus.PENDING);
+        long upcomingTournaments = tournamentRepository.countByStatusInAndDeletedAtIsNull(List.of(
+                TournamentStatus.DRAFT,
+                TournamentStatus.OPEN_REGISTRATION,
+                TournamentStatus.SCHEDULE_PUBLISHED,
+                TournamentStatus.PARTICIPANTS_LOCKED
+        ));
+        long activeUsers = userRepository.countByStatusAndDeletedAtIsNull(UserStatus.ACTIVE);
         long blogDrafts = blogRepository.countByStatus(BlogStatus.DRAFT);
 
         DashboardMetrics metrics = new DashboardMetrics(
@@ -45,7 +53,9 @@ public class AdminDashboardService {
                 "Awaiting review"
         );
 
-        List<RoleRequest> topPending = roleRequestRepository.findTop5ByStatusOrderByCreatedAtDesc(RoleRequest.STATUS_PENDING);
+        List<RoleRequest> topPending = roleRequestRepository.findTop5ByStatusOrderByCreatedAtDesc(
+                RoleRequestStatus.PENDING
+        );
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy");
         List<DashboardQueueRow> queueRows = topPending.stream().map(req -> new DashboardQueueRow(
                 req.getId(),

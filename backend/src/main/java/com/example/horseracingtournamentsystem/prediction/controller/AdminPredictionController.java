@@ -2,9 +2,12 @@ package com.example.horseracingtournamentsystem.prediction.controller;
 
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
@@ -51,7 +54,7 @@ public class AdminPredictionController {
                 s.setTournamentName(r.getTournament().getName());
             }
             s.setRaceAt(r.getRaceAt());
-            s.setRaceStatus(r.getStatus());
+            s.setRaceStatus(r.getStatus().name());
 
             // Counts
             List<RacePrediction> preds = predictionRepo.findByRace_Id(r.getId());
@@ -62,26 +65,26 @@ public class AdminPredictionController {
             // Settlement Job Status
             PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
             String predStatus = "OPEN";
-            if ("CANCELLED".equals(r.getStatus())) {
+            if (RaceStatus.CANCELLED == r.getStatus()) {
                 predStatus = "REFUNDED";
             } else if (job != null) {
                 // Map job status directly to UI prediction status
-                if (PredictionSettlementJob.STATUS_PENDING.equals(job.getStatus())) {
+                if (PredictionSettlementJobStatus.PENDING == job.getStatus()) {
                     predStatus = "SETTLEMENT_PENDING";
                 } else {
-                    predStatus = job.getStatus(); // PROCESSING, COMPLETED, FAILED
+                    predStatus = job.getStatus().name(); // PROCESSING, COMPLETED, FAILED
                 }
-                s.setSettlementJobStatus(job.getStatus());
-            } else if (!"SCHEDULED".equals(r.getStatus())) {
+                s.setSettlementJobStatus(job.getStatus().name());
+            } else if (RaceStatus.SCHEDULED != r.getStatus()) {
                 predStatus = "LOCKED";
             }
             s.setPredictionStatus(predStatus);
 
             // Correct/Incorrect totals
-            s.setCorrectWinnerCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && RacePrediction.STATUS_CORRECT.equals(p.getStatus())).count());
+            s.setCorrectWinnerCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
             s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
             s.setPartialTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
-            s.setIncorrectCount(preds.stream().filter(p -> RacePrediction.STATUS_INCORRECT.equals(p.getStatus())).count());
+            s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
 
             return s;
         }).collect(Collectors.toList());
@@ -101,19 +104,19 @@ public class AdminPredictionController {
         if (r.getTournament() != null) {
             d.setTournamentName(r.getTournament().getName());
         }
-        d.setRaceStatus(r.getStatus());
+        d.setRaceStatus(r.getStatus().name());
 
         PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
         String predStatus = "OPEN";
-        if ("CANCELLED".equals(r.getStatus())) {
+        if (RaceStatus.CANCELLED == r.getStatus()) {
             predStatus = "REFUNDED";
         } else if (job != null) {
-            if (PredictionSettlementJob.STATUS_PENDING.equals(job.getStatus())) {
+            if (PredictionSettlementJobStatus.PENDING == job.getStatus()) {
                 predStatus = "SETTLEMENT_PENDING";
             } else {
-                predStatus = job.getStatus();
+                predStatus = job.getStatus().name();
             }
-        } else if (!"SCHEDULED".equals(r.getStatus())) {
+        } else if (RaceStatus.SCHEDULED != r.getStatus()) {
             predStatus = "LOCKED";
         }
         d.setPredictionStatus(predStatus);
@@ -124,11 +127,11 @@ public class AdminPredictionController {
         s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
         s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
-        s.setWinnerCorrectCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && RacePrediction.STATUS_CORRECT.equals(p.getStatus())).count());
+        s.setWinnerCorrectCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
         s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
         s.setTop3AnyOrderCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
-        s.setIncorrectCount(preds.stream().filter(p -> RacePrediction.STATUS_INCORRECT.equals(p.getStatus())).count());
-        s.setRefundedCount(preds.stream().filter(p -> RacePrediction.STATUS_REFUNDED.equals(p.getStatus())).count());
+        s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
+        s.setRefundedCount(preds.stream().filter(p -> PredictionStatus.REFUNDED == p.getStatus()).count());
         s.setRewardedPoints(preds.stream().mapToLong(RacePrediction::getRewardPoints).sum());
         d.setSummary(s);
 
@@ -187,22 +190,22 @@ public class AdminPredictionController {
             r.setStatus(p.getStatus());
             
             // Map display statuses
-            String displayStatus = p.getStatus();
+            String displayStatus = p.getStatus().name();
             String resCategory = "Pending";
             
-            if (RacePrediction.STATUS_PENDING.equals(p.getStatus())) {
+            if (PredictionStatus.PENDING == p.getStatus()) {
                 displayStatus = "Submitted";
                 resCategory = "Pending";
-            } else if (RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
+            } else if (PredictionStatus.LOCKED == p.getStatus()) {
                 displayStatus = "Locked";
                 resCategory = "Locked";
-            } else if (RacePrediction.STATUS_REFUNDED.equals(p.getStatus())) {
+            } else if (PredictionStatus.REFUNDED == p.getStatus()) {
                 displayStatus = "Refunded";
                 resCategory = "Refunded";
-            } else if (RacePrediction.STATUS_INCORRECT.equals(p.getStatus())) {
+            } else if (PredictionStatus.INCORRECT == p.getStatus()) {
                 displayStatus = "Lost";
                 resCategory = "Incorrect";
-            } else if (RacePrediction.STATUS_CORRECT.equals(p.getStatus())) {
+            } else if (PredictionStatus.CORRECT == p.getStatus()) {
                 displayStatus = "Won";
                 if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
                     resCategory = "Winner Correct";
@@ -228,8 +231,8 @@ public class AdminPredictionController {
         PredictionSettlementJob job = jobRepo.findById(jobId)
             .orElseThrow(() -> new IllegalArgumentException("Job not found: " + jobId));
 
-        if (PredictionSettlementJob.STATUS_FAILED.equals(job.getStatus())) {
-            job.setStatus(PredictionSettlementJob.STATUS_PENDING);
+        if (PredictionSettlementJobStatus.FAILED == job.getStatus()) {
+            job.setStatus(PredictionSettlementJobStatus.PENDING);
             job.setErrorMessage(null);
             job.setUpdatedAt(LocalDateTime.now());
             jobRepo.save(job);

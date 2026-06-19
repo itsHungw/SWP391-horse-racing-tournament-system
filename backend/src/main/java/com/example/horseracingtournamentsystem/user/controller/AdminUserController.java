@@ -29,8 +29,8 @@ public class AdminUserController {
 
     @GetMapping
     public ResponseEntity<Page<AdminUserDetailResponse>> searchUsers(
-            @RequestParam(value = "query", required = false, defaultValue = "") String query,
-            @RequestParam(value = "status", required = false) String status,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "status", required = false) com.example.horseracingtournamentsystem.user.enums.UserStatus status,
             @RequestParam(value = "role", required = false) String role,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size

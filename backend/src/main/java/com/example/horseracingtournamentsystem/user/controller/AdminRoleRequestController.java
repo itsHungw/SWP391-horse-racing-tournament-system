@@ -25,7 +25,7 @@ public class AdminRoleRequestController {
     private final AdminRoleRequestService adminRoleRequestService;
 
     @GetMapping
-    public List<AdminRoleRequestResponse> list(@RequestParam(required = false) String status) {
+    public List<AdminRoleRequestResponse> list(@RequestParam(required = false) com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus status) {
         return adminRoleRequestService.list(status);
     }
 

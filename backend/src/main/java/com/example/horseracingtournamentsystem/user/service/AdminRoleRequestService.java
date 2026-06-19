@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -25,11 +26,12 @@ public class AdminRoleRequestService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
 
+
     @Transactional(readOnly = true)
-    public List<AdminRoleRequestResponse> list(String status) {
-        List<RoleRequest> requests = status == null || status.isBlank()
+    public List<AdminRoleRequestResponse> list(RoleRequestStatus status) {
+        List<RoleRequest> requests = status == null
                 ? roleRequestRepository.findAllByOrderByCreatedAtDesc()
-                : roleRequestRepository.findByStatusOrderByCreatedAtDesc(status.trim().toUpperCase());
+                : roleRequestRepository.findByStatusOrderByCreatedAtDesc(status);
 
         return requests.stream()
                 .map(AdminRoleRequestResponse::from)
@@ -53,7 +55,7 @@ public class AdminRoleRequestService {
     @Transactional
     public AdminRoleRequestResponse passCvReview(Long requestId, String reviewerEmail, String cvReviewNote) {
         RoleRequest request = getRequest(requestId);
-        if (!RoleRequest.STATUS_PENDING.equals(request.getStatus())) {
+        if (RoleRequestStatus.PENDING != request.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending requests can pass CV screening");
         }
 
@@ -94,7 +96,7 @@ public class AdminRoleRequestService {
         }
 
         boolean alreadyAssigned = userRoleRepository
-                .findByUserIdAndStatus(request.getUser().getId(), UserRole.STATUS_ACTIVE)
+                .findByUserIdAndStatus(request.getUser().getId(), com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE)
                 .stream()
                 .anyMatch(userRole -> userRole.getRole().getName().equals(request.getRequestedRole()));
 
