@@ -44,6 +44,7 @@ const options: PredictionOptions = {
   options: [
     { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider" },
     { raceParticipantId: 2, startNumber: 2, laneNumber: 5, horseName: "Silver Reef", jockeyName: "M. Swift" },
+    { raceParticipantId: 3, startNumber: 3, laneNumber: 7, horseName: "Golden Arrow", jockeyName: "A. Cruz" },
   ],
 };
 
@@ -55,7 +56,13 @@ function renderArena() {
   );
 }
 
-describe("SpectatorPredictionsPage wizard", () => {
+async function clickFirstButton(name: RegExp) {
+  const [button] = await screen.findAllByRole("button", { name });
+  expect(button).toBeInTheDocument();
+  fireEvent.click(button);
+}
+
+describe("SpectatorPredictionsPage cockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50 });
@@ -63,28 +70,22 @@ describe("SpectatorPredictionsPage wizard", () => {
     vi.mocked(spectatorPredictionApi.getMyPredictions).mockResolvedValue([]);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
     vi.mocked(spectatorPredictionApi.submitPrediction).mockResolvedValue({} as never);
+    vi.mocked(spectatorPredictionApi.updatePrediction).mockResolvedValue({} as never);
   });
 
-  it("walks pick-race → pick-horse → ticket and submits the prediction", async () => {
+  it("selects a race, mirrors the winner pick in the right slip, and submits the prediction", async () => {
     renderArena();
 
-    // Step 1: the open race card
-    const raceCard = await screen.findByRole("button", { name: /twilight sprint/i });
-    fireEvent.click(raceCard);
+    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
+    await clickFirstButton(/choose thunder bay/i);
 
-    // Step 2: tactile runner cards
-    const runner = await screen.findByRole("option", { name: /thunder bay/i });
-    fireEvent.click(runner);
+    expect(screen.getByText(/prediction slip/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/#1 thunder bay/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/ready to confirm/i)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /review ticket/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm prediction/i }));
 
-    // Step 3: the ticket shows the pick and confirms
-    expect(await screen.findByText(/prediction ticket/i)).toBeInTheDocument();
-    expect(screen.getByText(/#1 thunder bay/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /confirm ticket/i }));
-
-    expect(await screen.findByRole("status")).toHaveTextContent(/your ticket is in/i);
+    expect(await screen.findByText(/prediction is confirmed/i)).toBeInTheDocument();
     expect(spectatorPredictionApi.submitPrediction).toHaveBeenCalledWith({
       raceId: 7,
       predictionType: "WINNER",
@@ -94,17 +95,49 @@ describe("SpectatorPredictionsPage wizard", () => {
     });
   });
 
-  it("requires all three distinct horses for a Top 3 ticket", async () => {
+  it("keeps confirm disabled until Top 3 has three distinct runners", async () => {
+    renderArena();
+
+    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
+    fireEvent.click(screen.getByRole("button", { name: /top 3 pick/i }));
+    await clickFirstButton(/choose thunder bay/i);
+
+    expect(screen.getByText(/choose second and third/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
+
+    await clickFirstButton(/choose silver reef/i);
+    expect(screen.getByText(/choose third/i)).toBeInTheDocument();
+
+    await clickFirstButton(/choose golden arrow/i);
+    expect(screen.getByText(/ready to confirm/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm prediction/i })).not.toBeDisabled();
+  });
+
+  it("disables confirmation when a new prediction needs more points", async () => {
+    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 5 });
+
+    renderArena();
+
+    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
+    await clickFirstButton(/choose thunder bay/i);
+
+    expect(screen.getByText(/you need 5 more points/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
+    expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();
+  });
+
+  it("shows locked state and prevents confirmation when predictionOpen is false", async () => {
+    vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue({
+      ...options,
+      predictionOpen: false,
+    });
+
     renderArena();
 
     fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
 
-    fireEvent.click(await screen.findByRole("button", { name: /top 3 pick/i }));
-    fireEvent.click(await screen.findByRole("option", { name: /thunder bay/i }));
-
-    fireEvent.click(screen.getByRole("button", { name: /review ticket/i }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent(/all three places/i);
-    expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();
+    expect(await screen.findByText(/prediction locked/i)).toBeInTheDocument();
+    expect(screen.getByText(/predictions are locked for this race/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
   });
 });
