@@ -2,11 +2,14 @@ package com.example.horseracingtournamentsystem.auth.service;
 
 import com.example.horseracingtournamentsystem.auth.dto.request.LoginRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.RegisterRequest;
+import com.example.horseracingtournamentsystem.auth.dto.request.ResetPasswordRequest;
+import com.example.horseracingtournamentsystem.auth.dto.request.VerifyResetCodeRequest;
 import com.example.horseracingtournamentsystem.auth.dto.response.AuthResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
 import com.example.horseracingtournamentsystem.auth.email.EmailSender;
 import com.example.horseracingtournamentsystem.auth.entity.AuthSession;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
+import com.example.horseracingtournamentsystem.auth.exception.PasswordResetRejectedException;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
 import com.example.horseracingtournamentsystem.point.service.FirstLoginBonusService;
 import com.example.horseracingtournamentsystem.security.JwtService;
@@ -157,6 +160,50 @@ public class AuthService {
     public void verifyEmail(String rawToken) {
         EmailVerificationToken token = oneTimeTokenService.consumeEmailVerificationToken(rawToken);
         token.getUser().verifyEmail();
+    }
+
+    @Transactional
+    public void requestPasswordReset(String rawEmail) {
+        String email = normalizeEmail(rawEmail);
+        userRepository.findByEmailForUpdate(email)
+                .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
+                .ifPresent(user -> {
+                    String rawToken = oneTimeTokenService.createPasswordResetToken(user);
+                    emailSender.sendPasswordReset(user.getEmail(), rawToken);
+                });
+    }
+
+    @Transactional(
+            rollbackFor = Exception.class,
+            noRollbackFor = PasswordResetRejectedException.class
+    )
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = normalizeEmail(request.email());
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new IllegalArgumentException("PASSWORD_CONFIRMATION_MISMATCH");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .filter(candidate -> User.STATUS_ACTIVE.equals(candidate.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("INVALID_PASSWORD_RESET_TOKEN"));
+
+        oneTimeTokenService.consumePasswordResetToken(user, request.token());
+        user.changePassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+
+        var activeSessions = authSessionRepository.findByUserIdAndRevokedAtIsNull(user.getId());
+        activeSessions.forEach(AuthSession::revokeNow);
+        authSessionRepository.saveAll(activeSessions);
+    }
+
+    @Transactional(noRollbackFor = PasswordResetRejectedException.class)
+    public void verifyPasswordResetCode(VerifyResetCodeRequest request) {
+        String email = normalizeEmail(request.email());
+        User user = userRepository.findByEmail(email)
+                .filter(candidate -> User.STATUS_ACTIVE.equals(candidate.getStatus()))
+                .orElseThrow(() -> new IllegalArgumentException("INVALID_PASSWORD_RESET_TOKEN"));
+
+        oneTimeTokenService.verifyPasswordResetToken(user, request.token());
     }
 
     private String normalizeEmail(String email) {

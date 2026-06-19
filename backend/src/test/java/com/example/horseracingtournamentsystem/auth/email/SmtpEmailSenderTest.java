@@ -23,8 +23,7 @@ class SmtpEmailSenderTest {
         MimeMessage message = configuredMimeMessage(mailSender);
         SmtpEmailSender sender = new SmtpEmailSender(
                 mailSender,
-                "no-reply@equinepro.local",
-                "http://localhost:5173"
+                "no-reply@equinepro.local"
         );
 
         sender.sendEmailVerification("rider@example.com", "483921");
@@ -44,16 +43,15 @@ class SmtpEmailSenderTest {
     }
 
     @Test
-    void sendPasswordResetSendsBrandedHtmlEmailWithFrontendResetLink() throws Exception {
+    void sendPasswordResetSendsBrandedHtmlEmailWithSixDigitCode() throws Exception {
         JavaMailSender mailSender = mock(JavaMailSender.class);
         MimeMessage message = configuredMimeMessage(mailSender);
         SmtpEmailSender sender = new SmtpEmailSender(
                 mailSender,
-                "no-reply@equinepro.local",
-                "https://equinepro.example"
+                "no-reply@equinepro.local"
         );
 
-        sender.sendPasswordReset("owner@example.com", "reset-token");
+        sender.sendPasswordReset("owner@example.com", "928174");
 
         verify(mailSender).send(message);
 
@@ -62,9 +60,12 @@ class SmtpEmailSenderTest {
         assertThat(message.getSubject()).contains("Reset");
         assertThat(body)
                 .contains("EquinePro Elite")
-                .contains("Reset your password")
-                .contains("Reset Password")
-                .contains("https://equinepro.example/reset-password?token=reset-token");
+                .contains("Your password reset code")
+                .contains("928174")
+                .contains("Enter this code in the password reset screen")
+                .contains("If you did not request a password reset")
+                .doesNotContain("/reset-password?token=")
+                .doesNotContain("activate your tournament account");
     }
 
     private MimeMessage configuredMimeMessage(JavaMailSender mailSender) {
