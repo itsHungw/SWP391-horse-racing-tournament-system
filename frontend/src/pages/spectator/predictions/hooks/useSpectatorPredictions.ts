@@ -3,7 +3,8 @@ import {
   OpenRacePrediction, 
   PredictionOptions, 
   UserPrediction, 
-  PointAccount 
+  PointAccount,
+  PredictionType
 } from "../types/prediction.types";
 import { spectatorPredictionApi } from "../services/spectatorPredictionApi";
 
@@ -62,10 +63,12 @@ export function useSpectatorPredictions() {
 
   const submitPrediction = async (payload: {
     raceId: number;
-    predictionType: "WINNER" | "TOP3";
+    predictionType: PredictionType;
     predictedWinnerId: number;
     predictedSecondId?: number | null;
     predictedThirdId?: number | null;
+    predictedPosition?: number | null;
+    wagerAmount: number;
   }) => {
     try {
       await spectatorPredictionApi.submitPrediction(payload);
@@ -75,13 +78,18 @@ export function useSpectatorPredictions() {
     }
   };
 
-  const updatePrediction = async (predictionId: number, payload: {
-    raceId: number;
-    predictionType: "WINNER" | "TOP3";
-    predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
-  }) => {
+  const updatePrediction = async (
+    predictionId: number,
+    payload: {
+      raceId: number;
+      predictionType: PredictionType;
+      predictedWinnerId: number;
+      predictedSecondId?: number | null;
+      predictedThirdId?: number | null;
+      predictedPosition?: number | null;
+      wagerAmount: number;
+    }
+  ) => {
     try {
       await spectatorPredictionApi.updatePrediction(predictionId, payload);
       await loadInitialData();
