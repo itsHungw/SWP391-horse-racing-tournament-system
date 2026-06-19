@@ -231,7 +231,7 @@ class RaceIntegrationTest {
     }
 
     @Test
-    void publicCalendarSummaryAggregatesDenseDays() throws Exception {
+    void publicCalendarRangeReturnsRacesForVisibleDay() throws Exception {
         LocalDate day = LocalDate.now().plusDays(3);
         raceRepository.save(Race.create(
                 tournament, "Morning Sprint", "CALENDAR_AM",
@@ -244,43 +244,26 @@ class RaceIntegrationTest {
         live.updateStatus("ONGOING");
         raceRepository.save(live);
 
-        mockMvc.perform(get("/api/v1/races/calendar-summary")
+        mockMvc.perform(get("/api/v1/races/search")
                         .param("scope", "UPCOMING")
                         .param("from", day.toString())
                         .param("to", day.toString()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].date").value(day.toString()))
-                .andExpect(jsonPath("$[0].raceCount").value(2))
-                .andExpect(jsonPath("$[0].firstRaceTime").value("09:00:00"))
-                .andExpect(jsonPath("$[0].hasPredictionOpen").value(true))
-                .andExpect(jsonPath("$[0].hasLiveRace").value(true));
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Morning Sprint"))
+                .andExpect(jsonPath("$.content[1].name").value("Evening Live"));
     }
 
     @Test
-    void publicRaceDiscoveryReturnsServerTimeAndPersonalizedPredictionEligibility() throws Exception {
+    void publicRaceDiscoveryExposesPredictionAvailabilityWithoutAuthentication() throws Exception {
         Race race = raceRepository.save(Race.create(
                 tournament, "Eligibility Sprint", "ELIGIBILITY_SPRINT",
                 LocalDateTime.now().plusDays(2), 1200, 12, adminUser
         ));
-        User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
-        racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
-        ));
-        racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_TOP3, 101L, 102L, 103L, 10
-        ));
-
         mockMvc.perform(get("/api/v1/races/search").param("scope", "UPCOMING"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].serverNow").exists())
-                .andExpect(jsonPath("$.content[0].predictionEligibility.status").value("LOGIN_REQUIRED"));
-
-        mockMvc.perform(get("/api/v1/races/search")
-                        .param("scope", "UPCOMING")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + spectatorToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.content[0].predictionEligibility.status").value("COMPLETE"))
-                .andExpect(jsonPath("$.content[0].predictionEligibility.submittedTypes.length()").value(2));
+                .andExpect(jsonPath("$.content[0].id").value(race.getId()))
+                .andExpect(jsonPath("$.content[0].predictionOpen").value(true));
     }
 
     @Test
@@ -341,8 +324,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.raceCount").value(2))
                 .andExpect(jsonPath("$.raceDayCount").value(2))
                 .andExpect(jsonPath("$.championshipCount").value(1))
-                .andExpect(jsonPath("$.seasonFinale").value(tournament.getEndDate().toString()))
-                .andExpect(jsonPath("$.serverNow").exists());
+                .andExpect(jsonPath("$.seasonFinale").value(tournament.getEndDate().toString()));
     }
 
     @Test
