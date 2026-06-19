@@ -11,18 +11,18 @@ public record JockeyScheduleItemResponse(
         String raceCode,
         LocalDateTime raceAt,
         Integer distanceMeters,
-        String raceStatus,
+        com.example.horseracingtournamentsystem.race.enums.RaceStatus raceStatus,
         Long championshipId,
         String championshipName,
-        String championshipStatus,
+        com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus championshipStatus,
         Long horseId,
         String horseName,
         Long ownerId,
         String ownerName,
         Integer startNumber,
         Integer laneNumber,
-        String confirmationStatus,
-        String checkStatus,
-        String participantStatus
+        com.example.horseracingtournamentsystem.race.enums.ParticipantConfirmationStatus confirmationStatus,
+        com.example.horseracingtournamentsystem.race.enums.ParticipantCheckStatus checkStatus,
+        com.example.horseracingtournamentsystem.race.enums.ParticipantStatus participantStatus
 ) {
 }

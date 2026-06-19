@@ -3,13 +3,16 @@ package com.example.horseracingtournamentsystem.championship.service;
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyPoolApplicationResponse;
 import com.example.horseracingtournamentsystem.championship.dto.response.JockeyChampionshipResponse;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
+import com.example.horseracingtournamentsystem.championship.enums.JockeyApplicationStatus;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.util.Map;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -22,9 +25,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class JockeyPoolApplicationService {
 
-    private static final List<String> ACTIVE_APPLICATION_STATUSES = List.of(
-            JockeyTournamentApplication.STATUS_PENDING,
-            JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL
+    private static final List<JockeyApplicationStatus> ACTIVE_APPLICATION_STATUSES = List.of(
+            JockeyApplicationStatus.PENDING,
+            JockeyApplicationStatus.APPROVED_FOR_POOL
     );
 
     private final JockeyTournamentApplicationRepository applicationRepository;
@@ -46,7 +49,12 @@ public class JockeyPoolApplicationService {
                 ));
 
         return tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                        List.of("OPEN_REGISTRATION", "CLOSED_REGISTRATION", "ONGOING", "COMPLETED")
+                        List.of(
+                                TournamentStatus.OPEN_REGISTRATION,
+                                TournamentStatus.CLOSED_REGISTRATION,
+                                TournamentStatus.ONGOING,
+                                TournamentStatus.COMPLETED
+                        )
                 )
                 .stream()
                 .map(tournament -> mapToJockeyChampionshipResponse(
@@ -95,9 +103,21 @@ public class JockeyPoolApplicationService {
     @Transactional(readOnly = true)
     public List<JockeyPoolApplicationResponse> listForAdmin(Long championshipId, String status) {
         ensureTournamentExists(championshipId);
-        List<JockeyTournamentApplication> applications = status == null || status.isBlank()
-                ? applicationRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId)
-                : applicationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(championshipId, status);
+        List<JockeyTournamentApplication> applications;
+        if (status == null || status.isBlank()) {
+            applications = applicationRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId);
+        } else {
+            JockeyApplicationStatus applicationStatus;
+            try {
+                applicationStatus = JockeyApplicationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid jockey application status");
+            }
+            applications = applicationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(
+                    championshipId,
+                    applicationStatus
+            );
+        }
         return applications.stream().map(this::mapToResponse).toList();
     }
 
@@ -107,7 +127,7 @@ public class JockeyPoolApplicationService {
         return applicationRepository
                 .findAllByTournament_IdAndStatusOrderByReviewedAtDesc(
                         championshipId,
-                        JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL
+                        JockeyApplicationStatus.APPROVED_FOR_POOL
                 )
                 .stream()
                 .map(this::mapToResponse)
@@ -147,7 +167,7 @@ public class JockeyPoolApplicationService {
 
     private Tournament getOpenTournament(Long championshipId) {
         Tournament tournament = ensureTournamentExists(championshipId);
-        if (!"OPEN_REGISTRATION".equals(tournament.getStatus())) {
+        if (TournamentStatus.OPEN_REGISTRATION != tournament.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Jockey pool applications are only open during championship registration");
         }
@@ -184,12 +204,12 @@ public class JockeyPoolApplicationService {
             Tournament tournament,
             JockeyTournamentApplication application
     ) {
-        String applicationStatus = application == null ? "NOT_APPLIED" : application.getStatus();
-        boolean applicationWindowOpen = "OPEN_REGISTRATION".equals(tournament.getStatus());
+        String applicationStatus = application == null ? "NOT_APPLIED" : application.getStatus().name();
+        boolean applicationWindowOpen = TournamentStatus.OPEN_REGISTRATION == tournament.getStatus();
         boolean canApply = applicationWindowOpen && (
                 application == null
-                        || JockeyTournamentApplication.STATUS_REJECTED.equals(application.getStatus())
-                        || JockeyTournamentApplication.STATUS_WITHDRAWN.equals(application.getStatus())
+                        || JockeyApplicationStatus.REJECTED == application.getStatus()
+                        || JockeyApplicationStatus.WITHDRAWN == application.getStatus()
         );
 
         return JockeyChampionshipResponse.builder()
@@ -203,7 +223,7 @@ public class JockeyPoolApplicationService {
                 .registrationStartAt(tournament.getRegistrationStartAt())
                 .registrationEndAt(tournament.getRegistrationEndAt())
                 .maxHorses(tournament.getMaxHorses())
-                .status(tournament.getStatus())
+                .status(tournament.getStatus().name())
                 .applicationStatus(applicationStatus)
                 .applicationId(application == null ? null : application.getId())
                 .applicationMessage(application == null ? null : application.getMessage())
@@ -212,7 +232,7 @@ public class JockeyPoolApplicationService {
                 .reviewedAt(application == null ? null : application.getReviewedAt())
                 .approvedPoolCount(applicationRepository.countByTournament_IdAndStatus(
                         tournament.getId(),
-                        JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL
+                        JockeyApplicationStatus.APPROVED_FOR_POOL
                 ))
                 .applicationWindowOpen(applicationWindowOpen)
                 .canApply(canApply)
@@ -232,7 +252,7 @@ public class JockeyPoolApplicationService {
                 .jockeyEmail(jockey.getEmail())
                 .jockeyAvatarUrl(jockey.getAvatarUrl())
                 .message(application.getMessage())
-                .status(application.getStatus())
+                .status(application.getStatus().name())
                 .reviewedBy(reviewer == null ? null : reviewer.getId())
                 .reviewedAt(application.getReviewedAt())
                 .rejectionReason(application.getRejectionReason())
