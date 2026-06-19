@@ -22,6 +22,12 @@ import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantCheckStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -39,16 +45,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional(readOnly = true)
 public class RefereeRaceDayService {
 
-    private static final List<String> VISIBLE_CHAMPIONSHIP_STATUSES = List.of(
-            "SCHEDULE_PUBLISHED",
-            "ONGOING",
-            "COMPLETED"
+    private static final List<TournamentStatus> VISIBLE_CHAMPIONSHIP_STATUSES = List.of(
+            TournamentStatus.SCHEDULE_PUBLISHED,
+            TournamentStatus.ONGOING,
+            TournamentStatus.COMPLETED
     );
 
-    private static final Set<String> COMPLETE_CHECK_STATUSES = Set.of(
-            RaceParticipant.CHECK_PASSED,
-            RaceParticipant.CHECK_FAILED,
-            RaceParticipant.CHECK_CONDITIONAL
+    private static final Set<ParticipantCheckStatus> COMPLETE_CHECK_STATUSES = Set.of(
+            ParticipantCheckStatus.PASSED,
+            ParticipantCheckStatus.FAILED,
+            ParticipantCheckStatus.CONDITIONAL
     );
 
     private final RaceRepository raceRepository;
@@ -92,12 +98,12 @@ public class RefereeRaceDayService {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
         User referee = requireUser(refereeEmail);
 
-        if ("SCHEDULED".equals(race.getStatus())) {
-            race.updateStatus("CHECKING");
+        if (RaceStatus.SCHEDULED.equals(race.getStatus())) {
+            race.updateStatus(RaceStatus.CHECKING);
             predictionService.lockPredictionsForRace(race.getId());
         }
 
-        if (!"CHECKING".equals(race.getStatus()) && !"READY".equals(race.getStatus())) {
+        if (!RaceStatus.CHECKING.equals(race.getStatus()) && !RaceStatus.READY.equals(race.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race is not accepting pre-race checks");
         }
 
@@ -105,15 +111,15 @@ public class RefereeRaceDayService {
             RaceParticipant participant = raceParticipantRepository
                     .findByIdAndRace_Id(request.participantId(), race.getId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Participant is not in this race"));
-            String result = normalizeCheckResult(request);
-            if ("PENDING".equals(result)) {
-                participant.updateCheck(RaceParticipant.CHECK_NOT_CHECKED, participant.getStatus(), request.note());
+            ParticipantCheckStatus result = normalizeCheckResult(request);
+            if (ParticipantCheckStatus.NOT_CHECKED.equals(result)) {
+                participant.updateCheck(ParticipantCheckStatus.NOT_CHECKED, participant.getStatus(), request.note());
                 continue;
             }
 
-            String participantStatus = RaceParticipant.CHECK_FAILED.equals(result)
-                    ? RaceParticipant.STATUS_WITHDRAWN
-                    : RaceParticipant.STATUS_APPROVED;
+            ParticipantStatus participantStatus = ParticipantCheckStatus.FAILED.equals(result)
+                    ? ParticipantStatus.WITHDRAWN
+                    : ParticipantStatus.APPROVED;
             participant.updateCheck(result, participantStatus, request.note());
 
             PreRaceCheck check = preRaceCheckRepository
@@ -121,13 +127,13 @@ public class RefereeRaceDayService {
                     .orElseGet(() -> PreRaceCheck.create(race, participant, referee));
             boolean gearOk = Boolean.TRUE.equals(request.gearOk());
             boolean healthOk = Boolean.TRUE.equals(request.healthOk());
-            check.update(true, true, gearOk, healthOk, true, result, request.note());
+            check.update(true, true, gearOk, healthOk, true, result.name(), request.note());
             preRaceCheckRepository.save(check);
         }
 
         List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
         if (!participants.isEmpty() && participants.stream().allMatch(p -> COMPLETE_CHECK_STATUSES.contains(p.getCheckStatus()))) {
-            race.updateStatus("READY");
+            race.updateStatus(RaceStatus.READY);
         }
 
         return participants.stream().map(this::mapParticipant).toList();
@@ -136,27 +142,27 @@ public class RefereeRaceDayService {
     @Transactional
     public RefereeRaceResponse startRace(Long raceId, String refereeEmail) {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
-        if (!"READY".equals(race.getStatus())) {
+        if (!RaceStatus.READY.equals(race.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race must be ready before it can start");
         }
         boolean hasActiveParticipant = raceParticipantRepository
-                .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), RaceParticipant.STATUS_WITHDRAWN)
+                .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), ParticipantStatus.WITHDRAWN)
                 .stream()
-                .anyMatch(p -> !RaceParticipant.STATUS_DISQUALIFIED.equals(p.getStatus()));
+                .anyMatch(p -> !ParticipantStatus.DISQUALIFIED.equals(p.getStatus()));
         if (!hasActiveParticipant) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race needs at least one active participant");
         }
-        race.updateStatus("ONGOING");
+        race.updateStatus(RaceStatus.ONGOING);
         return mapRace(race);
     }
 
     @Transactional
     public RefereeRaceResponse finishRace(Long raceId, String refereeEmail) {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
-        if (!"ONGOING".equals(race.getStatus())) {
+        if (!RaceStatus.ONGOING.equals(race.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race must be ongoing before it can finish");
         }
-        race.updateStatus("FINISHED");
+        race.updateStatus(RaceStatus.FINISHED);
         return mapRace(race);
     }
 
@@ -173,7 +179,7 @@ public class RefereeRaceDayService {
                             result.getRawFinishTimeSeconds(),
                             result.getPenaltySeconds(),
                             result.getFinishTimeSeconds(),
-                            result.getResultStatus(),
+                            result.getResultStatus().name(),
                             result.getNote()
                     ))
                     .toList();
@@ -198,7 +204,7 @@ public class RefereeRaceDayService {
     @Transactional
     public RefereeRaceResponse submitResults(Long raceId, String refereeEmail, SubmitResultsRequest request) {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
-        if (!"FINISHED".equals(race.getStatus())) {
+        if (!RaceStatus.FINISHED.equals(race.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race must be finished before results can be submitted");
         }
         User referee = requireUser(refereeEmail);
@@ -208,13 +214,13 @@ public class RefereeRaceDayService {
         }
 
         Map<Long, RaceParticipant> participantsById = validateResultPackage(race, request.results());
-        String resultStatus = requiresReview ? RaceResult.STATUS_SUBMITTED : RaceResult.STATUS_CONFIRMED;
+        ResultRecordStatus resultStatus = requiresReview ? ResultRecordStatus.SUBMITTED : ResultRecordStatus.CONFIRMED;
         for (ParticipantResultEntry entry : request.results()) {
             RaceParticipant participant = participantsById.get(entry.participantId());
             RaceResult result = raceResultRepository.findByRace_IdAndParticipant_Id(race.getId(), participant.getId())
                     .orElseGet(() -> RaceResult.create(race, participant, referee));
-            String entryStatus = normalizeResultStatus(entry.status());
-            Integer position = "FINISHED".equals(entryStatus) ? entry.position() : null;
+            ResultFinishStatus entryStatus = normalizeResultStatus(entry.status());
+            Integer position = ResultFinishStatus.FINISHED.equals(entryStatus) ? entry.position() : null;
             BigDecimal penaltySeconds = entry.penaltySeconds() == null ? BigDecimal.ZERO : entry.penaltySeconds();
             BigDecimal rawFinishTimeSeconds = entry.rawFinishTimeSeconds();
             BigDecimal finalFinishTimeSeconds = entry.finishTimeSeconds();
@@ -248,9 +254,9 @@ public class RefereeRaceDayService {
         );
         refereeReportRepository.save(report);
 
-        String nextStatus = requiresReview ? "RESULT_SUBMITTED" : "RESULT_CONFIRMED";
+        RaceStatus nextStatus = requiresReview ? RaceStatus.RESULT_SUBMITTED : RaceStatus.RESULT_CONFIRMED;
         race.updateStatus(nextStatus);
-        if ("RESULT_CONFIRMED".equals(nextStatus)) {
+        if (RaceStatus.RESULT_CONFIRMED.equals(nextStatus)) {
             predictionService.createSettlementJob(race.getId());
         }
         return mapRace(race);
@@ -296,21 +302,21 @@ public class RefereeRaceDayService {
     public RefereeRaceResponse advanceNextStep(Long raceId, String refereeEmail) {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
         return switch (race.getStatus()) {
-            case "SCHEDULED" -> {
-                race.updateStatus("CHECKING");
+            case SCHEDULED -> {
+                race.updateStatus(RaceStatus.CHECKING);
                 predictionService.lockPredictionsForRace(race.getId());
                 yield mapRace(race);
             }
-            case "CHECKING" -> {
+            case CHECKING -> {
                 List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
                 if (participants.stream().anyMatch(p -> !COMPLETE_CHECK_STATUSES.contains(p.getCheckStatus()))) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All participants must be verified before proceeding");
                 }
-                race.updateStatus("READY");
+                race.updateStatus(RaceStatus.READY);
                 yield mapRace(race);
             }
-            case "READY" -> startRace(raceId, refereeEmail);
-            case "ONGOING" -> finishRace(raceId, refereeEmail);
+            case READY -> startRace(raceId, refereeEmail);
+            case ONGOING -> finishRace(raceId, refereeEmail);
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid race status path");
         };
     }
@@ -337,7 +343,7 @@ public class RefereeRaceDayService {
                 race.getName(),
                 race.getCode(),
                 race.getDistanceMeter(),
-                race.getStatus(),
+                race.getStatus().name(),
                 race.getRaceAt(),
                 race.getTournament().getLocation(),
                 race.getTournament().getId(),
@@ -355,38 +361,41 @@ public class RefereeRaceDayService {
                 participant.getHorse().getName(),
                 participant.getJockey() == null ? "Unassigned" : participant.getJockey().getFullName(),
                 participant.getWeightCarriedKg(),
-                RaceParticipant.CHECK_PASSED.equals(participant.getCheckStatus())
-                        || RaceParticipant.CHECK_CONDITIONAL.equals(participant.getCheckStatus()),
-                !RaceParticipant.CHECK_FAILED.equals(participant.getCheckStatus()),
+                ParticipantCheckStatus.PASSED.equals(participant.getCheckStatus())
+                        || ParticipantCheckStatus.CONDITIONAL.equals(participant.getCheckStatus()),
+                !ParticipantCheckStatus.FAILED.equals(participant.getCheckStatus()),
                 switch (participant.getCheckStatus()) {
-                    case RaceParticipant.CHECK_PASSED, RaceParticipant.CHECK_CONDITIONAL -> "PASSED";
-                    case RaceParticipant.CHECK_FAILED -> "FAILED";
+                    case PASSED, CONDITIONAL -> "PASSED";
+                    case FAILED -> "FAILED";
                     default -> "PENDING";
                 }
         );
     }
 
-    private String normalizeCheckResult(ParticipantCheckRequest request) {
+    private ParticipantCheckStatus normalizeCheckResult(ParticipantCheckRequest request) {
         String requested = request.status() == null ? "" : request.status().trim().toUpperCase();
         if ("PENDING".equals(requested)) {
-            return "PENDING";
+            return ParticipantCheckStatus.NOT_CHECKED;
         }
-        if (RaceParticipant.CHECK_CONDITIONAL.equals(requested)) {
+        if (ParticipantCheckStatus.CONDITIONAL.name().equals(requested)) {
             if (request.note() == null || request.note().isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Conditional checks require a note");
             }
-            return RaceParticipant.CHECK_CONDITIONAL;
+            return ParticipantCheckStatus.CONDITIONAL;
         }
         if ("FAILED".equals(requested) || Boolean.FALSE.equals(request.gearOk()) || Boolean.FALSE.equals(request.healthOk())) {
-            return RaceParticipant.CHECK_FAILED;
+            return ParticipantCheckStatus.FAILED;
         }
-        return RaceParticipant.CHECK_PASSED;
+        return ParticipantCheckStatus.PASSED;
     }
 
-    private String normalizeResultStatus(String status) {
+    private ResultFinishStatus normalizeResultStatus(String status) {
         String normalized = status == null ? "FINISHED" : status.trim().toUpperCase();
         return switch (normalized) {
-            case "FINISHED", "DISQUALIFIED", "DID_NOT_FINISH", "WITHDRAWN" -> normalized;
+            case "FINISHED" -> ResultFinishStatus.FINISHED;
+            case "DISQUALIFIED" -> ResultFinishStatus.DISQUALIFIED;
+            case "DID_NOT_FINISH" -> ResultFinishStatus.DID_NOT_FINISH;
+            case "WITHDRAWN" -> ResultFinishStatus.WITHDRAWN;
             default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported result status");
         };
     }
@@ -415,7 +424,7 @@ public class RefereeRaceDayService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Duplicate participant result entry");
             }
 
-            String entryStatus = normalizeResultStatus(entry.status());
+            ResultFinishStatus entryStatus = normalizeResultStatus(entry.status());
             BigDecimal penaltySeconds = entry.penaltySeconds() == null ? BigDecimal.ZERO : entry.penaltySeconds();
             if (isNegative(penaltySeconds)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Penalty seconds cannot be negative");
@@ -424,7 +433,7 @@ public class RefereeRaceDayService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Finish time cannot be negative");
             }
 
-            if ("FINISHED".equals(entryStatus)) {
+            if (ResultFinishStatus.FINISHED == entryStatus) {
                 if (entry.position() == null || entry.position() < 1) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Finished participants require a positive position");
                 }
@@ -456,16 +465,16 @@ public class RefereeRaceDayService {
         return value != null && value.compareTo(BigDecimal.ZERO) < 0;
     }
 
-    private String nextAction(String status) {
+    private String nextAction(RaceStatus status) {
         return Map.of(
-                "SCHEDULED", "Start Checks",
-                "CHECKING", "Continue Checks",
-                "READY", "Start Race",
-                "ONGOING", "Finish Race",
-                "FINISHED", "Submit Results",
-                "RESULT_SUBMITTED", "Waiting Admin Review",
-                "RESULT_CONFIRMED", "View Final Result",
-                "PUBLISHED", "View Final Result"
+                RaceStatus.SCHEDULED, "Start Checks",
+                RaceStatus.CHECKING, "Continue Checks",
+                RaceStatus.READY, "Start Race",
+                RaceStatus.ONGOING, "Finish Race",
+                RaceStatus.FINISHED, "Submit Results",
+                RaceStatus.RESULT_SUBMITTED, "Waiting Admin Review",
+                RaceStatus.RESULT_CONFIRMED, "View Final Result",
+                RaceStatus.PUBLISHED, "View Final Result"
         ).getOrDefault(status, "View Race");
     }
 }
