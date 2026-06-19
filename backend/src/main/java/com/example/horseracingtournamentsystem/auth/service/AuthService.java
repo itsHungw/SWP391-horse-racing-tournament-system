@@ -13,6 +13,7 @@ import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
@@ -57,7 +58,7 @@ public class AuthService {
         User user = userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new IllegalArgumentException("INVALID_CREDENTIALS"));
 
-        if (User.STATUS_PENDING_EMAIL_VERIFY.equals(user.getStatus())) {
+        if (UserStatus.PENDING_EMAIL_VERIFY == user.getStatus()) {
             throw new IllegalArgumentException("EMAIL_NOT_VERIFIED");
         }
 
@@ -118,7 +119,7 @@ public class AuthService {
         String email = normalizeEmail(request.email());
         User existingUser = userRepository.findByEmail(email).orElse(null);
         if (existingUser != null) {
-            if (User.STATUS_PENDING_EMAIL_VERIFY.equals(existingUser.getStatus())) {
+            if (UserStatus.PENDING_EMAIL_VERIFY == existingUser.getStatus()) {
                 sendVerificationEmail(existingUser);
                 return;
             }
@@ -146,7 +147,7 @@ public class AuthService {
     public void resendVerificationEmail(String rawEmail) {
         String email = normalizeEmail(rawEmail);
         userRepository.findByEmail(email)
-                .filter(user -> User.STATUS_PENDING_EMAIL_VERIFY.equals(user.getStatus()))
+                .filter(user -> UserStatus.PENDING_EMAIL_VERIFY == user.getStatus())
                 .ifPresent(user -> {
                     String rawToken = oneTimeTokenService.createEmailVerificationToken(user);
                     emailSender.sendEmailVerification(user.getEmail(), rawToken);
