@@ -2,11 +2,19 @@ package com.example.horseracingtournamentsystem.prediction.dto.response;
 
 import lombok.Getter;
 import lombok.Setter;
+import lombok.Builder;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
+
 @Getter
 @Setter
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
 public class OpenRacePredictionResponse {
     private Long raceId;
     private String raceName;
@@ -14,7 +22,7 @@ public class OpenRacePredictionResponse {
     private Long tournamentId;
     private String tournamentName;
     private LocalDateTime raceAt;
-    private String status;
+    private RaceStatus status;
     private Long totalPredictions;
     private UserPredictionStatus predictedByUser;
 
