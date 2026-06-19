@@ -2,9 +2,13 @@ package com.example.horseracingtournamentsystem.result.entity;
 
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -28,16 +32,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RaceResult {
 
-    public static final String RESULT_STATUS_FINISHED = "FINISHED";
-    public static final String RESULT_STATUS_DISQUALIFIED = "DISQUALIFIED";
-    public static final String RESULT_STATUS_DID_NOT_FINISH = "DID_NOT_FINISH";
-    public static final String RESULT_STATUS_WITHDRAWN = "WITHDRAWN";
-
-    public static final String STATUS_DRAFT = "DRAFT";
-    public static final String STATUS_SUBMITTED = "SUBMITTED";
-    public static final String STATUS_CONFIRMED = "CONFIRMED";
-    public static final String STATUS_PUBLISHED = "PUBLISHED";
-    public static final String STATUS_REJECTED = "REJECTED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -63,8 +57,9 @@ public class RaceResult {
     @Column(name = "finish_time_seconds", precision = 10, scale = 3)
     private BigDecimal finishTimeSeconds;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "result_status", nullable = false, length = 30)
-    private String resultStatus;
+    private ResultFinishStatus resultStatus;
 
     @Column(name = "points", nullable = false)
     private int points;
@@ -92,8 +87,9 @@ public class RaceResult {
     @Column(name = "published_at")
     private LocalDateTime publishedAt;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private ResultRecordStatus status;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -108,8 +104,8 @@ public class RaceResult {
         result.submittedBy = submitter;
         result.createdAt = LocalDateTime.now();
         result.submittedAt = result.createdAt;
-        result.status = STATUS_SUBMITTED;
-        result.resultStatus = RESULT_STATUS_FINISHED;
+        result.status = ResultRecordStatus.SUBMITTED;
+        result.resultStatus = ResultFinishStatus.FINISHED;
         return result;
     }
 
@@ -118,8 +114,8 @@ public class RaceResult {
             BigDecimal rawFinishTimeSeconds,
             BigDecimal penaltySeconds,
             BigDecimal finishTimeSeconds,
-            String resultStatus,
-            String status,
+            ResultFinishStatus resultStatus,
+            ResultRecordStatus status,
             User referee,
             String note
     ) {
@@ -133,7 +129,7 @@ public class RaceResult {
         this.note = note;
         this.submittedAt = LocalDateTime.now();
         this.updatedAt = this.submittedAt;
-        if (STATUS_CONFIRMED.equals(status)) {
+        if (ResultRecordStatus.CONFIRMED == status) {
             this.confirmedBy = referee;
             this.confirmedAt = this.submittedAt;
         } else {
@@ -142,7 +138,7 @@ public class RaceResult {
         }
 
         this.points = 0;
-        if (RESULT_STATUS_FINISHED.equals(resultStatus) && position != null) {
+        if (ResultFinishStatus.FINISHED == resultStatus && position != null) {
             switch (position) {
                 case 1 -> this.points = 25;
                 case 2 -> this.points = 18;

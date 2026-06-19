@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,8 +55,9 @@ public class Race {
     @Column(name = "min_participants", nullable = false)
     private Integer minParticipants;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
-    private String status; // SCHEDULED / CHECKING / READY / ONGOING / FINISHED / RESULT_SUBMITTED / RESULT_CONFIRMED / PUBLISHED / CANCELLED
+    private RaceStatus status; // SCHEDULED / CHECKING / READY / ONGOING / FINISHED / RESULT_SUBMITTED / RESULT_CONFIRMED / PUBLISHED / CANCELLED
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "referee_id")
@@ -84,7 +86,7 @@ public class Race {
         race.distanceMeter = distanceMeter;
         race.maxParticipants = maxParticipants;
         race.minParticipants = 2; // Default constraint
-        race.status = "SCHEDULED";
+        race.status = RaceStatus.SCHEDULED;
         race.createdBy = creator;
         race.createdAt = LocalDateTime.now();
         return race;
@@ -100,11 +102,11 @@ public class Race {
     }
 
     public void cancel() {
-        this.status = "CANCELLED";
+        this.status = RaceStatus.CANCELLED;
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void updateStatus(String status) {
+    public void updateStatus(RaceStatus status) {
         this.status = status;
         this.updatedAt = LocalDateTime.now();
     }

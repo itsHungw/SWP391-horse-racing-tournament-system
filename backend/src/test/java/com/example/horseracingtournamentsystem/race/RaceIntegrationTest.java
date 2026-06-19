@@ -11,10 +11,15 @@ import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.point.service.PointAccountService;
@@ -162,7 +167,7 @@ class RaceIntegrationTest {
                 tournament, "Heritage Mile", "HERITAGE_MILE",
                 LocalDateTime.now().minusDays(2), 1600, 12, adminUser
         );
-        result.updateStatus("RESULT_SUBMITTED");
+        result.updateStatus(RaceStatus.RESULT_SUBMITTED);
         raceRepository.save(result);
 
         mockMvc.perform(get("/api/v1/races/search")
@@ -196,13 +201,13 @@ class RaceIntegrationTest {
                 tournament, "Emerald Final", "EMERALD_FINAL",
                 LocalDateTime.now().minusDays(2), 1200, 12, adminUser
         );
-        emeraldRace.updateStatus("RESULT_CONFIRMED");
+        emeraldRace.updateStatus(RaceStatus.RESULT_CONFIRMED);
         emeraldRace = raceRepository.save(emeraldRace);
         RaceParticipant emerald = createParticipant(emeraldRace, "Emerald King", "EMERALD-KING");
         RaceResult emeraldResult = RaceResult.create(emeraldRace, emerald, adminUser);
         emeraldResult.submit(
                 1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
-                RaceResult.RESULT_STATUS_FINISHED, RaceResult.STATUS_CONFIRMED, adminUser, "private"
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "private"
         );
         raceResultRepository.save(emeraldResult);
 
@@ -210,13 +215,13 @@ class RaceIntegrationTest {
                 tournament, "Silver Final", "SILVER_FINAL",
                 LocalDateTime.now().minusDays(1), 1400, 12, adminUser
         );
-        silverRace.updateStatus("RESULT_CONFIRMED");
+        silverRace.updateStatus(RaceStatus.RESULT_CONFIRMED);
         silverRace = raceRepository.save(silverRace);
         RaceParticipant silver = createParticipant(silverRace, "Silver Reef", "SILVER-REEF");
         RaceResult silverResult = RaceResult.create(silverRace, silver, adminUser);
         silverResult.submit(
                 1, new BigDecimal("81.120"), BigDecimal.ZERO, new BigDecimal("81.120"),
-                RaceResult.RESULT_STATUS_FINISHED, RaceResult.STATUS_CONFIRMED, adminUser, "private"
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "private"
         );
         raceResultRepository.save(silverResult);
 
@@ -241,7 +246,7 @@ class RaceIntegrationTest {
                 tournament, "Evening Live", "CALENDAR_PM",
                 day.atTime(18, 0), 1600, 12, adminUser
         );
-        live.updateStatus("ONGOING");
+        live.updateStatus(RaceStatus.ONGOING);
         raceRepository.save(live);
 
         mockMvc.perform(get("/api/v1/races/calendar-summary")
@@ -264,10 +269,10 @@ class RaceIntegrationTest {
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));
         racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_TOP3, 101L, 102L, 103L, 10
+                race, spectator, RacePrediction.TYPE_TOP3, 101L, null, 102L, 103L, null, null, 10
         ));
 
         mockMvc.perform(get("/api/v1/races/search").param("scope", "UPCOMING"))
@@ -289,13 +294,13 @@ class RaceIntegrationTest {
                 tournament, "Official Result Round", "OFFICIAL_RESULT",
                 LocalDateTime.now().minusHours(2), 1200, 12, adminUser
         );
-        race.updateStatus("RESULT_SUBMITTED");
+        race.updateStatus(RaceStatus.RESULT_SUBMITTED);
         race = raceRepository.save(race);
         RaceParticipant participant = createParticipant(race, "Emerald King", "EMERALD-KING");
         RaceResult result = RaceResult.create(race, participant, adminUser);
         result.submit(
                 1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
-                RaceResult.RESULT_STATUS_FINISHED, RaceResult.STATUS_SUBMITTED, adminUser, "private referee note"
+                ResultFinishStatus.FINISHED, ResultRecordStatus.SUBMITTED, adminUser, "private referee note"
         );
         result = raceResultRepository.save(result);
 
@@ -305,11 +310,11 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.entries").isEmpty())
                 .andExpect(jsonPath("$.entries[0].note").doesNotExist());
 
-        race.updateStatus("RESULT_CONFIRMED");
+        race.updateStatus(RaceStatus.RESULT_CONFIRMED);
         raceRepository.save(race);
         result.submit(
                 1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
-                RaceResult.RESULT_STATUS_FINISHED, RaceResult.STATUS_CONFIRMED, adminUser, "still private"
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "still private"
         );
         raceResultRepository.save(result);
 
@@ -419,7 +424,7 @@ class RaceIntegrationTest {
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -429,7 +434,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CHECKING"));
 
         RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_LOCKED);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(PredictionStatus.LOCKED);
         org.assertj.core.api.Assertions.assertThat(reloaded.getLockedAt()).isNotNull();
     }
 
@@ -442,7 +447,7 @@ class RaceIntegrationTest {
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         pointsService.initializeAccount(spectator, 100);
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -452,7 +457,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
         RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_REFUNDED);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(PredictionStatus.REFUNDED);
     }
 
     @Test
@@ -461,7 +466,7 @@ class RaceIntegrationTest {
                 tournament, "Prediction Settlement Round", "MC_SETTLE", LocalDateTime.of(2026, 6, 19, 14, 30),
                 1600, 12, adminUser
         ));
-        race.updateStatus("FINISHED");
+        race.updateStatus(RaceStatus.FINISHED);
         raceRepository.save(race);
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -476,7 +481,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("RESULT_CONFIRMED"));
 
         PredictionSettlementJob job = settlementJobRepository.findByRace_Id(race.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJob.STATUS_PENDING);
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJobStatus.PENDING);
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
                         .param("status", "PUBLISHED")

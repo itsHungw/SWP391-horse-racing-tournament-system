@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.race.repository;
 
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -16,12 +17,21 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
     List<Race> findAllByDeletedAtIsNullOrderByRaceAtAsc();
     List<Race> findAllByTournamentIdAndDeletedAtIsNull(Long tournamentId);
     List<Race> findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(Long tournamentId);
-    List<Race> findAllByReferee_EmailAndTournament_StatusInAndDeletedAtIsNullOrderByRaceAtAsc(String refereeEmail, List<String> tournamentStatuses);
+    List<Race> findAllByReferee_EmailAndTournament_StatusInAndDeletedAtIsNullOrderByRaceAtAsc(
+            String refereeEmail,
+            List<TournamentStatus> tournamentStatuses
+    );
     Optional<Race> findByIdAndReferee_EmailAndDeletedAtIsNull(Long id, String refereeEmail);
     boolean existsByCodeAndDeletedAtIsNull(String code);
     boolean existsByCodeAndIdNotAndDeletedAtIsNull(String code, Long id);
 
-    @Query("SELECT r FROM Race r WHERE r.status = 'SCHEDULED' AND r.deletedAt IS NULL AND r.raceAt > CURRENT_TIMESTAMP")
+    @Query("""
+            SELECT r FROM Race r
+            WHERE r.status = com.example.horseracingtournamentsystem.race.enums.RaceStatus.SCHEDULED
+              AND r.deletedAt IS NULL
+              AND r.raceAt > CURRENT_TIMESTAMP
+            ORDER BY r.raceAt ASC
+            """)
     List<Race> findOpenRacesForPrediction();
 
     @Query("""
@@ -37,13 +47,25 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
             WHERE r.deletedAt IS NULL
               AND r.tournament.id IN :tournamentIds
               AND r.raceAt >= :now
-              AND r.status NOT IN ('CANCELLED', 'FINISHED', 'RESULT_SUBMITTED', 'RESULT_CONFIRMED', 'PUBLISHED')
+              AND r.status NOT IN (
+                com.example.horseracingtournamentsystem.race.enums.RaceStatus.CANCELLED,
+                com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
+                com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
+                com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
+                com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED
+              )
               AND r.raceAt = (
                 SELECT MIN(nextRace.raceAt) FROM Race nextRace
                 WHERE nextRace.deletedAt IS NULL
                   AND nextRace.tournament.id = r.tournament.id
                   AND nextRace.raceAt >= :now
-                  AND nextRace.status NOT IN ('CANCELLED', 'FINISHED', 'RESULT_SUBMITTED', 'RESULT_CONFIRMED', 'PUBLISHED')
+                  AND nextRace.status NOT IN (
+                    com.example.horseracingtournamentsystem.race.enums.RaceStatus.CANCELLED,
+                    com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
+                    com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
+                    com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
+                    com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED
+                  )
               )
             """)
     List<Race> findNextByTournamentIds(
@@ -56,8 +78,16 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                     SELECT r FROM Race r
                     JOIN FETCH r.tournament t
                     WHERE r.deletedAt IS NULL
-                      AND ((:scope = 'UPCOMING' AND r.status IN ('SCHEDULED', 'CHECKING', 'READY', 'ONGOING'))
-                        OR (:scope = 'RESULTS' AND r.status IN ('FINISHED', 'RESULT_SUBMITTED', 'RESULT_CONFIRMED', 'PUBLISHED')))
+                      AND ((:scope = 'UPCOMING' AND r.status IN (
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.SCHEDULED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.CHECKING,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.READY,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.ONGOING))
+                        OR (:scope = 'RESULTS' AND r.status IN (
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
                       AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
                       AND (:toDate IS NULL OR r.raceAt <= :toDate)
                       AND (:tournamentId IS NULL OR t.id = :tournamentId)
@@ -73,8 +103,16 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
             countQuery = """
                     SELECT COUNT(r) FROM Race r
                     WHERE r.deletedAt IS NULL
-                      AND ((:scope = 'UPCOMING' AND r.status IN ('SCHEDULED', 'CHECKING', 'READY', 'ONGOING'))
-                        OR (:scope = 'RESULTS' AND r.status IN ('FINISHED', 'RESULT_SUBMITTED', 'RESULT_CONFIRMED', 'PUBLISHED')))
+                      AND ((:scope = 'UPCOMING' AND r.status IN (
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.SCHEDULED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.CHECKING,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.READY,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.ONGOING))
+                        OR (:scope = 'RESULTS' AND r.status IN (
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
+                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
                       AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
                       AND (:toDate IS NULL OR r.raceAt <= :toDate)
                       AND (:tournamentId IS NULL OR r.tournament.id = :tournamentId)

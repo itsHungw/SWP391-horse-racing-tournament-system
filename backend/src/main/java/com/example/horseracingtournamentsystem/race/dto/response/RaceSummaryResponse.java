@@ -5,9 +5,14 @@ import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
+
+@Data
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class RaceSummaryResponse {
     private Long id;
@@ -20,8 +25,8 @@ public class RaceSummaryResponse {
     private String location;
     private Integer distanceMeters;
     private Integer maxParticipants;
-    private long participantCount;
-    private String status;
+    private Long participantCount;
+    private RaceStatus status;
     private boolean predictionOpen;
     private LocalDateTime predictionCloseTime;
     private boolean resultOfficial;
