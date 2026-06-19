@@ -1,13 +1,11 @@
 import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { ArrowLeft, Stamp } from "lucide-react";
+import { ArrowLeft, Stamp, Ticket } from "lucide-react";
 import type { OpenRacePrediction, PredictionOptions, PredictionType } from "../types/prediction.types";
-import type { Picks } from "./HorsePickPanel";
+import type { Picks } from "../predictionCockpitUtils";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-/** Step 3 — the betting-slip style review. Confirms via onConfirm (which must
-    throw on failure); on success plays the stamped-seal moment then onDone(). */
 export function TicketReview({
   race,
   options,
@@ -34,7 +32,7 @@ export function TicketReview({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const cost = predType === "WINNER" ? options.entryCost.winner : options.entryCost.top3;
+  const cost = options.entryCost?.winner || 0;
 
   const nameOf = (id: number | null) => {
     if (id == null) return "—";
@@ -58,19 +56,18 @@ export function TicketReview({
 
   const rows: Array<{ label: string; value: string }> = [
     { label: "Race", value: race.raceName },
-    { label: "Type", value: predType === "WINNER" ? "Winner Pick" : "Top 3 Pick" },
-    { label: "1st", value: nameOf(picks.winnerId) },
+    { label: "Type", value: predType === "WINNER" ? "Winner Pick" : predType === "HEAD_TO_HEAD" ? "Matchup Pick" : "Position Pick" },
+    { label: "1st Pick", value: nameOf(picks.winnerId) },
   ];
-  if (predType === "TOP3") {
-    rows.push({ label: "2nd", value: nameOf(picks.secondId) });
-    rows.push({ label: "3rd", value: nameOf(picks.thirdId) });
+
+  if (predType === "EXACT_POSITION") {
+    rows.push({ label: "Position", value: picks.predictedPosition?.toString() || "?" });
   }
 
   return (
     <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-turf-900 p-6 md:p-7">
       <h2 className="eyebrow text-emerald-soft">Step 3 · Review your ticket</h2>
 
-      {/* The ticket */}
       <div className="relative mt-5 rounded-xl border border-gold-600/30 bg-turf-950 p-6">
         <div className="absolute inset-x-6 top-0 border-t-2 border-dashed border-gold-600/20" aria-hidden="true" />
         <p className="font-data text-[10px] uppercase tracking-[0.24em] text-gold-300">
@@ -89,17 +86,16 @@ export function TicketReview({
         <div className="mt-5 space-y-2 border-t border-white/8 pt-4 text-xs font-semibold text-ivory-dim">
           <div className="flex justify-between">
             <span>Entry cost</span>
-            <span className="font-data text-ivory">{isUpdate ? "0 (editing)" : `${cost} points`}</span>
+            <span className="font-data text-ivory">{isUpdate ? "0 (editing)" : `${cost} VND`}</span>
           </div>
           {!isUpdate && (
             <div className="flex justify-between text-emerald-soft">
               <span>Balance after</span>
-              <span className="font-data">{pointBalance - cost} points</span>
+              <span className="font-data">{pointBalance - cost} VND</span>
             </div>
           )}
         </div>
 
-        {/* Stamped seal on success */}
         {success && (
           <motion.div
             initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 1.7, rotate: -18 }}
