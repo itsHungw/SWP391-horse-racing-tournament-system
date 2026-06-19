@@ -13,7 +13,10 @@ import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,13 +32,15 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class TournamentService {
 
-    private static final List<String> PUBLIC_STATUSES = List.of(
-            "OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
+    private static final List<TournamentStatus> PUBLIC_STATUSES = List.of(
+            TournamentStatus.OPEN_REGISTRATION, TournamentStatus.CLOSED_REGISTRATION, TournamentStatus.SCHEDULE_PUBLISHED, TournamentStatus.ONGOING, TournamentStatus.COMPLETED
     );
     private static final Set<String> DISCOVERY_SORTS = Set.of(
             "LATEST", "REGISTRATION_CLOSING_SOON", "ONGOING_FIRST"
@@ -46,6 +51,7 @@ public class TournamentService {
     private final RaceRepository raceRepository;
     private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
+    private final RaceResultRepository raceResultRepository;
 
     @Transactional
     public TournamentResponse createTournament(TournamentRequest req, String creatorEmail) {
@@ -72,7 +78,7 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
 
-        if (!java.util.List.of("DRAFT", "POSTPONED").contains(tournament.getStatus())) {
+        if (!java.util.List.of(TournamentStatus.DRAFT, TournamentStatus.POSTPONED).contains(tournament.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament settings can only be modified when in DRAFT or POSTPONED status");
         }
         if (tournamentRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
@@ -112,7 +118,7 @@ public class TournamentService {
     public void deleteTournament(Long id) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
-        if (!"DRAFT".equals(tournament.getStatus())) {
+        if (TournamentStatus.DRAFT != tournament.getStatus()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only draft tournaments can be deleted. Please postpone active tournaments instead");
         }
         tournament.postpone();
@@ -139,15 +145,14 @@ public class TournamentService {
 
     public Page<TournamentSummaryResponse> searchPublicTournaments(
             String search,
-            String status,
+            TournamentStatus status,
             Integer year,
             String sortBy,
             Pageable pageable
     ) {
         String normalizedSearch = search == null ? "" : search.trim();
-        String normalizedStatus = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
         String normalizedSort = sortBy == null ? "ONGOING_FIRST" : sortBy.trim().toUpperCase(Locale.ROOT);
-        if (!normalizedStatus.isEmpty() && !PUBLIC_STATUSES.contains(normalizedStatus)) {
+        if (status != null && !PUBLIC_STATUSES.contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid public tournament status");
         }
         if (!DISCOVERY_SORTS.contains(normalizedSort)) {
@@ -155,7 +160,7 @@ public class TournamentService {
         }
 
         Page<Tournament> tournaments = tournamentRepository.searchPublic(
-                normalizedSearch, normalizedStatus, year, normalizedSort, PUBLIC_STATUSES, pageable
+                normalizedSearch, status, year, normalizedSort, PUBLIC_STATUSES, pageable
         );
         if (tournaments.isEmpty()) {
             return tournaments.map(tournament -> mapToSummary(tournament, 0, 0, null));
@@ -181,23 +186,25 @@ public class TournamentService {
     }
 
     @Transactional
-    public void updateStatus(Long id, String status) {
+    public void updateStatus(Long id, TournamentStatus status) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
         
-        String upperStatus = status.toUpperCase();
-        switch (upperStatus) {
-            case "OPEN_REGISTRATION":
+        if (status == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament status");
+        }
+        switch (status) {
+            case OPEN_REGISTRATION:
                 tournament.openRegistration();
                 break;
-            case "CLOSED_REGISTRATION":
+            case CLOSED_REGISTRATION:
                 tournament.closeRegistration();
                 break;
-            case "PARTICIPANTS_LOCKED":
+            case PARTICIPANTS_LOCKED:
                 tournament.lockParticipants();
                 break;
-            case "SCHEDULE_PUBLISHED":
-                if (!"PARTICIPANTS_LOCKED".equals(tournament.getStatus())) {
+            case SCHEDULE_PUBLISHED:
+                if (TournamentStatus.PARTICIPANTS_LOCKED != tournament.getStatus()) {
                     throw new ResponseStatusException(
                             HttpStatus.BAD_REQUEST,
                             "Schedule can only be published after participants are locked"
@@ -206,13 +213,13 @@ public class TournamentService {
                 syncOfficialScheduleParticipants(tournament);
                 tournament.publishSchedule();
                 break;
-            case "ONGOING":
+            case ONGOING:
                 tournament.startOngoing();
                 break;
-            case "COMPLETED":
+            case COMPLETED:
                 tournament.completeTournament();
                 break;
-            case "POSTPONED":
+            case POSTPONED:
                 tournament.postpone();
                 break;
             default:
@@ -250,12 +257,33 @@ public class TournamentService {
             );
         }
 
+        // Pre-calculate win rates for all participants
+        Map<Long, Double> winRates = new HashMap<>();
+        double sumRates = 0;
+
         for (TournamentParticipant participant : participants) {
+            Long horseId = participant.getHorse().getId();
+            long totalRaces = raceResultRepository.countTotalRacesByHorseId(horseId);
+            long totalWins = raceResultRepository.countWinsByHorseId(horseId);
+
+            // If the horse is new or hasn't won, give it a baseline chance (e.g., 1 win out of 20 = 0.05)
+            double rate = (totalRaces > 0 && totalWins > 0) ? (double) totalWins / totalRaces : 0.05;
+            winRates.put(horseId, rate);
+            sumRates += rate;
+        }
+
+        for (TournamentParticipant participant : participants) {
+            Long horseId = participant.getHorse().getId();
+            double normalizedProb = winRates.get(horseId) / sumRates;
+            BigDecimal baseProb = BigDecimal.valueOf(normalizedProb).setScale(4, RoundingMode.HALF_UP);
+
             for (Race race : races) {
-                if (raceParticipantRepository.existsByRace_IdAndHorse_Id(race.getId(), participant.getHorse().getId())) {
+                if (raceParticipantRepository.existsByRace_IdAndHorse_Id(race.getId(), horseId)) {
                     continue;
                 }
-                raceParticipantRepository.save(RaceParticipant.registered(race, participant, null));
+                RaceParticipant rp = RaceParticipant.registered(race, participant, null);
+                rp.setBaseWinProbability(baseProb);
+                raceParticipantRepository.save(rp);
             }
         }
     }

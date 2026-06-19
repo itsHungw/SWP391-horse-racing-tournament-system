@@ -1,11 +1,15 @@
 package com.example.horseracingtournamentsystem.championship.entity;
 
+import com.example.horseracingtournamentsystem.championship.enums.TournamentParticipantStatus;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.enums.RegistrationStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -39,9 +43,6 @@ import org.springframework.web.server.ResponseStatusException;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class TournamentParticipant {
 
-    public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_WITHDRAWN = "WITHDRAWN";
-    public static final String STATUS_DISQUALIFIED = "DISQUALIFIED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -70,8 +71,9 @@ public class TournamentParticipant {
     @Column(name = "jockey_invitation_id")
     private Long jockeyInvitationId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private TournamentParticipantStatus status;
 
     @Column(name = "points", nullable = false)
     private Integer points;
@@ -87,7 +89,7 @@ public class TournamentParticipant {
             User jockey,
             Long jockeyInvitationId
     ) {
-        if (!"APPROVED".equals(registration.getStatus())) {
+        if (RegistrationStatus.APPROVED != registration.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Only approved horse registrations can become tournament participants");
         }
@@ -98,19 +100,19 @@ public class TournamentParticipant {
         participant.owner = registration.getOwner();
         participant.jockey = jockey;
         participant.jockeyInvitationId = jockeyInvitationId;
-        participant.status = STATUS_ACTIVE;
+        participant.status = TournamentParticipantStatus.ACTIVE;
         participant.points = 0;
         participant.createdAt = LocalDateTime.now();
         return participant;
     }
 
     public void withdraw() {
-        this.status = STATUS_WITHDRAWN;
+        this.status = TournamentParticipantStatus.WITHDRAWN;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void disqualify() {
-        this.status = STATUS_DISQUALIFIED;
+        this.status = TournamentParticipantStatus.DISQUALIFIED;
         this.updatedAt = LocalDateTime.now();
     }
 

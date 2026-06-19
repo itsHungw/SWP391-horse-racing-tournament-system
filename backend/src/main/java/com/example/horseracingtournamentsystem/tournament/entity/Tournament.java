@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.tournament.entity;
 
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -47,8 +48,9 @@ public class Tournament {
     @Column(name = "max_horses_per_owner", nullable = false)
     private Integer maxHorsesPerOwner;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
-    private String status;
+    private TournamentStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
@@ -77,7 +79,7 @@ public class Tournament {
         tournament.registrationEndAt = regEnd;
         tournament.maxHorses = maxHorses;
         tournament.maxHorsesPerOwner = 2;
-        tournament.status = "DRAFT";
+        tournament.status = TournamentStatus.DRAFT;
         tournament.createdBy = creator;
         tournament.createdAt = LocalDateTime.now();
         return tournament;
@@ -113,37 +115,37 @@ public class Tournament {
     }
 
     public void postpone() {
-        this.status = "POSTPONED";
+        this.status = TournamentStatus.POSTPONED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void openRegistration() {
-        this.status = "OPEN_REGISTRATION";
+        this.status = TournamentStatus.OPEN_REGISTRATION;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void closeRegistration() {
-        this.status = "CLOSED_REGISTRATION";
+        this.status = TournamentStatus.CLOSED_REGISTRATION;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void lockParticipants() {
-        this.status = "PARTICIPANTS_LOCKED";
+        this.status = TournamentStatus.PARTICIPANTS_LOCKED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void publishSchedule() {
-        this.status = "SCHEDULE_PUBLISHED";
+        this.status = TournamentStatus.SCHEDULE_PUBLISHED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void startOngoing() {
-        this.status = "ONGOING";
+        this.status = TournamentStatus.ONGOING;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void completeTournament() {
-        this.status = "COMPLETED";
+        this.status = TournamentStatus.COMPLETED;
         this.updatedAt = LocalDateTime.now();
     }
 

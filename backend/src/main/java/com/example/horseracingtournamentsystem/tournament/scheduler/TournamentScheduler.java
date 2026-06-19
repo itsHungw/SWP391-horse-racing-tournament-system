@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.tournament.scheduler;
 
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,24 +27,28 @@ public class TournamentScheduler {
         LocalDate today = LocalDate.now();
 
         List<Tournament> activeTournaments = tournamentRepository.findAllByStatusInAndDeletedAtIsNull(
-                List.of("OPEN_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING")
+                List.of(
+                        TournamentStatus.OPEN_REGISTRATION,
+                        TournamentStatus.SCHEDULE_PUBLISHED,
+                        TournamentStatus.ONGOING
+                )
         );
 
         for (Tournament t : activeTournaments) {
             try {
-                if ("OPEN_REGISTRATION".equals(t.getStatus())) {
+                if (TournamentStatus.OPEN_REGISTRATION == t.getStatus()) {
                     if (now.isAfter(t.getRegistrationEndAt()) || now.isEqual(t.getRegistrationEndAt())) {
                         t.closeRegistration();
                         tournamentRepository.save(t);
                         log.info("Auto-transitioned Tournament ID {} from OPEN_REGISTRATION to CLOSED_REGISTRATION", t.getId());
                     }
-                } else if ("SCHEDULE_PUBLISHED".equals(t.getStatus())) {
+                } else if (TournamentStatus.SCHEDULE_PUBLISHED == t.getStatus()) {
                     if (today.isAfter(t.getStartDate()) || today.isEqual(t.getStartDate())) {
                         t.startOngoing();
                         tournamentRepository.save(t);
                         log.info("Auto-transitioned Tournament ID {} from SCHEDULE_PUBLISHED to ONGOING", t.getId());
                     }
-                } else if ("ONGOING".equals(t.getStatus())) {
+                } else if (TournamentStatus.ONGOING == t.getStatus()) {
                     if (today.isAfter(t.getEndDate())) {
                         t.completeTournament();
                         tournamentRepository.save(t);

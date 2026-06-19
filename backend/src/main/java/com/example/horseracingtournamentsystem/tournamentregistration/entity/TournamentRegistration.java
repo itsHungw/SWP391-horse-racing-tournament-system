@@ -2,9 +2,12 @@ package com.example.horseracingtournamentsystem.tournamentregistration.entity;
 
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournamentregistration.enums.RegistrationStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -41,8 +44,9 @@ public class TournamentRegistration {
     @JoinColumn(name = "owner_id", nullable = false)
     private User owner;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private RegistrationStatus status;
 
     @Column(name = "note")
     private String note;
@@ -72,14 +76,14 @@ public class TournamentRegistration {
         registration.horse = horse;
         registration.owner = owner;
         registration.note = note;
-        registration.status = "PENDING";
+        registration.status = RegistrationStatus.PENDING;
         registration.createdAt = LocalDateTime.now();
         return registration;
     }
 
     public void approve(User reviewer) {
         ensurePendingForReview();
-        this.status = "APPROVED";
+        this.status = RegistrationStatus.APPROVED;
         this.reviewedBy = reviewer;
         this.reviewedAt = LocalDateTime.now();
         this.rejectionReason = null;
@@ -88,7 +92,7 @@ public class TournamentRegistration {
 
     public void reject(User reviewer, String reason) {
         ensurePendingForReview();
-        this.status = "REJECTED";
+        this.status = RegistrationStatus.REJECTED;
         this.reviewedBy = reviewer;
         this.reviewedAt = LocalDateTime.now();
         this.rejectionReason = reason;
@@ -96,20 +100,20 @@ public class TournamentRegistration {
     }
 
     public void withdraw() {
-        if (!"PENDING".equals(this.status)) {
+        if (RegistrationStatus.PENDING != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending registrations can be withdrawn");
         }
-        this.status = "WITHDRAWN";
+        this.status = RegistrationStatus.WITHDRAWN;
         this.withdrawnAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
     public void resubmit(String note) {
-        if (!"WITHDRAWN".equals(this.status) && !"REJECTED".equals(this.status)) {
+        if (RegistrationStatus.WITHDRAWN != this.status && RegistrationStatus.REJECTED != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Only withdrawn or rejected registrations can be resubmitted");
         }
-        this.status = "PENDING";
+        this.status = RegistrationStatus.PENDING;
         this.note = note;
         this.rejectionReason = null;
         this.reviewedBy = null;
@@ -120,7 +124,7 @@ public class TournamentRegistration {
     }
 
     private void ensurePendingForReview() {
-        if (!"PENDING".equals(this.status)) {
+        if (RegistrationStatus.PENDING != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending registrations can be reviewed");
         }
     }

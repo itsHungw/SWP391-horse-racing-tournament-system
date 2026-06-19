@@ -5,16 +5,19 @@ import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRep
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.dto.request.TournamentRegistrationRequest;
 import com.example.horseracingtournamentsystem.tournamentregistration.dto.response.TournamentRegistrationResponse;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.enums.RegistrationStatus;
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -64,7 +67,13 @@ public class TournamentRegistrationService {
                     .map(this::mapToResponse)
                     .toList();
         }
-        return registrationRepository.findAllByStatusOrderByCreatedAtDesc(status.trim().toUpperCase()).stream()
+        RegistrationStatus registrationStatus;
+        try {
+            registrationStatus = RegistrationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid registration status");
+        }
+        return registrationRepository.findAllByStatusOrderByCreatedAtDesc(registrationStatus).stream()
                 .map(this::mapToResponse)
                 .toList();
     }
@@ -84,7 +93,7 @@ public class TournamentRegistrationService {
             .findByTournament_IdAndHorse_IdAndStatusIn(
                 tournament.getId(),
                 horse.getId(),
-                List.of("WITHDRAWN", "REJECTED"))
+                List.of(RegistrationStatus.WITHDRAWN, RegistrationStatus.REJECTED))
             .map(existing -> {
                 existing.resubmit(note);
                 return existing;
@@ -136,18 +145,21 @@ public class TournamentRegistrationService {
                     "Horse must be approved before tournament registration");
         }
         validateRequiredMedicalDocuments(horse, tournament.getEndDate());
-        if (!"OPEN_REGISTRATION".equals(tournament.getStatus())) {
+        if (TournamentStatus.OPEN_REGISTRATION != tournament.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is not open for registration");
         }
         if (registrationRepository.existsByTournament_IdAndHorse_IdAndStatusIn(
             tournament.getId(),
             horse.getId(),
-            List.of("PENDING", "APPROVED"))) {
+            List.of(RegistrationStatus.PENDING, RegistrationStatus.APPROVED))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Horse already has a registration for this tournament");
         }
         if (tournament.getMaxHorses() != null
-                && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), "APPROVED") >= tournament
+                && registrationRepository.countByTournament_IdAndStatus(
+                        tournament.getId(),
+                        RegistrationStatus.APPROVED
+                ) >= tournament
                         .getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Tournament is full");
         }
@@ -155,7 +167,7 @@ public class TournamentRegistrationService {
         if (registrationRepository.countByTournament_IdAndOwner_IdAndStatusIn(
                 tournament.getId(),
                 owner.getId(),
-                List.of("PENDING", "APPROVED")) >= maxHorsesPerOwner) {
+                List.of(RegistrationStatus.PENDING, RegistrationStatus.APPROVED)) >= maxHorsesPerOwner) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "Owner horse registration limit reached for this tournament");
@@ -234,7 +246,7 @@ public class TournamentRegistrationService {
                 .ownerId(registration.getOwner().getId())
                 .ownerName(registration.getOwner().getFullName())
                 .note(registration.getNote())
-                .status(registration.getStatus())
+                .status(registration.getStatus().name())
                 .rejectionReason(registration.getRejectionReason())
                 .reviewedBy(registration.getReviewedBy() == null ? null : registration.getReviewedBy().getId())
                 .createdAt(registration.getCreatedAt())
