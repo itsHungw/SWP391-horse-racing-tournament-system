@@ -118,29 +118,32 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                       Type
                     </span>
                     <span className="font-data uppercase text-ivory">{pred.predictionType}</span>
-                  </div>
-                  <div className="border-t border-white/8 pt-2">
-                    <p className="mb-1 text-ivory-faint">Selections</p>
-                    <p className="font-semibold leading-relaxed text-ivory">
-                      <span className="font-data text-gold-300">1st</span>{" "}
-                      {pred.predictedWinnerName || `ID #${pred.predictedWinnerId}`}
-                    </p>
-                    {pred.predictionType === "TOP3" && (
-                      <>
-                        <p className="mt-1 font-semibold leading-relaxed text-ivory">
-                          <span className="font-data text-gold-300">2nd</span>{" "}
-                          {pred.predictedSecondName || `ID #${pred.predictedSecondId}`}
-                        </p>
-                        <p className="mt-1 font-semibold leading-relaxed text-ivory">
-                          <span className="font-data text-gold-300">3rd</span>{" "}
-                          {pred.predictedThirdName || `ID #${pred.predictedThirdId}`}
-                        </p>
-                      </>
+                    {pred.predictionType === "HEAD_TO_HEAD" && (
+                      <div className="mt-3 flex items-center justify-between gap-4 border-t border-white/5 pt-3">
+                        <div className="flex flex-col gap-1.5 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-ivory-dim">
+                              Matchup
+                            </span>
+                            <span className="truncate text-xs font-semibold text-ivory">
+                              {pred.predictedWinnerName || "—"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <span className="block text-[10px] font-semibold uppercase tracking-wider text-ivory-dim">
+                            Odds
+                          </span>
+                          <span className="font-data text-sm font-bold text-emerald-soft">
+                            {pred.lockedOdds ? pred.lockedOdds.toFixed(2) : "—"}
+                          </span>
+                        </div>
+                      </div>
                     )}
                   </div>
                   <div className="flex justify-between border-t border-white/8 pt-2">
                     <span>Entry Cost</span>
-                    <span className="font-data text-ivory">{pred.entryCostPoints} pts</span>
+                    <span className="font-data text-ivory">{pred.wagerAmount ?? pred.entryCostPoints} VND</span>
                   </div>
                 </div>
 
@@ -155,6 +158,7 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                     resultCategory={pred.resultCategory}
                     rewardPoints={pred.rewardPoints}
                     entryCost={pred.entryCostPoints}
+                    predictionType={pred.predictionType}
                   />
                 )}
 

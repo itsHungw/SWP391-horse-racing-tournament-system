@@ -86,7 +86,7 @@ export function HorsePickPanel({
               predType === t.key ? "bg-emerald-glow text-turf-950" : "text-ivory-dim hover:text-ivory"
             }`}
           >
-            {t.label} ({t.cost} pts)
+            {t.label} ({t.cost} VND)
           </button>
         ))}
       </div>
@@ -96,13 +96,13 @@ export function HorsePickPanel({
         {predType === "WINNER" ? (
           <p>
             <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +
-            {options.rewardConfig.winnerReward} points if your chosen horse finishes 1st.
+            {options.rewardConfig.winnerReward} VND if your chosen horse finishes 1st.
           </p>
         ) : (
           <p>
             <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +
-            {options.rewardConfig.top3ExactReward} points for the exact order (1st, 2nd, 3rd) · +
-            {options.rewardConfig.top3AnyOrderReward} points if all three finish in the Top 3 in any order.
+            {options.rewardConfig.top3ExactReward} VND for the exact order (1st, 2nd, 3rd) · +
+            {options.rewardConfig.top3AnyOrderReward} VND if all three finish in the Top 3 in any order.
           </p>
         )}
       </div>
