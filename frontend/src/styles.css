@@ -205,7 +205,7 @@
     #e8cd7e 64%,
     #b8912b 100%
   );
-  background-size: 220% 100%;
+  background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -251,7 +251,7 @@
 
 @keyframes foil-pan {
   to {
-    background-position: 220% 0;
+    background-position: 200% 0;
   }
 }
 
