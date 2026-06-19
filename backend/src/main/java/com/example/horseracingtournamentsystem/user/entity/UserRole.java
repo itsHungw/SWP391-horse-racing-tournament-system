@@ -1,7 +1,10 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
+import com.example.horseracingtournamentsystem.user.enums.UserRoleStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -20,9 +23,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class UserRole {
 
-    public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_SUSPENDED = "SUSPENDED";
-    public static final String STATUS_REMOVED = "REMOVED";
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -37,8 +38,9 @@ public class UserRole {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private UserRoleStatus status;
 
     @Column(name = "assigned_at", nullable = false)
     private LocalDateTime assignedAt;
@@ -58,7 +60,7 @@ public class UserRole {
         UserRole userRole = new UserRole();
         userRole.user = user;
         userRole.role = role;
-        userRole.status = STATUS_ACTIVE;
+        userRole.status = UserRoleStatus.ACTIVE;
         userRole.assignedAt = LocalDateTime.now();
         userRole.assignedBy = assignedBy;
         user.addUserRole(userRole);
@@ -66,21 +68,21 @@ public class UserRole {
     }
 
     public boolean isActive() {
-        return STATUS_ACTIVE.equals(status);
+        return UserRoleStatus.ACTIVE == status;
     }
 
     public void suspend() {
-        this.status = STATUS_SUSPENDED;
+        this.status = UserRoleStatus.SUSPENDED;
     }
 
     public void remove(User removedBy) {
-        this.status = STATUS_REMOVED;
+        this.status = UserRoleStatus.REMOVED;
         this.removedAt = LocalDateTime.now();
         this.removedBy = removedBy;
     }
 
     public void reactivate(User assignedBy) {
-        this.status = STATUS_ACTIVE;
+        this.status = UserRoleStatus.ACTIVE;
         this.assignedAt = LocalDateTime.now();
         this.assignedBy = assignedBy;
         this.removedAt = null;
@@ -91,7 +93,7 @@ public class UserRole {
         this.role = role;
         this.assignedAt = LocalDateTime.now();
         this.assignedBy = assignedBy;
-        this.status = STATUS_ACTIVE;
+        this.status = UserRoleStatus.ACTIVE;
         this.removedAt = null;
         this.removedBy = null;
     }

@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.user.repository;
 
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import jakarta.persistence.LockModeType;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -12,7 +13,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
-    long countByStatusAndDeletedAtIsNull(String status);
+    long countByStatusAndDeletedAtIsNull(UserStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.email = :email")
@@ -30,17 +31,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
                 "(LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                 "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                 "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-                "(:status IS NULL OR :status = '' OR u.status = :status) AND " +
-                "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = 'ACTIVE'))",
+                "(:status IS NULL OR u.status = :status) AND " +
+                "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))",
         countQuery = "SELECT COUNT(DISTINCT u) FROM User u LEFT JOIN u.userRoles ur LEFT JOIN ur.role r WHERE u.deletedAt IS NULL AND " +
                      "(LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                      "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                      "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-                     "(:status IS NULL OR :status = '' OR u.status = :status) AND " +
-                     "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = 'ACTIVE'))"
+                     "(:status IS NULL OR u.status = :status) AND " +
+                     "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))"
     )
-    org.springframework.data.domain.Page<User> searchUsers(String query, String status, String role, org.springframework.data.domain.Pageable pageable);
+    org.springframework.data.domain.Page<User> searchUsers(@org.springframework.data.repository.query.Param("query") String query, @org.springframework.data.repository.query.Param("status") UserStatus status, @org.springframework.data.repository.query.Param("role") String role, org.springframework.data.domain.Pageable pageable);
 
-    @Query("SELECT COUNT(u) FROM User u JOIN u.userRoles ur JOIN ur.role r WHERE u.deletedAt IS NULL AND r.name = 'ADMIN' AND ur.status = 'ACTIVE'")
+    @Query("""
+            SELECT COUNT(u) FROM User u
+            JOIN u.userRoles ur
+            JOIN ur.role r
+            WHERE u.deletedAt IS NULL
+              AND r.name = 'ADMIN'
+              AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE
+            """)
     long countActiveAdmins();
 }

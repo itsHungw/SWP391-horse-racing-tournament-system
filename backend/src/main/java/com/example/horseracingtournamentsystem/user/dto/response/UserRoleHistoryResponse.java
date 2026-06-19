@@ -35,8 +35,8 @@ public record UserRoleHistoryResponse(
         return new UserRoleHistoryResponse(
             history.getId(),
             role,
-            history.getOldStatus(),
-            history.getNewStatus(),
+            history.getOldStatus() == null ? null : history.getOldStatus().name(),
+            history.getNewStatus() == null ? null : history.getNewStatus().name(),
             history.getChangedAt(),
             history.getReason(),
             adminInfo

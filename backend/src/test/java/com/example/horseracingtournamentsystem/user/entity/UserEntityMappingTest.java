@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.Set;
 import org.junit.jupiter.api.Test;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 
 class UserEntityMappingTest {
 
@@ -12,7 +13,7 @@ class UserEntityMappingTest {
     void pendingUserCanBeCreated() {
         User user = User.pending("Spectator One", "spectator@example.com", "hashed-password");
 
-        assertEquals(User.STATUS_PENDING_EMAIL_VERIFY, user.getStatus());
+        assertEquals(UserStatus.PENDING_EMAIL_VERIFY, user.getStatus());
         assertFalse(user.isEmailVerified());
     }
 

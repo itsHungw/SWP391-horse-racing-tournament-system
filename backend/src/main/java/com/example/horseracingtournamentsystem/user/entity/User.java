@@ -1,7 +1,10 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -27,8 +30,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
-    public static final String STATUS_ACTIVE = "ACTIVE";
-    public static final String STATUS_PENDING_EMAIL_VERIFY = "PENDING_EMAIL_VERIFY";
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,8 +61,9 @@ public class User {
     @Column(name = "address", length = 255)
     private String address;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private UserStatus status;
 
     @Column(name = "email_verified", nullable = false)
     private boolean emailVerified;
@@ -105,7 +108,7 @@ public class User {
         user.email = email;
         user.passwordHash = passwordHash;
         user.phone = phone;
-        user.status = STATUS_PENDING_EMAIL_VERIFY;
+        user.status = UserStatus.PENDING_EMAIL_VERIFY;
         user.emailVerified = false;
         user.phoneVerified = false;
         user.ageVerified = false;
@@ -116,7 +119,7 @@ public class User {
 
     public void verifyEmail() {
         this.emailVerified = true;
-        this.status = STATUS_ACTIVE;
+        this.status = UserStatus.ACTIVE;
         this.updatedAt = LocalDateTime.now();
     }
 

@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.user.dto.response;
 
 import com.example.horseracingtournamentsystem.user.entity.HorseOwnerProfile;
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.user.enums.ProfileStatus;
 
 public record OwnerProfileResponse(
         String stableName,
@@ -16,7 +17,7 @@ public record OwnerProfileResponse(
         String bio,
         String evidenceUrl,
         String logoUrl,
-        String status,
+        ProfileStatus status,
         String rejectionReason,
         Long approvedBy,
         LocalDateTime approvedAt,
