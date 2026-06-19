@@ -3,6 +3,8 @@ package com.example.horseracingtournamentsystem.prediction.dto.response;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.List;
+import java.util.Map;
+import java.math.BigDecimal;
 
 @Getter
 @Setter
@@ -17,6 +19,10 @@ public class PredictionOptionsResponse {
     private boolean winnerDistributionVisible;
     private boolean top3DistributionVisible;
     private List<Option> options;
+
+    // horseId -> (position -> odds)
+    private Map<Long, Map<Integer, BigDecimal>> positionOddsMatrix;
+    private List<HeadToHeadMatchup> h2hMatchups;
 
     @Getter
     @Setter
@@ -43,5 +49,15 @@ public class PredictionOptionsResponse {
         private String jockeyName;
         private Double communityWinnerRate;
         private Double communityTop3Rate;
+    }
+
+    @Getter
+    @Setter
+    public static class HeadToHeadMatchup {
+        private Long participantAId;
+        private Long participantBId;
+        private Double handicapSeconds; // A gives B this many seconds (if positive, A must beat B by more than this)
+        private BigDecimal oddsA;
+        private BigDecimal oddsB;
     }
 }
