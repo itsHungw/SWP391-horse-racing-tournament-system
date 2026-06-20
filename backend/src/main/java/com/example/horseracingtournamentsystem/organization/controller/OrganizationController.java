@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/organizations")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "02 · Organizer onboarding (KYB)", description = "A user submits a business profile to become an Organizer.")
 public class OrganizationController {
 
     private final OrganizationService organizationService;

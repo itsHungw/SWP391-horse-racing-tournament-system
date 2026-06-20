@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/admin/organizations")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "03 · Admin · Org approval (Gate 1)", description = "Admin approves/rejects organizations; approval grants the ORGANIZER role.")
 public class AdminOrganizationController {
 
     private final OrganizationService organizationService;

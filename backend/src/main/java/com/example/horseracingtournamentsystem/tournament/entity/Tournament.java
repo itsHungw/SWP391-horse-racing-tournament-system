@@ -167,6 +167,16 @@ public class Tournament {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /**
+     * True khi {@code email} là chủ tổ chức đang sở hữu giải này (BR-09). Dùng để chặn
+     * quyền vận hành cross-organization ở mọi service organizer (duyệt đăng ký, xếp race, chốt KQ).
+     */
+    public boolean isManagedBy(String email) {
+        return organization != null
+                && organization.getOwner() != null
+                && organization.getOwner().getEmail().equalsIgnoreCase(email);
+    }
+
     /** Cổng 2 / BR-17: DRAFT -> chờ admin duyệt. Service kiểm tra điều kiện chuyển trạng thái. */
     public void submitForApproval() {
         this.status = "PENDING_APPROVAL";

@@ -142,7 +142,15 @@ public class RaceService {
     public RaceResponse updateRaceStatus(Long id, String targetStatus) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        return transitionRaceStatus(race, targetStatus, null);
+    }
 
+    /**
+     * Lõi chuyển trạng thái race dùng chung cho admin (Cổng 3) và organizer (BR-16):
+     * kiểm tra state machine, đẩy prediction lifecycle, và đồng bộ trạng thái RaceResult
+     * (SUBMITTED -> CONFIRMED -> PUBLISHED) để kết quả công khai khớp với trạng thái race.
+     */
+    private RaceResponse transitionRaceStatus(Race race, String targetStatus, User confirmer) {
         String normalizedStatus = targetStatus == null ? "" : targetStatus.trim().toUpperCase();
         if (!ALLOWED_STATUS_TRANSITIONS.containsKey(normalizedStatus) && !"CANCELLED".equals(normalizedStatus)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported race status");
@@ -160,7 +168,27 @@ public class RaceService {
         race.updateStatus(normalizedStatus);
         raceRepository.save(race);
         applyPredictionLifecycle(race, previousStatus, normalizedStatus);
+        applyResultGovernance(race, normalizedStatus, confirmer);
         return mapToResponse(race);
+    }
+
+    /** Đồng bộ trạng thái các dòng RaceResult theo trạng thái race khi chốt/công bố. */
+    private void applyResultGovernance(Race race, String status, User confirmer) {
+        if ("RESULT_CONFIRMED".equals(status)) {
+            for (RaceResult result : raceResultRepository.findByRace_Id(race.getId())) {
+                if (RaceResult.STATUS_SUBMITTED.equals(result.getStatus())) {
+                    result.confirm(confirmer);
+                    raceResultRepository.save(result);
+                }
+            }
+        } else if ("PUBLISHED".equals(status)) {
+            for (RaceResult result : raceResultRepository.findByRace_Id(race.getId())) {
+                if (RaceResult.STATUS_CONFIRMED.equals(result.getStatus())) {
+                    result.publish();
+                    raceResultRepository.save(result);
+                }
+            }
+        }
     }
 
     @Transactional
@@ -191,6 +219,114 @@ public class RaceService {
         race.assignReferee(referee);
         raceRepository.save(race);
         return mapToResponse(race);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Organizer tự vận hành race card + chốt kết quả giải của mình (BR-09 / BR-16).
+    // Mọi method dưới đây kiểm tra quyền sở hữu qua Tournament.isManagedBy.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public List<RaceResponse> getOrganizerRaces(Long tournamentId, String organizerEmail) {
+        requireOwnedTournament(tournamentId, organizerEmail);
+        return raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(tournamentId)
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    public RaceResponse getOrganizerRaceDetail(Long id, String organizerEmail) {
+        return mapToResponse(requireOrganizerRace(id, organizerEmail));
+    }
+
+    public List<RaceParticipantResponse> getOrganizerRaceParticipants(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+                .stream().map(this::mapParticipantToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public RaceResponse createRaceForOrganizer(RaceRequest req, String organizerEmail) {
+        requireOwnedTournament(req.getTournamentId(), organizerEmail);
+        return createRace(req, organizerEmail);
+    }
+
+    @Transactional
+    public RaceResponse updateRaceForOrganizer(Long id, RaceRequest req, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        assertRaceEditable(race);
+        Tournament tournament = requireOwnedTournament(req.getTournamentId(), organizerEmail);
+        if (raceRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race code already exists");
+        }
+        race.update(tournament, req.getName(), req.getRaceDateTime(), req.getDistanceMeters(), req.getMaxParticipants());
+        raceRepository.save(race);
+        return mapToResponse(race);
+    }
+
+    @Transactional
+    public void deleteRaceForOrganizer(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        assertRaceEditable(race);
+        race.cancel();
+        race.softDelete();
+        raceRepository.save(race);
+    }
+
+    @Transactional
+    public RaceResponse assignRefereeForOrganizer(Long id, Long refereeId, String organizerEmail) {
+        requireOrganizerRace(id, organizerEmail);
+        return assignReferee(id, refereeId);
+    }
+
+    /** BR-16: organizer chốt kết quả referee đã nộp (RESULT_SUBMITTED -> RESULT_CONFIRMED). */
+    @Transactional
+    public RaceResponse confirmRaceResults(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        if (!"RESULT_SUBMITTED".equals(race.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only races with submitted results can be confirmed (BR-16)");
+        }
+        User organizer = requireUserByEmail(organizerEmail);
+        return transitionRaceStatus(race, "RESULT_CONFIRMED", organizer);
+    }
+
+    /** Lên bảng chính thức (RESULT_CONFIRMED -> PUBLISHED): công khai kết quả + cộng điểm standings. */
+    @Transactional
+    public RaceResponse publishRaceResults(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        if (!"RESULT_CONFIRMED".equals(race.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only confirmed results can be published");
+        }
+        return transitionRaceStatus(race, "PUBLISHED", null);
+    }
+
+    private Tournament requireOwnedTournament(Long tournamentId, String organizerEmail) {
+        Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(tournamentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this tournament");
+        }
+        return tournament;
+    }
+
+    private Race requireOrganizerRace(Long id, String organizerEmail) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        if (!race.getTournament().isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this race");
+        }
+        return race;
+    }
+
+    private void assertRaceEditable(Race race) {
+        if (!"SCHEDULED".equals(race.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Race can only be edited before race-day operations begin (status SCHEDULED)");
+        }
+    }
+
+    private User requireUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     public List<RaceResponse> getPublicRaces(Long tournamentId) {

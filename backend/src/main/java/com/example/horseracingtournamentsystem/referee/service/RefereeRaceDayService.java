@@ -202,13 +202,14 @@ public class RefereeRaceDayService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race must be finished before results can be submitted");
         }
         User referee = requireUser(refereeEmail);
-        boolean requiresReview = Boolean.TRUE.equals(request.requiresAdminReview());
-        if (requiresReview && (request.reviewReason() == null || request.reviewReason().isBlank())) {
+        boolean flaggedForReview = Boolean.TRUE.equals(request.requiresAdminReview());
+        if (flaggedForReview && (request.reviewReason() == null || request.reviewReason().isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Review reason is required");
         }
 
         Map<Long, RaceParticipant> participantsById = validateResultPackage(race, request.results());
-        String resultStatus = requiresReview ? RaceResult.STATUS_SUBMITTED : RaceResult.STATUS_CONFIRMED;
+        // BR-16 (phân tách trách nhiệm): referee chỉ NỘP kết quả, Ban tổ chức mới chốt (RESULT_CONFIRMED).
+        // Vì vậy kết quả luôn ở trạng thái SUBMITTED và race -> RESULT_SUBMITTED, chờ organizer xác nhận.
         for (ParticipantResultEntry entry : request.results()) {
             RaceParticipant participant = participantsById.get(entry.participantId());
             RaceResult result = raceResultRepository.findByRace_IdAndParticipant_Id(race.getId(), participant.getId())
@@ -227,7 +228,7 @@ public class RefereeRaceDayService {
                     penaltySeconds,
                     finalFinishTimeSeconds,
                     entryStatus,
-                    resultStatus,
+                    RaceResult.STATUS_SUBMITTED,
                     referee,
                     entry.note()
             );
@@ -237,22 +238,18 @@ public class RefereeRaceDayService {
         RefereeReport report = refereeReportRepository.findByRace_IdAndReferee_Email(race.getId(), refereeEmail)
                 .orElseGet(() -> RefereeReport.create(race, referee));
         String reportSummary = request.reportSummary();
-        if (requiresReview) {
+        if (flaggedForReview) {
             reportSummary = ((reportSummary == null || reportSummary.isBlank()) ? "" : reportSummary + "\n\n")
-                    + "Admin review requested: " + request.reviewReason();
+                    + "Review requested by referee: " + request.reviewReason();
         }
         report.submit(
                 request.reportTitle() == null || request.reportTitle().isBlank() ? race.getName() + " result package" : request.reportTitle(),
                 reportSummary,
-                requiresReview ? RefereeReport.STATUS_SUBMITTED : RefereeReport.STATUS_CONFIRMED
+                RefereeReport.STATUS_SUBMITTED
         );
         refereeReportRepository.save(report);
 
-        String nextStatus = requiresReview ? "RESULT_SUBMITTED" : "RESULT_CONFIRMED";
-        race.updateStatus(nextStatus);
-        if ("RESULT_CONFIRMED".equals(nextStatus)) {
-            predictionService.createSettlementJob(race.getId());
-        }
+        race.updateStatus("RESULT_SUBMITTED");
         return mapRace(race);
     }
 
@@ -463,7 +460,7 @@ public class RefereeRaceDayService {
                 "READY", "Start Race",
                 "ONGOING", "Finish Race",
                 "FINISHED", "Submit Results",
-                "RESULT_SUBMITTED", "Waiting Admin Review",
+                "RESULT_SUBMITTED", "Awaiting Organizer Confirmation",
                 "RESULT_CONFIRMED", "View Final Result",
                 "PUBLISHED", "View Final Result"
         ).getOrDefault(status, "View Race");

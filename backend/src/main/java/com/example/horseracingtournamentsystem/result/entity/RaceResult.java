@@ -159,6 +159,21 @@ public class RaceResult {
         }
     }
 
+    /** BR-16: Ban tổ chức (hoặc admin khi tranh chấp) chốt kết quả referee đã nộp. */
+    public void confirm(User confirmer) {
+        this.status = STATUS_CONFIRMED;
+        this.confirmedBy = confirmer;
+        this.confirmedAt = LocalDateTime.now();
+        this.updatedAt = this.confirmedAt;
+    }
+
+    /** Lên bảng chính thức: kết quả đã chốt -> công khai cho khán giả + cộng điểm standings. */
+    public void publish() {
+        this.status = STATUS_PUBLISHED;
+        this.publishedAt = LocalDateTime.now();
+        this.updatedAt = this.publishedAt;
+    }
+
     public Long getRaceId() {
         return race.getId();
     }

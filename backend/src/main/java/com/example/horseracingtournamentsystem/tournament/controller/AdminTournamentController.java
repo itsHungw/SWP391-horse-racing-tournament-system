@@ -14,6 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/admin/tournaments")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "05 · Admin · Tournament approval (Gate 2)", description = "Admin approves/rejects a tournament launch before registration opens.")
 public class AdminTournamentController {
 
     private final TournamentService tournamentService;

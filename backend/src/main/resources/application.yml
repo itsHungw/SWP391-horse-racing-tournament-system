@@ -79,3 +79,13 @@ app:
   mail:
     enabled: ${APP_MAIL_ENABLED:true}
     from: ${MAIL_FROM:no-reply@equinepro.local}
+
+# Swagger UI tuned for the end-to-end business-flow demo: numbered tags sort in
+# flow order, the JWT "Authorize" token survives page reloads, groups start collapsed.
+springdoc:
+  swagger-ui:
+    tags-sorter: alpha
+    operations-sorter: alpha
+    persist-authorization: true
+    doc-expansion: none
+    display-request-duration: true

@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/referee/contracts")
 @PreAuthorize("hasRole('REFEREE')")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "13 · Referee · Contracts", description = "Referee views and accepts/declines tournament contracts.")
 public class RefereeContractController {
 
     private final RefereeContractService refereeContractService;

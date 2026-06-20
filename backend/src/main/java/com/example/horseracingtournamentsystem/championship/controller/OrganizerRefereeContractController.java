@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.championship.controller;
 import com.example.horseracingtournamentsystem.championship.dto.request.InviteRefereeRequest;
 import com.example.horseracingtournamentsystem.championship.dto.request.RefereeContractActionRequest;
 import com.example.horseracingtournamentsystem.championship.dto.response.RefereeContractResponse;
+import com.example.horseracingtournamentsystem.championship.dto.response.RefereeDirectoryResponse;
 import com.example.horseracingtournamentsystem.championship.service.RefereeContractService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,6 +28,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrganizerRefereeContractController {
 
     private final RefereeContractService refereeContractService;
+
+    @GetMapping("/referees")
+    public List<RefereeDirectoryResponse> licensedReferees() {
+        return refereeContractService.listLicensedReferees();
+    }
 
     @PostMapping("/tournaments/{tournamentId}/referee-contracts")
     @ResponseStatus(HttpStatus.CREATED)

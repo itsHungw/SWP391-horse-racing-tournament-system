@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/organizer/tournaments")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "04 · Organizer · Tournament lifecycle", description = "Create, submit for approval, then drive status (open registration, publish schedule, …).")
 public class OrganizerTournamentController {
 
     private final TournamentService tournamentService;

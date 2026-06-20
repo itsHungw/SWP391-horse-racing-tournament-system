@@ -2,13 +2,16 @@ package com.example.horseracingtournamentsystem.championship.service;
 
 import com.example.horseracingtournamentsystem.championship.dto.request.InviteRefereeRequest;
 import com.example.horseracingtournamentsystem.championship.dto.response.RefereeContractResponse;
+import com.example.horseracingtournamentsystem.championship.dto.response.RefereeDirectoryResponse;
 import com.example.horseracingtournamentsystem.championship.entity.RefereeContract;
 import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
 import com.example.horseracingtournamentsystem.organization.entity.Organization;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.user.entity.RefereeProfile;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.repository.RefereeProfileRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.util.List;
 import java.util.Set;
@@ -36,6 +39,7 @@ public class RefereeContractService {
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
     private final RaceRepository raceRepository;
+    private final RefereeProfileRepository refereeProfileRepository;
 
     @Transactional
     public RefereeContractResponse invite(String organizerEmail, Long tournamentId, InviteRefereeRequest request) {
@@ -71,6 +75,22 @@ public class RefereeContractService {
     public List<RefereeContractResponse> listMine(String refereeEmail) {
         return refereeContractRepository.findAllByReferee_EmailOrderByCreatedAtDesc(refereeEmail)
                 .stream().map(RefereeContractResponse::from).toList();
+    }
+
+    /** Danh bạ referee đã cấp phép (role REFEREE active) để organizer chọn mời. */
+    public List<RefereeDirectoryResponse> listLicensedReferees() {
+        return userRepository.findActiveByRoleName(REFEREE_ROLE).stream()
+                .map(user -> {
+                    RefereeProfile profile = refereeProfileRepository.findByUserId(user.getId()).orElse(null);
+                    return new RefereeDirectoryResponse(
+                            user.getId(),
+                            user.getFullName(),
+                            user.getEmail(),
+                            profile == null ? null : profile.getLicenseNumber(),
+                            profile == null ? null : profile.getExperienceYears(),
+                            profile == null ? null : profile.getCertification());
+                })
+                .toList();
     }
 
     @Transactional
