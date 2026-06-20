@@ -24,7 +24,7 @@ public class S3Configuration {
                 .credentialsProvider(credentialsProvider(properties));
         if (properties.hasCustomEndpoint()) {
             builder.endpointOverride(URI.create(properties.endpoint()))
-                    .forcePathStyle(true);
+                    .serviceConfiguration(pathStyleConfiguration());
         }
         return builder.build();
     }
@@ -35,9 +35,16 @@ public class S3Configuration {
                 .region(Region.of(properties.region()))
                 .credentialsProvider(credentialsProvider(properties));
         if (properties.hasCustomEndpoint()) {
-            builder.endpointOverride(URI.create(properties.endpoint()));
+            builder.endpointOverride(URI.create(properties.endpoint()))
+                    .serviceConfiguration(pathStyleConfiguration());
         }
         return builder.build();
+    }
+
+    private software.amazon.awssdk.services.s3.S3Configuration pathStyleConfiguration() {
+        return software.amazon.awssdk.services.s3.S3Configuration.builder()
+                .pathStyleAccessEnabled(true)
+                .build();
     }
 
     private AwsCredentialsProvider credentialsProvider(S3Properties properties) {
