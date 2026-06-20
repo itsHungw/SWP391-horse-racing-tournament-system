@@ -30,6 +30,8 @@ public class RaceController {
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) Long tournamentId,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String horse,
+            @RequestParam(required = false) String jockey,
             @RequestParam(required = false) String sortBy,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
@@ -40,6 +42,8 @@ public class RaceController {
                 to == null ? null : to.plusDays(1).atStartOfDay().minusNanos(1),
                 tournamentId,
                 search,
+                horse,
+                jockey,
                 sortBy,
                 PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100))
         );

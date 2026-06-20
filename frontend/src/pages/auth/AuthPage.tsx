@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { login, register } from "../../api/authApi";
@@ -324,6 +324,16 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                     type="password"
                     value={loginPassword}
                   />
+                  {isLogin && (
+                    <div className="flex justify-end">
+                      <Link
+                        className="min-h-11 py-2 text-sm font-black text-nyraGreen transition hover:text-[#006f5f] focus:outline-none focus-visible:ring-2 focus-visible:ring-nyraGold"
+                        to="/forgot-password"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                  )}
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}

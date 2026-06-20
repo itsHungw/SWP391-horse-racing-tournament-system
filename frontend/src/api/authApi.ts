@@ -18,6 +18,30 @@ export async function verifyEmail(token: string): Promise<void> {
   await httpClient.post("/auth/verify-email", { token });
 }
 
+export type ResetPasswordPayload = {
+  email: string;
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+export type VerifyResetCodePayload = {
+  email: string;
+  token: string;
+};
+
+export async function forgotPassword(email: string): Promise<void> {
+  await httpClient.post("/auth/forgot-password", { email });
+}
+
+export async function verifyResetCode(data: VerifyResetCodePayload): Promise<void> {
+  await httpClient.post("/auth/verify-reset-code", data);
+}
+
+export async function resetPassword(data: ResetPasswordPayload): Promise<void> {
+  await httpClient.post("/auth/reset-password", data);
+}
+
 export async function logoutRemote(): Promise<void> {
   await httpClient.post("/auth/logout");
 }

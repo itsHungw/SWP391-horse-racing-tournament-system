@@ -62,6 +62,13 @@ app:
       login-limit: ${APP_RATE_LIMIT_LOGIN:10}
       upload-limit: ${APP_RATE_LIMIT_UPLOAD:20}
       prediction-submit-limit: ${APP_RATE_LIMIT_PREDICTION:30}
+      forgot-password-limit: ${APP_RATE_LIMIT_FORGOT_PASSWORD:3}
+      forgot-password-window-seconds: ${APP_RATE_LIMIT_FORGOT_PASSWORD_WINDOW_SECONDS:900}
+      reset-password-limit: ${APP_RATE_LIMIT_RESET_PASSWORD:10}
+      reset-password-window-seconds: ${APP_RATE_LIMIT_RESET_PASSWORD_WINDOW_SECONDS:900}
+      cache-maximum-size: ${APP_RATE_LIMIT_CACHE_MAXIMUM_SIZE:50000}
+      cache-ttl-seconds: ${APP_RATE_LIMIT_CACHE_TTL_SECONDS:1200}
+      trusted-proxies: ${APP_RATE_LIMIT_TRUSTED_PROXIES:}
   upload:
     root: ${APP_UPLOAD_ROOT:uploads}
     horse-image-max-bytes: 5242880
@@ -71,7 +78,7 @@ app:
     access-token-ttl-minutes: 15
     refresh-token-ttl-days: 7
     email-otp-ttl-minutes: 10
-    password-reset-token-ttl-minutes: 30
+    password-reset-token-ttl-minutes: 10
     refresh-cookie-name: refresh_token
     refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:false}
     refresh-cookie-same-site: Lax

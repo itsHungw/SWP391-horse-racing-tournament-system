@@ -76,7 +76,9 @@ describe("SpectatorPredictionsPage wizard", () => {
     const runner = await screen.findByRole("option", { name: /thunder bay/i });
     fireEvent.click(runner);
 
-    fireEvent.click(screen.getByRole("button", { name: /review ticket/i }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /review ticket/i }).find((button) => !button.hasAttribute("disabled"))!,
+    );
 
     // Step 3: the ticket shows the pick and confirms
     expect(await screen.findByText(/prediction ticket/i)).toBeInTheDocument();
@@ -102,7 +104,9 @@ describe("SpectatorPredictionsPage wizard", () => {
     fireEvent.click(await screen.findByRole("button", { name: /top 3 pick/i }));
     fireEvent.click(await screen.findByRole("option", { name: /thunder bay/i }));
 
-    fireEvent.click(screen.getByRole("button", { name: /review ticket/i }));
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /review ticket/i }).find((button) => !button.hasAttribute("disabled"))!,
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/all three places/i);
     expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();

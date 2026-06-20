@@ -36,6 +36,9 @@ function shouldSkipRefresh(url?: string) {
       url?.includes("/auth/register") ||
       url?.includes("/auth/resend-verification-email") ||
       url?.includes("/auth/verify-email") ||
+      url?.includes("/auth/forgot-password") ||
+      url?.includes("/auth/verify-reset-code") ||
+      url?.includes("/auth/reset-password") ||
       url?.includes("/auth/logout") ||
       isAuthRefreshRequest(url),
   );
