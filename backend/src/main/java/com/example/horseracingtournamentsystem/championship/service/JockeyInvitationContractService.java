@@ -145,6 +145,28 @@ public class JockeyInvitationContractService {
         return new LockParticipantsResponse(championshipId, createdParticipants);
     }
 
+    // ---- Organizer chốt danh sách thi đấu giải của mình (BR-09) ----
+
+    @Transactional
+    public LockParticipantsResponse lockParticipantsForOrganizer(Long championshipId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        return lockParticipants(championshipId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentParticipantResponse> listParticipantsForOrganizer(Long championshipId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        return listParticipants(championshipId);
+    }
+
+    private Tournament requireOwnedTournament(Long championshipId, String organizerEmail) {
+        Tournament tournament = ensureTournamentExists(championshipId);
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this championship");
+        }
+        return tournament;
+    }
+
     @Transactional(readOnly = true)
     public List<TournamentParticipantResponse> listParticipants(Long championshipId) {
         ensureTournamentExists(championshipId);
