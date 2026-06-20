@@ -152,6 +152,15 @@ export type InviteRefereePayload = {
   agreementUrl?: string;
 };
 
+export type RefereeDirectoryEntry = {
+  refereeId: number;
+  fullName: string;
+  email: string;
+  licenseNumber?: string;
+  experienceYears?: number;
+  certification?: string;
+};
+
 export type TournamentSummary = {
   id: number;
   name: string;

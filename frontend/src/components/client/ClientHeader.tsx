@@ -34,6 +34,7 @@ export function ClientHeader() {
   const dashboardHref = getDashboardRouteForRoles(session?.roles ?? []);
   const isOrganizer = (session?.roles ?? []).includes("ORGANIZER");
   const organizerLabel = isOrganizer ? "Organizer" : "Organize";
+  const organizerHref = isOrganizer ? "/organizer" : "/organizer/register";
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -130,7 +131,7 @@ export function ClientHeader() {
               {isAuthenticated ? (
                 <>
                   <Link
-                    to="/organizer/register"
+                    to={organizerHref}
                     className="mr-2 whitespace-nowrap rounded-full border border-gold-400/40 bg-gold-400/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.14em] text-gold-300 transition-colors hover:bg-gold-400/20 hover:text-gold-200"
                   >
                     {organizerLabel}
@@ -264,7 +265,7 @@ export function ClientHeader() {
                     </div>
                     <div className="flex flex-col gap-2">
                       <Link
-                        to="/organizer/register"
+                        to={organizerHref}
                         className="rounded-lg bg-gold-400/10 border border-gold-400/20 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-gold-300 transition-colors hover:bg-gold-400/20"
                       >
                         {organizerLabel}

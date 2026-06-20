@@ -1,6 +1,6 @@
 const rolePriorityRoutes: Array<{ role: string; route: string }> = [
   { role: "ADMIN", route: "/admin" },
-  { role: "ORGANIZER", route: "/organizer/tournaments" },
+  { role: "ORGANIZER", route: "/organizer" },
   { role: "HORSE_OWNER", route: "/owner/dashboard" },
   { role: "JOCKEY", route: "/jockey/dashboard" },
   { role: "REFEREE", route: "/referee/dashboard" },

@@ -14,12 +14,14 @@ import type {
   Organization,
   RegisterOrganizationPayload,
   RefereeContract,
+  RefereeDirectoryEntry,
   InviteRefereePayload,
   OwnerContractPayload,
   PageResponse,
   PublicRaceResult,
   PublicRacingSummary,
   Race,
+  RacePayload,
   RaceSummary,
   Tournament,
   TournamentSummary,
@@ -439,6 +441,11 @@ export async function rejectTournamentLaunch(id: number, reason: string): Promis
 }
 
 // --- Referee contracts — thuê trọng tài (BR-07/08/14) ---
+export async function getLicensedReferees(): Promise<RefereeDirectoryEntry[]> {
+  const response = await httpClient.get<RefereeDirectoryEntry[]>("/organizer/referees");
+  return response.data;
+}
+
 export async function inviteReferee(tournamentId: number, payload: InviteRefereePayload): Promise<RefereeContract> {
   const response = await httpClient.post<RefereeContract>(
     `/organizer/tournaments/${tournamentId}/referee-contracts`,
@@ -464,6 +471,120 @@ export async function terminateRefereeContract(contractId: number, reason?: stri
 
 export async function getMyRefereeContracts(): Promise<RefereeContract[]> {
   const response = await httpClient.get<RefereeContract[]>("/referee/contracts");
+  return response.data;
+}
+
+// --- Organizer registration gate (duyệt đăng ký giải của mình, BR-15) ---
+export async function getOrganizerTournamentRegistrations(
+  tournamentId: number,
+  status?: TournamentRegistrationStatus,
+): Promise<TournamentRegistration[]> {
+  const response = await httpClient.get<TournamentRegistration[]>("/organizer/tournament-registrations", {
+    params: { tournamentId, status: status || undefined },
+  });
+  return response.data;
+}
+
+export async function approveOrganizerTournamentRegistration(id: number): Promise<TournamentRegistration> {
+  const response = await httpClient.post<TournamentRegistration>(
+    `/organizer/tournament-registrations/${id}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectOrganizerTournamentRegistration(
+  id: number,
+  reason: string,
+): Promise<TournamentRegistration> {
+  const response = await httpClient.post<TournamentRegistration>(
+    `/organizer/tournament-registrations/${id}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+// --- Organizer race card + chốt kết quả (BR-09 / BR-16) ---
+export async function getOrganizerRaces(tournamentId: number): Promise<Race[]> {
+  const response = await httpClient.get<Race[]>("/organizer/races", { params: { tournamentId } });
+  return response.data;
+}
+
+export async function createOrganizerRace(payload: RacePayload): Promise<Race> {
+  const response = await httpClient.post<Race>("/organizer/races", payload);
+  return response.data;
+}
+
+export async function updateOrganizerRace(id: number, payload: RacePayload): Promise<Race> {
+  const response = await httpClient.put<Race>(`/organizer/races/${id}`, payload);
+  return response.data;
+}
+
+export async function deleteOrganizerRace(id: number): Promise<void> {
+  await httpClient.delete(`/organizer/races/${id}`);
+}
+
+export async function assignOrganizerRaceReferee(id: number, refereeId: number): Promise<Race> {
+  const response = await httpClient.put<Race>(`/organizer/races/${id}/referee`, null, {
+    params: { refereeId },
+  });
+  return response.data;
+}
+
+export async function confirmOrganizerRaceResults(id: number): Promise<Race> {
+  const response = await httpClient.post<Race>(`/organizer/races/${id}/confirm-results`);
+  return response.data;
+}
+
+export async function publishOrganizerRaceResults(id: number): Promise<Race> {
+  const response = await httpClient.post<Race>(`/organizer/races/${id}/publish-results`);
+  return response.data;
+}
+
+// --- Organizer jockey pool gate + lock the field (BR-09) ---
+export async function getOrganizerJockeyApplications(
+  tournamentId: number,
+  status?: JockeyPoolApplicationStatus,
+): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications`,
+    { params: { status: status || undefined } },
+  );
+  return response.data;
+}
+
+export async function approveOrganizerJockeyApplication(
+  tournamentId: number,
+  applicationId: number,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications/${applicationId}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectOrganizerJockeyApplication(
+  tournamentId: number,
+  applicationId: number,
+  reason: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications/${applicationId}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+export async function getOrganizerParticipants(tournamentId: number): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>(
+    `/organizer/tournaments/${tournamentId}/participants`,
+  );
+  return response.data;
+}
+
+export async function lockOrganizerParticipants(tournamentId: number): Promise<LockParticipantsResponse> {
+  const response = await httpClient.post<LockParticipantsResponse>(
+    `/organizer/tournaments/${tournamentId}/lock-participants`,
+  );
   return response.data;
 }
 

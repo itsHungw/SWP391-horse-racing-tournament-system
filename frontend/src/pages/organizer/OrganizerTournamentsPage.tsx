@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 import {
   getMyOrganizerTournaments,
+  lockOrganizerParticipants,
   submitTournamentForApproval,
   updateOrganizerTournamentStatus,
 } from "../../api/racingApi";
-import { ClientFooter } from "../../components/client/ClientFooter";
-import { ClientHeader } from "../../components/client/ClientHeader";
-import { Eyebrow, GoldRule, MotionReveal } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { Tournament } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
@@ -23,23 +22,23 @@ const LIFECYCLE: Record<string, { label: string; target: string }> = {
   ONGOING: { label: "Mark completed", target: "COMPLETED" },
 };
 
-const statusTone: Record<string, string> = {
-  DRAFT: "text-ivory-faint",
-  PENDING_APPROVAL: "text-gold-300",
-  APPROVED: "text-emerald-soft",
-  OPEN_REGISTRATION: "text-emerald-soft",
-  CLOSED_REGISTRATION: "text-gold-300",
-  PARTICIPANTS_LOCKED: "text-gold-300",
-  SCHEDULE_PUBLISHED: "text-emerald-soft",
-  ONGOING: "text-emerald-soft",
-  COMPLETED: "text-ivory-faint",
-  POSTPONED: "text-rose-300",
+const statusBadge: Record<string, string> = {
+  DRAFT: "bg-[#efe9dd] text-[#6f665b]",
+  PENDING_APPROVAL: "bg-amber-100 text-amber-800",
+  APPROVED: "bg-emerald-100 text-emerald-800",
+  OPEN_REGISTRATION: "bg-emerald-100 text-emerald-800",
+  CLOSED_REGISTRATION: "bg-amber-100 text-amber-800",
+  PARTICIPANTS_LOCKED: "bg-amber-100 text-amber-800",
+  SCHEDULE_PUBLISHED: "bg-sky-100 text-sky-800",
+  ONGOING: "bg-[#1c1816] text-[#cfa24f]",
+  COMPLETED: "bg-[#efe9dd] text-[#6f665b]",
+  POSTPONED: "bg-rose-100 text-rose-700",
 };
 
 function formatDate(value?: string) {
   if (!value) return "TBD";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "TBD" : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? "TBD" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function OrganizerTournamentsPage() {
@@ -81,104 +80,104 @@ export function OrganizerTournamentsPage() {
   };
 
   return (
-    <div className="client-theme min-h-screen bg-turf-950 text-ivory">
-      <ClientHeader />
-      <main className="mx-auto max-w-[1100px] px-6 py-16 md:px-12">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <Eyebrow tone="gold">Organizer workspace</Eyebrow>
-            <h1 className="mt-5 font-display text-5xl font-light tracking-tight">
-              My Tournaments<span className="text-foil">.</span>
-            </h1>
-            <GoldRule className="mt-5 w-20" />
-          </div>
-          <Link
-            to="/organizer/tournaments/new"
-            className="inline-flex min-h-12 items-center justify-center bg-gold-400 px-7 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300"
-          >
-            + Create Tournament
-          </Link>
+    <div className="space-y-7">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
+          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">My Tournaments</h1>
         </div>
+        <Link
+          to="/organizer/tournaments/new"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#1c1816] px-5 text-xs font-black uppercase tracking-[0.14em] text-[#f7f4ee] transition hover:bg-[#2a241f]"
+        >
+          <Plus className="h-4 w-4" /> Create
+        </Link>
+      </div>
 
-        {error && (
-          <div className="mt-8 border-l-2 border-nyraRed bg-turf-900 px-5 py-4 text-sm text-rose-300" role="alert">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-700" role="alert">
+          {error}
+        </div>
+      )}
 
-        {loading ? (
-          <div className="mt-10 h-64 animate-pulse border border-white/10 bg-turf-900" />
-        ) : tournaments.length === 0 ? (
-          <div className="mt-10 border border-dashed border-white/15 bg-turf-900/50 px-8 py-16 text-center">
-            <p className="eyebrow text-ivory-faint">No tournaments yet</p>
-            <p className="mt-3 text-sm text-ivory-dim">Create your first championship to get started.</p>
-          </div>
-        ) : (
-          <div className="mt-10 space-y-px border border-white/10">
-            {tournaments.map((t) => {
-              const next = LIFECYCLE[t.status];
-              const busy = processingId === t.id;
-              return (
-                <MotionReveal key={t.id}>
-                  <article className="bg-turf-900 p-6 md:p-7">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-3">
-                          <h2 className="font-display text-2xl font-light tracking-tight">{t.name}</h2>
-                          <span className={`eyebrow ${statusTone[t.status] ?? "text-ivory-faint"}`}>
-                            {t.status.replace(/_/g, " ")}
-                          </span>
-                        </div>
-                        <p className="mt-1 font-data text-xs uppercase tracking-[0.14em] text-ivory-faint">
-                          {t.code} · {t.location ?? "—"} · {formatDate(t.startDate)} – {formatDate(t.endDate)}
-                        </p>
-                        {t.status === "PENDING_APPROVAL" && (
-                          <p className="mt-3 text-sm text-gold-300">Awaiting admin approval (Gate 2).</p>
-                        )}
-                        {t.status === "DRAFT" && t.rejectionReason && (
-                          <p className="mt-3 border-l-2 border-nyraRed bg-turf-950 px-4 py-2 text-sm text-rose-300">
-                            Rejected: {t.rejectionReason}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex shrink-0 flex-col gap-2">
-                        {t.status === "DRAFT" && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => runStatus(t.id, () => submitTournamentForApproval(t.id))}
-                            className="min-h-10 bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.12em] text-turf-950 transition-colors hover:bg-gold-300 disabled:opacity-40"
-                          >
-                            Submit for approval
-                          </button>
-                        )}
-                        {next && (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => runStatus(t.id, () => updateOrganizerTournamentStatus(t.id, next.target))}
-                            className="min-h-10 bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.12em] text-turf-950 transition-colors hover:bg-gold-300 disabled:opacity-40"
-                          >
-                            {next.label}
-                          </button>
-                        )}
-                        <Link
-                          to={`/championships/${t.id}`}
-                          className="min-h-10 border border-white/15 px-5 text-center text-xs font-bold uppercase tracking-[0.12em] leading-10 text-ivory-dim transition-colors hover:border-gold-400/50 hover:text-ivory"
-                        >
-                          View public page
-                        </Link>
-                      </div>
+      {loading ? (
+        <div className="h-56 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
+      ) : tournaments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
+          <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
+          <p className="mt-2 text-sm text-[#6f665b]">Create your first championship to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {tournaments.map((t) => {
+            const next = LIFECYCLE[t.status];
+            const busy = processingId === t.id;
+            return (
+              <article key={t.id} className="rounded-xl border border-[#e7e0d3] bg-white p-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <h2 className="font-display text-2xl font-light tracking-tight text-[#211d1a]">{t.name}</h2>
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusBadge[t.status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
+                        {t.status.replace(/_/g, " ")}
+                      </span>
                     </div>
-                  </article>
-                </MotionReveal>
-              );
-            })}
-          </div>
-        )}
-      </main>
-      <ClientFooter />
+                    <p className="mt-1.5 font-mono text-xs uppercase tracking-[0.12em] text-[#8a8276]">
+                      {t.code} · {t.location ?? "—"} · {formatDate(t.startDate)} – {formatDate(t.endDate)}
+                    </p>
+                    {t.status === "PENDING_APPROVAL" && (
+                      <p className="mt-3 text-sm font-semibold text-amber-700">Awaiting admin approval (Gate 2).</p>
+                    )}
+                    {t.status === "DRAFT" && t.rejectionReason && (
+                      <p className="mt-3 rounded-md border-l-2 border-rose-400 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+                        Rejected: {t.rejectionReason}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex shrink-0 flex-col gap-2">
+                    {t.status === "DRAFT" && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => runStatus(t.id, () => submitTournamentForApproval(t.id))}
+                        className="min-h-10 rounded-lg bg-[#bb8a3c] px-5 text-xs font-black uppercase tracking-[0.12em] text-[#1c1816] transition hover:bg-[#cfa24f] disabled:opacity-40"
+                      >
+                        Submit for approval
+                      </button>
+                    )}
+                    {next && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() =>
+                          runStatus(t.id, () =>
+                            // BR-09: "Lock participants" must materialise horse+jockey contracts into
+                            // official participants (not just flip the status flag), else schedule
+                            // publication later fails for lack of participants.
+                            t.status === "CLOSED_REGISTRATION"
+                              ? lockOrganizerParticipants(t.id)
+                              : updateOrganizerTournamentStatus(t.id, next.target),
+                          )
+                        }
+                        className="min-h-10 rounded-lg bg-[#bb8a3c] px-5 text-xs font-black uppercase tracking-[0.12em] text-[#1c1816] transition hover:bg-[#cfa24f] disabled:opacity-40"
+                      >
+                        {next.label}
+                      </button>
+                    )}
+                    <Link
+                      to={`/championships/${t.id}`}
+                      className="min-h-10 rounded-lg border border-[#e2d9c8] px-5 text-center text-xs font-black uppercase tracking-[0.12em] leading-10 text-[#6f665b] transition hover:border-[#bb8a3c] hover:text-[#211d1a]"
+                    >
+                      View public page
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
