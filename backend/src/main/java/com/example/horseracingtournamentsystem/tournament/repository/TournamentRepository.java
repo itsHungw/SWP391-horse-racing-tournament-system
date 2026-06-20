@@ -19,6 +19,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     long countByStatusInAndDeletedAtIsNull(Collection<TournamentStatus> statuses);
     boolean existsByCodeAndDeletedAtIsNull(String code);
     boolean existsByCodeAndIdNotAndDeletedAtIsNull(String code, Long id);
+    List<Tournament> findAllByOrganization_Owner_EmailAndDeletedAtIsNullOrderByCreatedAtDesc(String ownerEmail);
 
     @Query(
             value = """

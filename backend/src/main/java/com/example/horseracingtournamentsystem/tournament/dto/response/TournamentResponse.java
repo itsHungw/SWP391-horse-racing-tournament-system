@@ -24,6 +24,10 @@ public class TournamentResponse {
     private Integer maxHorsesPerOwner;
     private TournamentStatus status;
     private String creatorName;
+    private Long organizationId;
+    private String organizationName;
+    private LocalDateTime approvedAt;
+    private String rejectionReason;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

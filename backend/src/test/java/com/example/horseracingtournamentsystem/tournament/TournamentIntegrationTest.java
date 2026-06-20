@@ -358,6 +358,11 @@ class TournamentIntegrationTest {
             );
         t = tournamentRepository.save(t);
 
+        // BR-17: giải phải được duyệt (APPROVED) trước khi mở đăng ký.
+        t.submitForApproval();
+        t.approveLaunch(adminUser);
+        tournamentRepository.save(t);
+
         // Transition to OPEN_REGISTRATION
         mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)

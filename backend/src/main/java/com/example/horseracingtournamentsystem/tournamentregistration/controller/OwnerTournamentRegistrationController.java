@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/owner/tournament-registrations")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "07 · Owner · Horse registration", description = "Owner enters an approved horse into an open tournament.")
 public class OwnerTournamentRegistrationController {
 
     private final TournamentRegistrationService registrationService;

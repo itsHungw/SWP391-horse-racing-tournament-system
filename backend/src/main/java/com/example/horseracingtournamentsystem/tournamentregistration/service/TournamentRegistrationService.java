@@ -119,6 +119,7 @@ public class TournamentRegistrationService {
         TournamentRegistration registration = registrationRepository.findById(id)
                 .orElseThrow(
                         () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+        assertApprovalCapacity(registration.getTournament());
         User reviewer = findUserByEmail(adminEmail);
         registration.approve(reviewer);
         registrationRepository.save(registration);
@@ -134,6 +135,65 @@ public class TournamentRegistrationService {
         registration.reject(reviewer, reason);
         registrationRepository.save(registration);
         return mapToResponse(registration);
+    }
+
+    // ---- Organizer gác cổng đăng ký giải của mình (BR-09 / BR-15) ----
+
+    public List<TournamentRegistrationResponse> listForOrganizer(Long tournamentId, String status, String organizerEmail) {
+        requireOwnedTournament(tournamentId, organizerEmail);
+        List<TournamentRegistration> registrations = (status == null || status.isBlank())
+                ? registrationRepository.findAllByTournament_IdOrderByCreatedAtDesc(tournamentId)
+                : registrationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(
+                        tournamentId, status.trim().toUpperCase());
+        return registrations.stream().map(this::mapToResponse).toList();
+    }
+
+    @Transactional
+    public TournamentRegistrationResponse approveAsOrganizer(Long id, String organizerEmail) {
+        TournamentRegistration registration = requireOrganizerRegistration(id, organizerEmail);
+        assertApprovalCapacity(registration.getTournament());
+        User reviewer = findUserByEmail(organizerEmail);
+        registration.approve(reviewer);
+        registrationRepository.save(registration);
+        return mapToResponse(registration);
+    }
+
+    @Transactional
+    public TournamentRegistrationResponse rejectAsOrganizer(Long id, String organizerEmail, String reason) {
+        TournamentRegistration registration = requireOrganizerRegistration(id, organizerEmail);
+        User reviewer = findUserByEmail(organizerEmail);
+        registration.reject(reviewer, reason);
+        registrationRepository.save(registration);
+        return mapToResponse(registration);
+    }
+
+    /** BR-15: không duyệt vượt sức chứa giải (cap chỉ áp khi giải có đặt maxHorses). */
+    private void assertApprovalCapacity(Tournament tournament) {
+        if (tournament.getMaxHorses() != null
+                && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), RegistrationStatus.APPROVED)
+                        >= tournament.getMaxHorses()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Tournament is full: the approved-horse cap has been reached (BR-15)");
+        }
+    }
+
+    private Tournament requireOwnedTournament(Long tournamentId, String organizerEmail) {
+        Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(tournamentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this tournament");
+        }
+        return tournament;
+    }
+
+    private TournamentRegistration requireOrganizerRegistration(Long id, String organizerEmail) {
+        TournamentRegistration registration = registrationRepository.findById(id)
+                .orElseThrow(
+                        () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament registration not found"));
+        if (!registration.getTournament().isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this tournament");
+        }
+        return registration;
     }
 
     private void validateOwnerRegistration(User owner, Tournament tournament, Horse horse) {

@@ -23,6 +23,10 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     List<TournamentRegistration> findAllByOrderByCreatedAtDesc();
 
+    List<TournamentRegistration> findAllByTournament_IdOrderByCreatedAtDesc(Long tournamentId);
+
+    List<TournamentRegistration> findAllByTournament_IdAndStatusOrderByCreatedAtDesc(Long tournamentId, String status);
+
     Optional<TournamentRegistration> findByIdAndOwnerEmail(Long id, String ownerEmail);
 
     Optional<TournamentRegistration> findByIdAndOwnerEmailAndHorseId(Long id, String ownerEmail, Long horseId);

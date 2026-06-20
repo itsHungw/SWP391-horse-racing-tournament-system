@@ -168,6 +168,8 @@ public class AdminChampionshipWorkspaceService {
     private String phaseLabel(TournamentStatus status) {
         return switch (status) {
             case DRAFT -> "Draft";
+            case PENDING_APPROVAL -> "Pending Approval";
+            case APPROVED -> "Approved";
             case OPEN_REGISTRATION -> "Registration Open";
             case CLOSED_REGISTRATION -> "Registration Closed";
             case PARTICIPANTS_LOCKED -> "Participants Locked";

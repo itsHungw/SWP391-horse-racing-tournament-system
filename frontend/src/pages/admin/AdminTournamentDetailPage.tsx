@@ -223,6 +223,7 @@ export function AdminTournamentDetailPage() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ChampionshipTab>("overview");
+  const [overrideMode, setOverrideMode] = useState(false);
   const [races, setRaces] = useState<Race[]>([]);
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState("");
@@ -409,8 +410,16 @@ export function AdminTournamentDetailPage() {
     }
   }, [activeTab]);
 
+  const ensureOverride = () => {
+    if (overrideMode) return true;
+    setErrorMsg("This championship is run by its organizer. Switch on Admin override (top of page) to intervene.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    return false;
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ensureOverride()) return;
     setErrorMsg("");
     setSuccessMsg("");
 
@@ -442,6 +451,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleDeleteConfirm = async () => {
+    if (!ensureOverride()) return;
     try {
       setDeleting(true);
       await deleteTournament(tournamentId);
@@ -456,6 +466,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleStatusTransition = async () => {
+    if (!ensureOverride()) return;
     const { targetStatus } = showStatusModal;
     if (targetStatus === "SCHEDULE_PUBLISHED" && !schedulePublicationReady) {
       setShowStatusModal({ show: false, targetStatus: "" });
@@ -480,6 +491,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleRaceStatusTransition = async (race: Race, targetStatus: RaceStatus) => {
+    if (!ensureOverride()) return;
     try {
       setRaceActionLoadingId(race.id);
       setRaceError("");
@@ -506,6 +518,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleAssignReferee = async (race: Race, referee: AdminUserDetail) => {
+    if (!ensureOverride()) return;
     try {
       setAssigningRefereeId(referee.id);
       setRefereeError("");
@@ -523,6 +536,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleApproveHorseRegistration = async (registration: TournamentRegistration) => {
+    if (!ensureOverride()) return;
     try {
       setHorseProcessingId(registration.id);
       setRegistrationError("");
@@ -539,6 +553,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleRejectHorseRegistration = async (registration: TournamentRegistration) => {
+    if (!ensureOverride()) return;
     const reason = horseRejectReasons[registration.id]?.trim();
     if (!reason) {
       setRegistrationError("Enter a rejection reason before rejecting this horse registration.");
@@ -562,6 +577,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleApproveJockeyApplication = async (application: JockeyPoolApplication) => {
+    if (!ensureOverride()) return;
     try {
       setJockeyProcessingId(application.id);
       setJockeyApplicationError("");
@@ -576,6 +592,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleRejectJockeyApplication = async (application: JockeyPoolApplication) => {
+    if (!ensureOverride()) return;
     const reason = jockeyRejectReasons[application.id]?.trim();
     if (!reason) {
       setJockeyApplicationError("Enter a rejection reason before rejecting this jockey application.");
@@ -598,6 +615,7 @@ export function AdminTournamentDetailPage() {
 
   const handleCreateRoundSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!ensureOverride()) return;
     setRoundFormError("");
 
     const distanceMeters = Number(roundForm.distanceMeters);
@@ -641,6 +659,7 @@ export function AdminTournamentDetailPage() {
   };
 
   const handleLockParticipants = async () => {
+    if (!ensureOverride()) return;
     try {
       setLockingParticipants(true);
       setErrorMsg("");
@@ -1245,6 +1264,47 @@ export function AdminTournamentDetailPage() {
           </div>
         )}
 
+        {/* Admin = quản trị + giám sát; Ban tổ chức vận hành (BR-09). Mặc định chỉ theo dõi;
+            bật override khi cần can thiệp (tranh chấp / giải bị bỏ rơi). */}
+        <div
+          className={`flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between ${
+            overrideMode ? "border-[#b3193a]/30 bg-[#b3193a]/5" : "border-amber-200 bg-amber-50"
+          }`}
+        >
+          <div className="min-w-0">
+            <p className={`text-sm font-black ${overrideMode ? "text-[#b3193a]" : "text-amber-900"}`}>
+              {overrideMode ? "Admin override is ON" : "Monitoring mode"}
+            </p>
+            <p className="mt-0.5 text-xs font-semibold text-slate-600">
+              {overrideMode
+                ? "You can operate this championship directly. Use only to resolve a dispute or step in for an inactive organizer."
+                : "This championship is run by its organizer — you're observing progress. Operator actions below are disabled."}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                !overrideMode &&
+                !window.confirm(
+                  "Enable admin override? Running the championship is normally the organizer's job — use this only for disputes or an abandoned tournament.",
+                )
+              ) {
+                return;
+              }
+              setOverrideMode((value) => !value);
+              setErrorMsg("");
+            }}
+            className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-md px-4 text-sm font-black transition ${
+              overrideMode
+                ? "bg-[#b3193a] text-white hover:bg-[#92122d]"
+                : "border border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
+            }`}
+          >
+            {overrideMode ? "Exit override" : "Enable admin override"}
+          </button>
+        </div>
+
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -1262,7 +1322,7 @@ export function AdminTournamentDetailPage() {
               </div>
               <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950">{tournament.name}</h1>
               <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500">
-                Manage the championship by current state, next action, round control, and standings update.
+                Monitor this championship&apos;s progress. Its organizer runs registrations, schedule, officials, and results.
               </p>
             </div>
 
@@ -1288,15 +1348,17 @@ export function AdminTournamentDetailPage() {
 
           <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-5 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm font-semibold text-slate-600">
-              Admin should continue from the next required round action, then publish results into standings.
+              {overrideMode
+                ? "Override active — continue from the next required action, then publish results into standings."
+                : "Track the organizer's progress through each phase below. Enable override only to intervene."}
             </p>
             <button
               type="button"
               onClick={handleContinueOperations}
-              disabled={lockingParticipants}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2"
+              disabled={lockingParticipants || !overrideMode}
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#b3193a] px-5 text-sm font-black text-white transition hover:bg-[#92122d] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b3193a] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {lockingParticipants ? "Locking Participants..." : "Continue Operations"}
+              {!overrideMode ? "Operated by organizer" : lockingParticipants ? "Locking Participants..." : "Continue Operations"}
             </button>
           </div>
 

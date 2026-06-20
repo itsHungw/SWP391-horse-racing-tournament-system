@@ -11,11 +11,17 @@ import type {
   JockeyPoolApplicationStatus,
   JockeyScheduleItem,
   LockParticipantsResponse,
+  Organization,
+  RegisterOrganizationPayload,
+  RefereeContract,
+  RefereeDirectoryEntry,
+  InviteRefereePayload,
   OwnerContractPayload,
   PageResponse,
   PublicRaceResult,
   PublicRacingSummary,
   Race,
+  RacePayload,
   RaceSummary,
   Tournament,
   TournamentSummary,
@@ -338,5 +344,259 @@ export async function lockAdminChampionshipParticipants(championshipId: number):
 
 export async function getAdminChampionshipParticipants(championshipId: number): Promise<TournamentParticipant[]> {
   const response = await httpClient.get<TournamentParticipant[]>(`/admin/championships/${championshipId}/participants`);
+  return response.data;
+}
+
+// --- Organizer (Ban tổ chức) onboarding — Cổng 1 ---
+export async function registerOrganization(payload: RegisterOrganizationPayload): Promise<Organization> {
+  const response = await httpClient.post<Organization>("/organizations", payload);
+  return response.data;
+}
+
+export async function getMyOrganization(): Promise<Organization> {
+  const response = await httpClient.get<Organization>("/organizations/my");
+  return response.data;
+}
+
+export async function uploadOrganizationLicense(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=ORGANIZER_LICENSE", formData);
+  return response.data;
+}
+
+export async function uploadOrganizationLogo(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=ORGANIZER_LOGO", formData);
+  return response.data;
+}
+
+export async function getAdminOrganizations(status?: string): Promise<Organization[]> {
+  const response = await httpClient.get<Organization[]>("/admin/organizations", {
+    params: status ? { status } : undefined,
+  });
+  return response.data;
+}
+
+export async function approveOrganization(id: number): Promise<Organization> {
+  const response = await httpClient.post<Organization>(`/admin/organizations/${id}/approve`);
+  return response.data;
+}
+
+export async function rejectOrganization(id: number, reason: string): Promise<Organization> {
+  const response = await httpClient.post<Organization>(`/admin/organizations/${id}/reject`, { reason });
+  return response.data;
+}
+
+export async function suspendOrganization(id: number): Promise<Organization> {
+  const response = await httpClient.post<Organization>(`/admin/organizations/${id}/suspend`);
+  return response.data;
+}
+
+export async function reactivateOrganization(id: number): Promise<Organization> {
+  const response = await httpClient.post<Organization>(`/admin/organizations/${id}/reactivate`);
+  return response.data;
+}
+
+// --- Organizer tournaments — Cổng 2 ---
+export async function getMyOrganizerTournaments(): Promise<Tournament[]> {
+  const response = await httpClient.get<Tournament[]>("/organizer/tournaments");
+  return response.data;
+}
+
+export async function createOrganizerTournament(payload: {
+  name: string;
+  code: string;
+  description?: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  registrationStartAt: string;
+  registrationEndAt: string;
+  maxHorses?: number;
+  maxHorsesPerOwner?: number;
+}): Promise<Tournament> {
+  const response = await httpClient.post<Tournament>("/organizer/tournaments", payload);
+  return response.data;
+}
+
+export async function submitTournamentForApproval(id: number): Promise<Tournament> {
+  const response = await httpClient.post<Tournament>(`/organizer/tournaments/${id}/submit`);
+  return response.data;
+}
+
+export async function updateOrganizerTournamentStatus(id: number, status: string): Promise<void> {
+  await httpClient.put(`/organizer/tournaments/${id}/status`, null, { params: { status } });
+}
+
+export async function approveTournamentLaunch(id: number): Promise<Tournament> {
+  const response = await httpClient.post<Tournament>(`/admin/tournaments/${id}/approve`);
+  return response.data;
+}
+
+export async function rejectTournamentLaunch(id: number, reason: string): Promise<Tournament> {
+  const response = await httpClient.post<Tournament>(`/admin/tournaments/${id}/reject`, { reason });
+  return response.data;
+}
+
+// --- Referee contracts — thuê trọng tài (BR-07/08/14) ---
+export async function getLicensedReferees(): Promise<RefereeDirectoryEntry[]> {
+  const response = await httpClient.get<RefereeDirectoryEntry[]>("/organizer/referees");
+  return response.data;
+}
+
+export async function inviteReferee(tournamentId: number, payload: InviteRefereePayload): Promise<RefereeContract> {
+  const response = await httpClient.post<RefereeContract>(
+    `/organizer/tournaments/${tournamentId}/referee-contracts`,
+    payload,
+  );
+  return response.data;
+}
+
+export async function getTournamentRefereeContracts(tournamentId: number): Promise<RefereeContract[]> {
+  const response = await httpClient.get<RefereeContract[]>(
+    `/organizer/tournaments/${tournamentId}/referee-contracts`,
+  );
+  return response.data;
+}
+
+export async function terminateRefereeContract(contractId: number, reason?: string): Promise<RefereeContract> {
+  const response = await httpClient.post<RefereeContract>(
+    `/organizer/referee-contracts/${contractId}/terminate`,
+    reason ? { reason } : {},
+  );
+  return response.data;
+}
+
+export async function getMyRefereeContracts(): Promise<RefereeContract[]> {
+  const response = await httpClient.get<RefereeContract[]>("/referee/contracts");
+  return response.data;
+}
+
+// --- Organizer registration gate (duyệt đăng ký giải của mình, BR-15) ---
+export async function getOrganizerTournamentRegistrations(
+  tournamentId: number,
+  status?: TournamentRegistrationStatus,
+): Promise<TournamentRegistration[]> {
+  const response = await httpClient.get<TournamentRegistration[]>("/organizer/tournament-registrations", {
+    params: { tournamentId, status: status || undefined },
+  });
+  return response.data;
+}
+
+export async function approveOrganizerTournamentRegistration(id: number): Promise<TournamentRegistration> {
+  const response = await httpClient.post<TournamentRegistration>(
+    `/organizer/tournament-registrations/${id}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectOrganizerTournamentRegistration(
+  id: number,
+  reason: string,
+): Promise<TournamentRegistration> {
+  const response = await httpClient.post<TournamentRegistration>(
+    `/organizer/tournament-registrations/${id}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+// --- Organizer race card + chốt kết quả (BR-09 / BR-16) ---
+export async function getOrganizerRaces(tournamentId: number): Promise<Race[]> {
+  const response = await httpClient.get<Race[]>("/organizer/races", { params: { tournamentId } });
+  return response.data;
+}
+
+export async function createOrganizerRace(payload: RacePayload): Promise<Race> {
+  const response = await httpClient.post<Race>("/organizer/races", payload);
+  return response.data;
+}
+
+export async function updateOrganizerRace(id: number, payload: RacePayload): Promise<Race> {
+  const response = await httpClient.put<Race>(`/organizer/races/${id}`, payload);
+  return response.data;
+}
+
+export async function deleteOrganizerRace(id: number): Promise<void> {
+  await httpClient.delete(`/organizer/races/${id}`);
+}
+
+export async function assignOrganizerRaceReferee(id: number, refereeId: number): Promise<Race> {
+  const response = await httpClient.put<Race>(`/organizer/races/${id}/referee`, null, {
+    params: { refereeId },
+  });
+  return response.data;
+}
+
+export async function confirmOrganizerRaceResults(id: number): Promise<Race> {
+  const response = await httpClient.post<Race>(`/organizer/races/${id}/confirm-results`);
+  return response.data;
+}
+
+export async function publishOrganizerRaceResults(id: number): Promise<Race> {
+  const response = await httpClient.post<Race>(`/organizer/races/${id}/publish-results`);
+  return response.data;
+}
+
+// --- Organizer jockey pool gate + lock the field (BR-09) ---
+export async function getOrganizerJockeyApplications(
+  tournamentId: number,
+  status?: JockeyPoolApplicationStatus,
+): Promise<JockeyPoolApplication[]> {
+  const response = await httpClient.get<JockeyPoolApplication[]>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications`,
+    { params: { status: status || undefined } },
+  );
+  return response.data;
+}
+
+export async function approveOrganizerJockeyApplication(
+  tournamentId: number,
+  applicationId: number,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications/${applicationId}/approve`,
+  );
+  return response.data;
+}
+
+export async function rejectOrganizerJockeyApplication(
+  tournamentId: number,
+  applicationId: number,
+  reason: string,
+): Promise<JockeyPoolApplication> {
+  const response = await httpClient.post<JockeyPoolApplication>(
+    `/organizer/tournaments/${tournamentId}/jockey-applications/${applicationId}/reject`,
+    { reason },
+  );
+  return response.data;
+}
+
+export async function getOrganizerParticipants(tournamentId: number): Promise<TournamentParticipant[]> {
+  const response = await httpClient.get<TournamentParticipant[]>(
+    `/organizer/tournaments/${tournamentId}/participants`,
+  );
+  return response.data;
+}
+
+export async function lockOrganizerParticipants(tournamentId: number): Promise<LockParticipantsResponse> {
+  const response = await httpClient.post<LockParticipantsResponse>(
+    `/organizer/tournaments/${tournamentId}/lock-participants`,
+  );
+  return response.data;
+}
+
+export async function acceptRefereeContract(contractId: number): Promise<RefereeContract> {
+  const response = await httpClient.post<RefereeContract>(`/referee/contracts/${contractId}/accept`);
+  return response.data;
+}
+
+export async function declineRefereeContract(contractId: number, reason?: string): Promise<RefereeContract> {
+  const response = await httpClient.post<RefereeContract>(
+    `/referee/contracts/${contractId}/decline`,
+    reason ? { reason } : {},
+  );
   return response.data;
 }

@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.user.repository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -51,4 +52,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
               AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE
             """)
     long countActiveAdmins();
+
+    @Query("SELECT DISTINCT u FROM User u JOIN u.userRoles ur JOIN ur.role r "
+            + "WHERE u.deletedAt IS NULL AND ur.status = 'ACTIVE' AND r.name = :roleName ORDER BY u.fullName")
+    List<User> findActiveByRoleName(String roleName);
 }

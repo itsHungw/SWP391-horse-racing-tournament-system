@@ -11,6 +11,8 @@ import com.example.horseracingtournamentsystem.tournament.dto.response.Tournamen
 import com.example.horseracingtournamentsystem.tournament.dto.response.TournamentSummaryResponse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.organization.entity.Organization;
+import com.example.horseracingtournamentsystem.organization.repository.OrganizationRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
@@ -48,6 +50,7 @@ public class TournamentService {
 
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
+    private final OrganizationRepository organizationRepository;
     private final RaceRepository raceRepository;
     private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
@@ -71,6 +74,107 @@ public class TournamentService {
 
         tournamentRepository.save(tournament);
         return mapToResponse(tournament);
+    }
+
+    // ---- Organizer flow + Cổng 2 (BR-09 / BR-17) ----
+
+    @Transactional
+    public TournamentResponse createForOrganizer(TournamentRequest req, String organizerEmail) {
+        Organization organization = organizationRepository.findByOwner_EmailAndDeletedAtIsNull(organizerEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not have an organization"));
+        if (!organization.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your organization is not active");
+        }
+        if (tournamentRepository.existsByCodeAndDeletedAtIsNull(req.getCode())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament code already exists");
+        }
+        validateTournamentDates(req);
+
+        User creator = userRepository.findByEmail(organizerEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Creator user not found"));
+
+        Tournament tournament = Tournament.create(
+                req.getName(), req.getCode(), req.getDescription(), req.getLocation(),
+                req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(), creator
+        );
+        tournament.assignOrganization(organization);
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    public List<TournamentResponse> getMyTournaments(String organizerEmail) {
+        return tournamentRepository
+                .findAllByOrganization_Owner_EmailAndDeletedAtIsNullOrderByCreatedAtDesc(organizerEmail)
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public TournamentResponse submitForApproval(Long id, String organizerEmail) {
+        Tournament tournament = requireOwnedTournament(id, organizerEmail);
+        if (!"DRAFT".equals(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only DRAFT tournaments can be submitted for approval");
+        }
+        tournament.submitForApproval();
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    @Transactional
+    public TournamentResponse approveLaunch(Long id, String adminEmail) {
+        Tournament tournament = requirePendingApproval(id);
+        User reviewer = requireReviewer(adminEmail);
+        tournament.approveLaunch(reviewer);
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    @Transactional
+    public TournamentResponse rejectLaunch(Long id, String adminEmail, String reason) {
+        Tournament tournament = requirePendingApproval(id);
+        User reviewer = requireReviewer(adminEmail);
+        tournament.rejectLaunch(reviewer, reason == null ? null : reason.trim());
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    @Transactional
+    public void updateStatusForOrganizer(Long id, String status, String organizerEmail) {
+        requireOwnedTournament(id, organizerEmail);
+        TournamentStatus target;
+        try {
+            target = TournamentStatus.valueOf(status.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid tournament status");
+        }
+        updateStatus(id, target);
+    }
+
+    private Tournament requireOwnedTournament(Long id, String organizerEmail) {
+        Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
+        Organization organization = tournament.getOrganization();
+        if (organization == null || organization.getOwner() == null
+                || !organization.getOwner().getEmail().equals(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this tournament");
+        }
+        return tournament;
+    }
+
+    private Tournament requirePendingApproval(Long id) {
+        Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
+        if (!"PENDING_APPROVAL".equals(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only tournaments pending approval can be reviewed");
+        }
+        return tournament;
+    }
+
+    private User requireReviewer(String adminEmail) {
+        return userRepository.findByEmail(adminEmail)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Reviewer not found"));
     }
 
     @Transactional
@@ -195,6 +299,13 @@ public class TournamentService {
         }
         switch (status) {
             case OPEN_REGISTRATION:
+                // BR-17: chỉ mở đăng ký sau khi admin duyệt (APPROVED), hoặc khi mở lại giải đã hoãn (POSTPONED).
+                if (TournamentStatus.APPROVED != tournament.getStatus() && TournamentStatus.POSTPONED != tournament.getStatus()) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Registration can only open after admin approval (status APPROVED) (BR-17)"
+                    );
+                }
                 tournament.openRegistration();
                 break;
             case CLOSED_REGISTRATION:
@@ -303,6 +414,10 @@ public class TournamentService {
                 .maxHorsesPerOwner(t.getMaxHorsesPerOwner())
                 .status(t.getStatus())
                 .creatorName(t.getCreatedBy().getFullName())
+                .organizationId(t.getOrganization() == null ? null : t.getOrganization().getId())
+                .organizationName(t.getOrganization() == null ? null : t.getOrganization().getName())
+                .approvedAt(t.getApprovedAt())
+                .rejectionReason(t.getRejectionReason())
                 .createdAt(t.getCreatedAt())
                 .updatedAt(t.getUpdatedAt())
                 .build();

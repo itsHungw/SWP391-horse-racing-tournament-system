@@ -155,6 +155,55 @@ public class JockeyPoolApplicationService {
         return mapToResponse(application);
     }
 
+    // ---- Organizer gác cổng jockey pool giải của mình (BR-09) ----
+
+    @Transactional(readOnly = true)
+    public List<JockeyPoolApplicationResponse> listForOrganizer(Long championshipId, String status, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        List<JockeyTournamentApplication> applications;
+        if (status == null || status.isBlank()) {
+            applications = applicationRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId);
+        } else {
+            JockeyApplicationStatus applicationStatus;
+            try {
+                applicationStatus = JockeyApplicationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+            } catch (IllegalArgumentException exception) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid jockey application status");
+            }
+            applications = applicationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(championshipId, applicationStatus);
+        }
+        return applications.stream().map(this::mapToResponse).toList();
+    }
+
+    @Transactional
+    public JockeyPoolApplicationResponse approveAsOrganizer(Long championshipId, Long applicationId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        JockeyTournamentApplication application = getApplication(championshipId, applicationId);
+        application.approve(getUser(organizerEmail));
+        return mapToResponse(application);
+    }
+
+    @Transactional
+    public JockeyPoolApplicationResponse rejectAsOrganizer(
+            Long championshipId,
+            Long applicationId,
+            String organizerEmail,
+            String reason
+    ) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        JockeyTournamentApplication application = getApplication(championshipId, applicationId);
+        application.reject(getUser(organizerEmail), reason);
+        return mapToResponse(application);
+    }
+
+    private Tournament requireOwnedTournament(Long championshipId, String organizerEmail) {
+        Tournament tournament = ensureTournamentExists(championshipId);
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this championship");
+        }
+        return tournament;
+    }
+
     @Transactional
     public JockeyPoolApplicationResponse withdraw(Long championshipId, Long applicationId, String jockeyEmail) {
         JockeyTournamentApplication application = getApplication(championshipId, applicationId);
