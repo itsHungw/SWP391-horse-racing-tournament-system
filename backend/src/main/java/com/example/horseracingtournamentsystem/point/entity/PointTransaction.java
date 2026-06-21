@@ -24,6 +24,7 @@ import lombok.NoArgsConstructor;
 public class PointTransaction {
 
     public static final String REF_RACE_PREDICTION = "RACE_PREDICTION";
+    public static final String REF_STREAK_PREDICTION = "STREAK_PREDICTION";
     public static final String REF_RACE_RESULT = "RACE_RESULT";
     public static final String REF_BLOG = "BLOG";
     public static final String REF_ADMIN = "ADMIN";

@@ -62,8 +62,20 @@ public class PredictionService {
         }
 
         // Rule: Duplicate predictions of the same type for this race are not allowed
-        if (predictionRepo.existsByRaceIdAndSpectatorIdAndPredictionType(race.getId(), spectator.getId(), request.getPredictionType())) {
+        if (!RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType()) && !RacePrediction.TYPE_HEAD_TO_HEAD.equals(request.getPredictionType()) && predictionRepo.existsByRaceIdAndSpectatorIdAndPredictionType(race.getId(), spectator.getId(), request.getPredictionType())) {
             throw new IllegalStateException("You have already submitted a prediction of type " + request.getPredictionType() + " for this race");
+        }
+
+        if (RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType())) {
+            boolean exactDuplicate = predictionRepo.findByRace_IdAndStatus(race.getId(), com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING)
+                .stream()
+                .anyMatch(p -> p.getSpectator().getId().equals(spectator.getId())
+                            && p.getPredictionType().equals(RacePrediction.TYPE_EXACT_POSITION)
+                            && p.getPredictedWinnerId().equals(request.getPredictedWinnerId())
+                            && p.getPredictedPosition().equals(request.getPredictedPosition()));
+            if (exactDuplicate) {
+                throw new IllegalStateException("You have already placed this exact prediction. If you want to change your wager, please update your existing prediction.");
+            }
         }
 
         int cost = request.getWagerAmount();
@@ -110,6 +122,20 @@ public class PredictionService {
                 .filter(m -> m.getParticipantAId().equals(request.getPredictedWinnerId()) || m.getParticipantBId().equals(request.getPredictedWinnerId()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid participant for H2H matchup"));
+
+            Long pA = selectedMatchup.getParticipantAId();
+            Long pB = selectedMatchup.getParticipantBId();
+            boolean matchupDuplicate = predictionRepo.findByRace_IdAndStatus(race.getId(), com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING)
+                .stream()
+                .anyMatch(p -> p.getSpectator().getId().equals(spectator.getId())
+                            && p.getPredictionType().equals(RacePrediction.TYPE_HEAD_TO_HEAD)
+                            && (
+                                (Objects.equals(p.getPredictedWinnerId(), pA) && Objects.equals(p.getMatchupOpponentId(), pB)) ||
+                                (Objects.equals(p.getPredictedWinnerId(), pB) && Objects.equals(p.getMatchupOpponentId(), pA))
+                            ));
+            if (matchupDuplicate) {
+                throw new IllegalStateException("You have already placed a prediction for this matchup. If you want to change your pick, please update your existing prediction.");
+            }
 
             if (selectedMatchup.getParticipantAId().equals(request.getPredictedWinnerId())) {
                 opponentId = selectedMatchup.getParticipantBId();
@@ -180,6 +206,35 @@ public class PredictionService {
                 request.getPredictedWinnerId().equals(request.getPredictedThirdId()) ||
                 request.getPredictedSecondId().equals(request.getPredictedThirdId())) {
                 throw new IllegalArgumentException("Top 3 participants must be distinct");
+            }
+        } else if (RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType())) {
+            if (request.getPredictedPosition() == null) {
+                throw new IllegalArgumentException("Predicted position is required for EXACT_POSITION");
+            }
+            List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            Map<Long, Map<Integer, java.math.BigDecimal>> oddsMatrix = oddsCalculationService.calculatePositionOddsMatrix(race.getId(), participants);
+            Map<Integer, java.math.BigDecimal> horseOdds = oddsMatrix.get(request.getPredictedWinnerId());
+            if (horseOdds == null || !horseOdds.containsKey(request.getPredictedPosition())) {
+                throw new IllegalArgumentException("Invalid prediction parameters or participant is withdrawn");
+            }
+            prediction.setLockedOdds(horseOdds.get(request.getPredictedPosition()));
+        } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(request.getPredictionType())) {
+            List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            List<HeadToHeadMatchup> h2hMatchups = oddsCalculationService.calculateH2HMatchups(race.getId(), participants);
+
+            HeadToHeadMatchup selectedMatchup = h2hMatchups.stream()
+                .filter(m -> m.getParticipantAId().equals(request.getPredictedWinnerId()) || m.getParticipantBId().equals(request.getPredictedWinnerId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Invalid participant for H2H matchup"));
+
+            if (selectedMatchup.getParticipantAId().equals(request.getPredictedWinnerId())) {
+                prediction.setMatchupOpponentId(selectedMatchup.getParticipantBId());
+                prediction.setHandicapSeconds(selectedMatchup.getHandicapSeconds());
+                prediction.setLockedOdds(selectedMatchup.getOddsA());
+            } else {
+                prediction.setMatchupOpponentId(selectedMatchup.getParticipantAId());
+                prediction.setHandicapSeconds(-selectedMatchup.getHandicapSeconds());
+                prediction.setLockedOdds(selectedMatchup.getOddsB());
             }
         }
 

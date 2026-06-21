@@ -192,17 +192,6 @@ public class PredictionSettlementScheduler {
                         java.math.BigDecimal timeA = participantFinishTimes.get(p.getPredictedWinnerId());
                         java.math.BigDecimal timeB = participantFinishTimes.get(p.getMatchupOpponentId());
                         if (timeA != null && timeB != null) {
-                            // A wins if timeA < timeB + handicap
-                            // e.g., handicap is 1.5. A must finish 1.5s FASTER than B.
-                            // If B finishes in 60s, timeB + handicap = 60 + 1.5 = 61.5s
-                            // Wait, if A GIVES handicap to B, A must finish FASTER.
-                            // So A's time + handicap < B's time?
-                            // Yes, if handicap = 1.5, A must beat B by at least 1.5s.
-                            // timeA + handicap < timeB -> timeA < timeB - handicap
-                            // In OddCalculationService, handicap = avgB - avgA (positive).
-                            // So we do: effectiveTimeA = timeA + handicap
-                            // If effectiveTimeA < timeB, A wins!
-                            // But wait! If handicap > 0, A is faster. So we ADD handicap to A's time to "penalize" A.
                             java.math.BigDecimal effectiveTimeA = timeA.add(java.math.BigDecimal.valueOf(p.getHandicapSeconds() != null ? p.getHandicapSeconds() : 0.0));
                             if (effectiveTimeA.compareTo(timeB) < 0) {
                                 isCorrect = true;
@@ -272,7 +261,7 @@ public class PredictionSettlementScheduler {
 
             if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(winnerId))) {
                 leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED);
-                leg.setLockedOdds(java.math.BigDecimal.ONE);
+                leg.setLockedOdds(java.math.BigDecimal.ZERO);
             } else {
                 Integer pos = participantPositions.get(winnerId);
                 if (pos != null && pos == 1) {
@@ -287,7 +276,7 @@ public class PredictionSettlementScheduler {
             if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(streak.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS.equals(streak.getStatus())) {
                 boolean hasLost = false;
                 boolean allFinished = true;
-                java.math.BigDecimal currentTotalOdds = java.math.BigDecimal.ONE;
+                java.math.BigDecimal currentTotalOdds = java.math.BigDecimal.ZERO;
 
                 for (StreakPredictionLeg l : streak.getLegs()) {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST.equals(l.getStatus())) {
@@ -297,7 +286,7 @@ public class PredictionSettlementScheduler {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(l.getStatus())) {
                         allFinished = false;
                     } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED.equals(l.getStatus())) {
-                        currentTotalOdds = currentTotalOdds.multiply(l.getLockedOdds());
+                        currentTotalOdds = currentTotalOdds.add(l.getLockedOdds());
                     }
                 }
 
@@ -314,7 +303,7 @@ public class PredictionSettlementScheduler {
 
                     pointsService.adjustPoints(
                         streak.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
-                        PointTransaction.REF_RACE_PREDICTION, streak.getId(),
+                        PointTransaction.REF_STREAK_PREDICTION, streak.getId(),
                         "Awarded " + reward + " points for WON streak prediction #" + streak.getId()
                     );
                 } else {
