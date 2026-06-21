@@ -166,14 +166,46 @@ export function derivePredictionValidation({
     if (picks.winnerId == null || picks.predictedPosition == null) {
       return { canConfirm: false, message: "Choose a horse and position." };
     }
+    if (!isUpdate) {
+      const hasDuplicate = options.myPredictions.some(
+        (p) =>
+          p.predictionType === "EXACT_POSITION" &&
+          p.status === "PENDING" &&
+          p.predictedWinnerId === picks.winnerId &&
+          p.predictedPosition === picks.predictedPosition
+      );
+      if (hasDuplicate) {
+        return { canConfirm: false, message: "You already placed this exact prediction. Edit to update wager." };
+      }
+    }
   }
 
   if (predType === "WINNER" && picks.winnerId == null) {
     return { canConfirm: false, message: "Choose a runner for First." };
   }
 
-  if (predType === "HEAD_TO_HEAD" && picks.winnerId == null) {
-    return { canConfirm: false, message: "Choose a horse for the Head-to-Head matchup." };
+  if (predType === "HEAD_TO_HEAD") {
+    if (picks.winnerId == null) {
+      return { canConfirm: false, message: "Choose a horse for the Head-to-Head matchup." };
+    }
+    if (!isUpdate) {
+      const selectedMatchup = options.h2hMatchups?.find(
+        (m) => m.participantAId === picks.winnerId || m.participantBId === picks.winnerId
+      );
+      if (selectedMatchup) {
+        const pA = selectedMatchup.participantAId;
+        const pB = selectedMatchup.participantBId;
+        const hasDuplicate = options.myPredictions.some(
+          (p) =>
+            p.predictionType === "HEAD_TO_HEAD" &&
+            p.status === "PENDING" &&
+            (p.predictedWinnerId === pA || p.predictedWinnerId === pB)
+        );
+        if (hasDuplicate) {
+          return { canConfirm: false, message: "You already have a prediction for this matchup. Click 'Edit'." };
+        }
+      }
+    }
   }
 
   if (wagerAmount < 10000) {

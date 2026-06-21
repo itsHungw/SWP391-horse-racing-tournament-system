@@ -21,7 +21,7 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
     if (filter === "LOCKED") return p.status === "LOCKED";
     if (filter === "REFUNDED") return p.status === "REFUNDED" || p.status === "CANCELLED";
     return true;
-  });
+  }).sort((a, b) => b.id - a.id);
 
   const getStatusBadge = (status: PredictionStatus) => {
     switch (status) {

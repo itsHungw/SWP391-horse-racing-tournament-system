@@ -24,6 +24,7 @@ interface PredictionSlipProps {
   onClear: () => void;
   onConfirm: () => Promise<void>;
   onEditPrediction: (prediction: UserPrediction) => void;
+  onViewAll: () => void;
 }
 
 function selectionRows(
@@ -86,6 +87,7 @@ export function PredictionSlip({
   onClear,
   onConfirm,
   onEditPrediction,
+  onViewAll,
 }: PredictionSlipProps) {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -164,7 +166,7 @@ export function PredictionSlip({
   };
 
   return (
-    <aside className="space-y-3 xl:sticky xl:top-24" aria-label="Prediction slip">
+    <aside className="space-y-3 xl:sticky xl:top-24 max-h-[calc(100vh-6rem)] overflow-y-auto pb-4 custom-scrollbar" aria-label="Prediction slip">
       <section className="rounded-lg border border-turf-800 bg-turf-900 p-4 shadow-[0_18px_70px_-38px_rgba(0,0,0,0.85)]">
         <h2 className="sr-only">Prediction Slip</h2>
 
@@ -270,7 +272,7 @@ export function PredictionSlip({
             aria-label="Confirm Prediction"
             onClick={handleConfirm}
             disabled={!canConfirm}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-gold-400 px-4 text-[12px] font-extrabold text-turf-900 shadow-[0_16px_34px_-18px_rgba(212,175,55,0.9)] transition-colors hover:bg-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-900 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-ivory-faint"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-gold-400 px-4 text-[12px] font-extrabold text-turf-900 shadow-[0_16px_34px_-18px_rgba(212,175,55,0.9)] transition-colors hover:bg-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-900 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-ivory-faint disabled:shadow-none"
           >
             {submitting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
             {submitting ? "Processing" : isUpdate ? "Confirm Update" : "Confirm Prediction"}
@@ -283,6 +285,7 @@ export function PredictionSlip({
         selectedRace={race}
         options={options}
         onEditPrediction={onEditPrediction}
+        onViewAll={onViewAll}
       />
     </aside>
   );

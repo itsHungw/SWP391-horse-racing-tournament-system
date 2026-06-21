@@ -4,7 +4,8 @@ import {
   PredictionOptions, 
   UserPrediction, 
   PointAccount,
-  PredictionType
+  PredictionType,
+  StreakPredictionResponse
 } from "../types/prediction.types";
 import { spectatorPredictionApi } from "../services/spectatorPredictionApi";
 
@@ -14,6 +15,7 @@ export function useSpectatorPredictions() {
   const [selectedRace, setSelectedRace] = useState<OpenRacePrediction | null>(null);
   const [predictionOptions, setPredictionOptions] = useState<PredictionOptions | null>(null);
   const [myPredictions, setMyPredictions] = useState<UserPrediction[]>([]);
+  const [myStreaks, setMyStreaks] = useState<StreakPredictionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,14 +23,16 @@ export function useSpectatorPredictions() {
     try {
       setLoading(true);
       setError(null);
-      const [pts, races, preds] = await Promise.all([
+      const [pts, races, preds, streaks] = await Promise.all([
         spectatorPredictionApi.getPointAccount(),
         spectatorPredictionApi.getOpenRaces(),
-        spectatorPredictionApi.getMyPredictions()
+        spectatorPredictionApi.getMyPredictions(),
+        spectatorPredictionApi.getSpectatorStreaks()
       ]);
       setPointAccount(pts);
       setOpenRaces(races);
       setMyPredictions(preds);
+      setMyStreaks(streaks);
 
       if (races.length > 0) {
         const currentSelected = selectedRace 
@@ -108,6 +112,7 @@ export function useSpectatorPredictions() {
     selectedRace,
     predictionOptions,
     myPredictions,
+    myStreaks,
     loading,
     error,
     selectRace,

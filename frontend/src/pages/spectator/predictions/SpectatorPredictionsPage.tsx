@@ -13,6 +13,8 @@ import { HeadToHeadSelector } from "./components/HeadToHeadSelector";
 import { RunnerTable } from "./components/RunnerTable";
 import { PredictionSlip } from "./components/PredictionSlip";
 import { StreakSlip } from "./components/StreakSlip";
+import { MyPredictionsList } from "./components/MyPredictionsList";
+import { X } from "lucide-react";
 import { spectatorPredictionApi } from "./services/spectatorPredictionApi";
 import {
   EMPTY_PICKS,
@@ -36,11 +38,13 @@ export function SpectatorPredictionsPage() {
     selectedRace,
     predictionOptions,
     myPredictions,
+    myStreaks,
     loading,
     error,
     selectRace,
     submitPrediction,
     updatePrediction,
+    refreshAll,
   } = useSpectatorPredictions();
 
   const [predType, setPredType] = useState<PredictionType>("EXACT_POSITION");
@@ -49,11 +53,14 @@ export function SpectatorPredictionsPage() {
   const [wagerAmount, setWagerAmount] = useState<number>(10000);
   const [isCustomWager, setIsCustomWager] = useState<boolean>(false);
   const [activeTop3Slot, setActiveTop3Slot] = useState<PickSlot | null>(null);
+  const [editingPredictionId, setEditingPredictionId] = useState<number | null>(null);
   const [booted, setBooted] = useState(false);
   const [editNotice, setEditNotice] = useState<string | null>(null);
   const [cockpitSubmitting, setCockpitSubmitting] = useState(false);
   const [cockpitSubmitStatus, setCockpitSubmitStatus] = useState<string | null>(null);
   const [cockpitSubmitError, setCockpitSubmitError] = useState<string | null>(null);
+  const [isAllPredictionsModalOpen, setIsAllPredictionsModalOpen] = useState(false);
+  const [isAllStreaksModalOpen, setIsAllStreaksModalOpen] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkApplied = useRef(false);
@@ -76,7 +83,11 @@ export function SpectatorPredictionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, openRaces, searchParams]);
 
-  const existingPred = predictionOptions?.myPredictions?.find((prediction) => prediction.predictionType === predType);
+  const existingPred = predictionOptions?.myPredictions?.find((prediction) => {
+    if (editingPredictionId) return prediction.id === editingPredictionId;
+    if (predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") return false;
+    return prediction.predictionType === predType;
+  });
   const pointBalance = pointAccount?.pointBalance ?? 0;
   const cockpitValidation = selectedRace
     ? derivePredictionValidation({
@@ -123,6 +134,7 @@ export function SpectatorPredictionsPage() {
   const handleModeChange = (nextType: PredictionType) => {
     setPredType(nextType);
     setActiveTop3Slot(null);
+    setEditingPredictionId(null);
   };
 
   const handleSelectRunner = (participantId: number, position?: number) => {
@@ -186,6 +198,7 @@ export function SpectatorPredictionsPage() {
   const handleClearSelections = () => {
     setPicks(EMPTY_PICKS);
     setActiveTop3Slot(null);
+    setEditingPredictionId(null);
   };
 
   useEffect(() => {
@@ -200,6 +213,9 @@ export function SpectatorPredictionsPage() {
       return;
     }
     setPredType(prediction.predictionType);
+    if (prediction.predictionType === "EXACT_POSITION" || prediction.predictionType === "HEAD_TO_HEAD") {
+      setEditingPredictionId(prediction.id);
+    }
     selectRace(matchingRace);
     setSearchParams({ raceId: String(matchingRace.raceId) }, { replace: true });
     setActiveTop3Slot(null);
@@ -232,6 +248,10 @@ export function SpectatorPredictionsPage() {
     try {
       await handleConfirm();
       setCockpitSubmitStatus(existingPred ? "Prediction updated." : "Prediction confirmed.");
+      if ((predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") && !existingPred) {
+        setPicks(EMPTY_PICKS);
+      }
+      setEditingPredictionId(null);
     } catch (err) {
       setCockpitSubmitError(err instanceof Error ? err.message : "Unable to confirm prediction.");
     } finally {
@@ -412,9 +432,11 @@ export function SpectatorPredictionsPage() {
                     legs={streakLegs}
                     wagerAmount={wagerAmount}
                     pointBalance={pointBalance}
+                    myStreaks={myStreaks}
                     onClearAll={() => setStreakLegs([])}
                     onRemoveLeg={(id) => setStreakLegs(prev => prev.filter(l => l.raceId !== id))}
                     onWagerChange={setWagerAmount}
+                    onViewAllStreaks={() => setIsAllStreaksModalOpen(true)}
                     onSubmit={async () => {
                       if (!selectedRace?.tournamentId) throw new Error("Tournament not found");
                       await spectatorPredictionApi.submitStreakPrediction({
@@ -425,6 +447,7 @@ export function SpectatorPredictionsPage() {
                           predictedWinnerId: l.predictedWinnerId
                         }))
                       });
+                      await refreshAll();
                     }}
                   />
                 ) : (
@@ -438,8 +461,9 @@ export function SpectatorPredictionsPage() {
                     isUpdate={Boolean(existingPred)}
                     myPredictions={myPredictions}
                     onClear={handleClearSelections}
-                    onConfirm={handleConfirm}
+                    onConfirm={handleCockpitConfirm}
                     onEditPrediction={handleEdit}
+                    onViewAll={() => setIsAllPredictionsModalOpen(true)}
                   />
                 )}
               </div>
@@ -447,6 +471,120 @@ export function SpectatorPredictionsPage() {
           </motion.div>
         )}
       </main>
+
+      {/* All Predictions Modal */}
+      {isAllPredictionsModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-turf-950/80 backdrop-blur-sm"
+            onClick={() => setIsAllPredictionsModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative flex h-full max-h-[800px] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl border border-turf-700 bg-turf-900 shadow-2xl">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-turf-800 p-4 sm:p-6">
+              <div>
+                <h2 className="text-xl font-extrabold text-ivory">All Predictions</h2>
+                <p className="mt-1 text-sm font-semibold text-ivory-dim">
+                  Your complete betting history
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAllPredictionsModalOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-full bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+              <MyPredictionsList
+                predictions={myPredictions}
+                onEditPrediction={(pred) => {
+                  setIsAllPredictionsModalOpen(false);
+                  handleEdit(pred);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Streaks Modal */}
+      {isAllStreaksModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-turf-950/80 backdrop-blur-sm"
+            onClick={() => setIsAllStreaksModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative flex h-full max-h-[800px] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl border border-turf-700 bg-turf-900 shadow-2xl">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-turf-800 p-4 sm:p-6">
+              <div>
+                <h2 className="text-xl font-extrabold text-ivory">All Streaks</h2>
+                <p className="mt-1 text-sm font-semibold text-ivory-dim">
+                  Your complete streak history
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAllStreaksModalOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-full bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-4">
+              {myStreaks.length === 0 ? (
+                <p className="text-center text-sm text-turf-400">No streaks found.</p>
+              ) : (
+                [...myStreaks].sort((a, b) => b.id - a.id).map(streak => (
+                  <div key={streak.id} className="rounded-lg border border-turf-800 bg-turf-950 shadow-lg">
+                    <div className="flex items-center justify-between border-b border-turf-800 bg-turf-900 px-4 py-3">
+                      <span className="font-data text-sm font-bold text-turf-300">Ticket #{streak.id}</span>
+                      <span className={`rounded px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                        streak.status === 'WON' ? 'bg-green-500/20 text-green-400' :
+                        streak.status === 'LOST' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gold-500/20 text-gold-400'
+                      }`}>
+                        {streak.status}
+                      </span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {streak.legs.map((leg, idx) => (
+                        <div key={leg.id} className="flex items-center justify-between text-base">
+                          <span className="text-xs uppercase font-bold text-ivory-dim">Leg {idx + 1}</span>
+                          <span className="font-semibold text-ivory">{leg.predictedWinnerName}</span>
+                          <span className="font-data text-gold-300">x{leg.lockedOdds.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-turf-800 bg-turf-900/50 px-4 py-3 text-base">
+                      <div className="flex flex-col">
+                        <span className="text-xs uppercase text-ivory-dim font-bold">Wager</span>
+                        <span className="font-data font-semibold text-ivory">{streak.wagerAmount.toLocaleString()} VND</span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className="text-xs uppercase text-ivory-dim font-bold">Total Odds</span>
+                        <span className="font-data font-bold text-gold-400">x{streak.totalOdds.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ClientFooter />
     </div>

@@ -15,6 +15,7 @@ interface MyPredictionsPanelProps {
   selectedRace: OpenRacePrediction | null;
   options?: PredictionOptions | null;
   onEditPrediction: (prediction: UserPrediction) => void;
+  onViewAll: () => void;
 }
 
 const settledStatuses: PredictionStatus[] = [
@@ -107,6 +108,7 @@ export function MyPredictionsPanel({
   selectedRace,
   options,
   onEditPrediction,
+  onViewAll,
 }: MyPredictionsPanelProps) {
   const filteredPredictions = filterSlipPredictions(predictions, selectedRace);
   const scope = getPredictionScope(filteredPredictions, selectedRace);
@@ -146,7 +148,7 @@ export function MyPredictionsPanel({
                       {compactRaceTitle(prediction, selectedRace)}
                     </h3>
                     <p className="mt-2 text-[12px] font-semibold text-ivory-dim">
-                      {prediction.predictionType === "WINNER" ? "WIN - Winner" : prediction.predictionType === "HEAD_TO_HEAD" ? "H2H - Matchup Pick" : "EXACT_POSITION"}
+                      {prediction.predictionType === "WINNER" ? "WIN - Winner" : prediction.predictionType === "HEAD_TO_HEAD" ? "H2H - Matchup Pick" : `EXACT_POSITION - Pos ${prediction.predictedPosition ?? "?"}`}
                     </p>
                   </div>
                   <span
@@ -248,12 +250,12 @@ export function MyPredictionsPanel({
           <span>Total Wager</span>
           <span className="font-data font-extrabold text-gold-300">{totalEntryPoints} VND</span>
         </div>
-        <Link
-          to="/spectator/predictions"
+        <button
+          onClick={onViewAll}
           className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md bg-gold-400 px-3 text-[12px] font-extrabold text-turf-900 transition-colors hover:bg-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-900"
         >
           View All Predictions
-        </Link>
+        </button>
       </div>
     </section>
   );

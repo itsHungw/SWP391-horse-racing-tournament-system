@@ -101,10 +101,12 @@ export interface PointAccount {
 }
 
 export interface StreakPredictionLeg {
+  id?: number;
   raceId: number;
   raceName: string;
   predictedWinnerId: number;
-  horseName: string;
+  horseName?: string;
+  predictedWinnerName?: string;
   lockedOdds: number;
   status: string;
 }
