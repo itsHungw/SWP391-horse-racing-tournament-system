@@ -283,3 +283,58 @@
     background-position: 0 0;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   Scrollbar Theming
+   ════════════════════════════════════════════════════════════════ */
+
+/* Global Scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-turf-600) var(--color-turf-950);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-turf-950);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-turf-700);
+  border-radius: 5px;
+  border: 2px solid var(--color-turf-950);
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-600);
+}
+
+/* Utility class for internal scrollable elements (like PredictionSlip, Modals) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-turf-600) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-turf-600);
+  border-radius: 4px;
+  border: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-400);
+}
