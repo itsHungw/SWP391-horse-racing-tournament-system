@@ -19,7 +19,7 @@ Keep the spectator prediction sidebar compact by showing only the three newest s
 
 Extract the repeated streak ticket markup into a focused history-list component. The compact My Streaks panel and the full modal both use this component so status colors, leg details, wager, and total odds remain identical.
 
-The parent spectator page owns sorting and modal visibility, following the existing View All Predictions pattern. `StreakSlip` receives only the three newest streaks, a `hasMoreStreaks` flag, and an `onViewAllStreaks` callback. The full modal receives the complete sorted list.
+The parent spectator page owns sorting and modal visibility, following the existing View All Predictions pattern. `StreakSlip` receives only the three newest streaks, the total streak count for its badge, a `hasMoreStreaks` flag, and an `onViewAllStreaks` callback. The full modal receives the complete sorted list.
 
 A small pure utility sorts streaks without mutating API state. This keeps ordering deterministic and straightforward to test.
 
