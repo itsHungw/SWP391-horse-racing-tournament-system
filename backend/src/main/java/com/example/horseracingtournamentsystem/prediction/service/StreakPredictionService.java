@@ -89,7 +89,7 @@ public class StreakPredictionService {
             .status(StreakPredictionStatus.PENDING)
             .build();
 
-        BigDecimal totalOdds = BigDecimal.ONE;
+        BigDecimal totalOdds = BigDecimal.ZERO;
 
         for (StreakPredictionLegRequest legReq : request.getLegs()) {
             Race race = raceRepository.findById(legReq.getRaceId())
@@ -120,10 +120,16 @@ public class StreakPredictionService {
             }
 
             if (legOdds.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalStateException("Failed to calculate odds for participant");
+                boolean containsParticipant = matrix.containsKey(participant.getId());
+                boolean containsPos = containsParticipant ? matrix.get(participant.getId()).containsKey(1) : false;
+                throw new IllegalStateException(
+                    String.format("Failed to calculate odds for participant %d. Race %d. " +
+                        "Participant in matrix: %s, Pos1 in matrix: %s",
+                        participant.getId(), race.getId(), containsParticipant, containsPos)
+                );
             }
 
-            totalOdds = totalOdds.multiply(legOdds);
+            totalOdds = totalOdds.add(legOdds);
 
             StreakPredictionLeg leg = StreakPredictionLeg.builder()
                 .race(race)
@@ -146,7 +152,7 @@ public class StreakPredictionService {
 
         pointsService.adjustPoints(
             spectator, -request.getWagerAmount(), PointTransactionType.PREDICTION_ENTRY,
-            PointTransaction.REF_RACE_PREDICTION, saved.getId(), // Reusing the ref enum
+            PointTransaction.REF_STREAK_PREDICTION, saved.getId(),
             "Deducted " + request.getWagerAmount() + " points for streak prediction #" + saved.getId()
         );
 
