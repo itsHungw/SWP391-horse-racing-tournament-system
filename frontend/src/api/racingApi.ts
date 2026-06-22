@@ -22,6 +22,7 @@ import type {
   PublicRacingSummary,
   Race,
   RacePayload,
+  RaceParticipant,
   RaceSummary,
   Tournament,
   TournamentSummary,
@@ -537,6 +538,16 @@ export async function confirmOrganizerRaceResults(id: number): Promise<Race> {
 
 export async function publishOrganizerRaceResults(id: number): Promise<Race> {
   const response = await httpClient.post<Race>(`/organizer/races/${id}/publish-results`);
+  return response.data;
+}
+
+export async function reopenOrganizerRaceResults(id: number, reason: string): Promise<Race> {
+  const response = await httpClient.post<Race>(`/organizer/races/${id}/reopen-results`, { reason });
+  return response.data;
+}
+
+export async function getOrganizerRaceParticipants(raceId: number): Promise<RaceParticipant[]> {
+  const response = await httpClient.get<RaceParticipant[]>(`/organizer/races/${raceId}/participants`);
   return response.data;
 }
 

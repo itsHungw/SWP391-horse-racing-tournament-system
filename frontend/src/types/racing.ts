@@ -392,6 +392,22 @@ export type TournamentParticipant = {
   updatedAt?: string;
 };
 
+export type RaceParticipant = {
+  id: number;
+  raceId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId?: number | null;
+  jockeyName?: string | null;
+  startNumber?: number | null;
+  laneNumber?: number | null;
+  confirmationStatus?: string;
+  checkStatus?: string;
+  status: string;
+};
+
 export type JockeyScheduleItem = {
   raceParticipantId: number;
   raceId: number;
