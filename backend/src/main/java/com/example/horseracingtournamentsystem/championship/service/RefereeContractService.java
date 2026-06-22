@@ -6,6 +6,7 @@ import com.example.horseracingtournamentsystem.championship.dto.response.Referee
 import com.example.horseracingtournamentsystem.championship.entity.RefereeContract;
 import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
 import com.example.horseracingtournamentsystem.organization.entity.Organization;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -13,6 +14,7 @@ import com.example.horseracingtournamentsystem.user.entity.RefereeProfile;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.RefereeProfileRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -33,17 +35,19 @@ public class RefereeContractService {
     private static final String REFEREE_ROLE = "REFEREE";
     private static final List<String> ACTIVE_INVITE_STATUSES =
             List.of(RefereeContract.STATUS_PENDING, RefereeContract.STATUS_ACTIVE);
-    private static final Set<String> UPCOMING_RACE_STATUSES = Set.of("SCHEDULED");
+    private static final Set<RaceStatus> UPCOMING_RACE_STATUSES = Set.of(RaceStatus.SCHEDULED);
 
     private final RefereeContractRepository refereeContractRepository;
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
     private final RaceRepository raceRepository;
     private final RefereeProfileRepository refereeProfileRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public RefereeContractResponse invite(String organizerEmail, Long tournamentId, InviteRefereeRequest request) {
         Tournament tournament = requireManagedTournament(tournamentId, organizerEmail);
+        tournament.assertOrganizationOperational();
         User inviter = userRepository.findByEmail(organizerEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
@@ -63,7 +67,11 @@ public class RefereeContractService {
 
         RefereeContract contract = RefereeContract.invite(
                 tournament, referee, inviter, normalize(request.agreementUrl()), normalize(request.message()));
-        return RefereeContractResponse.from(refereeContractRepository.save(contract));
+        RefereeContract saved = refereeContractRepository.save(contract);
+        notificationService.notify(referee, "REFEREE_INVITED", "New refereeing invitation",
+                "You’ve been invited to officiate “" + tournament.getName() + "”.",
+                "TOURNAMENT", tournament.getId());
+        return RefereeContractResponse.from(saved);
     }
 
     public List<RefereeContractResponse> listForTournament(String organizerEmail, Long tournamentId) {
@@ -97,21 +105,31 @@ public class RefereeContractService {
     public RefereeContractResponse accept(Long contractId, String refereeEmail) {
         RefereeContract contract = getForReferee(contractId, refereeEmail);
         contract.accept(refereeEmail);
-        return RefereeContractResponse.from(refereeContractRepository.save(contract));
+        RefereeContract saved = refereeContractRepository.save(contract);
+        notificationService.notify(contract.getInvitedBy(), "CONTRACT_ACCEPTED", "Referee accepted",
+                contract.getReferee().getFullName() + " accepted your invitation for “"
+                        + contract.getTournament().getName() + "”.",
+                "TOURNAMENT", contract.getTournament().getId());
+        return RefereeContractResponse.from(saved);
     }
 
     @Transactional
     public RefereeContractResponse decline(Long contractId, String refereeEmail, String reason) {
         RefereeContract contract = getForReferee(contractId, refereeEmail);
         contract.decline(refereeEmail, normalize(reason));
-        return RefereeContractResponse.from(refereeContractRepository.save(contract));
+        RefereeContract saved = refereeContractRepository.save(contract);
+        notificationService.notify(contract.getInvitedBy(), "CONTRACT_DECLINED", "Referee declined",
+                contract.getReferee().getFullName() + " declined your invitation for “"
+                        + contract.getTournament().getName() + "”.",
+                "TOURNAMENT", contract.getTournament().getId());
+        return RefereeContractResponse.from(saved);
     }
 
     @Transactional
     public RefereeContractResponse terminate(Long contractId, String organizerEmail, String reason) {
         RefereeContract contract = refereeContractRepository.findById(contractId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Contract not found"));
-        requireManagedTournament(contract.getTournament().getId(), organizerEmail);
+        requireManagedTournament(contract.getTournament().getId(), organizerEmail).assertOrganizationOperational();
         User actor = userRepository.findByEmail(organizerEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
@@ -127,7 +145,11 @@ public class RefereeContractService {
                     raceRepository.save(race);
                 });
 
-        return RefereeContractResponse.from(refereeContractRepository.save(contract));
+        RefereeContract saved = refereeContractRepository.save(contract);
+        notificationService.notify(contract.getReferee(), "CONTRACT_TERMINATED", "Contract ended",
+                "Your contract for “" + contract.getTournament().getName() + "” was terminated.",
+                "TOURNAMENT", contract.getTournament().getId());
+        return RefereeContractResponse.from(saved);
     }
 
     private Tournament requireManagedTournament(Long tournamentId, String organizerEmail) {

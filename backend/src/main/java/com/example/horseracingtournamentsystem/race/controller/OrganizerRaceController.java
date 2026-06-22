@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.race.controller;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
+import com.example.horseracingtournamentsystem.race.dto.request.ReopenResultsRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
@@ -81,6 +82,15 @@ public class OrganizerRaceController {
     @PostMapping("/{id}/confirm-results")
     public RaceResponse confirmResults(@PathVariable Long id, Authentication authentication) {
         return raceService.confirmRaceResults(id, authentication.getName());
+    }
+
+    @PostMapping("/{id}/reopen-results")
+    public RaceResponse reopenResults(
+            @PathVariable Long id,
+            @Valid @RequestBody ReopenResultsRequest request,
+            Authentication authentication
+    ) {
+        return raceService.reopenResultsForOrganizer(id, authentication.getName(), request.reason());
     }
 
     @PostMapping("/{id}/publish-results")

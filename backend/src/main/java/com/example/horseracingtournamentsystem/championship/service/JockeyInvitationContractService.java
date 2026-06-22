@@ -152,7 +152,7 @@ public class JockeyInvitationContractService {
 
     @Transactional
     public LockParticipantsResponse lockParticipantsForOrganizer(Long championshipId, String organizerEmail) {
-        requireOwnedTournament(championshipId, organizerEmail);
+        requireOwnedTournament(championshipId, organizerEmail).assertOrganizationOperational();
         return lockParticipants(championshipId);
     }
 
