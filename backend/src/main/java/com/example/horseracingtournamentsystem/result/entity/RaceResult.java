@@ -155,6 +155,30 @@ public class RaceResult {
         }
     }
 
+    /** BR-16: Ban tổ chức (hoặc admin khi tranh chấp) chốt kết quả referee đã nộp. */
+    public void confirm(User confirmer) {
+        this.status = ResultRecordStatus.CONFIRMED;
+        this.confirmedBy = confirmer;
+        this.confirmedAt = LocalDateTime.now();
+        this.updatedAt = this.confirmedAt;
+    }
+
+    /** Lên bảng chính thức: kết quả đã chốt -> công khai cho khán giả + cộng điểm standings. */
+    public void publish() {
+        this.status = ResultRecordStatus.PUBLISHED;
+        this.publishedAt = LocalDateTime.now();
+        this.updatedAt = this.publishedAt;
+    }
+
+    /**
+     * Trả về để referee sửa (chỉ khi CHƯA confirm): ghi lý do vào note để referee biết vì sao
+     * bị trả lại, giữ nguyên trạng thái SUBMITTED. KHÔNG đụng điểm/settlement vì chưa phát sinh.
+     */
+    public void markReopened(String reason) {
+        this.note = reason;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public Long getRaceId() {
         return race.getId();
     }

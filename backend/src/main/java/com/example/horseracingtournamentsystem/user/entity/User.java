@@ -30,8 +30,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
-
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
@@ -134,6 +132,17 @@ public class User {
         LocalDateTime now = LocalDateTime.now();
         this.lastLoginAt = now;
         this.updatedAt = now;
+    }
+
+    /** Đình chỉ tài khoản (BR-10/BR-13). CustomUserDetailsService chặn login/authz khi status != ACTIVE. */
+    public void suspend() {
+        this.status = UserStatus.SUSPENDED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void reactivate() {
+        this.status = UserStatus.ACTIVE;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public Set<String> getActiveRoleNames() {

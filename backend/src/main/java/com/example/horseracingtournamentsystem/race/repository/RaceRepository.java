@@ -136,4 +136,22 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
 
     @Query(value = "SELECT COUNT(DISTINCT CAST(race_at AS DATE)) FROM races WHERE deleted_at IS NULL", nativeQuery = true)
     long countDistinctRaceDays();
+
+    List<Race> findAllByTournamentIdAndRefereeIdAndDeletedAtIsNull(Long tournamentId, Long refereeId);
+
+    // BR-12: đếm race khác mà referee đã được gán quanh khung giờ này (±cửa sổ) để chặn trùng lịch.
+    @Query("""
+            SELECT COUNT(r) FROM Race r
+            WHERE r.referee.id = :refereeId
+              AND r.id <> :raceId
+              AND r.deletedAt IS NULL
+              AND r.status <> 'CANCELLED'
+              AND r.raceAt BETWEEN :from AND :to
+            """)
+    long countRefereeScheduleConflicts(
+            @Param("refereeId") Long refereeId,
+            @Param("raceId") Long raceId,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to
+    );
 }

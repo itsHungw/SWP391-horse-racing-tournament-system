@@ -2,21 +2,19 @@
     HORSE RACING TOURNAMENT SYSTEM - FULL DEMO DATA
     SQL Server
 
-    Dữ liệu chính:
-    - 01 ADMIN
-    - 01 REFEREE
-    - 01 SPECTATOR
-    - 08 HORSE_OWNER
-    - 08 JOCKEY
-    - Mỗi owner có đúng 01 horse
-    - 02 tournaments
-    - Mỗi tournament có 08 tournament participants
-    - Mỗi tournament có 08 races
-    - Mỗi race có đủ 08 race participants
-    - Tournament dùng status = SCHEDULE_PUBLISHED; Race dùng status = SCHEDULED
+    Dữ liệu chính (lifecycle tiêu biểu — đã đồng bộ với enum sau merge):
+    - 01 ADMIN, 01 REFEREE, 01 SPECTATOR, 08 HORSE_OWNER, 08 JOCKEY
+    - 04 ORGANIZER + 03 user trạng thái khác (SUSPENDED / BANNED / PENDING_EMAIL_VERIFY)
+    - 04 organizations (ACTIVE / PENDING / SUSPENDED / REJECTED)
+    - 02 giải chính (8 owner-horse-jockey, 8 race) + 07 giải phủ các pha
+      (DRAFT / PENDING_APPROVAL / APPROVED / OPEN_REGISTRATION / ONGOING / COMPLETED / POSTPONED)
+    - referee_contracts đủ PENDING / ACTIVE / DECLINED / TERMINATED
+    - role_requests đủ PENDING / APPROVED / REJECTED / CANCELLED
+    - Race 1 của giải A đã PUBLISHED: race_results + referee_report + pre_race_checks
+      + violation + prediction_settlement_job + dự đoán đã chấm (CORRECT / INCORRECT)
 
     Mật khẩu mẫu cho toàn bộ tài khoản:
-    BCrypt: $2a$10$w81.mS.iJ5d3iXbN8/3Y.eml8yO./c1N2.h3nN5x/6Z.K1Z/O5Y7S
+    BCrypt: $2a$12$SIzd3JpjQSPzLKmp3u30cOylqxatSJmktQ5YVwOCN9cxSRV.8gHkW
 
     LƯU Ý:
     - Chạy file schema tạo bảng trước, sau đó mới chạy script này.
@@ -30,7 +28,7 @@ BEGIN TRY
     BEGIN TRANSACTION;
 
     DECLARE @Now DATETIME2(7) = SYSDATETIME();
-    DECLARE @PasswordHash VARCHAR(255) = '$2a$10$w81.mS.iJ5d3iXbN8/3Y.eml8yO./c1N2.h3nN5x/6Z.K1Z/O5Y7S';
+    DECLARE @PasswordHash VARCHAR(255) = '$2a$12$SIzd3JpjQSPzLKmp3u30cOylqxatSJmktQ5YVwOCN9cxSRV.8gHkW';
 
     /* ================================================================
        1. ROLES
@@ -42,7 +40,8 @@ BEGIN TRY
         ('HORSE_OWNER', 'Horse owner'),
         ('JOCKEY',      'Jockey'),
         ('REFEREE',     'Race referee'),
-        ('SPECTATOR',   'Spectator')
+        ('SPECTATOR',   'Spectator'),
+        ('ORGANIZER',   'Organizer')
     ) v(name, description)
     WHERE NOT EXISTS (
         SELECT 1 FROM roles r WHERE r.name = v.name
@@ -77,7 +76,15 @@ BEGIN TRY
     (1, '1994-05-15', 1, 1, 1, @Now, @Now, 'MALE',   '0923000005', 'ACTIVE', 'jockey5@gmail.com', N'Ethan Brooks',   NULL, N'Newmarket, United Kingdom', @PasswordHash),
     (1, '1999-06-16', 1, 1, 1, @Now, @Now, 'FEMALE', '0923000006', 'ACTIVE', 'jockey6@gmail.com', N'Ava Richardson', NULL, N'Newmarket, United Kingdom', @PasswordHash),
     (1, '1993-07-17', 1, 1, 1, @Now, @Now, 'MALE',   '0923000007', 'ACTIVE', 'jockey7@gmail.com', N'Lucas Morgan', NULL, N'Newmarket, United Kingdom', @PasswordHash),
-    (1, '1996-08-18', 1, 1, 1, @Now, @Now, 'FEMALE', '0923000008', 'ACTIVE', 'jockey8@gmail.com', N'Mia Thompson',   NULL, N'Newmarket, United Kingdom', @PasswordHash);
+    (1, '1996-08-18', 1, 1, 1, @Now, @Now, 'FEMALE', '0923000008', 'ACTIVE', 'jockey8@gmail.com', N'Mia Thompson',   NULL, N'Newmarket, United Kingdom', @PasswordHash),
+
+    (1, '1979-03-10', 1, 1, 1, @Now, @Now, 'MALE',   '0934000001', 'ACTIVE',               'organizer1@horseracing.com', N'Reginald Pembroke', NULL, N'Ascot, United Kingdom',     @PasswordHash),
+    (1, '1983-06-22', 1, 1, 1, @Now, @Now, 'FEMALE', '0934000002', 'ACTIVE',               'organizer2@horseracing.com', N'Beatrice Langford',  NULL, N'Chantilly, France',         @PasswordHash),
+    (1, '1975-11-05', 1, 1, 1, @Now, @Now, 'MALE',   '0934000003', 'ACTIVE',               'organizer3@horseracing.com', N'Cornelius Vane',     NULL, N'Dublin, Ireland',           @PasswordHash),
+    (1, '1981-08-19', 1, 1, 1, @Now, @Now, 'FEMALE', '0934000004', 'ACTIVE',               'organizer4@horseracing.com', N'Lavinia Cross',      NULL, N'Milan, Italy',              @PasswordHash),
+    (1, '1992-02-02', 1, 1, 1, @Now, @Now, 'MALE',   '0945000001', 'SUSPENDED',            'suspended@horseracing.com',  N'Marcus Doyle',       NULL, N'Leeds, United Kingdom',     @PasswordHash),
+    (1, '1990-07-07', 1, 1, 1, @Now, @Now, 'FEMALE', '0945000002', 'BANNED',               'banned@horseracing.com',     N'Frances Webb',       NULL, N'Cardiff, Wales',            @PasswordHash),
+    (0, '2001-12-01', 0, 0, 0, @Now, @Now, 'MALE',   '0945000003', 'PENDING_EMAIL_VERIFY', 'pending@horseracing.com',    N'Toby Fenwick',       NULL, N'Bristol, United Kingdom',   @PasswordHash);
 
     DECLARE @AdminId BIGINT = (SELECT id FROM users WHERE email = 'admin@horseracing.com');
     DECLARE @RefereeId BIGINT = (SELECT id FROM users WHERE email = 'referee@horseracing.com');
@@ -119,7 +126,7 @@ BEGIN TRY
         @Now,
         p.owner_id,
         u.phone,
-        'ACTIVE',
+        'APPROVED',
         CONCAT('OWNER-LIC-', RIGHT('00' + CAST(p.rn AS VARCHAR(2)), 2)),
         u.email,
         CASE p.rn WHEN 1 THEN N'Sterling Crown Racing' WHEN 2 THEN N'Beaumont Equestrian' WHEN 3 THEN N'Harrington Thoroughbreds' WHEN 4 THEN N'Montgomery Racing Club' WHEN 5 THEN N'Caldwell Bloodstock' WHEN 6 THEN N'Sinclair Elite Racing' WHEN 7 THEN N'Kingsley Heritage Stud' ELSE N'Ashford Grand Racing' END,
@@ -588,6 +595,188 @@ BEGIN TRY
     FROM race_predictions
     WHERE spectator_id = @SpectatorId
       AND race_id = @FirstRaceId;
+
+    /* ================================================================
+       15. ORGANIZER LAYER — user_roles, organizations, gắn giải vào tổ chức
+       ================================================================ */
+    DECLARE @Org1Owner BIGINT = (SELECT id FROM users WHERE email = 'organizer1@horseracing.com');
+    DECLARE @Org2Owner BIGINT = (SELECT id FROM users WHERE email = 'organizer2@horseracing.com');
+    DECLARE @Org3Owner BIGINT = (SELECT id FROM users WHERE email = 'organizer3@horseracing.com');
+    DECLARE @Org4Owner BIGINT = (SELECT id FROM users WHERE email = 'organizer4@horseracing.com');
+
+    INSERT INTO user_roles(user_id, role_id, status, assigned_at, assigned_by)
+    SELECT u.id, r.id, 'ACTIVE', @Now, @AdminId
+    FROM users u
+    JOIN roles r ON r.name = 'ORGANIZER'
+    WHERE u.email LIKE 'organizer%@horseracing.com';
+
+    INSERT INTO user_roles(user_id, role_id, status, assigned_at, assigned_by)
+    SELECT u.id, r.id, 'ACTIVE', @Now, @AdminId
+    FROM users u
+    JOIN roles r ON r.name = 'SPECTATOR'
+    WHERE u.email IN ('suspended@horseracing.com', 'banned@horseracing.com', 'pending@horseracing.com');
+
+    INSERT INTO organizations(
+        owner_user_id, approved_by, created_at, updated_at, approved_at, deleted_at,
+        status, code, name, license_number, contact_email, contact_phone,
+        logo_url, evidence_url, description, application_note, rejection_reason
+    )
+    VALUES
+    (@Org1Owner, @AdminId, @Now, @Now, @Now, NULL, 'ACTIVE',    'ORG-ROYAL',       N'Royal Racing Club',        'ORG-LIC-001', 'club@royalracing.com',    '0934000001', '/images/orgs/royal.png',       '/uploads/orgs/royal-kyb.pdf',       N'Premier UK organizer running flagship championships.', N'KYB documents verified.',          NULL),
+    (@Org2Owner, NULL,     @Now, @Now, NULL,  NULL, 'PENDING',   'ORG-CONTINENTAL', N'Continental Turf Society', 'ORG-LIC-002', 'info@continentalturf.eu', '0934000002', '/images/orgs/continental.png', '/uploads/orgs/continental-kyb.pdf', N'Awaiting platform onboarding approval.',               N'Submitted for review, pending KYB.', NULL),
+    (@Org3Owner, @AdminId, @Now, @Now, @Now,  NULL, 'SUSPENDED', 'ORG-EMERALD',     N'Emerald Isle Racing',      'ORG-LIC-003', 'ops@emeraldracing.ie',    '0934000003', '/images/orgs/emerald.png',     '/uploads/orgs/emerald-kyb.pdf',     N'Suspended pending compliance review.',                 N'Approved then suspended for audit.', NULL),
+    (@Org4Owner, @AdminId, @Now, @Now, NULL,  NULL, 'REJECTED',  'ORG-MERIDIAN',    N'Meridian Equestrian',      NULL,          'hello@meridianeq.it',     '0934000004', NULL,                           '/uploads/orgs/meridian-kyb.pdf',    N'Application rejected.',                                 N'Incomplete KYB submission.',         N'License number could not be verified.');
+
+    DECLARE @ActiveOrgId BIGINT = (SELECT id FROM organizations WHERE code = 'ORG-ROYAL');
+
+    UPDATE tournaments
+    SET organization_id = @ActiveOrgId,
+        created_by      = @Org1Owner,
+        approved_by     = @AdminId,
+        approved_at     = @Now,
+        updated_at      = @Now
+    WHERE code IN ('HRT-CHAMPIONSHIP-2026-A', 'HRT-CHAMPIONSHIP-2026-B');
+
+    /* ----- 7 giải shell phủ đủ các pha vòng đời (thuộc tổ chức ACTIVE) ----- */
+    INSERT INTO tournaments(
+        end_date, max_horses, max_horses_per_owner, start_date, created_at, created_by,
+        registration_end_at, registration_start_at, updated_at, status, code, name,
+        description, location, organization_id, approved_by, approved_at, rejection_reason
+    )
+    VALUES
+    (DATEADD(DAY, 70, CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, 40, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, 30, @Now),  DATEADD(DAY, 10, @Now),  @Now, 'DRAFT',             'HRT-LC-DRAFT',     N'Spring Maiden Trophy (Draft)',          N'Draft tournament still being prepared by the organizer.',     N'Newmarket Racecourse, United Kingdom', @ActiveOrgId, NULL,     NULL,  NULL),
+    (DATEADD(DAY, 75, CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, 45, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, 35, @Now),  DATEADD(DAY, 12, @Now),  @Now, 'PENDING_APPROVAL',  'HRT-LC-PENDING',   N'Summer Distance Cup (Pending Approval)', N'Submitted to admin for launch approval (Cong 2 / BR-17).',     N'Ascot Racecourse, United Kingdom',     @ActiveOrgId, NULL,     NULL,  NULL),
+    (DATEADD(DAY, 80, CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, 50, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, 40, @Now),  DATEADD(DAY, 14, @Now),  @Now, 'APPROVED',          'HRT-LC-APPROVED',  N'Autumn Sprint Series (Approved)',        N'Approved by admin, organizer about to open registration.',    N'York Racecourse, United Kingdom',      @ActiveOrgId, @AdminId, @Now, NULL),
+    (DATEADD(DAY, 50, CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, 20, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, 10, @Now),  DATEADD(DAY, -2, @Now),  @Now, 'OPEN_REGISTRATION', 'HRT-LC-OPEN',      N'Winter Classic (Open Registration)',     N'Registration window currently open for owners and jockeys.',  N'Chantilly Racecourse, France',         @ActiveOrgId, @AdminId, @Now, NULL),
+    (DATEADD(DAY, 8,  CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, -6, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, -12, @Now), DATEADD(DAY, -25, @Now), @Now, 'ONGOING',           'HRT-LC-ONGOING',   N'Grand Prix Championship (Ongoing)',      N'Championship currently in progress.',                         N'Longchamp Racecourse, France',         @ActiveOrgId, @AdminId, @Now, NULL),
+    (DATEADD(DAY, -10, CAST(GETDATE() AS DATE)),8, 1, DATEADD(DAY, -40, CAST(GETDATE() AS DATE)), @Now, @Org1Owner, DATEADD(DAY, -45, @Now), DATEADD(DAY, -60, @Now), @Now, 'COMPLETED',         'HRT-LC-COMPLETED', N'Heritage Gold Cup (Completed)',          N'Concluded championship retained for history.',                N'Newmarket Racecourse, United Kingdom', @ActiveOrgId, @AdminId, @Now, NULL),
+    (DATEADD(DAY, 90, CAST(GETDATE() AS DATE)), 8, 1, DATEADD(DAY, 60, CAST(GETDATE() AS DATE)),  @Now, @Org1Owner, DATEADD(DAY, 50, @Now),  DATEADD(DAY, 20, @Now),  @Now, 'POSTPONED',         'HRT-LC-POSTPONED', N'Coastal Invitational (Postponed)',       N'Postponed due to scheduling.',                                N'Deauville Racecourse, France',         @ActiveOrgId, @AdminId, @Now, NULL);
+
+    /* ----- referee_contracts: đủ PENDING / ACTIVE / DECLINED / TERMINATED ----- */
+    DECLARE @TournA     BIGINT = (SELECT id FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-A');
+    DECLARE @TournB     BIGINT = (SELECT id FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-B');
+    DECLARE @LcApproved BIGINT = (SELECT id FROM tournaments WHERE code = 'HRT-LC-APPROVED');
+    DECLARE @LcOpen     BIGINT = (SELECT id FROM tournaments WHERE code = 'HRT-LC-OPEN');
+    DECLARE @LcOngoing  BIGINT = (SELECT id FROM tournaments WHERE code = 'HRT-LC-ONGOING');
+
+    INSERT INTO referee_contracts(
+        tournament_id, referee_id, invited_by, terminated_by, created_at, updated_at,
+        responded_at, terminated_at, status, agreement_url, reason
+    )
+    VALUES
+    (@TournA,     @RefereeId, @Org1Owner, NULL,       @Now, @Now, @Now, NULL, 'ACTIVE',     '/uploads/contracts/ref-tourn-a.pdf', N'Season-long officiating contract.'),
+    (@TournB,     @RefereeId, @Org1Owner, NULL,       @Now, @Now, @Now, NULL, 'ACTIVE',     '/uploads/contracts/ref-tourn-b.pdf', N'Season-long officiating contract.'),
+    (@LcApproved, @RefereeId, @Org1Owner, NULL,       @Now, @Now, NULL, NULL, 'PENDING',    NULL,                                 N'Invitation awaiting referee response.'),
+    (@LcOpen,     @RefereeId, @Org1Owner, NULL,       @Now, @Now, @Now, NULL, 'DECLINED',   NULL,                                 N'Referee declined due to a schedule conflict.'),
+    (@LcOngoing,  @RefereeId, @Org1Owner, @Org1Owner, @Now, @Now, @Now, @Now, 'TERMINATED', '/uploads/contracts/ref-ongoing.pdf', N'Contract terminated mid-season by the organizer.');
+
+    /* ================================================================
+       16. ROLE REQUESTS — đủ PENDING / APPROVED / REJECTED / CANCELLED
+       ================================================================ */
+    INSERT INTO role_requests(
+        created_at, cv_reviewed_at, cv_reviewed_by, reviewed_at, reviewed_by, updated_at,
+        user_id, cv_review_status, status, requested_role, resume_url, admin_note, cv_review_note, reason
+    )
+    VALUES
+    (@Now, NULL, NULL,     NULL, NULL,     @Now, @SpectatorId,                                                       'NOT_REVIEWED', 'PENDING',   'JOCKEY',      '/uploads/cv/spectator-jockey.pdf', NULL,                                       NULL,            N'I would like to compete as a jockey.'),
+    (@Now, @Now, @AdminId, @Now, @AdminId, @Now, (SELECT id FROM users WHERE email = 'suspended@horseracing.com'),   'PASSED',       'APPROVED',  'HORSE_OWNER', '/uploads/cv/owner-request.pdf',    N'Approved by admin.',                      N'CV verified.', N'Requesting horse owner privileges.'),
+    (@Now, NULL, NULL,     @Now, @AdminId, @Now, (SELECT id FROM users WHERE email = 'banned@horseracing.com'),      'NOT_REVIEWED', 'REJECTED',  'REFEREE',     '/uploads/cv/referee-request.pdf',  N'Rejected: insufficient certification.',   NULL,            N'Requesting referee licensing.'),
+    (@Now, NULL, NULL,     NULL, NULL,     @Now, (SELECT id FROM users WHERE email = 'pending@horseracing.com'),     'NOT_REVIEWED', 'CANCELLED', 'JOCKEY',      NULL,                               NULL,                                       NULL,            N'Withdrew the application.');
+
+    /* ================================================================
+       17. RESULTS SHOWCASE — Race 1 của giải A đã PUBLISHED
+       (race_results + referee_report + pre_race_checks + violation +
+        settlement job + dự đoán đã chấm CORRECT/INCORRECT + standings)
+       ================================================================ */
+    UPDATE races       SET status = 'PUBLISHED', updated_at = @Now WHERE id = @FirstRaceId;
+    UPDATE tournaments SET status = 'ONGOING',   updated_at = @Now WHERE code = 'HRT-CHAMPIONSHIP-2026-A';
+
+    INSERT INTO race_results(
+        finish_time_seconds, penalty_seconds, points, position, prize_points,
+        raw_finish_time_seconds, confirmed_at, confirmed_by, created_at, participant_id,
+        published_at, race_id, submitted_at, submitted_by, updated_at,
+        result_status, status, note
+    )
+    SELECT
+        CAST(70 + x.position AS NUMERIC(10,3)),
+        0,
+        x.points,
+        x.position,
+        CASE x.position WHEN 1 THEN 1000 WHEN 2 THEN 600 WHEN 3 THEN 300 ELSE 0 END,
+        CAST(70 + x.position AS NUMERIC(10,3)),
+        @Now, @AdminId, @Now, x.id, @Now, @FirstRaceId, @Now, @RefereeId, @Now,
+        'FINISHED', 'PUBLISHED', N'Official published result.'
+    FROM (
+        SELECT rp.id,
+               CASE rp.lane_number WHEN 2 THEN 3 WHEN 3 THEN 2 ELSE rp.lane_number END AS position,
+               CASE (CASE rp.lane_number WHEN 2 THEN 3 WHEN 3 THEN 2 ELSE rp.lane_number END)
+                    WHEN 1 THEN 25 WHEN 2 THEN 18 WHEN 3 THEN 15 WHEN 4 THEN 12
+                    WHEN 5 THEN 10 WHEN 6 THEN 8  WHEN 7 THEN 6  ELSE 4 END AS points
+        FROM race_participants rp
+        WHERE rp.race_id = @FirstRaceId
+    ) x;
+
+    INSERT INTO referee_reports(
+        confirmed_at, confirmed_by, created_at, race_id, referee_id, submitted_at,
+        updated_at, status, title, ai_summary, rejection_reason, summary
+    )
+    VALUES(
+        @Now, @AdminId, @Now, @FirstRaceId, @RefereeId, @Now, @Now, 'CONFIRMED',
+        N'Round 1 Official Report', N'Clean race; one minor crowding incident.', NULL,
+        N'All eight runners completed. Result confirmed and published.'
+    );
+
+    INSERT INTO pre_race_checks(
+        equipment_ok, health_ok, horse_identity_ok, jockey_identity_ok, weight_ok,
+        checked_at, created_at, participant_id, race_id, referee_id, result, note
+    )
+    SELECT 1, 1, 1, 1, 1, @Now, @Now, rp.id, @FirstRaceId, @RefereeId, 'PASSED', N'Pre-race inspection passed.'
+    FROM race_participants rp
+    WHERE rp.race_id = @FirstRaceId;
+
+    INSERT INTO violations(
+        created_at, occurred_at, participant_id, race_id, reported_by, updated_at,
+        severity, violation_type, penalty, description
+    )
+    SELECT TOP 1 @Now, @Now, rp.id, @FirstRaceId, @RefereeId, @Now,
+        'MINOR', N'CROWDING', N'Official warning', N'Minor crowding on the final bend; warning issued.'
+    FROM race_participants rp
+    WHERE rp.race_id = @FirstRaceId
+    ORDER BY rp.lane_number;
+
+    INSERT INTO prediction_settlement_jobs(
+        failed_count, processed_count, retry_count, rewarded_count, completed_at,
+        created_at, race_id, started_at, updated_at, status, error_message
+    )
+    VALUES(0, 2, 0, 1, @Now, @Now, @FirstRaceId, @Now, @Now, 'COMPLETED', NULL);
+
+    UPDATE race_predictions
+    SET status = 'CORRECT', reward_points = 50, evaluated_at = @Now, locked_at = @Now, updated_at = @Now
+    WHERE race_id = @FirstRaceId AND prediction_type = 'WINNER';
+
+    UPDATE race_predictions
+    SET status = 'INCORRECT', reward_points = 0, evaluated_at = @Now, locked_at = @Now, updated_at = @Now
+    WHERE race_id = @FirstRaceId AND prediction_type = 'TOP3';
+
+    UPDATE user_point_accounts
+    SET point_balance = point_balance + 50, updated_at = @Now
+    WHERE user_id = @SpectatorId;
+
+    INSERT INTO point_transactions(
+        amount, created_at, reference_id, user_id, reference_type, transaction_type, description
+    )
+    SELECT 50, @Now, id, @SpectatorId, 'RACE_PREDICTION', 'PREDICTION_REWARD',
+        N'Winner prediction reward for the published race.'
+    FROM race_predictions
+    WHERE race_id = @FirstRaceId AND prediction_type = 'WINNER';
+
+    UPDATE tp
+    SET points = rr.points, updated_at = @Now
+    FROM tournament_participants tp
+    JOIN race_participants rp
+      ON rp.horse_id = tp.horse_id AND rp.jockey_id = tp.jockey_id AND rp.race_id = @FirstRaceId
+    JOIN race_results rr ON rr.participant_id = rp.id
+    WHERE tp.tournament_id = @TournA;
 
     COMMIT TRANSACTION;
 

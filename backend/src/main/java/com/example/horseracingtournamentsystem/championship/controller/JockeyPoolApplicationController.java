@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "08 · Jockey · Pool application", description = "Jockey applies to a tournament's jockey pool.")
 public class JockeyPoolApplicationController {
 
     private final JockeyPoolApplicationService applicationService;

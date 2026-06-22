@@ -16,8 +16,20 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ProfilePage } from "../pages/user/ProfilePage";
 import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
+import { OrganizerLayout } from "../layouts/OrganizerLayout";
+import { OrganizerRegisterPage } from "../pages/organizer/OrganizerRegisterPage";
+import { OrganizerDashboardPage } from "../pages/organizer/OrganizerDashboardPage";
+import { OrganizerTournamentsPage } from "../pages/organizer/OrganizerTournamentsPage";
+import { OrganizerTournamentFormPage } from "../pages/organizer/OrganizerTournamentFormPage";
+import { OrganizerOfficialsPage } from "../pages/organizer/OrganizerOfficialsPage";
+import { OrganizerRegistrationsPage } from "../pages/organizer/OrganizerRegistrationsPage";
+import { OrganizerSchedulePage } from "../pages/organizer/OrganizerSchedulePage";
+import { OrganizerResultsPage } from "../pages/organizer/OrganizerResultsPage";
+import { OrganizerProfilePage } from "../pages/organizer/OrganizerProfilePage";
+import { OrganizerOrganizationPage } from "../pages/organizer/OrganizerOrganizationPage";
 import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage";
 import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWorkspace";
+import { AdminOrganizationsPage } from "../pages/admin/AdminOrganizationsPage";
 import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
 import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
 import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
@@ -53,6 +65,7 @@ import { RefereeOfficiatePage } from "../pages/referee/RefereeOfficiatePage";
 import { RefereeResultHistoryPage } from "../pages/referee/RefereeResultHistoryPage";
 import { RefereeDashboardPage } from "../pages/referee/RefereeDashboardPage";
 import { RefereeProfileDashboardPage } from "../pages/referee/RefereeProfileDashboardPage";
+import { RefereeContractsPage } from "../pages/referee/RefereeContractsPage";
 
 function adminRoute(element: ReactNode) {
   return <RequireAdminRoute>{element}</RequireAdminRoute>;
@@ -73,6 +86,14 @@ function jockeyRoute(element: ReactNode) {
 function refereeRoute(element: ReactNode) {
   return (
     <RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
+      {element}
+    </RequireRoleRoute>
+  );
+}
+
+function organizerRoute(element: ReactNode) {
+  return (
+    <RequireRoleRoute role="ORGANIZER" workspaceName="Organizer Workspace">
       {element}
     </RequireRoleRoute>
   );
@@ -100,6 +121,18 @@ export function AppRouter() {
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
+        <Route path="organizer/register" element={authRoute(<OrganizerRegisterPage />)} />
+        <Route path="organizer" element={organizerRoute(<OrganizerLayout />)}>
+          <Route index element={<OrganizerDashboardPage />} />
+          <Route path="tournaments" element={<OrganizerTournamentsPage />} />
+          <Route path="tournaments/new" element={<OrganizerTournamentFormPage />} />
+          <Route path="registrations" element={<OrganizerRegistrationsPage />} />
+          <Route path="schedule" element={<OrganizerSchedulePage />} />
+          <Route path="officials" element={<OrganizerOfficialsPage />} />
+          <Route path="results" element={<OrganizerResultsPage />} />
+          <Route path="profile" element={<OrganizerProfilePage />} />
+          <Route path="organization" element={<OrganizerOrganizationPage />} />
+        </Route>
 
 
 <Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
@@ -124,6 +157,7 @@ export function AppRouter() {
   <Route path="assigned-races" element={<RefereeOverviewPage mode="all" />} />
   <Route path="race-control" element={<RefereeOverviewPage mode="check" />} />
   <Route path="result-history" element={<RefereeResultHistoryPage />} />
+  <Route path="contracts" element={<RefereeContractsPage />} />
   <Route path="profile" element={<RefereeProfileDashboardPage />} />
   <Route path="races/:id/check" element={<PreRaceCheckPage />} />
   <Route path="races/:id/results" element={<SubmitResultsPage />} />
@@ -137,6 +171,7 @@ export function AppRouter() {
        
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
+        <Route path="admin/organizations" element={adminRoute(<AdminOrganizationsPage />)} />
         <Route path="admin/users" element={adminRoute(<AdminUserListPage />)} />
         <Route path="admin/users/:id" element={adminRoute(<AdminUserDetailPage />)} />
         <Route path="admin/horses" element={adminRoute(<AdminHorsesPage />)} />

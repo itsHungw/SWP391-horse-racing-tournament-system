@@ -41,17 +41,19 @@ public class FileStorageService {
             "application/pdf", ".pdf"
     );
 
-    private static final Map<String, UploadPolicy> POLICIES = Map.of(
-            "AVATAR", new UploadPolicy(false, "public/avatars", IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "STABLE_LOGO", new UploadPolicy(false, "public/stable-logos", IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "OWNER_EVIDENCE", new UploadPolicy(true, "private/owner-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
-            "REFEREE_EVIDENCE", new UploadPolicy(true, "private/referee-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
-            "ROLE_REQUEST_RESUME", new UploadPolicy(true, "private/role-resumes", EVIDENCE_MAX_BYTES, PDF_TYPES),
-            "JOCKEY_AGREEMENT", new UploadPolicy(true, "private/jockey-agreements", EVIDENCE_MAX_BYTES, PDF_TYPES),
-            "BLOG", new UploadPolicy(false, "public/blog", IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "HORSE_IMAGE", new UploadPolicy(false, "public/horses/images", IMAGE_MAX_BYTES, IMAGE_TYPES),
-            "HORSE_EVIDENCE", new UploadPolicy(true, "private/horses/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES),
-            "HORSE_DOCUMENT", new UploadPolicy(true, "private/horses/documents", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)
+    private static final Map<String, UploadPolicy> POLICIES = Map.ofEntries(
+            Map.entry("AVATAR", new UploadPolicy(false, "public/avatars", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("STABLE_LOGO", new UploadPolicy(false, "public/stable-logos", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("OWNER_EVIDENCE", new UploadPolicy(true, "private/owner-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("REFEREE_EVIDENCE", new UploadPolicy(true, "private/referee-evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("ROLE_REQUEST_RESUME", new UploadPolicy(true, "private/role-resumes", EVIDENCE_MAX_BYTES, PDF_TYPES)),
+            Map.entry("JOCKEY_AGREEMENT", new UploadPolicy(true, "private/jockey-agreements", EVIDENCE_MAX_BYTES, PDF_TYPES)),
+            Map.entry("BLOG", new UploadPolicy(false, "public/blog", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("HORSE_IMAGE", new UploadPolicy(false, "public/horses/images", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("HORSE_EVIDENCE", new UploadPolicy(true, "private/horses/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("HORSE_DOCUMENT", new UploadPolicy(true, "private/horses/documents", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("ORGANIZER_LICENSE", new UploadPolicy(true, "private/organizer-licenses", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("ORGANIZER_LOGO", new UploadPolicy(false, "public/organizer-logos", IMAGE_MAX_BYTES, IMAGE_TYPES))
     );
 
     private final ObjectStorage objectStorage;

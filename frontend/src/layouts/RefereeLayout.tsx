@@ -1,5 +1,6 @@
 import {
   ClipboardList,
+  FileText,
   Gauge,
   LogOut,
   Search,
@@ -32,6 +33,11 @@ const refereeNavSections = [
         label: "Race Reports",
         href: "/referee/result-history",
         icon: ShieldCheck,
+      },
+      {
+        label: "Contracts",
+        href: "/referee/contracts",
+        icon: FileText,
       },
     ],
   },
@@ -169,7 +175,7 @@ export function RefereeLayout() {
         aria-label="Referee mobile navigation"
         className="fixed inset-x-3 bottom-3 z-40 rounded-2xl border border-emerald-950/15 bg-[#062f2b]/96 p-2 shadow-[0_18px_60px_rgba(2,44,34,0.28)] backdrop-blur-md lg:hidden"
       >
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {refereeNavSections.flatMap((section) => section.items).map((item) => {
             const Icon = item.icon;
             const mobileLabel = item.label === "Today's Races" ? "Races" : item.label === "Race Reports" ? "Reports" : item.label;
