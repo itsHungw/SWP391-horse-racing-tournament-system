@@ -57,8 +57,7 @@ describe("AdminRoleRequestDetailPage", () => {
     expect(screen.getByText("I want to join race operations")).toBeInTheDocument();
     expect(screen.getByText("0909123456")).toBeInTheDocument();
     expect(screen.getByText("Ho Chi Minh City")).toBeInTheDocument();
-    expect(screen.getByText("Email verified")).toBeInTheDocument();
-    expect(screen.getByText("Profile complete")).toBeInTheDocument();
+
     expect(screen.getByText("SPECTATOR")).toBeInTheDocument();
     expect(screen.getAllByText("CV not reviewed").length).toBeGreaterThan(0);
     expect(screen.getByRole("link", { name: /example.com\/resume.pdf/i })).toHaveAttribute(

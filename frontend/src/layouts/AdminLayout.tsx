@@ -1,13 +1,14 @@
 import { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { 
-  LayoutDashboard, 
-  UserCheck, 
-  Users, 
-  Trophy, 
-  Compass, 
-  FileText, 
+import {
+  LayoutDashboard,
+  UserCheck,
+  Users,
+  Trophy,
+  Compass,
+  FileText,
   Settings,
+  Building2,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -29,6 +30,7 @@ const adminNavGroups = [
     label: "PEOPLE",
     items: [
       { label: "Users", href: "/admin/users", icon: Users },
+      { label: "Organizations", href: "/admin/organizations", icon: Building2 },
       { label: "Role Requests", href: "/admin/role-requests", icon: UserCheck },
       { label: "Horse Approvals", href: "/admin/horses", icon: Trophy },
     ],
@@ -42,7 +44,10 @@ const adminNavGroups = [
   },
   {
     label: "SYSTEM",
-    items: [{ label: "Settings", href: "/admin/settings", icon: Settings }],
+    items: [
+      { label: "Point Settings", href: "/admin/points", icon: Settings },
+      { label: "Settings", href: "/admin/settings", icon: Settings },
+    ],
   },
 ];
 

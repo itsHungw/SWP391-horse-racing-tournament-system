@@ -45,7 +45,7 @@ public class UserRoleRequestService {
         if (UserRolePolicy.isSpecialistRole(requestedRole)) {
             boolean hasPendingSpecialistRequest = roleRequestRepository.existsByUserEmailAndStatusAndRequestedRoleIn(
                     email,
-                    RoleRequest.STATUS_PENDING,
+                    com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus.PENDING,
                     UserRolePolicy.specialistRoles()
             );
             if (hasPendingSpecialistRequest) {
@@ -56,7 +56,7 @@ public class UserRoleRequestService {
         boolean alreadyPending = roleRequestRepository.existsByUserEmailAndRequestedRoleAndStatus(
                 email,
                 requestedRole,
-                RoleRequest.STATUS_PENDING
+                com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus.PENDING
         );
         if (alreadyPending) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A pending request for this role already exists");

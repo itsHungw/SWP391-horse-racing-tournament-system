@@ -2,10 +2,11 @@ package com.example.horseracingtournamentsystem.race.dto.response;
 
 import lombok.*;
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 
-@Getter
-@Setter
+@Data
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class RaceResponse {
     private Long id;
@@ -16,7 +17,7 @@ public class RaceResponse {
     private LocalDateTime raceDateTime;
     private Integer distanceMeters;
     private Integer maxParticipants;
-    private String status;
+    private RaceStatus status;
     private Long refereeId;
     private String refereeName;
     private String creatorName;

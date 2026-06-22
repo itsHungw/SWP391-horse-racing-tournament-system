@@ -23,6 +23,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PointTransaction {
 
+    public static final String REF_RACE_PREDICTION = "RACE_PREDICTION";
+    public static final String REF_STREAK_PREDICTION = "STREAK_PREDICTION";
+    public static final String REF_RACE_RESULT = "RACE_RESULT";
+    public static final String REF_BLOG = "BLOG";
+    public static final String REF_ADMIN = "ADMIN";
+    public static final String REF_RACE = "RACE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

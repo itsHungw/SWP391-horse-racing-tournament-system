@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.enums.TournamentParticipantStatus;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
@@ -98,7 +99,7 @@ class TournamentParticipantRepositoryTest {
 
         TournamentParticipant saved = participantRepository.saveAndFlush(participant);
 
-        assertEquals(TournamentParticipant.STATUS_ACTIVE, saved.getStatus());
+        assertEquals(TournamentParticipantStatus.ACTIVE, saved.getStatus());
         assertEquals(0, saved.getPoints());
         assertEquals(91L, saved.getJockeyInvitationId());
         assertEquals(tournament.getId(), saved.getTournament().getId());

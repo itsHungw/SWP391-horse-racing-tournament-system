@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/referee")
 @PreAuthorize("hasRole('REFEREE')")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "15 · Referee · Race day", description = "Assigned referee runs each round: pre-race checks, start, finish, submit results.")
 public class RefereeController {
 
     private final RefereeRaceDayService raceDayService;

@@ -1,47 +1,41 @@
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useAdminDashboard } from "./hooks/useAdminDashboard";
+import { RefreshCw } from "lucide-react";
 
-const dayTabs = ["Today", "Pending Reviews", "Upcoming", "Race Day", "Content Queue"];
 
-const metrics = [
-  { label: "Pending role requests", value: "18", detail: "6 high priority", tone: "text-[#b3193a]" },
-  { label: "Upcoming tournaments", value: "7", detail: "Next race day in 3 days", tone: "text-[#006d5b]" },
-  { label: "Active users", value: "1,248", detail: "84 joined this week", tone: "text-[#070f4f]" },
-  { label: "Blog drafts", value: "12", detail: "4 awaiting review", tone: "text-[#5a3b00]" },
-];
-
-const queueRows = [
-  {
-    name: "Minh Quan",
-    email: "quan@gmail.com",
-    role: "JOCKEY",
-    submitted: "May 22, 2026",
-    status: "Profile complete",
-  },
-  {
-    name: "Linh Tran",
-    email: "linh.owner@example.com",
-    role: "OWNER",
-    submitted: "May 21, 2026",
-    status: "Evidence attached",
-  },
-  {
-    name: "Hoang Le",
-    email: "hoang.ref@example.com",
-    role: "REFEREE",
-    submitted: "May 20, 2026",
-    status: "Needs review",
-  },
-];
-
-const alerts = [
-  "Review jockey requests before publishing the next tournament bracket.",
-  "Three users completed profiles but have not submitted role requests.",
-  "Blog reward rules need admin confirmation before launch.",
-];
 
 export function AdminOverviewPage() {
   useDocumentTitle("Admin operations");
+  const { dashboard, isLoading, error } = useAdminDashboard();
+
+  if (isLoading) {
+    return (
+      <AdminLayout>
+        <div className="flex min-h-[60vh] items-center justify-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-[#b3193a]" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error || !dashboard) {
+    return (
+      <AdminLayout>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+          <p className="text-xl font-black text-slate-800">Failed to load dashboard</p>
+          <p className="mt-2 text-sm text-slate-500">Please check your connection and try again.</p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  const dynamicMetrics = [
+    { label: "Pending role requests", value: dashboard.metrics.pendingRoleRequests.toString(), detail: dashboard.metrics.pendingRoleRequestsDetail, tone: "text-[#b3193a]" },
+    { label: "Upcoming tournaments", value: dashboard.metrics.upcomingTournaments.toString(), detail: dashboard.metrics.upcomingTournamentsDetail, tone: "text-[#006d5b]" },
+    { label: "Active users", value: dashboard.metrics.activeUsers.toString(), detail: dashboard.metrics.activeUsersDetail, tone: "text-[#070f4f]" },
+    { label: "Blog drafts", value: dashboard.metrics.blogDrafts.toString(), detail: dashboard.metrics.blogDraftsDetail, tone: "text-[#5a3b00]" },
+  ];
 
   return (
     <AdminLayout>
@@ -75,24 +69,10 @@ export function AdminOverviewPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
-          <div className="flex min-w-[760px]">
-            {dayTabs.map((tab) => (
-              <button
-                className={`min-h-14 flex-1 border-r border-[#d8d8d8] px-5 text-sm font-bold last:border-r-0 ${
-                  tab === "Today" ? "bg-white text-[#b3193a]" : "bg-[#f7f7f7] text-[#171717]"
-                }`}
-                key={tab}
-                type="button"
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
+
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {metrics.map((metric) => (
+          {dynamicMetrics.map((metric) => (
             <article className="rounded-lg border border-[#d8d8d8] bg-white p-5" key={metric.label}>
               <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
                 {metric.label}
@@ -130,21 +110,29 @@ export function AdminOverviewPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#ececec]">
-                  {queueRows.map((row) => (
-                    <tr className="hover:bg-[#fafafa]" key={row.email}>
-                      <td className="px-5 py-4">
-                        <p className="font-black text-[#171717]">{row.name}</p>
-                        <p className="text-xs text-slate-500">{row.email}</p>
-                      </td>
-                      <td className="px-5 py-4 font-black text-[#006d5b]">{row.role}</td>
-                      <td className="px-5 py-4 text-slate-600">{row.submitted}</td>
-                      <td className="px-5 py-4">
-                        <span className="rounded-full bg-[#f1f1f1] px-3 py-1 text-xs font-bold text-slate-700">
-                          {row.status}
-                        </span>
+                  {dashboard.queueRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-5 py-8 text-center text-slate-500">
+                        No pending role requests.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    dashboard.queueRows.map((row) => (
+                      <tr className="hover:bg-[#fafafa]" key={row.id}>
+                        <td className="px-5 py-4">
+                          <p className="font-black text-[#171717]">{row.name}</p>
+                          <p className="text-xs text-slate-500">{row.email}</p>
+                        </td>
+                        <td className="px-5 py-4 font-black text-[#006d5b]">{row.role}</td>
+                        <td className="px-5 py-4 text-slate-600">{row.submitted}</td>
+                        <td className="px-5 py-4">
+                          <span className="rounded-full bg-[#f1f1f1] px-3 py-1 text-xs font-bold text-slate-700">
+                            {row.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -155,14 +143,18 @@ export function AdminOverviewPage() {
               Operations Alerts
             </h2>
             <div className="mt-5 space-y-4">
-              {alerts.map((alert, index) => (
-                <div className="border-l-4 border-[#b3193a] bg-[#fafafa] p-4" key={alert}>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-                    Alert {index + 1}
-                  </p>
-                  <p className="mt-2 text-sm font-medium leading-6 text-slate-700">{alert}</p>
-                </div>
-              ))}
+              {dashboard.alerts.length === 0 ? (
+                <div className="text-sm text-slate-500">No active alerts.</div>
+              ) : (
+                dashboard.alerts.map((alert, index) => (
+                  <div className="border-l-4 border-[#b3193a] bg-[#fafafa] p-4" key={index}>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                      Alert {index + 1}
+                    </p>
+                    <p className="mt-2 text-sm font-medium leading-6 text-slate-700">{alert}</p>
+                  </div>
+                ))
+              )}
             </div>
           </aside>
         </div>

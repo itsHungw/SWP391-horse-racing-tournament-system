@@ -1,7 +1,10 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
+import com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -21,10 +24,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RoleRequest {
 
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_REJECTED = "REJECTED";
-    public static final String STATUS_CANCELLED = "CANCELLED";
     public static final String CV_REVIEW_NOT_REVIEWED = "NOT_REVIEWED";
     public static final String CV_REVIEW_PASSED = "PASSED";
 
@@ -40,8 +39,9 @@ public class RoleRequest {
     @Column(name = "requested_role", nullable = false, length = 50)
     private String requestedRole;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private RoleRequestStatus status;
 
     @Lob
     @Column(name = "reason")
@@ -85,7 +85,7 @@ public class RoleRequest {
         RoleRequest request = new RoleRequest();
         request.user = user;
         request.requestedRole = requestedRole;
-        request.status = STATUS_PENDING;
+        request.status = RoleRequestStatus.PENDING;
         request.cvReviewStatus = CV_REVIEW_NOT_REVIEWED;
         request.reason = reason;
         request.resumeUrl = resumeUrl;
@@ -103,19 +103,19 @@ public class RoleRequest {
     }
 
     public void approve(User reviewer, String adminNote) {
-        review(STATUS_APPROVED, reviewer, adminNote);
+        review(RoleRequestStatus.APPROVED, reviewer, adminNote);
     }
 
     public void reject(User reviewer, String adminNote) {
-        review(STATUS_REJECTED, reviewer, adminNote);
+        review(RoleRequestStatus.REJECTED, reviewer, adminNote);
     }
 
     public void cancel() {
-        this.status = STATUS_CANCELLED;
+        this.status = RoleRequestStatus.CANCELLED;
         this.updatedAt = LocalDateTime.now();
     }
 
-    private void review(String status, User reviewer, String adminNote) {
+    private void review(RoleRequestStatus status, User reviewer, String adminNote) {
         LocalDateTime now = LocalDateTime.now();
         this.status = status;
         this.adminNote = adminNote;

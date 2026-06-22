@@ -3,7 +3,9 @@ import {
   OpenRacePrediction, 
   PredictionOptions, 
   UserPrediction, 
-  PointAccount 
+  PointAccount,
+  PredictionType,
+  StreakPredictionResponse
 } from "../types/prediction.types";
 import { spectatorPredictionApi } from "../services/spectatorPredictionApi";
 
@@ -13,6 +15,7 @@ export function useSpectatorPredictions() {
   const [selectedRace, setSelectedRace] = useState<OpenRacePrediction | null>(null);
   const [predictionOptions, setPredictionOptions] = useState<PredictionOptions | null>(null);
   const [myPredictions, setMyPredictions] = useState<UserPrediction[]>([]);
+  const [myStreaks, setMyStreaks] = useState<StreakPredictionResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,14 +23,16 @@ export function useSpectatorPredictions() {
     try {
       setLoading(true);
       setError(null);
-      const [pts, races, preds] = await Promise.all([
+      const [pts, races, preds, streaks] = await Promise.all([
         spectatorPredictionApi.getPointAccount(),
         spectatorPredictionApi.getOpenRaces(),
-        spectatorPredictionApi.getMyPredictions()
+        spectatorPredictionApi.getMyPredictions(),
+        spectatorPredictionApi.getSpectatorStreaks()
       ]);
       setPointAccount(pts);
       setOpenRaces(races);
       setMyPredictions(preds);
+      setMyStreaks(streaks);
 
       if (races.length > 0) {
         const currentSelected = selectedRace 
@@ -62,10 +67,12 @@ export function useSpectatorPredictions() {
 
   const submitPrediction = async (payload: {
     raceId: number;
-    predictionType: "WINNER" | "TOP3";
+    predictionType: PredictionType;
     predictedWinnerId: number;
     predictedSecondId?: number | null;
     predictedThirdId?: number | null;
+    predictedPosition?: number | null;
+    wagerAmount: number;
   }) => {
     try {
       await spectatorPredictionApi.submitPrediction(payload);
@@ -75,13 +82,18 @@ export function useSpectatorPredictions() {
     }
   };
 
-  const updatePrediction = async (predictionId: number, payload: {
-    raceId: number;
-    predictionType: "WINNER" | "TOP3";
-    predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
-  }) => {
+  const updatePrediction = async (
+    predictionId: number,
+    payload: {
+      raceId: number;
+      predictionType: PredictionType;
+      predictedWinnerId: number;
+      predictedSecondId?: number | null;
+      predictedThirdId?: number | null;
+      predictedPosition?: number | null;
+      wagerAmount: number;
+    }
+  ) => {
     try {
       await spectatorPredictionApi.updatePrediction(predictionId, payload);
       await loadInitialData();
@@ -100,6 +112,7 @@ export function useSpectatorPredictions() {
     selectedRace,
     predictionOptions,
     myPredictions,
+    myStreaks,
     loading,
     error,
     selectRace,

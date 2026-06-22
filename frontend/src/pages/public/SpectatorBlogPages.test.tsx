@@ -3,7 +3,9 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { blogApi } from "../../api/blogApi";
+import { getPublicRacingSummary, searchPublicRaces } from "../../api/racingApi";
 import type { Blog, PageResponse } from "../../types/blog";
+import type { PageResponse as RacingPageResponse, RaceSummary } from "../../types/racing";
 import { HomePage } from "./HomePage";
 import { SpectatorBlogDetailPage } from "./SpectatorBlogDetailPage";
 import { SpectatorBlogListPage } from "./SpectatorBlogListPage";
@@ -14,6 +16,11 @@ vi.mock("../../api/blogApi", () => ({
     getPublishedBlogBySlug: vi.fn(),
     claimBlogReward: vi.fn(),
   },
+}));
+
+vi.mock("../../api/racingApi", () => ({
+  getPublicRacingSummary: vi.fn(),
+  searchPublicRaces: vi.fn(),
 }));
 
 const blog: Blog = {
@@ -30,6 +37,23 @@ const blog: Blog = {
   updatedAt: null,
 };
 
+const featuredRace: RaceSummary = {
+  id: 22,
+  tournamentId: 4,
+  tournamentName: "Spring Glory Stakes",
+  name: "Twilight Sprint",
+  code: "TWS-01",
+  raceDateTime: "2099-06-13T16:30:00",
+  distanceMeters: 1200,
+  maxParticipants: 8,
+  participantCount: 6,
+  status: "SCHEDULED",
+  location: "Aqueduct",
+  predictionOpen: true,
+  predictionCloseTime: "2099-06-13T16:30:00",
+  resultOfficial: false,
+};
+
 function page(content: Blog[]): PageResponse<Blog> {
   return {
     content,
@@ -40,10 +64,29 @@ function page(content: Blog[]): PageResponse<Blog> {
   };
 }
 
+function racePage(content: RaceSummary[]): RacingPageResponse<RaceSummary> {
+  return {
+    content,
+    totalElements: content.length,
+    totalPages: content.length ? 1 : 0,
+    size: 20,
+    number: 0,
+  };
+}
+
 describe("public blog pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(searchPublicRaces).mockImplementation(async (params) =>
+      racePage(params.scope === "RESULTS" ? [] : [featuredRace]),
+    );
+    vi.mocked(getPublicRacingSummary).mockResolvedValue({
+      raceCount: 1,
+      raceDayCount: 1,
+      championshipCount: 1,
+      seasonFinale: "2099-06-30",
+    });
   });
 
   afterEach(() => {
@@ -62,11 +105,97 @@ describe("public blog pages", () => {
 
     expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /more blog posts/i })).toHaveAttribute("href", "/blogs");
+    expect(screen.getByRole("link", { name: /all stories/i })).toHaveAttribute("href", "/blogs");
     expect(screen.getByRole("link", { name: /read derby weekend track notes/i })).toHaveAttribute(
       "href",
       `/blogs/${blog.slug}`,
     );
+  });
+
+  it("shows the next real race as the featured home card", async () => {
+    vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(page([]));
+    vi.mocked(searchPublicRaces).mockImplementation(async (params) =>
+      racePage(params.scope === "RESULTS" ? [] : [featuredRace]),
+    );
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Twilight Sprint" })).toBeInTheDocument();
+    expect(screen.getByText("Spring Glory Stakes")).toBeInTheDocument();
+    expect(screen.getByText("1,200 m")).toBeInTheDocument();
+    expect(screen.getByText("8 max")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open twilight sprint race card/i })).toHaveAttribute(
+      "href",
+      "/races/22",
+    );
+    expect(screen.queryByText(/aqueduct gold cup/i)).not.toBeInTheDocument();
+    expect(searchPublicRaces).toHaveBeenCalledWith({
+      scope: "UPCOMING",
+      sortBy: "NEXT_RACE",
+      page: 0,
+      size: 3,
+    });
+  });
+
+  it("prioritizes an active race over a future scheduled race", async () => {
+    vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(page([]));
+    vi.mocked(searchPublicRaces).mockImplementation(async (params) =>
+      racePage(params.scope === "RESULTS" ? [] : [
+        featuredRace,
+        {
+        ...featuredRace,
+        id: 23,
+        name: "Live Championship Run",
+        code: "LIVE-01",
+        raceDateTime: "2026-06-12T16:30:00",
+        status: "ONGOING",
+        },
+      ]),
+    );
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Live Championship Run" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open live championship run race card/i })).toHaveAttribute(
+      "href",
+      "/races/23",
+    );
+  });
+
+  it("builds the home statistics from public race and championship data", async () => {
+    vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(page([]));
+    vi.mocked(getPublicRacingSummary).mockResolvedValue({
+      raceCount: 3,
+      raceDayCount: 2,
+      championshipCount: 2,
+      seasonFinale: "2099-11-15",
+    });
+
+    render(
+      <MemoryRouter>
+        <HomePage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Races on Calendar")).toBeInTheDocument();
+    expect(screen.getByText("Race Days")).toBeInTheDocument();
+    expect(screen.getAllByText("Championships").length).toBeGreaterThan(0);
+    expect(screen.getByText("Season Finale")).toBeInTheDocument();
+    expect(screen.getAllByText("3").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("2").length).toBeGreaterThan(0);
+    expect(screen.getByText("Nov 15")).toBeInTheDocument();
+    expect(screen.queryByText("Race Days / Week")).not.toBeInTheDocument();
+    expect(screen.queryByText("Free Predictions")).not.toBeInTheDocument();
   });
 
   it("loads, searches, and links published blog posts on the blog list page", async () => {
@@ -78,15 +207,14 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole("banner", { name: /client site header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /read derby weekend track notes/i })).toHaveAttribute(
       "href",
       `/blogs/${blog.slug}`,
     );
-    expect(screen.getByRole("link", { name: /back to home/i })).toHaveTextContent("\u2190 Back to home");
 
-    fireEvent.change(screen.getByRole("searchbox", { name: /search blog posts/i }), {
+    fireEvent.change(screen.getByRole("searchbox", { name: /search stories/i }), {
       target: { value: "derby" },
     });
 
@@ -104,7 +232,7 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/no published blog posts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/newsroom opens with the season/i)).toBeInTheDocument();
   });
 
   it("shows an error state when the public blog list cannot load", async () => {
@@ -116,7 +244,7 @@ describe("public blog pages", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText(/could not load published blog posts/i)).toBeInTheDocument();
+    expect(await screen.findByText(/could not load published stories/i)).toBeInTheDocument();
   });
 
   it("renders a published blog article by slug", async () => {
@@ -131,13 +259,13 @@ describe("public blog pages", () => {
     );
 
     expect(blogApi.getPublishedBlogBySlug).toHaveBeenCalledWith(blog.slug);
-    expect(await screen.findByRole("banner", { name: /client site header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: blog.title })).toBeInTheDocument();
     expect(screen.getByText(/final track notes for spectators/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /back to blogs/i })).toHaveAttribute("href", "/blogs");
+    expect(screen.getAllByRole("link", { name: /back to newsroom/i })[0]).toHaveAttribute("href", "/blogs");
   });
 
-  it("tracks reward eligibility without rendering timer or progress values", async () => {
+  it("shows reward progress and gates the claim button until eligible", async () => {
     vi.useFakeTimers();
     vi.mocked(blogApi.getPublishedBlogBySlug).mockResolvedValue(blog);
 
@@ -154,10 +282,9 @@ describe("public blog pages", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("Read the article and scroll to unlock reward.")).toBeInTheDocument();
+    expect(screen.getByText(/reading time/i)).toBeInTheDocument();
+    expect(screen.getByText(/scroll progress/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /claim reward/i })).toBeDisabled();
-    expect(screen.queryByText(/^Time$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Scroll$/i)).not.toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
@@ -169,8 +296,6 @@ describe("public blog pages", () => {
       fireEvent.scroll(window);
     });
 
-    expect(screen.queryByText("30s")).not.toBeInTheDocument();
-    expect(screen.queryByText("100%")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /claim reward/i })).toBeEnabled();
   });
 
@@ -220,7 +345,7 @@ describe("public blog pages", () => {
       readingSeconds: 30,
       scrollPercent: 100,
     });
-    expect(screen.getByText("You earned 10 points.")).toBeInTheDocument();
+    expect(screen.getByText("You earned 10 virtual points.")).toBeInTheDocument();
   });
 
   it("shows already claimed and daily limit reward responses", async () => {

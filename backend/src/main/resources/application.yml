@@ -17,9 +17,6 @@ spring:
     enabled: ${APP_FLYWAY_ENABLED:true}
     baseline-on-migrate: ${APP_FLYWAY_BASELINE_ON_MIGRATE:true}
     locations: classpath:db/migration
-  # sql:
-  #   init:
-  #     mode: always
   servlet:
     multipart:
       max-file-size: 10MB
@@ -36,9 +33,24 @@ spring:
           starttls:
             enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
 
+aws:
+  s3:
+    # bucket-name has no default on purpose: a missing AWS_S3_BUCKET must fail
+    # fast instead of silently writing to a shared/wrong bucket. Each environment
+    # supplies its own bucket (see application-dev.yml / application-prod.yml).
+    bucket-name: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION:ap-southeast-1}
+    presigned-url-ttl: ${AWS_S3_PRESIGNED_URL_TTL:5m}
+    # endpoint + static credentials are only set for S3-compatible local storage
+    # (MinIO). Left blank in prod so the AWS SDK uses the real AWS endpoint and
+    # the instance IAM role.
+    endpoint: ${AWS_S3_ENDPOINT:}
+    access-key: ${AWS_S3_ACCESS_KEY:}
+    secret-key: ${AWS_S3_SECRET_KEY:}
+
 app:
   cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173}
+    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174,http://localhost:5175,http://127.0.0.1:5173,http://127.0.0.1:5174}
     allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
     allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With
     allow-credentials: true
@@ -50,6 +62,13 @@ app:
       login-limit: ${APP_RATE_LIMIT_LOGIN:10}
       upload-limit: ${APP_RATE_LIMIT_UPLOAD:20}
       prediction-submit-limit: ${APP_RATE_LIMIT_PREDICTION:30}
+      forgot-password-limit: ${APP_RATE_LIMIT_FORGOT_PASSWORD:3}
+      forgot-password-window-seconds: ${APP_RATE_LIMIT_FORGOT_PASSWORD_WINDOW_SECONDS:900}
+      reset-password-limit: ${APP_RATE_LIMIT_RESET_PASSWORD:10}
+      reset-password-window-seconds: ${APP_RATE_LIMIT_RESET_PASSWORD_WINDOW_SECONDS:900}
+      cache-maximum-size: ${APP_RATE_LIMIT_CACHE_MAXIMUM_SIZE:50000}
+      cache-ttl-seconds: ${APP_RATE_LIMIT_CACHE_TTL_SECONDS:1200}
+      trusted-proxies: ${APP_RATE_LIMIT_TRUSTED_PROXIES:}
   upload:
     root: ${APP_UPLOAD_ROOT:uploads}
     horse-image-max-bytes: 5242880
@@ -59,7 +78,7 @@ app:
     access-token-ttl-minutes: 15
     refresh-token-ttl-days: 7
     email-otp-ttl-minutes: 10
-    password-reset-token-ttl-minutes: 30
+    password-reset-token-ttl-minutes: 10
     refresh-cookie-name: refresh_token
     refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:false}
     refresh-cookie-same-site: Lax
@@ -67,3 +86,13 @@ app:
   mail:
     enabled: ${APP_MAIL_ENABLED:true}
     from: ${MAIL_FROM:no-reply@equinepro.local}
+
+# Swagger UI tuned for the end-to-end business-flow demo: numbered tags sort in
+# flow order, the JWT "Authorize" token survives page reloads, groups start collapsed.
+springdoc:
+  swagger-ui:
+    tags-sorter: alpha
+    operations-sorter: alpha
+    persist-authorization: true
+    doc-expansion: none
+    display-request-duration: true

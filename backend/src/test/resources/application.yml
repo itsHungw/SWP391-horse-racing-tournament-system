@@ -17,6 +17,12 @@ spring:
   flyway:
     enabled: false
 
+aws:
+  s3:
+    bucket-name: test-private-bucket
+    region: ap-southeast-1
+    presigned-url-ttl: 5m
+
 app:
   cors:
     allowed-origins: http://localhost:5173
@@ -31,6 +37,13 @@ app:
       login-limit: 1000
       upload-limit: 1000
       prediction-submit-limit: 1000
+      forgot-password-limit: 1000
+      forgot-password-window-seconds: 900
+      reset-password-limit: 1000
+      reset-password-window-seconds: 900
+      cache-maximum-size: 50000
+      cache-ttl-seconds: 1200
+      trusted-proxies:
   upload:
     root: target/test-uploads
   auth:
@@ -38,7 +51,7 @@ app:
     access-token-ttl-minutes: 15
     refresh-token-ttl-days: 7
     email-otp-ttl-minutes: 10
-    password-reset-token-ttl-minutes: 30
+    password-reset-token-ttl-minutes: 10
     refresh-cookie-name: refresh_token
     refresh-cookie-secure: false
     refresh-cookie-same-site: Lax

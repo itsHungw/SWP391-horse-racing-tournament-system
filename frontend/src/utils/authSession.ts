@@ -2,8 +2,8 @@ export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
 let memorySession: { accessToken: string | null; fullName: string | null; email: string | null } = {
   accessToken: null,
-  fullName: null,
-  email: null,
+  fullName: localStorage.getItem("fullName"),
+  email: localStorage.getItem("email"),
 };
 
 type AccessTokenPayload = {

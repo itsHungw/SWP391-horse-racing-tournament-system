@@ -1,8 +1,11 @@
 package com.example.horseracingtournamentsystem.auth.controller;
 
+import com.example.horseracingtournamentsystem.auth.dto.request.ForgotPasswordRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.LoginRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.RegisterRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.ResendEmailVerificationRequest;
+import com.example.horseracingtournamentsystem.auth.dto.request.ResetPasswordRequest;
+import com.example.horseracingtournamentsystem.auth.dto.request.VerifyResetCodeRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.VerifyEmailRequest;
 import com.example.horseracingtournamentsystem.auth.dto.response.AuthResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
@@ -26,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "01 · Auth", description = "Register, verify email, login — get the JWT for the Authorize button.")
 public class AuthController {
 
     private final AuthService authService;
@@ -56,6 +60,24 @@ public class AuthController {
     @PostMapping("/verify-email")
     public void verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
         authService.verifyEmail(request.token());
+    }
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.requestPasswordReset(request.email());
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+    }
+
+    @PostMapping("/verify-reset-code")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request) {
+        authService.verifyPasswordResetCode(request);
     }
 
     @PostMapping("/login")

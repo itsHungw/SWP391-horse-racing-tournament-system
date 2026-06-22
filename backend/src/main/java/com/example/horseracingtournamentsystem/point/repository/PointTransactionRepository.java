@@ -9,4 +9,10 @@ public interface PointTransactionRepository extends JpaRepository<PointTransacti
     List<PointTransaction> findByUserIdOrderByCreatedAtDesc(Long userId);
 
     boolean existsByUserIdAndTransactionType(Long userId, PointTransactionType transactionType);
+
+    boolean existsByReferenceTypeAndReferenceIdAndTransactionType(
+            String referenceType,
+            Long referenceId,
+            PointTransactionType transactionType
+    );
 }

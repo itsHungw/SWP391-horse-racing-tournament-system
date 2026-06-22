@@ -32,8 +32,11 @@ public class PointSettingsService {
         update(PointSettingKey.FIRST_LOGIN_BONUS, request.FIRST_LOGIN_BONUS(), updatedBy);
         update(PointSettingKey.BLOG_REWARD_POINTS, request.BLOG_REWARD_POINTS(), updatedBy);
         update(PointSettingKey.DAILY_BLOG_REWARD_LIMIT, request.DAILY_BLOG_REWARD_LIMIT(), updatedBy);
-        update(PointSettingKey.PREDICTION_ENTRY_COST, request.PREDICTION_ENTRY_COST(), updatedBy);
-        update(PointSettingKey.PREDICTION_CORRECT_REWARD, request.PREDICTION_CORRECT_REWARD(), updatedBy);
+        update(PointSettingKey.PREDICTION_WINNER_ENTRY_COST, request.PREDICTION_WINNER_ENTRY_COST(), updatedBy);
+        update(PointSettingKey.PREDICTION_TOP3_ENTRY_COST, request.PREDICTION_TOP3_ENTRY_COST(), updatedBy);
+        update(PointSettingKey.PREDICTION_WINNER_REWARD, request.PREDICTION_WINNER_REWARD(), updatedBy);
+        update(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD, request.PREDICTION_TOP3_EXACT_REWARD(), updatedBy);
+        update(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD, request.PREDICTION_TOP3_ANY_ORDER_REWARD(), updatedBy);
 
         return toResponse(readAllValues());
     }
@@ -72,8 +75,11 @@ public class PointSettingsService {
                 values.get(PointSettingKey.FIRST_LOGIN_BONUS),
                 values.get(PointSettingKey.BLOG_REWARD_POINTS),
                 values.get(PointSettingKey.DAILY_BLOG_REWARD_LIMIT),
-                values.get(PointSettingKey.PREDICTION_ENTRY_COST),
-                values.get(PointSettingKey.PREDICTION_CORRECT_REWARD)
+                values.get(PointSettingKey.PREDICTION_WINNER_ENTRY_COST),
+                values.get(PointSettingKey.PREDICTION_TOP3_ENTRY_COST),
+                values.get(PointSettingKey.PREDICTION_WINNER_REWARD),
+                values.get(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD),
+                values.get(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD)
         );
     }
 
@@ -82,8 +88,12 @@ public class PointSettingsService {
             case FIRST_LOGIN_BONUS -> "Points granted on first successful login when enabled.";
             case BLOG_REWARD_POINTS -> "Points awarded when an eligible blog reward is claimed.";
             case DAILY_BLOG_REWARD_LIMIT -> "Maximum blog reward points a user can earn per day.";
-            case PREDICTION_ENTRY_COST -> "Points spent to submit one race prediction.";
-            case PREDICTION_CORRECT_REWARD -> "Points awarded for a correct race prediction.";
+            case PREDICTION_WINNER_ENTRY_COST -> "Points spent to submit one Winner pick prediction.";
+            case PREDICTION_TOP3_ENTRY_COST -> "Points spent to submit one Top 3 prediction.";
+            case PREDICTION_WINNER_REWARD -> "Points awarded for a correct Winner pick prediction.";
+            case PREDICTION_TOP3_EXACT_REWARD -> "Points awarded for matching the exact Top 3 order.";
+            case PREDICTION_TOP3_ANY_ORDER_REWARD -> "Points awarded for predicting the Top 3 in any order.";
+            default -> throw new IllegalArgumentException("Unknown PointSettingKey: " + key);
         };
     }
 }

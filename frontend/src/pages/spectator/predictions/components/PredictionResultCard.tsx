@@ -5,48 +5,48 @@ interface PredictionResultCardProps {
   resultCategory: string;
   rewardPoints: number;
   entryCost: number;
+  predictionType: string;
 }
 
-export function PredictionResultCard({ status, resultCategory, rewardPoints, entryCost }: PredictionResultCardProps) {
+export function PredictionResultCard({ status, resultCategory, rewardPoints, entryCost, predictionType }: PredictionResultCardProps) {
   if (status === "REFUNDED" || resultCategory === "REFUNDED") {
     return (
-      <div className="rounded bg-orange-50 border border-orange-200 px-4 py-3 text-xs font-bold text-orange-800 flex items-center gap-2">
-        <RefreshCw className="h-4.5 w-4.5 text-orange-600 animate-spin" />
+      <div className="flex items-center gap-2.5 rounded-lg border border-gold-600/30 bg-gold-400/5 px-4 py-3 text-xs font-semibold text-gold-200">
+        <RefreshCw className="h-4 w-4 shrink-0 text-gold-300" />
         <div>
-          <p className="font-black uppercase tracking-wide">Refunded</p>
-          <p className="mt-0.5 text-orange-700">Refunded {entryCost} points because the race was cancelled.</p>
+          <p className="font-data uppercase tracking-[0.14em] text-gold-300">Refunded</p>
+          <p className="mt-0.5 text-ivory-dim">Refunded {entryCost} VND because the race was cancelled.</p>
         </div>
       </div>
     );
   }
 
-  const isCorrect = status === "CORRECT" || 
-                    resultCategory === "WINNER_CORRECT" || 
-                    resultCategory === "TOP3_EXACT" || 
-                    resultCategory === "TOP3_ANY_ORDER";
+  const isWin =
+    status === "CORRECT" ||
+    resultCategory === "EXACT_POSITION_CORRECT" ||
+    resultCategory === "HEAD_TO_HEAD_CORRECT";
 
-  if (isCorrect) {
+  if (isWin) {
     let label = "Correct Prediction";
-    if (resultCategory === "TOP3_EXACT") label = "Correct Prediction (Exact Order)";
-    else if (resultCategory === "TOP3_ANY_ORDER") label = "Correct Prediction (Any Order)";
+    if (predictionType === "HEAD_TO_HEAD") label = "Correct · Head to Head";
 
     return (
-      <div className="rounded bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs font-bold text-emerald-800 flex items-center gap-2">
-        <CheckCircle2 className="h-4.5 w-4.5 text-[#006d5b]" />
+      <div className="flex items-center gap-2.5 rounded-lg border border-emerald-glow/40 bg-emerald-glow/10 px-4 py-3 text-xs font-semibold text-emerald-soft">
+        <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-soft" />
         <div>
-          <p className="font-black uppercase tracking-wide">{label}</p>
-          <p className="mt-0.5 text-emerald-700">Rewarded +{rewardPoints} points added to available balance.</p>
+          <p className="font-data uppercase tracking-[0.14em]">{label}</p>
+          <p className="mt-0.5 text-ivory-dim">Rewarded +{rewardPoints} VND added to your balance.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="rounded bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-bold text-slate-800 flex items-center gap-2">
-      <XCircle className="h-4.5 w-4.5 text-slate-500" />
+    <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-xs font-semibold text-ivory-dim">
+      <XCircle className="h-4 w-4 shrink-0 text-ivory-faint" />
       <div>
-        <p className="font-black uppercase tracking-wide">Incorrect</p>
-        <p className="mt-0.5 text-slate-600">This prediction did not match the official race results.</p>
+        <p className="font-data uppercase tracking-[0.14em] text-ivory">Incorrect</p>
+        <p className="mt-0.5 text-ivory-faint">This prediction did not match the official race results.</p>
       </div>
     </div>
   );

@@ -1,43 +1,38 @@
-# Error Codes
+# Error Handling
 
-## 1. Response format
+## 1. Backend Error Boundary
 
-```json
-{
-  "success": false,
-  "code": "PREDICTION_CLOSED",
-  "message": "Prediction deadline has passed.",
-  "errors": []
-}
-```
+The backend centralizes REST error handling in `common/error/GlobalExceptionHandler.java`. Controllers should throw validation/security/business exceptions and let the global handler convert them into JSON responses.
 
-## 2. Key modules
+Main error response DTO: `common/error/ApiErrorResponse.java`.
 
-### Auth
-- `AUTH_EMAIL_EXISTS`
-- `AUTH_INVALID_CREDENTIALS`
-- `AUTH_ACCOUNT_LOCKED`
+## 2. Expected Error Categories
 
-### Horse and tournament
-- `HORSE_NOT_APPROVED`
-- `TOURNAMENT_NOT_OPEN`
-- `TOURNAMENT_INVALID_TRANSITION`
+- Validation failure: invalid DTO fields, invalid request parameters, invalid multipart payload.
+- Authentication failure: missing, expired, or invalid JWT.
+- Authorization failure: authenticated user lacks required role.
+- Business rule failure: invalid state transition, duplicate claim, insufficient points, unavailable race, duplicate registration, invalid owner/jockey/referee action.
+- Not found: missing user, horse, tournament, race, blog, prediction, or registration.
+- Conflict: duplicate unique values or idempotency violation.
+- Internal error: unexpected service/database failure.
 
-### Race and result
-- `RACE_INVALID_TRANSITION`
-- `REFEREE_NOT_ASSIGNED`
-- `RESULT_NOT_CONFIRMED`
+## 3. Frontend Error Handling
 
-### Prediction game
-- `POINT_BALANCE_INSUFFICIENT`
-- `PREDICTION_CLOSED`
-- `PREDICTION_EXISTS`
-- `INVALID_PARTICIPANT`
-- `DUPLICATE_PREDICTION_PICKS`
+The shared Axios client in `frontend/src/api/httpClient.ts` attaches auth state and handles retry/refresh behavior. Page-level components display failures near the workflow that triggered them.
 
-### Blog rewards
-- `BLOG_NOT_PUBLISHED`
-- `BLOG_REWARD_ALREADY_CLAIMED`
-- `BLOG_REWARD_REQUIREMENTS_NOT_MET`
-- `DAILY_POINT_LIMIT_REACHED`
+Common UI expectations:
 
+- Form validation should catch obvious input issues before submit.
+- Server validation messages should be shown in the page or modal.
+- Protected routes should redirect or block users without required auth/role.
+- Mutating actions should preserve user context after failure.
+
+## 4. Report Note
+
+For project report purposes, describe error handling as a layered mechanism:
+
+1. DTO validation at API boundary.
+2. Business validation in service layer.
+3. Security validation in filter/security chain.
+4. Central response formatting in global exception handler.
+5. UI-level feedback in page components.

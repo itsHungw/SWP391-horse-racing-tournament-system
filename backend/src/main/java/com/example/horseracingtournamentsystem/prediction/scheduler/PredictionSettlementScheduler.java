@@ -1,11 +1,18 @@
 package com.example.horseracingtournamentsystem.prediction.scheduler;
 
-import com.example.horseracingtournamentsystem.points.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.points.service.PointsService;
+import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
+import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
+import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
+import com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction;
+import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import org.slf4j.Logger;
@@ -29,7 +36,10 @@ public class PredictionSettlementScheduler {
     private final PredictionSettlementJobRepository jobRepo;
     private final RacePredictionRepository predictionRepo;
     private final RaceResultRepository resultRepo;
-    private final PointsService pointsService;
+    private final PointAccountService pointsService;
+    private final PointSettingsService pointSettingsService;
+    private final StreakPredictionRepository streakPredictionRepo;
+    private final StreakPredictionLegRepository streakPredictionLegRepo;
 
     @Autowired
     @Lazy
@@ -38,16 +48,22 @@ public class PredictionSettlementScheduler {
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
-                                         PointsService pointsService) {
+                                         PointAccountService pointsService,
+                                         PointSettingsService pointSettingsService,
+                                         StreakPredictionRepository streakPredictionRepo,
+                                         StreakPredictionLegRepository streakPredictionLegRepo) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.resultRepo = resultRepo;
         this.pointsService = pointsService;
+        this.pointSettingsService = pointSettingsService;
+        this.streakPredictionRepo = streakPredictionRepo;
+        this.streakPredictionLegRepo = streakPredictionLegRepo;
     }
 
     @Scheduled(fixedDelay = 5000)
     public void pollAndProcessJobs() {
-        List<PredictionSettlementJob> pendingJobs = jobRepo.findByStatus(PredictionSettlementJob.STATUS_PENDING);
+        List<PredictionSettlementJob> pendingJobs = jobRepo.findByStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus.PENDING);
         for (PredictionSettlementJob job : pendingJobs) {
             int affected = self.claimJob(job.getId());
             if (affected == 1) {
@@ -87,8 +103,12 @@ public class PredictionSettlementScheduler {
             .filter(r -> r.getPosition() != null)
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getPosition, (p1, p2) -> p1));
 
-        Map<Long, String> participantStatuses = results.stream()
+        Map<Long, com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus> participantStatuses = results.stream()
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getResultStatus, (p1, p2) -> p1));
+
+        Map<Long, java.math.BigDecimal> participantFinishTimes = results.stream()
+            .filter(r -> r.getFinishTimeSeconds() != null)
+            .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getFinishTimeSeconds, (p1, p2) -> p1));
 
         List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
 
@@ -98,30 +118,36 @@ public class PredictionSettlementScheduler {
 
         for (RacePrediction p : predictions) {
             // Check only PENDING or LOCKED predictions
-            if (RacePrediction.STATUS_PENDING.equals(p.getStatus()) || RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
+            if (com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus())) {
                 processedCount++;
                 try {
                     boolean shouldRefund = false;
-                    if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
-                        if (RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId()))) {
+                    if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) || RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
+                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId()))) {
                             shouldRefund = true;
                         }
                     } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
-                        if (RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
-                            RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedSecondId())) ||
-                            RaceResult.RESULT_STATUS_WITHDRAWN.equals(participantStatuses.get(p.getPredictedThirdId()))) {
+                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
+                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedSecondId())) ||
+                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedThirdId()))) {
+                            shouldRefund = true;
+                        }
+                    } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
+                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getMatchupOpponentId()))) {
                             shouldRefund = true;
                         }
                     }
 
                     if (shouldRefund) {
-                        p.setStatus(RacePrediction.STATUS_REFUNDED);
+                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
+                        int refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
                         pointsService.adjustPoints(
-                            p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
-                            PointTransaction.REF_RACE_PREDICTION, p.getId(), 
-                            "Refunded " + p.getEntryCostPoints() + " entry cost points due to horse withdrawal"
+                            p.getSpectator(), refundAmount, PointTransactionType.RACE_CANCEL_REFUND,
+                            PointTransaction.REF_RACE_PREDICTION, p.getId(),
+                            "Refunded " + refundAmount + " entry points due to horse withdrawal"
                         );
                         continue;
                     }
@@ -133,7 +159,12 @@ public class PredictionSettlementScheduler {
                         Integer pos = participantPositions.get(p.getPredictedWinnerId());
                         if (pos != null && pos == 1) {
                             isCorrect = true;
-                            reward = 10;
+                            reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_REWARD);
+                        }
+                    } else if (RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
+                        Integer pos = participantPositions.get(p.getPredictedWinnerId());
+                        if (pos != null && pos.equals(p.getPredictedPosition())) {
+                            isCorrect = true;
                         }
                     } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
                         if (actualTop3.size() >= 3) {
@@ -145,7 +176,7 @@ public class PredictionSettlementScheduler {
                                 p.getPredictedSecondId().equals(actual2) &&
                                 p.getPredictedThirdId().equals(actual3)) {
                                 isCorrect = true;
-                                reward = 30; // Exact order
+                                reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD); // Exact order
                             } else {
                                 // Correct horses, wrong order
                                 boolean hasWinner = actualTop3.contains(p.getPredictedWinnerId());
@@ -153,53 +184,142 @@ public class PredictionSettlementScheduler {
                                 boolean hasThird = actualTop3.contains(p.getPredictedThirdId());
                                 if (hasWinner && hasSecond && hasThird) {
                                     isCorrect = true;
-                                    reward = 15;
+                                    reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD);
                                 }
+                            }
+                        }
+                    } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                        java.math.BigDecimal timeA = participantFinishTimes.get(p.getPredictedWinnerId());
+                        java.math.BigDecimal timeB = participantFinishTimes.get(p.getMatchupOpponentId());
+                        if (timeA != null && timeB != null) {
+                            java.math.BigDecimal effectiveTimeA = timeA.add(java.math.BigDecimal.valueOf(p.getHandicapSeconds() != null ? p.getHandicapSeconds() : 0.0));
+                            if (effectiveTimeA.compareTo(timeB) < 0) {
+                                isCorrect = true;
                             }
                         }
                     }
 
                     if (isCorrect) {
-                        p.setStatus(RacePrediction.STATUS_CORRECT);
+                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.CORRECT);
+
+                        // Dynamic Payout: wagerAmount * lockedOdds
+                        // (Fallback to old logic if lockedOdds is null, for backward compatibility with old data)
+                        if (p.getLockedOdds() != null && p.getWagerAmount() != null) {
+                            java.math.BigDecimal payout = java.math.BigDecimal.valueOf(p.getWagerAmount()).multiply(p.getLockedOdds());
+                            reward = payout.intValue(); // truncate or round
+                        }
+
                         p.setRewardPoints(reward);
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
 
-                        // Credit reward (Idempotency checked by adjustPoints using index)
+                        // Credit reward
                         pointsService.adjustPoints(
-                            p.getSpectator(), reward, PointTransaction.TX_PREDICTION_REWARD, 
+                            p.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
                             PointTransaction.REF_RACE_PREDICTION, p.getId(), 
                             "Awarded " + reward + " reward points for correct prediction #" + p.getId()
                         );
                         rewardedCount++;
                     } else {
-                        p.setStatus(RacePrediction.STATUS_INCORRECT);
+                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.INCORRECT);
                         p.setRewardPoints(0);
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
                     }
                 } catch (Exception ex) {
-                    log.error("Failed to evaluate prediction #{}", p.getId(), ex);
                     failedCount++;
+                    log.error("Failed to evaluate prediction #{}", p.getId(), ex);
                 }
             }
         }
 
+        log.info("Processed {} single race predictions for raceId={}. Rewarded: {}, Failed: {}",
+                 processedCount, job.getRace().getId(), rewardedCount, failedCount);
+
+        // --- Process Streak Prediction Legs ---
+        processStreakLegs(job.getRace().getId(), participantPositions, participantStatuses);
+
+        job.setStatus(failedCount > 0 ? com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus.FAILED : com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus.COMPLETED);
         job.setProcessedCount(processedCount);
         job.setRewardedCount(rewardedCount);
         job.setFailedCount(failedCount);
-        job.setStatus(failedCount > 0 ? PredictionSettlementJob.STATUS_FAILED : PredictionSettlementJob.STATUS_COMPLETED);
         job.setCompletedAt(LocalDateTime.now());
         job.setErrorMessage(failedCount > 0 ? "Failed to evaluate " + failedCount + " predictions" : null);
         job.setUpdatedAt(LocalDateTime.now());
         jobRepo.save(job);
     }
 
+    private void processStreakLegs(Long raceId, Map<Long, Integer> participantPositions, Map<Long, com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus> participantStatuses) {
+        List<StreakPredictionLeg> legs = streakPredictionLegRepo.findByRace_Id(raceId);
+
+        for (StreakPredictionLeg leg : legs) {
+            if (!com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(leg.getStatus())) {
+                continue;
+            }
+
+            Long winnerId = leg.getPredictedWinner().getId();
+
+            if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(winnerId))) {
+                leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED);
+                leg.setLockedOdds(java.math.BigDecimal.ZERO);
+            } else {
+                Integer pos = participantPositions.get(winnerId);
+                if (pos != null && pos == 1) {
+                    leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON);
+                } else {
+                    leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST);
+                }
+            }
+            streakPredictionLegRepo.save(leg);
+
+            StreakPrediction streak = leg.getStreakPrediction();
+            if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(streak.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS.equals(streak.getStatus())) {
+                boolean hasLost = false;
+                boolean allFinished = true;
+                java.math.BigDecimal currentTotalOdds = java.math.BigDecimal.ZERO;
+
+                for (StreakPredictionLeg l : streak.getLegs()) {
+                    if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST.equals(l.getStatus())) {
+                        hasLost = true;
+                        break;
+                    }
+                    if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(l.getStatus())) {
+                        allFinished = false;
+                    } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED.equals(l.getStatus())) {
+                        currentTotalOdds = currentTotalOdds.add(l.getLockedOdds());
+                    }
+                }
+
+                if (hasLost) {
+                    streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST);
+                    streak.setEvaluatedAt(LocalDateTime.now());
+                } else if (allFinished) {
+                    streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON);
+                    streak.setTotalOdds(currentTotalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
+                    streak.setEvaluatedAt(LocalDateTime.now());
+
+                    int reward = java.math.BigDecimal.valueOf(streak.getWagerAmount()).multiply(streak.getTotalOdds()).intValue();
+                    streak.setRewardPoints(reward);
+
+                    pointsService.adjustPoints(
+                        streak.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
+                        PointTransaction.REF_STREAK_PREDICTION, streak.getId(),
+                        "Awarded " + reward + " points for WON streak prediction #" + streak.getId()
+                    );
+                } else {
+                    streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS);
+                    streak.setTotalOdds(currentTotalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
+                }
+                streakPredictionRepo.save(streak);
+            }
+        }
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markJobAsFailed(Long jobId, String message) {
         PredictionSettlementJob job = jobRepo.findById(jobId).orElse(null);
         if (job != null) {
-            job.setStatus(PredictionSettlementJob.STATUS_FAILED);
+            job.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus.FAILED);
             job.setErrorMessage(message);
             job.setCompletedAt(LocalDateTime.now());
             job.setUpdatedAt(LocalDateTime.now());
@@ -208,14 +328,15 @@ public class PredictionSettlementScheduler {
             // Refund predictions due to system error
             List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
             for (RacePrediction p : predictions) {
-                if (RacePrediction.STATUS_PENDING.equals(p.getStatus()) || RacePrediction.STATUS_LOCKED.equals(p.getStatus())) {
-                    p.setStatus(RacePrediction.STATUS_REFUNDED);
+                if (com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus())) {
+                    p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
                     p.setUpdatedAt(LocalDateTime.now());
                     predictionRepo.save(p);
+                    int refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
                     pointsService.adjustPoints(
-                        p.getSpectator(), p.getEntryCostPoints(), PointTransaction.TX_RACE_CANCEL_REFUND, 
-                        PointTransaction.REF_RACE_PREDICTION, p.getId(), 
-                        "Refunded " + p.getEntryCostPoints() + " entry cost points due to system error processing results"
+                        p.getSpectator(), refundAmount, PointTransactionType.RACE_CANCEL_REFUND,
+                        PointTransaction.REF_RACE_PREDICTION, p.getId(),
+                        "Refunded " + refundAmount + " entry points due to system error processing results"
                     );
                 }
             }

@@ -3,16 +3,31 @@ package com.example.horseracingtournamentsystem.race;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
+import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
+import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
-import com.example.horseracingtournamentsystem.points.service.PointsService;
+import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
@@ -29,6 +44,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.math.BigDecimal;
 import java.util.Set;
 
 @SpringBootTest
@@ -46,13 +62,28 @@ class RaceIntegrationTest {
     private RaceRepository raceRepository;
 
     @Autowired
+    private RaceParticipantRepository raceParticipantRepository;
+
+    @Autowired
+    private RaceResultRepository raceResultRepository;
+
+    @Autowired
+    private HorseRepository horseRepository;
+
+    @Autowired
+    private TournamentRegistrationRepository tournamentRegistrationRepository;
+
+    @Autowired
+    private TournamentParticipantRepository tournamentParticipantRepository;
+
+    @Autowired
     private RacePredictionRepository racePredictionRepository;
 
     @Autowired
     private PredictionSettlementJobRepository settlementJobRepository;
 
     @Autowired
-    private PointsService pointsService;
+    private PointAccountService pointsService;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -124,6 +155,189 @@ class RaceIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Grand Sprint"))
                 .andExpect(jsonPath("$.status").value("SCHEDULED"));
+    }
+
+    @Test
+    void publicRaceDiscoverySeparatesUpcomingFromResults() throws Exception {
+        Race upcoming = raceRepository.save(Race.create(
+                tournament, "Emerald Sprint", "EMERALD_SPRINT",
+                LocalDateTime.now().plusDays(2), 1200, 12, adminUser
+        ));
+        Race result = Race.create(
+                tournament, "Heritage Mile", "HERITAGE_MILE",
+                LocalDateTime.now().minusDays(2), 1600, 12, adminUser
+        );
+        result.updateStatus(RaceStatus.RESULT_SUBMITTED);
+        raceRepository.save(result);
+
+        mockMvc.perform(get("/api/v1/races/search")
+                        .param("scope", "UPCOMING")
+                        .param("tournamentId", tournament.getId().toString())
+                        .param("search", "emerald")
+                        .param("sortBy", "NEXT_RACE")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(upcoming.getId()))
+                .andExpect(jsonPath("$.content[0].participantCount").value(0))
+                .andExpect(jsonPath("$.content[0].predictionOpen").value(true))
+                .andExpect(jsonPath("$.content[0].resultOfficial").value(false));
+
+        mockMvc.perform(get("/api/v1/races/search")
+                        .param("scope", "RESULTS")
+                        .param("sortBy", "LATEST_RESULT")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Heritage Mile"))
+                .andExpect(jsonPath("$.content[0].resultOfficial").value(false));
+    }
+
+    @Test
+    void publicResultDiscoveryFiltersOfficialResultsByHorseAndJockey() throws Exception {
+        Race emeraldRace = Race.create(
+                tournament, "Emerald Final", "EMERALD_FINAL",
+                LocalDateTime.now().minusDays(2), 1200, 12, adminUser
+        );
+        emeraldRace.updateStatus(RaceStatus.RESULT_CONFIRMED);
+        emeraldRace = raceRepository.save(emeraldRace);
+        RaceParticipant emerald = createParticipant(emeraldRace, "Emerald King", "EMERALD-KING");
+        RaceResult emeraldResult = RaceResult.create(emeraldRace, emerald, adminUser);
+        emeraldResult.submit(
+                1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "private"
+        );
+        raceResultRepository.save(emeraldResult);
+
+        Race silverRace = Race.create(
+                tournament, "Silver Final", "SILVER_FINAL",
+                LocalDateTime.now().minusDays(1), 1400, 12, adminUser
+        );
+        silverRace.updateStatus(RaceStatus.RESULT_CONFIRMED);
+        silverRace = raceRepository.save(silverRace);
+        RaceParticipant silver = createParticipant(silverRace, "Silver Reef", "SILVER-REEF");
+        RaceResult silverResult = RaceResult.create(silverRace, silver, adminUser);
+        silverResult.submit(
+                1, new BigDecimal("81.120"), BigDecimal.ZERO, new BigDecimal("81.120"),
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "private"
+        );
+        raceResultRepository.save(silverResult);
+
+        mockMvc.perform(get("/api/v1/races/search")
+                        .param("scope", "RESULTS")
+                        .param("horse", "emerald")
+                        .param("jockey", "emerald-king jockey"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].id").value(emeraldRace.getId()))
+                .andExpect(jsonPath("$.content[0].winner.horseName").value("Emerald King"));
+    }
+
+    @Test
+    void publicCalendarRangeReturnsRacesForVisibleDay() throws Exception {
+        LocalDate day = LocalDate.now().plusDays(3);
+        raceRepository.save(Race.create(
+                tournament, "Morning Sprint", "CALENDAR_AM",
+                day.atTime(9, 0), 1200, 12, adminUser
+        ));
+        Race live = Race.create(
+                tournament, "Evening Live", "CALENDAR_PM",
+                day.atTime(18, 0), 1600, 12, adminUser
+        );
+        live.updateStatus(RaceStatus.ONGOING);
+        raceRepository.save(live);
+
+        mockMvc.perform(get("/api/v1/races/search")
+                        .param("scope", "UPCOMING")
+                        .param("from", day.toString())
+                        .param("to", day.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Morning Sprint"))
+                .andExpect(jsonPath("$.content[1].name").value("Evening Live"));
+    }
+
+    @Test
+    void publicRaceDiscoveryExposesPredictionAvailabilityWithoutAuthentication() throws Exception {
+        Race race = raceRepository.save(Race.create(
+                tournament, "Eligibility Sprint", "ELIGIBILITY_SPRINT",
+                LocalDateTime.now().plusDays(2), 1200, 12, adminUser
+        ));
+        User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
+        racePredictionRepository.save(RacePrediction.create(
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
+        ));
+        racePredictionRepository.save(RacePrediction.create(
+                race, spectator, RacePrediction.TYPE_TOP3, 101L, null, 102L, 103L, null, null, 10
+        ));
+
+        mockMvc.perform(get("/api/v1/races/search").param("scope", "UPCOMING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].id").value(race.getId()))
+                .andExpect(jsonPath("$.content[0].predictionOpen").value(true));
+    }
+
+    @Test
+    void publicResultsHideSubmittedOrderAndExposeConfirmedOrderWithoutNotes() throws Exception {
+        Race race = Race.create(
+                tournament, "Official Result Round", "OFFICIAL_RESULT",
+                LocalDateTime.now().minusHours(2), 1200, 12, adminUser
+        );
+        race.updateStatus(RaceStatus.RESULT_SUBMITTED);
+        race = raceRepository.save(race);
+        RaceParticipant participant = createParticipant(race, "Emerald King", "EMERALD-KING");
+        RaceResult result = RaceResult.create(race, participant, adminUser);
+        result.submit(
+                1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
+                ResultFinishStatus.FINISHED, ResultRecordStatus.SUBMITTED, adminUser, "private referee note"
+        );
+        result = raceResultRepository.save(result);
+
+        mockMvc.perform(get("/api/v1/races/{id}/results", race.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.official").value(false))
+                .andExpect(jsonPath("$.entries").isEmpty())
+                .andExpect(jsonPath("$.entries[0].note").doesNotExist());
+
+        race.updateStatus(RaceStatus.RESULT_CONFIRMED);
+        raceRepository.save(race);
+        result.submit(
+                1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
+                ResultFinishStatus.FINISHED, ResultRecordStatus.CONFIRMED, adminUser, "still private"
+        );
+        raceResultRepository.save(result);
+
+        mockMvc.perform(get("/api/v1/races/{id}/results", race.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.official").value(true))
+                .andExpect(jsonPath("$.entries[0].position").value(1))
+                .andExpect(jsonPath("$.entries[0].horseName").value("Emerald King"))
+                .andExpect(jsonPath("$.entries[0].finishTimeSeconds").value(72.341))
+                .andExpect(jsonPath("$.entries[0].note").doesNotExist())
+                .andExpect(jsonPath("$.entries[0].submittedBy").doesNotExist());
+    }
+
+    @Test
+    void publicRacingSummaryReturnsCompactAggregate() throws Exception {
+        tournament.openRegistration();
+        tournamentRepository.save(tournament);
+        raceRepository.save(Race.create(
+                tournament, "Summary Round One", "SUMMARY_ONE",
+                LocalDateTime.now().plusDays(2), 1200, 12, adminUser
+        ));
+        raceRepository.save(Race.create(
+                tournament, "Summary Round Two", "SUMMARY_TWO",
+                LocalDateTime.now().plusDays(4), 1600, 12, adminUser
+        ));
+
+        mockMvc.perform(get("/api/v1/racing-summary"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.raceCount").value(2))
+                .andExpect(jsonPath("$.raceDayCount").value(2))
+                .andExpect(jsonPath("$.championshipCount").value(1))
+                .andExpect(jsonPath("$.seasonFinale").value(tournament.getEndDate().toString()));
     }
 
     @Test
@@ -200,7 +414,7 @@ class RaceIntegrationTest {
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -210,7 +424,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CHECKING"));
 
         RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_LOCKED);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(PredictionStatus.LOCKED);
         org.assertj.core.api.Assertions.assertThat(reloaded.getLockedAt()).isNotNull();
     }
 
@@ -223,7 +437,7 @@ class RaceIntegrationTest {
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         pointsService.initializeAccount(spectator, 100);
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -233,7 +447,7 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.status").value("CANCELLED"));
 
         RacePrediction reloaded = racePredictionRepository.findById(prediction.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(RacePrediction.STATUS_REFUNDED);
+        org.assertj.core.api.Assertions.assertThat(reloaded.getStatus()).isEqualTo(PredictionStatus.REFUNDED);
     }
 
     @Test
@@ -242,7 +456,7 @@ class RaceIntegrationTest {
                 tournament, "Prediction Settlement Round", "MC_SETTLE", LocalDateTime.of(2026, 6, 19, 14, 30),
                 1600, 12, adminUser
         ));
-        race.updateStatus("FINISHED");
+        race.updateStatus(RaceStatus.FINISHED);
         raceRepository.save(race);
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -256,14 +470,31 @@ class RaceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RESULT_CONFIRMED"));
 
-        PredictionSettlementJob job = settlementJobRepository.findByRaceId(race.getId()).orElseThrow();
-        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJob.STATUS_PENDING);
+        PredictionSettlementJob job = settlementJobRepository.findByRace_Id(race.getId()).orElseThrow();
+        org.assertj.core.api.Assertions.assertThat(job.getStatus()).isEqualTo(PredictionSettlementJobStatus.PENDING);
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
                         .param("status", "PUBLISHED")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk());
 
-        org.assertj.core.api.Assertions.assertThat(settlementJobRepository.findByRaceId(race.getId())).isPresent();
+        org.assertj.core.api.Assertions.assertThat(settlementJobRepository.findByRace_Id(race.getId())).isPresent();
+    }
+
+    private RaceParticipant createParticipant(Race race, String horseName, String registrationCode) {
+        User jockey = User.pending(registrationCode + " Jockey", registrationCode.toLowerCase() + "@example.com", "hash");
+        jockey.verifyEmail();
+        jockey = userRepository.save(jockey);
+        Horse horse = horseRepository.save(Horse.create(
+                adminUser, horseName, registrationCode, "Thoroughbred", "MALE",
+                LocalDate.now().minusYears(5), "Bay"
+        ));
+        TournamentRegistration registration = TournamentRegistration.pending(tournament, horse, adminUser, "Ready");
+        registration.approve(adminUser);
+        registration = tournamentRegistrationRepository.save(registration);
+        TournamentParticipant tournamentParticipant = tournamentParticipantRepository.save(
+                TournamentParticipant.active(registration, jockey, null)
+        );
+        return raceParticipantRepository.save(RaceParticipant.registered(race, tournamentParticipant, null));
     }
 }

@@ -44,6 +44,7 @@ public class PointSetting {
         setting.key = key;
         setting.value = 0;
         setting.description = description;
+        setting.updatedAt = LocalDateTime.now();
         return setting;
     }
 

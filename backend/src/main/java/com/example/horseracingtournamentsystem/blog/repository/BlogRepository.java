@@ -14,6 +14,8 @@ public interface BlogRepository extends JpaRepository<Blog, Long> {
     Optional<Blog> findBySlug(String slug);
     boolean existsBySlug(String slug);
     Page<Blog> findByStatus(BlogStatus status, Pageable pageable);
+    
+    long countByStatus(BlogStatus status);
     Page<Blog> findByStatusAndTitleContainingIgnoreCase(BlogStatus status, String title, Pageable pageable);
     Page<Blog> findByTitleContainingIgnoreCase(String title, Pageable pageable);
 }

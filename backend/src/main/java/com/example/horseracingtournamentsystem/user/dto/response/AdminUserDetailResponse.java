@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.user.entity.User;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 
 public record AdminUserDetailResponse(
     Long id,
@@ -14,7 +15,7 @@ public record AdminUserDetailResponse(
     LocalDate dateOfBirth,
     String gender,
     String address,
-    String status,
+    UserStatus status,
     boolean emailVerified,
     Set<String> roles,
     LocalDateTime createdAt,

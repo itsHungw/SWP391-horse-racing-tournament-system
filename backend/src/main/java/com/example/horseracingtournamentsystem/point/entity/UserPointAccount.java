@@ -47,7 +47,15 @@ public class UserPointAccount {
         if (amount <= 0) {
             throw new IllegalArgumentException("Point amount must be greater than 0.");
         }
-        this.pointBalance += amount;
+        adjustPoints(amount);
+    }
+
+    public void adjustPoints(int amount) {
+        int newBalance = this.pointBalance + amount;
+        if (newBalance < 0) {
+            throw new IllegalArgumentException("Insufficient virtual points balance (has: " + this.pointBalance + ", attempted: " + amount + ")");
+        }
+        this.pointBalance = newBalance;
         this.updatedAt = LocalDateTime.now();
     }
 }

@@ -1,6 +1,8 @@
 package com.example.horseracingtournamentsystem.tournamentregistration.repository;
 
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.enums.RegistrationStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -17,9 +19,13 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     Page<TournamentRegistration> findAllByOwnerEmailAndHorseId(String ownerEmail, Long horseId, Pageable pageable);
 
-    List<TournamentRegistration> findAllByStatusOrderByCreatedAtDesc(String status);
+    List<TournamentRegistration> findAllByStatusOrderByCreatedAtDesc(RegistrationStatus status);
 
     List<TournamentRegistration> findAllByOrderByCreatedAtDesc();
+
+    List<TournamentRegistration> findAllByTournament_IdOrderByCreatedAtDesc(Long tournamentId);
+
+    List<TournamentRegistration> findAllByTournament_IdAndStatusOrderByCreatedAtDesc(Long tournamentId, String status);
 
     Optional<TournamentRegistration> findByIdAndOwnerEmail(Long id, String ownerEmail);
 
@@ -42,12 +48,20 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             @Param("id") Long id
     );
 
-    boolean existsByTournament_IdAndHorse_IdAndStatusIn(Long tournamentId, Long horseId, List<String> statuses);
+    boolean existsByTournament_IdAndHorse_IdAndStatusIn(
+            Long tournamentId,
+            Long horseId,
+            Collection<RegistrationStatus> statuses
+    );
 
     Optional<TournamentRegistration> findByTournament_IdAndHorse_IdAndStatusIn(Long tournamentId, Long horseId,
-            List<String> statuses);
+            Collection<RegistrationStatus> statuses);
 
-    long countByTournament_IdAndStatus(Long tournamentId, String status);
+    long countByTournament_IdAndStatus(Long tournamentId, RegistrationStatus status);
 
-    long countByTournament_IdAndOwner_IdAndStatusIn(Long tournamentId, Long ownerId, List<String> statuses);
+    long countByTournament_IdAndOwner_IdAndStatusIn(
+            Long tournamentId,
+            Long ownerId,
+            Collection<RegistrationStatus> statuses
+    );
 }

@@ -1,46 +1,54 @@
 # Prediction Game
 
-## 1. Product intent
+## 1. Purpose
 
-The prediction game exists to increase engagement around upcoming races without introducing gambling behavior.
+The prediction feature gives spectators a game-like engagement layer without affecting official race operations. Users spend internal points to submit predictions and can receive internal rewards after official race results are settled.
 
-## 2. Point economy
+## 2. Non-Betting Principles
 
-### Sources
-- blog rewards,
-- event/admin rewards,
-- fixed rewards from successful predictions.
+- No real money.
+- No deposits or withdrawals.
+- No cash conversion.
+- No odds.
+- No user-to-user redistribution pool.
+- No gambling payout workflow.
 
-### Uses
-- pay a fixed entry cost to submit a prediction,
-- appear on leaderboards,
-- show progression and engagement.
+The system uses virtual points only.
 
-## 3. Entry and reward rules
+## 3. User Flow
 
-| Prediction type | Entry cost | Correct result | Reward |
-| --- | ---: | --- | ---: |
-| WINNER | 5 points | exact winner | 10 points |
-| TOP3 | 10 points | exact order | 30 points |
-| TOP3 | 10 points | correct three horses, wrong order | 15 points |
+1. Load open races: `GET /api/v1/races/open-for-prediction`.
+2. Load prediction options: `GET /api/v1/races/{raceId}/prediction-options`.
+3. Submit prediction: `POST /api/v1/predictions`.
+4. Update prediction before lock: `PUT /api/v1/predictions/{id}`.
+5. View own predictions: `GET /api/v1/predictions/my`.
+6. View own point account: `GET /api/v1/point-accounts/me`.
 
-## 4. Safety boundaries
+Frontend implementation: `frontend/src/pages/spectator/predictions`.
 
-- no cash,
-- no odds,
-- no pools,
-- no user-to-user redistribution,
-- no prize exchange outside the system.
+## 4. Prediction Types And Statuses
 
-## 5. Cancellation
+- Types: `WINNER`, `TOP3`.
+- Statuses: `PENDING`, `LOCKED`, `CORRECT`, `INCORRECT`, `CANCELLED`, `REFUNDED`.
 
-If a race is cancelled before evaluation:
+Top-3 selections must be distinct. Winner selection uses the selected winner participant.
 
-- prediction status becomes `REFUNDED`,
-- the fixed entry cost is returned,
-- no reward is issued.
+## 5. Point Policy
 
-## 6. Leaderboard meaning
+Prediction point values are not hardcoded in the UI. Admin point settings provide:
 
-Leaderboards rank gameplay performance only. They do not represent financial value.
+- `PREDICTION_ENTRY_COST`
+- `PREDICTION_CORRECT_REWARD`
 
+The backend owns validation and balance updates.
+
+## 6. Admin Audit
+
+Admin prediction workspace reads:
+
+- race summaries;
+- race prediction detail;
+- submitted predictions for a race;
+- settlement job status and retry action.
+
+Backend API group: `/api/v1/admin/predictions`.

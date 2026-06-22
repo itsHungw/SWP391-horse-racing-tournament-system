@@ -44,7 +44,11 @@ export function useClientSession() {
         )
         .then((res) => {
           if (!mounted) return;
-          setClientSession(res.data.accessToken, res.data.fullName, res.data.email);
+          setClientSession(
+            res.data.accessToken,
+            res.data.fullName || localStorage.getItem("fullName"),
+            res.data.email || localStorage.getItem("email")
+          );
           setSession(readClientSession());
           setIsInitializing(false);
         })

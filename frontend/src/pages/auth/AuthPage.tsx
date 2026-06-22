@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 
 import { login, register } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
@@ -176,30 +177,58 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
     }
   };
 
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 30 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.22, 1, 0.36, 1] as const } }
+  };
+
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.12 }
+    }
+  };
+
+  const formPanelVariants = {
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
+    exit: { opacity: 0, y: -15, transition: { duration: 0.2 } }
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans text-nyraDark selection:bg-nyraGreen selection:text-white lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(420px,0.8fr)]">
       <section
         aria-label="Tournament operations introduction"
         className="relative min-h-[420px] overflow-hidden bg-[#00081e] sm:min-h-[460px] lg:sticky lg:top-0 lg:h-screen lg:min-h-screen"
       >
-        <img
+        <motion.img
+          initial={{ scale: 1.1 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 2, ease: "easeOut" }}
           alt="Elite thoroughbred racing"
           className="absolute inset-0 h-full w-full object-cover opacity-70 mix-blend-overlay"
           src={heroImage}
         />
         <div className="absolute inset-0 bg-[#00081e]/30" />
         <div className="relative z-10 flex min-h-[420px] flex-col justify-end bg-gradient-to-t from-[#00081e] via-[#00081e]/25 to-transparent px-8 py-10 sm:min-h-[460px] md:px-12 lg:min-h-screen lg:px-16 lg:py-16">
-          <div className="mb-6">
-            <span className="border-b-2 border-nyraGold pb-1 text-xs font-bold uppercase tracking-[0.2em] text-nyraGold">
-              Official Tournament Operations
-            </span>
-          </div>
-          <h1 className="max-w-2xl font-serif text-4xl leading-[0.95] tracking-tight text-white sm:text-5xl md:text-6xl xl:text-7xl">
-            The Prestige of Performance.
-          </h1>
-          <p className="mt-6 max-w-md text-base font-light leading-relaxed text-gray-300 sm:text-lg md:text-xl">
-            Access the racing tournament ecosystem and join the upper echelon of tournament operations.
-          </p>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+          >
+            <motion.div variants={fadeInUp} className="mb-6">
+              <span className="border-b-2 border-nyraGold pb-1 text-xs font-bold uppercase tracking-[0.2em] text-nyraGold">
+                Official Tournament Operations
+              </span>
+            </motion.div>
+            <motion.h1 variants={fadeInUp} className="max-w-2xl font-serif text-4xl leading-[0.95] tracking-tight text-white sm:text-5xl md:text-6xl xl:text-7xl">
+              The Prestige of Performance.
+            </motion.h1>
+            <motion.p variants={fadeInUp} className="mt-6 max-w-md text-base font-light leading-relaxed text-gray-300 sm:text-lg md:text-xl">
+              Access the racing tournament ecosystem and join the upper echelon of tournament operations.
+            </motion.p>
+          </motion.div>
         </div>
       </section>
 
@@ -209,7 +238,12 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
           isLogin ? "lg:items-center" : "lg:items-start"
         }`}
       >
-        <div className="mx-auto w-full max-w-[430px]">
+        <motion.div 
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="mx-auto w-full max-w-[430px]"
+        >
           <div className="relative mb-8 flex w-full overflow-hidden rounded-2xl border border-white/70 bg-white/55 p-1 shadow-[0_18px_45px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/5 backdrop-blur-xl sm:mb-10">
             <div
               className={`auth-toggle-pill absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-[14px] bg-nyraGreen/95 shadow-[0_14px_34px_rgba(0,77,61,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] ring-1 ring-white/25 backdrop-blur-2xl ${
@@ -240,132 +274,170 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
             </button>
           </div>
 
-          {error && (
-            <div className="mb-6 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">
-              {error}
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                key="error"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="mb-6 rounded-sm border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {isLogin ? (
-            <div className="auth-panel-motion">
-              <header className="mb-8 sm:mb-10">
-                <h2 className="mb-3 font-serif text-4xl text-nyraDark">Welcome Back</h2>
-                <p className="font-light text-gray-600">
-                  Enter your secure credentials to access the tournament terminal.
-                </p>
-              </header>
+          <AnimatePresence mode="wait">
+            {isLogin ? (
+              <motion.div
+                key="login-panel"
+                variants={formPanelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="auth-panel-motion"
+              >
+                <header className="mb-8 sm:mb-10">
+                  <h2 className="mb-3 font-serif text-4xl text-nyraDark">Welcome Back</h2>
+                  <p className="font-light text-gray-600">
+                    Enter your secure credentials to access the tournament terminal.
+                  </p>
+                </header>
 
-              <form className="space-y-6" onSubmit={handleLogin}>
-                <Field
-                  autoComplete="email"
-                  id="login-email"
-                  label="Email Address"
-                  onChange={setLoginEmail}
-                  placeholder="official@nyra.com"
-                  type="email"
-                  value={loginEmail}
-                />
-                <Field
-                  autoComplete="current-password"
-                  id="login-password"
-                  label="Password"
-                  onChange={setLoginPassword}
-                  placeholder="Password1"
-                  type="password"
-                  value={loginPassword}
-                />
-                <button
-                  className="w-full bg-nyraRed py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-red-900/20 transition-colors hover:bg-red-700 disabled:opacity-60"
-                  disabled={loading}
-                  type="submit"
-                >
-                  {loading ? "Signing in..." : "Secure Login"}
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="auth-panel-motion">
-              <header className="mb-6 sm:mb-8">
-                <h2 className="mb-3 font-serif text-4xl text-nyraDark">Join the Circuit</h2>
-                <p className="font-light text-gray-600">
-                  Register for official tournament participation.
-                </p>
-              </header>
-
-              <form className="space-y-4" onSubmit={handleRegister}>
-                <Field
-                  autoComplete="name"
-                  compact
-                  id="register-full-name"
-                  label="Full Name"
-                  onChange={setFullName}
-                  placeholder="Julian Sterling"
-                  value={fullName}
-                />
-                <Field
-                  autoComplete="email"
-                  compact
-                  id="register-email"
-                  label="Email Address"
-                  onChange={setRegisterEmail}
-                  placeholder="sterling@stable.com"
-                  type="email"
-                  value={registerEmail}
-                />
-                <Field
-                  autoComplete="tel"
-                  compact
-                  id="register-phone"
-                  label="Phone Number"
-                  onChange={setPhone}
-                  placeholder="0901234567"
-                  value={phone}
-                />
-                <div className="grid gap-4 sm:grid-cols-2">
+                <form className="space-y-6" onSubmit={handleLogin}>
                   <Field
-                    autoComplete="new-password"
-                    compact
-                    id="register-password"
+                    autoComplete="email"
+                    id="login-email"
+                    label="Email Address"
+                    onChange={setLoginEmail}
+                    placeholder="official@nyra.com"
+                    type="email"
+                    value={loginEmail}
+                  />
+                  <Field
+                    autoComplete="current-password"
+                    id="login-password"
                     label="Password"
-                    onChange={setRegisterPassword}
+                    onChange={setLoginPassword}
                     placeholder="Password1"
                     type="password"
-                    value={registerPassword}
+                    value={loginPassword}
+                  />
+                  {isLogin && (
+                    <div className="flex justify-end">
+                      <Link
+                        className="min-h-11 py-2 text-sm font-black text-nyraGreen transition hover:text-[#006f5f] focus:outline-none focus-visible:ring-2 focus-visible:ring-nyraGold"
+                        to="/forgot-password"
+                      >
+                        Forgot password?
+                      </Link>
+                    </div>
+                  )}
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-nyraRed py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg shadow-red-900/20 transition-colors hover:bg-red-700 disabled:opacity-60"
+                    disabled={loading}
+                    type="submit"
+                  >
+                    {loading ? "Signing in..." : "Secure Login"}
+                  </motion.button>
+                </form>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="register-panel"
+                variants={formPanelVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="auth-panel-motion"
+              >
+                <header className="mb-6 sm:mb-8">
+                  <h2 className="mb-3 font-serif text-4xl text-nyraDark">Join the Circuit</h2>
+                  <p className="font-light text-gray-600">
+                    Register for official tournament participation.
+                  </p>
+                </header>
+
+                <form className="space-y-4" onSubmit={handleRegister}>
+                  <Field
+                    autoComplete="name"
+                    compact
+                    id="register-full-name"
+                    label="Full Name"
+                    onChange={setFullName}
+                    placeholder="Julian Sterling"
+                    value={fullName}
                   />
                   <Field
-                    autoComplete="new-password"
+                    autoComplete="email"
                     compact
-                    id="register-confirm-password"
-                    label="Confirm Password"
-                    onChange={setConfirmPassword}
-                    placeholder="Password1"
-                    type="password"
-                    value={confirmPassword}
+                    id="register-email"
+                    label="Email Address"
+                    onChange={setRegisterEmail}
+                    placeholder="sterling@stable.com"
+                    type="email"
+                    value={registerEmail}
                   />
-                </div>
-                <div className="flex items-start gap-3 py-2">
-                  <input
-                    checked={acceptedTerms}
-                    className="mt-1 h-4 w-4 rounded-sm border-gray-300 text-nyraGreen focus:ring-nyraGreen"
-                    id="terms"
-                    onChange={(event) => setAcceptedTerms(event.target.checked)}
-                    type="checkbox"
+                  <Field
+                    autoComplete="tel"
+                    compact
+                    id="register-phone"
+                    label="Phone Number"
+                    onChange={setPhone}
+                    placeholder="0901234567"
+                    value={phone}
                   />
-                  <label className="text-[12px] font-light leading-relaxed text-gray-500" htmlFor="terms">
-                    I agree to the <span className="font-bold text-nyraGreen underline">Tournament Rules</span> and
-                    official participation policies.
-                  </label>
-                </div>
-                <button
-                  className="w-full bg-nyraDark py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-black disabled:opacity-60"
-                  disabled={loading}
-                  type="submit"
-                >
-                  {loading ? "Creating account..." : "Create Account"}
-                </button>
-              </form>
-            </div>
-          )}
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field
+                      autoComplete="new-password"
+                      compact
+                      id="register-password"
+                      label="Password"
+                      onChange={setRegisterPassword}
+                      placeholder="Password1"
+                      type="password"
+                      value={registerPassword}
+                    />
+                    <Field
+                      autoComplete="new-password"
+                      compact
+                      id="register-confirm-password"
+                      label="Confirm Password"
+                      onChange={setConfirmPassword}
+                      placeholder="Password1"
+                      type="password"
+                      value={confirmPassword}
+                    />
+                  </div>
+                  <div className="flex items-start gap-3 py-2">
+                    <input
+                      checked={acceptedTerms}
+                      className="mt-1 h-4 w-4 rounded-sm border-gray-300 text-nyraGreen focus:ring-nyraGreen"
+                      id="terms"
+                      onChange={(event) => setAcceptedTerms(event.target.checked)}
+                      type="checkbox"
+                    />
+                    <label className="text-[12px] font-light leading-relaxed text-gray-500" htmlFor="terms">
+                      I agree to the <span className="font-bold text-nyraGreen underline">Tournament Rules</span> and
+                      official participation policies.
+                    </label>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="w-full bg-nyraDark py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-black disabled:opacity-60"
+                    disabled={loading}
+                    type="submit"
+                  >
+                    {loading ? "Creating account..." : "Create Account"}
+                  </motion.button>
+                </form>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <footer className={`flex flex-col gap-4 border-t border-gray-100 pt-8 ${isLogin ? "mt-16" : "mt-10"}`}>
             <div className="flex items-center gap-3">
@@ -381,7 +453,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
               <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 EquinePro Elite</span>
             </div>
           </footer>
-        </div>
+        </motion.div>
       </section>
     </div>
   );

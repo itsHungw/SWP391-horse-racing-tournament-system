@@ -4,6 +4,7 @@ import { Profile, RefereeProfileInfo, UpdateProfileRequest, UpdateRefereeProfile
 const USE_MOCK = false;
 
 const mockProfile: Profile = {
+  email: "test@example.com",
   fullName: "Nguyen Van A",
   phone: "0987654321",
   gender: "MALE",
@@ -36,6 +37,14 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
   formData.append("file", file);
 
   const response = await httpClient.post<{ url: string }>("/files/upload?category=AVATAR", formData);
+  return response.data;
+}
+
+export async function uploadRefereeEvidence(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=REFEREE_EVIDENCE", formData);
   return response.data;
 }
 

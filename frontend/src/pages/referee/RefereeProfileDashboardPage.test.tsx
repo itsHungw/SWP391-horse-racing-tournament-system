@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -30,6 +30,7 @@ const mockRaces = [
 ];
 
 const mockProfile = {
+  email: "referee@equine.com",
   fullName: "Julian Sterling",
   phone: "0909123456",
   gender: "MALE",
@@ -107,5 +108,136 @@ describe("RefereeProfileDashboardPage", () => {
 
     const manageBtn = await screen.findByRole("link", { name: /Edit referee profile/i });
     expect(manageBtn).toHaveAttribute("href", "#edit-referee-profile");
+  });
+
+  it("uploads referee evidence before saving credential changes", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+    vi.spyOn(profileApi, "updateMyProfile").mockResolvedValue(mockProfile);
+    vi.spyOn(profileApi, "uploadRefereeEvidence").mockResolvedValue({
+      url: "/api/v1/files/private/referee-evidence.pdf",
+    });
+    vi.spyOn(profileApi, "updateMyRefereeProfile").mockResolvedValue({
+      licenseNumber: "REF-2026-X89",
+      certification: "FEI Certified Steward",
+      experienceYears: 8,
+      bio: "Veteran steward bio details.",
+      evidenceUrl: "/api/v1/files/private/referee-evidence.pdf",
+      status: "PENDING",
+    });
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Professional race official profile" })).toBeInTheDocument();
+
+    const evidenceFile = new File(["certificate"], "referee-evidence.pdf", { type: "application/pdf" });
+    fireEvent.change(screen.getByLabelText(/certification evidence file/i), {
+      target: { files: [evidenceFile] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save referee profile/i }));
+
+    await waitFor(() => {
+      expect(profileApi.uploadRefereeEvidence).toHaveBeenCalledWith(evidenceFile);
+      expect(profileApi.updateMyRefereeProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evidenceUrl: "/api/v1/files/private/referee-evidence.pdf",
+        }),
+      );
+    });
+  });
+
+  it("uploads a referee profile photo before saving identity", async () => {
+    const avatarUrl = "/api/v1/files/download/referee-avatar.webp";
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+    vi.spyOn(profileApi, "uploadAvatar").mockResolvedValue({ url: avatarUrl });
+    vi.spyOn(profileApi, "updateMyProfile").mockResolvedValue({
+      ...mockProfile,
+      avatarUrl,
+    });
+    vi.spyOn(profileApi, "updateMyRefereeProfile").mockResolvedValue(
+      mockProfile.refereeProfile,
+    );
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Professional race official profile" }),
+    ).toBeInTheDocument();
+
+    const avatarFile = new File(["avatar"], "referee-avatar.webp", {
+      type: "image/webp",
+    });
+    fireEvent.change(screen.getByLabelText(/profile photo/i), {
+      target: { files: [avatarFile] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save referee profile/i }));
+
+    await waitFor(() => {
+      expect(profileApi.uploadAvatar).toHaveBeenCalledWith(avatarFile);
+      expect(profileApi.updateMyProfile).toHaveBeenCalledWith(
+        expect.objectContaining({ avatarUrl }),
+      );
+    });
+  });
+
+  it("rejects an unsupported referee profile photo type", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Professional race official profile" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/profile photo/i), {
+      target: {
+        files: [new File(["not-an-image"], "profile.pdf", { type: "application/pdf" })],
+      },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Profile photo must be JPG, PNG, or WebP.",
+    );
+  });
+
+  it("rejects a referee profile photo larger than 5MB", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Professional race official profile" }),
+    ).toBeInTheDocument();
+
+    const oversizedPhoto = new File(["avatar"], "large-avatar.png", {
+      type: "image/png",
+    });
+    Object.defineProperty(oversizedPhoto, "size", { value: 5 * 1024 * 1024 + 1 });
+    fireEvent.change(screen.getByLabelText(/profile photo/i), {
+      target: { files: [oversizedPhoto] },
+    });
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Profile photo must be 5MB or smaller.",
+    );
   });
 });

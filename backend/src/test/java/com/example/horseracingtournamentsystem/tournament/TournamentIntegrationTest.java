@@ -4,8 +4,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
+import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -118,6 +121,76 @@ class TournamentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void publicDiscoveryFiltersChampionshipsAndIncludesSummaryData() throws Exception {
+        Tournament summer = Tournament.create(
+                "Summer Gold Championship", "SUMMER_GOLD", "Premium summer series", "Belmont Park",
+                LocalDate.of(2099, 7, 1), LocalDate.of(2099, 7, 20),
+                LocalDateTime.of(2099, 6, 1, 9, 0), LocalDateTime.of(2099, 6, 25, 18, 0),
+                32, adminUser
+        );
+        summer.openRegistration();
+        summer = tournamentRepository.save(summer);
+        raceRepository.save(Race.create(
+                summer, "Belmont Sprint", "BELMONT_SPRINT",
+                LocalDateTime.of(2099, 7, 3, 14, 0), 1200, 12, adminUser
+        ));
+
+        Tournament completed = Tournament.create(
+                "Summer Heritage Championship", "SUMMER_HERITAGE", "Completed series", "Saratoga",
+                LocalDate.of(2099, 5, 1), LocalDate.of(2099, 5, 20),
+                LocalDateTime.of(2099, 4, 1, 9, 0), LocalDateTime.of(2099, 4, 20, 18, 0),
+                24, adminUser
+        );
+        completed.completeTournament();
+        tournamentRepository.save(completed);
+
+        mockMvc.perform(get("/api/v1/tournaments/search")
+                        .param("search", "gold")
+                        .param("status", "OPEN_REGISTRATION")
+                        .param("year", "2099")
+                        .param("sortBy", "REGISTRATION_CLOSING_SOON")
+                        .param("page", "0")
+                        .param("size", "12"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.content[0].name").value("Summer Gold Championship"))
+                .andExpect(jsonPath("$.content[0].raceCount").value(1))
+                .andExpect(jsonPath("$.content[0].participantCount").value(0))
+                .andExpect(jsonPath("$.content[0].nextRace.name").value("Belmont Sprint"))
+                .andExpect(jsonPath("$.content[0].nextRace.raceDateTime").value("2099-07-03T14:00:00"));
+    }
+
+    @Test
+    void publicDiscoveryPaginatesAndSortsLatestChampionships() throws Exception {
+        Tournament older = Tournament.create(
+                "Heritage Cup", "HERITAGE_CUP", "Older public championship", "Belmont Park",
+                LocalDate.of(2098, 7, 1), LocalDate.of(2098, 7, 20),
+                LocalDateTime.of(2098, 6, 1, 9, 0), LocalDateTime.of(2098, 6, 25, 18, 0),
+                32, adminUser
+        );
+        older.completeTournament();
+        tournamentRepository.save(older);
+
+        Tournament newer = Tournament.create(
+                "Future Cup", "FUTURE_CUP", "Latest public championship", "Belmont Park",
+                LocalDate.of(2099, 7, 1), LocalDate.of(2099, 7, 20),
+                LocalDateTime.of(2099, 6, 1, 9, 0), LocalDateTime.of(2099, 6, 25, 18, 0),
+                32, adminUser
+        );
+        newer.openRegistration();
+        tournamentRepository.save(newer);
+
+        mockMvc.perform(get("/api/v1/tournaments/search")
+                        .param("sortBy", "LATEST")
+                        .param("page", "0")
+                        .param("size", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content[0].name").value("Future Cup"));
     }
 
     @Test
@@ -285,6 +358,11 @@ class TournamentIntegrationTest {
             );
         t = tournamentRepository.save(t);
 
+        // BR-17: giải phải được duyệt (APPROVED) trước khi mở đăng ký.
+        t.submitForApproval();
+        t.approveLaunch(adminUser);
+        tournamentRepository.save(t);
+
         // Transition to OPEN_REGISTRATION
         mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -367,7 +445,7 @@ class TournamentIntegrationTest {
 
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updated = 
             tournamentRepository.findById(t.getId()).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertEquals("OPEN_REGISTRATION", updated.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.OPEN_REGISTRATION, updated.getStatus());
     }
 
     @Test
@@ -430,9 +508,9 @@ class TournamentIntegrationTest {
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT4 =
             tournamentRepository.findById(t4.getId()).orElseThrow();
 
-        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT2.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("PARTICIPANTS_LOCKED", updatedT3.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT4.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.CLOSED_REGISTRATION, updatedT1.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.CLOSED_REGISTRATION, updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.PARTICIPANTS_LOCKED, updatedT3.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.ONGOING, updatedT4.getStatus());
     }
 }

@@ -39,15 +39,15 @@ describe("AdminTournamentListPage", () => {
 
     expect(await screen.findByRole("heading", { name: /championships/i })).toBeInTheDocument();
     expect(screen.getByText("Spring Cup 2026")).toBeInTheDocument();
-    expect(screen.getByText(/current phase/i)).toBeInTheDocument();
-    expect(screen.getByText(/owner quota/i)).toBeInTheDocument();
+    expect(screen.getByText(/phase progress/i)).toBeInTheDocument();
+    expect(screen.getByText(/^quota$/i)).toBeInTheDocument();
     expect(screen.getByText(/next action/i)).toBeInTheDocument();
     expect(screen.getByText(/close registration/i)).toBeInTheDocument();
     expect(screen.getAllByText(/^Registration$/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^Pool Formation$/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^Assignment$/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/^Racing$/i).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /continue spring cup 2026/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^manage$/i })).toHaveAttribute(
       "href",
       "/admin/tournaments/7",
     );

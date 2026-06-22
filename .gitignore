@@ -10,6 +10,23 @@ frontend/dist/
 
 .playwright-cli/
 
+.claude
 output/
 .superpowers/
 backend/uploads/
+/pptx
+pptx/
+
+# Secrets / local env — never commit. Keep .env.example as the template.
+.env
+.env.*
+!.env.example
+*.local.yml
+*.local.yaml
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

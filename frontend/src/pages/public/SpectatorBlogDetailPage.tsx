@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { Gift } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 
 import { blogApi } from "../../api/blogApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
+import { ClientFooter } from "../../components/client/ClientFooter";
+import { Eyebrow } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { Blog } from "../../types/blog";
 
@@ -11,27 +14,22 @@ const fallbackImage =
   "https://lh3.googleusercontent.com/aida-public/AB6AXuD3saKgDU0-ot9kioPQkTnU-C4T2VptX_iWNLBeQbVxehn21O8bD1RE9UShnD3qRvwvY14_AsQL3YyApeN3SrSP0Ebvm6nIbIv0A_fv-p2O_UWKt7PhZKQb_yY0fP_9eodHg13F0jBkZQ26xuS3PPbase_pms-XnBF-bAvTr1cxfSZtCyP1SRLXB94ddDXR3sDXxdieralZiuHP3f04FygdlJhKiub8gd3okHWLbSCfUJl56P5njmpz3WshFQU5618TcctmqF3yxNs";
 
 function formatBlogDate(value: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat("en", { month: "long", day: "numeric", year: "numeric" }).format(
+    new Date(value),
+  );
 }
 
 function calculateScrollPercent() {
   const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
   const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
   const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-
-  if (scrollHeight <= viewportHeight) {
-    return 100;
-  }
-
+  if (scrollHeight <= viewportHeight) return 100;
   return Math.min(100, Math.floor(((scrollTop + viewportHeight) / scrollHeight) * 100));
 }
 
 export function SpectatorBlogDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const reduce = useReducedMotion();
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,21 +39,21 @@ export function SpectatorBlogDetailPage() {
   const [claimMessage, setClaimMessage] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
 
-  useDocumentTitle(blog?.title || "Tournament blog");
+  useDocumentTitle(blog?.title || "Newsroom | Night at the Races");
+
+  const { scrollYProgress } = useScroll();
+  const heroY = useTransform(scrollYProgress, [0, 0.3], ["0%", "24%"]);
 
   useEffect(() => {
     let isMounted = true;
-
     async function loadBlog() {
       if (!slug) {
         setLoading(false);
-        setError("Post not found.");
+        setError("Story not found.");
         return;
       }
-
       setLoading(true);
       setError(null);
-
       try {
         const data = await blogApi.getPublishedBlogBySlug(slug);
         if (isMounted) {
@@ -69,49 +67,32 @@ export function SpectatorBlogDetailPage() {
         console.error("Public blog article unavailable.", err);
         if (isMounted) {
           setBlog(null);
-          setError("Post not found.");
+          setError("Story not found.");
         }
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        if (isMounted) setLoading(false);
       }
     }
-
     loadBlog();
-
     return () => {
       isMounted = false;
     };
   }, [slug]);
 
   useEffect(() => {
-    if (!blog) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setReadingSeconds(30);
-    }, 30_000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    if (!blog) return;
+    const timeoutId = window.setTimeout(() => setReadingSeconds(30), 30_000);
+    return () => window.clearTimeout(timeoutId);
   }, [blog]);
 
   useEffect(() => {
-    if (!blog) {
-      return;
-    }
-
+    if (!blog) return;
     function updateScrollProgress() {
       setScrollPercent((current) => Math.max(current, calculateScrollPercent()));
     }
-
     window.addEventListener("scroll", updateScrollProgress, { passive: true });
     window.addEventListener("resize", updateScrollProgress);
     updateScrollProgress();
-
     return () => {
       window.removeEventListener("scroll", updateScrollProgress);
       window.removeEventListener("resize", updateScrollProgress);
@@ -119,22 +100,17 @@ export function SpectatorBlogDetailPage() {
   }, [blog]);
 
   async function handleClaimReward() {
-    if (!blog || claiming) {
-      return;
-    }
-
+    if (!blog || claiming) return;
     setClaiming(true);
     setClaimError(null);
     setClaimMessage(null);
-
     try {
       const response = await blogApi.claimBlogReward(blog.slug, {
         readingSeconds: Math.floor(readingSeconds),
         scrollPercent: Math.floor(Math.min(100, scrollPercent)),
       });
-
       if (response.outcome === "CLAIMED") {
-        setClaimMessage(`You earned ${response.pointsAwarded} points.`);
+        setClaimMessage(`You earned ${response.pointsAwarded} virtual points.`);
       } else if (response.outcome === "ALREADY_CLAIMED") {
         setClaimMessage("Reward already claimed.");
       } else {
@@ -150,159 +126,206 @@ export function SpectatorBlogDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white font-sans text-nyraDark">
+      <div className="client-theme min-h-screen bg-turf-950 text-ivory">
         <ClientHeader />
-        <main className="bg-[#f6f7f6]">
-          <div className="container mx-auto px-4 py-12 md:py-16">
-            <div className="animate-pulse border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="mb-8 h-4 w-36 bg-slate-200" />
-              <div className="mb-8 aspect-[16/7] bg-slate-200" />
-              <div className="mb-4 h-12 w-4/5 bg-slate-200" />
-              <div className="h-4 w-56 bg-slate-200" />
-            </div>
+        <div className="mx-auto max-w-[1100px] px-6 py-16 md:px-12">
+          <div className="animate-pulse">
+            <div className="h-4 w-36 bg-white/5" />
+            <div className="mt-8 aspect-[16/7] rounded-2xl bg-white/5" />
+            <div className="mt-8 h-12 w-4/5 bg-white/5" />
+            <div className="mt-4 h-4 w-56 bg-white/5" />
           </div>
-        </main>
+        </div>
       </div>
     );
   }
 
   if (!blog || error) {
     return (
-      <div className="min-h-screen bg-white font-sans text-nyraDark">
+      <div className="client-theme min-h-screen bg-turf-950 text-ivory">
         <ClientHeader />
-        <main className="bg-[#f6f7f6]">
-          <div className="container mx-auto px-4 py-12 md:py-16">
-            <Link
-              className="mb-8 inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-nyraGreen hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-nyraGreen"
-              to="/blogs"
-            >
-              &larr; Back to Blogs
-            </Link>
-            <div className="border-l-4 border-nyraRed bg-white p-8 text-sm font-bold text-red-700 shadow-sm" role="alert">
-              {error || "Post not found."}
-            </div>
+        <div className="mx-auto max-w-[1100px] px-6 py-20 md:px-12">
+          <Link
+            to="/blogs"
+            className="inline-flex items-center text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 hover:text-gold-200"
+          >
+            &larr; Back to Newsroom
+          </Link>
+          <div
+            className="mt-8 rounded-2xl border-l-4 border-nyraRed bg-turf-900 px-7 py-8 text-sm font-semibold text-rose-300"
+            role="alert"
+          >
+            {error || "Story not found."}
           </div>
-        </main>
+        </div>
+        <ClientFooter />
       </div>
     );
   }
 
   const rewardUnlocked = readingSeconds >= 30 && scrollPercent >= 80;
-  const rewardButtonClass = rewardUnlocked
-    ? "bg-nyraGreen text-white hover:bg-nyraDark focus-visible:outline-nyraGreen"
-    : "cursor-not-allowed border border-slate-300 bg-slate-200 text-slate-500";
 
   return (
-    <div className="min-h-screen bg-white font-sans text-nyraDark">
+    <div className="client-theme bg-turf-950 text-ivory">
       <ClientHeader />
 
-      <main>
-        <article>
-          <header className="relative min-h-[520px] overflow-hidden bg-nyraDark text-white">
+      <article>
+        {/* Hero */}
+        <header className="grain relative isolate min-h-[60vh] overflow-hidden">
+          <motion.div style={reduce ? undefined : { y: heroY }} className="absolute inset-0 -z-10">
             <img
-              alt={blog.title}
-              className="absolute inset-0 h-full w-full object-cover opacity-65"
               src={blog.thumbnail || fallbackImage}
+              alt=""
+              className="h-full w-full object-cover object-center opacity-55"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-black/20" />
-            <div className="container relative mx-auto flex min-h-[520px] items-end px-4 py-12 md:py-16">
-              <div className="max-w-4xl">
-                <Link
-                  className="mb-8 inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-nyraGold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-                  to="/blogs"
-                >
-                  &larr; Back to Blogs
-                </Link>
-                <p className="border-l-4 border-nyraGold pl-4 text-xs font-black uppercase tracking-[0.24em] text-nyraGold">
-                  Tournament Blog
-                </p>
-                <h1 className="mt-5 text-5xl font-black uppercase leading-none tracking-tight md:text-7xl">
-                  {blog.title}
-                </h1>
-                <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-xs font-black uppercase tracking-[0.18em] text-white/75">
-                  <span>By {blog.authorName}</span>
-                  <span aria-hidden="true">&bull;</span>
-                  <time dateTime={blog.createdAt}>{formatBlogDate(blog.createdAt)}</time>
-                </div>
+          </motion.div>
+          <div className="turf-vignette absolute inset-0 -z-10" />
+          <div className="mx-auto flex min-h-[60vh] max-w-[1100px] flex-col justify-end px-6 pb-14 pt-28 md:px-12">
+            <motion.div
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] as const }}
+            >
+              <Link
+                to="/blogs"
+                className="group inline-flex items-center text-[12px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-ivory"
+              >
+                <span className="mr-2 transition-transform group-hover:-translate-x-1">&larr;</span> Back to Newsroom
+              </Link>
+              <h1 className="mt-6 max-w-4xl font-display text-[clamp(2.4rem,6vw,5rem)] font-light leading-[0.95] tracking-[-0.02em]">
+                {blog.title}
+              </h1>
+              <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 font-data text-xs uppercase tracking-[0.18em] text-ivory-dim">
+                <span>By {blog.authorName}</span>
+                <span aria-hidden="true" className="text-gold-400">
+                  ◆
+                </span>
+                <time dateTime={blog.createdAt}>{formatBlogDate(blog.createdAt)}</time>
               </div>
-            </div>
-          </header>
+            </motion.div>
+          </div>
+        </header>
 
-          <section className="bg-white py-12 md:py-16">
-            <div className="container mx-auto grid gap-10 px-4 lg:grid-cols-[260px_minmax(0,780px)] lg:items-start lg:justify-center">
-              <aside className="border-t-4 border-nyraGreen bg-[#f6f7f6] p-6">
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">Article details</p>
+        {/* Body */}
+        <section className="bg-turf-900 py-16 md:py-24">
+          <div className="mx-auto grid max-w-[1100px] gap-12 px-6 md:px-12 lg:grid-cols-[300px_minmax(0,1fr)] lg:items-start">
+            {/* Reward aside */}
+            <motion.aside
+              initial={reduce ? { opacity: 0 } : { opacity: 0, x: -24 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] as const }}
+              className="lg:sticky lg:top-28 lg:self-start"
+            >
+              <div className="rounded-2xl border border-gold-600/25 bg-turf-950 p-7">
+                <Eyebrow tone="gold">Article</Eyebrow>
                 <dl className="mt-5 space-y-5">
                   <div>
-                    <dt className="text-[10px] font-black uppercase tracking-widest text-slate-500">Author</dt>
-                    <dd className="mt-1 text-base font-black text-nyraDark">{blog.authorName}</dd>
+                    <dt className="font-data text-[10px] uppercase tracking-[0.2em] text-ivory-faint">Author</dt>
+                    <dd className="mt-1 font-display text-lg text-ivory">{blog.authorName}</dd>
                   </div>
                   <div>
-                    <dt className="text-[10px] font-black uppercase tracking-widest text-slate-500">Published</dt>
-                    <dd className="mt-1 text-base font-black text-nyraDark">{formatBlogDate(blog.createdAt)}</dd>
+                    <dt className="font-data text-[10px] uppercase tracking-[0.2em] text-ivory-faint">Published</dt>
+                    <dd className="mt-1 font-display text-lg text-ivory">{formatBlogDate(blog.createdAt)}</dd>
                   </div>
                 </dl>
 
-                <section aria-labelledby="blog-reward-heading" className="mt-8 border-t border-slate-200 pt-6">
-                  <h2 id="blog-reward-heading" className="text-xs font-black uppercase tracking-[0.2em] text-nyraGreen">
-                    Blog reward
+                <section aria-labelledby="reward-heading" className="mt-8 border-t border-white/10 pt-7">
+                  <h2 id="reward-heading" className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-soft live-pulse" />
+                    <Eyebrow tone="emerald">Reading Reward</Eyebrow>
                   </h2>
-                  {!rewardUnlocked ? (
-                    <p className="mt-4 text-sm font-bold leading-6 text-slate-600">
-                      Read the article and scroll to unlock reward.
-                    </p>
-                  ) : null}
 
-                  <button
-                    className={`mt-5 inline-flex min-h-11 w-full items-center justify-center gap-2 px-4 text-sm font-black uppercase tracking-widest transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 disabled:cursor-not-allowed ${rewardButtonClass}`}
+                  <div className="mt-5 space-y-4">
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold text-ivory-dim">
+                        <span>Reading time</span>
+                        <span className={readingSeconds >= 30 ? "text-emerald-soft" : ""}>
+                          {Math.min(30, readingSeconds)}s / 30s
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                        <motion.div
+                          className="h-full bg-emerald-glow"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, (readingSeconds / 30) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-xs font-semibold text-ivory-dim">
+                        <span>Scroll progress</span>
+                        <span className={scrollPercent >= 80 ? "text-emerald-soft" : ""}>{scrollPercent}% / 80%</span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                        <motion.div
+                          className="h-full bg-emerald-glow"
+                          animate={{ width: `${scrollPercent}%` }}
+                          transition={{ ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <motion.button
+                    whileHover={rewardUnlocked && !claiming ? { scale: 1.02 } : undefined}
+                    whileTap={rewardUnlocked && !claiming ? { scale: 0.98 } : undefined}
+                    type="button"
                     disabled={!rewardUnlocked || claiming}
                     onClick={handleClaimReward}
-                    type="button"
+                    className={`mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-sm px-4 text-[13px] font-bold uppercase tracking-[0.16em] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed ${
+                      rewardUnlocked
+                        ? "bg-gold-400 text-turf-950 shadow-[0_14px_36px_-12px_rgba(212,175,55,0.6)] hover:bg-gold-300 focus-visible:outline-ivory"
+                        : "border border-white/10 bg-white/5 text-ivory-faint"
+                    }`}
                   >
-                    <Gift aria-hidden="true" size={18} strokeWidth={2.5} />
-                    {claiming ? "Claiming..." : "Claim Reward"}
-                  </button>
+                    <Gift aria-hidden="true" size={17} strokeWidth={2.2} />
+                    {claiming ? "Claiming…" : "Claim Reward"}
+                  </motion.button>
 
                   {claimMessage ? (
-                    <p className="mt-4 text-sm font-bold text-nyraGreen" role="status" aria-live="polite">
+                    <p
+                      className="mt-4 border-l-2 border-emerald-glow bg-emerald-glow/10 p-3 text-sm font-semibold text-emerald-soft"
+                      role="status"
+                      aria-live="polite"
+                    >
                       {claimMessage}
                     </p>
                   ) : null}
                   {claimError ? (
-                    <p className="mt-4 text-sm font-bold text-red-700" role="alert">
+                    <p
+                      className="mt-4 border-l-2 border-nyraRed bg-rose-500/10 p-3 text-sm font-semibold text-rose-300"
+                      role="alert"
+                    >
                       {claimError}
                     </p>
                   ) : null}
                 </section>
-              </aside>
-
-              <div>
-                {blog.summary ? (
-                  <p className="border-l-4 border-nyraGold pl-5 text-2xl font-bold leading-9 text-nyraDark">
-                    {blog.summary}
-                  </p>
-                ) : null}
-                <div
-                  className="mt-10 max-w-none text-lg leading-8 text-slate-800 [&_a]:font-bold [&_a]:text-nyraGreen [&_a]:underline [&_h2]:mb-4 [&_h2]:mt-10 [&_h2]:text-3xl [&_h2]:font-black [&_h2]:uppercase [&_h2]:tracking-tight [&_h2]:text-nyraDark [&_h3]:mb-3 [&_h3]:mt-8 [&_h3]:text-2xl [&_h3]:font-black [&_h3]:text-nyraDark [&_li]:mb-2 [&_ol]:mb-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-6 [&_strong]:font-black [&_ul]:mb-6 [&_ul]:list-disc [&_ul]:pl-6"
-                  dangerouslySetInnerHTML={{ __html: blog.content }}
-                />
               </div>
-            </div>
-          </section>
-        </article>
-      </main>
+            </motion.aside>
 
-      <footer className="border-t border-white/10 bg-nyraDark py-10 text-white">
-        <div className="container mx-auto flex flex-col gap-3 px-4 md:flex-row md:items-center md:justify-between">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-nyraGold">Horse Racing Tournament</p>
-          <Link
-            className="inline-flex min-h-11 items-center text-sm font-black uppercase tracking-widest text-white hover:text-nyraGold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
-            to="/blogs"
-          >
-            More Blog Posts <span className="ml-2">&rarr;</span>
-          </Link>
-        </div>
-      </footer>
+            {/* Content */}
+            <motion.div
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] as const }}
+            >
+              {blog.summary ? (
+                <p className="border-l-2 border-gold-400 pl-6 font-display text-2xl font-light italic leading-relaxed text-ivory">
+                  {blog.summary}
+                </p>
+              ) : null}
+              <div
+                className="mt-12 max-w-none text-lg leading-8 text-ivory-dim [&_a]:font-semibold [&_a]:text-gold-300 [&_a]:underline [&_h2]:mb-6 [&_h2]:mt-12 [&_h2]:font-display [&_h2]:text-3xl [&_h2]:font-medium [&_h2]:tracking-tight [&_h2]:text-ivory [&_h3]:mb-4 [&_h3]:mt-10 [&_h3]:font-display [&_h3]:text-2xl [&_h3]:font-medium [&_h3]:text-ivory [&_li]:mb-3 [&_ol]:mb-8 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:mb-8 [&_strong]:font-bold [&_strong]:text-ivory [&_ul]:mb-8 [&_ul]:list-disc [&_ul]:pl-6"
+                dangerouslySetInnerHTML={{ __html: blog.content }}
+              />
+            </motion.div>
+          </div>
+        </section>
+      </article>
+
+      <ClientFooter />
     </div>
   );
 }

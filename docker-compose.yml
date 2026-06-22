@@ -1,0 +1,78 @@
+# Local development stack: SQL Server + MinIO (S3-compatible).
+# Pairs a local database with a local object store so developers never touch the
+# shared cloud bucket. Usage:
+#   cp .env.example .env   (adjust if needed)
+#   docker compose up -d
+# Then run the backend with SPRING_PROFILES_ACTIVE=dev.
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: hrts-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD:-Local_Dev_Password123}"
+      MSSQL_PID: "Developer"
+    ports:
+      # Host port 14330 (not 1433) to avoid clashing with a locally installed
+      # SQL Server (e.g. SQL Server Express). Point the backend's DB_URL at
+      # localhost:14330. The container still listens on 1433 internally, so
+      # db-init connects to sqlserver:1433 on the compose network.
+      - "14330:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+
+  # Creates the application database once SQL Server is accepting connections.
+  # Reuses the SQL Server image so sqlcmd (mssql-tools18) and bash are present.
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    depends_on:
+      - sqlserver
+    environment:
+      DB_SA_PASSWORD: "${DB_SA_PASSWORD:-Local_Dev_Password123}"
+      DB_NAME: "${DB_NAME:-horseracing}"
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        for i in $$(seq 1 30); do
+          /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$$DB_SA_PASSWORD" -C -Q "IF DB_ID('$$DB_NAME') IS NULL CREATE DATABASE [$$DB_NAME]" && break
+          echo "waiting for sql server ($$i)..."
+          sleep 2
+        done
+
+  minio:
+    image: minio/minio
+    container_name: hrts-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: "${AWS_S3_ACCESS_KEY:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${AWS_S3_SECRET_KEY:-minioadmin}"
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # web console
+    volumes:
+      - minio-data:/data
+
+  # Creates the dev bucket once MinIO is up.
+  minio-setup:
+    image: minio/mc
+    depends_on:
+      - minio
+    environment:
+      AWS_S3_BUCKET: "${AWS_S3_BUCKET:-horseracing-dev}"
+      AWS_S3_ACCESS_KEY: "${AWS_S3_ACCESS_KEY:-minioadmin}"
+      AWS_S3_SECRET_KEY: "${AWS_S3_SECRET_KEY:-minioadmin}"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - >
+        until mc alias set local http://minio:9000 "$$AWS_S3_ACCESS_KEY" "$$AWS_S3_SECRET_KEY"; do
+          echo "waiting for minio..."; sleep 2;
+        done;
+        mc mb --ignore-existing local/"$$AWS_S3_BUCKET";
+        echo "minio bucket $$AWS_S3_BUCKET ready"
+
+volumes:
+  sqlserver-data:
+  minio-data:

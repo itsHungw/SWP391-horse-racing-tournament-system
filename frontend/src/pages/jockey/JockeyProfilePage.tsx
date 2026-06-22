@@ -2,11 +2,13 @@ import { FormEvent, useState } from "react";
 import { CheckCircle2, Medal, Save } from "lucide-react";
 
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useClientSession } from "../../hooks/useClientSession";
 import { JockeyLayout } from "../../layouts/JockeyLayout";
 import { careerRecord, championshipArchive, jockeyChampionships } from "./jockeyWorkspaceData";
 
 export function JockeyProfilePage() {
   useDocumentTitle("Racing passport");
+  const { session } = useClientSession();
   const [saved, setSaved] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -33,6 +35,21 @@ export function JockeyProfilePage() {
           <form className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" onSubmit={handleSubmit}>
             <h2 className="text-2xl font-black text-slate-950">Rider Profile</h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <label className="grid gap-2 text-sm font-black text-slate-700 md:col-span-2">
+                Phone number
+                <input
+                  className="min-h-11 rounded-md border border-slate-300 px-3 text-sm font-bold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
+                  defaultValue="0901234567"
+                />
+              </label>
+              <label className="grid gap-2 text-sm font-black text-slate-700 md:col-span-2">
+                Email address
+                <input
+                  className="min-h-11 cursor-not-allowed rounded-md border border-slate-300 bg-slate-50 px-3 text-sm font-bold text-slate-500 focus-visible:outline-none"
+                  readOnly
+                  value={session?.email || ""}
+                />
+              </label>
               {[
                 ["Display Name", "Nguyen Van A"],
                 ["Height", "172 cm"],
