@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, Check, ShieldCheck, UserPlus, XCircle } from "lucide-react";
+import { BadgeCheck, Check, ChevronRight, ShieldCheck } from "lucide-react";
 
 import {
   getLicensedReferees,
@@ -9,8 +9,10 @@ import {
   terminateRefereeContract,
 } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useSelectedTournamentId } from "../../hooks/useSelectedTournamentId";
 import type { RefereeContract, RefereeContractStatus, RefereeDirectoryEntry, Tournament } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { RefereeDetailDrawer } from "../../components/organizer/RefereeDetailDrawer";
 
 const contractBadge: Record<RefereeContractStatus, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -24,18 +26,20 @@ function initials(name: string) {
   return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
 }
 
+type Detail = { referee: RefereeDirectoryEntry; contract: RefereeContract | null };
+
 export function OrganizerOfficialsPage() {
   useDocumentTitle("Officials | Organizer");
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [directory, setDirectory] = useState<RefereeDirectoryEntry[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useSelectedTournamentId();
   const [contracts, setContracts] = useState<RefereeContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [busyRefereeId, setBusyRefereeId] = useState<number | null>(null);
-  const [busyContractId, setBusyContractId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Detail | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -44,7 +48,7 @@ export function OrganizerOfficialsPage() {
       if (!active) return;
       if (tRes.status === "fulfilled") {
         setTournaments(tRes.value);
-        setSelectedId(tRes.value[0]?.id ?? null);
+        setSelectedId((prev) => (prev != null && tRes.value.some((t) => t.id === prev) ? prev : tRes.value[0]?.id ?? null));
       }
       if (dRes.status === "fulfilled") setDirectory(dRes.value);
       else setError(getApiErrorMessage(dRes.reason, "Could not load the referee directory."));
@@ -78,12 +82,24 @@ export function OrganizerOfficialsPage() {
     [contracts],
   );
 
-  const handleInvite = async (refereeId: number) => {
-    if (selectedId == null) return;
-    setBusyRefereeId(refereeId);
+  const directoryById = useMemo(
+    () => new Map(directory.map((d) => [d.refereeId, d])),
+    [directory],
+  );
+
+  const refereeFor = (id: number, fallbackName?: string): RefereeDirectoryEntry =>
+    directoryById.get(id) ?? { refereeId: id, fullName: fallbackName ?? `Referee #${id}`, email: "" };
+
+  const activeOrPendingFor = (refereeId: number): RefereeContract | null =>
+    contracts.find((c) => c.refereeId === refereeId && (c.status === "ACTIVE" || c.status === "PENDING")) ?? null;
+
+  const handleInvite = async () => {
+    if (selectedId == null || !detail) return;
+    setBusyRefereeId(detail.referee.refereeId);
     setError(null);
     try {
-      await inviteReferee(selectedId, { refereeId });
+      await inviteReferee(selectedId, { refereeId: detail.referee.refereeId });
+      setDetail(null);
       await loadContracts(selectedId);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not send the invitation."));
@@ -92,17 +108,18 @@ export function OrganizerOfficialsPage() {
     }
   };
 
-  const handleTerminate = async (contractId: number) => {
-    if (selectedId == null) return;
-    setBusyContractId(contractId);
+  const handleTerminate = async () => {
+    if (selectedId == null || !detail?.contract) return;
+    setBusyRefereeId(detail.referee.refereeId);
     setError(null);
     try {
-      await terminateRefereeContract(contractId);
+      await terminateRefereeContract(detail.contract.id);
+      setDetail(null);
       await loadContracts(selectedId);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not terminate the contract."));
     } finally {
-      setBusyContractId(null);
+      setBusyRefereeId(null);
     }
   };
 
@@ -113,7 +130,8 @@ export function OrganizerOfficialsPage() {
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
           <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Officials</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
-            Hire platform-licensed referees for a tournament. Only referees with an active contract can be assigned to its races.
+            Hire platform-licensed referees for a tournament. Open a referee to see their licence and experience, then
+            invite or terminate. Only referees with an active contract can be assigned to its races.
           </p>
         </div>
         <label className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
@@ -161,23 +179,20 @@ export function OrganizerOfficialsPage() {
             ) : (
               <ul className="divide-y divide-[#efe9dd]">
                 {contracts.map((c) => (
-                  <li key={c.id} className="flex items-center justify-between gap-4 px-6 py-4">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-[#211d1a]">{c.refereeName}</p>
-                      <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${contractBadge[c.status]}`}>
-                        {c.status}
-                      </span>
-                    </div>
-                    {c.status === "ACTIVE" && (
-                      <button
-                        type="button"
-                        disabled={busyContractId === c.id}
-                        onClick={() => handleTerminate(c.id)}
-                        className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
-                      >
-                        <XCircle className="h-4 w-4" /> Terminate
-                      </button>
-                    )}
+                  <li key={c.id}>
+                    <button
+                      type="button"
+                      onClick={() => setDetail({ referee: refereeFor(c.refereeId, c.refereeName), contract: c })}
+                      className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition hover:bg-[#faf7f0] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#bb8a3c]"
+                    >
+                      <p className="min-w-0 truncate font-semibold text-[#211d1a]">{c.refereeName}</p>
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${contractBadge[c.status]}`}>
+                          {c.status}
+                        </span>
+                        <ChevronRight className="h-4 w-4 text-[#bdb3a0]" aria-hidden="true" />
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -197,34 +212,34 @@ export function OrganizerOfficialsPage() {
                 {directory.map((r) => {
                   const engaged = engagedRefereeIds.has(r.refereeId);
                   return (
-                    <li key={r.refereeId} className="flex items-center justify-between gap-4 px-6 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f3ead6] text-xs font-black uppercase text-[#8a6a1c]">
-                          {initials(r.fullName)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-[#211d1a]">{r.fullName}</p>
-                          <p className="truncate text-xs text-[#8a8276]">
-                            {[r.licenseNumber && `Lic. ${r.licenseNumber}`, r.experienceYears != null && `${r.experienceYears} yrs`]
-                              .filter(Boolean)
-                              .join(" · ") || r.email}
-                          </p>
+                    <li key={r.refereeId}>
+                      <button
+                        type="button"
+                        onClick={() => setDetail({ referee: r, contract: activeOrPendingFor(r.refereeId) })}
+                        className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition hover:bg-[#faf7f0] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#bb8a3c]"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#f3ead6] text-xs font-black uppercase text-[#8a6a1c]">
+                            {initials(r.fullName)}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-[#211d1a]">{r.fullName}</p>
+                            <p className="truncate text-xs text-[#8a8276]">
+                              {[r.licenseNumber && `Lic. ${r.licenseNumber}`, r.experienceYears != null && `${r.experienceYears} yrs`]
+                                .filter(Boolean)
+                                .join(" · ") || r.email}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                      {engaged ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wide text-emerald-700">
-                          <Check className="h-4 w-4" /> Engaged
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busyRefereeId === r.refereeId || selectedId == null}
-                          onClick={() => handleInvite(r.refereeId)}
-                          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#bb8a3c] px-3 text-xs font-black uppercase tracking-wide text-[#1c1816] transition hover:bg-[#cfa24f] disabled:opacity-50"
-                        >
-                          <UserPlus className="h-4 w-4" /> Invite
-                        </button>
-                      )}
+                        <div className="flex shrink-0 items-center gap-3">
+                          {engaged && (
+                            <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wide text-emerald-700">
+                              <Check className="h-4 w-4" /> Engaged
+                            </span>
+                          )}
+                          <ChevronRight className="h-4 w-4 text-[#bdb3a0]" aria-hidden="true" />
+                        </div>
+                      </button>
                     </li>
                   );
                 })}
@@ -232,6 +247,18 @@ export function OrganizerOfficialsPage() {
             )}
           </section>
         </div>
+      )}
+
+      {detail && (
+        <RefereeDetailDrawer
+          referee={detail.referee}
+          contract={detail.contract}
+          busy={busyRefereeId === detail.referee.refereeId}
+          canInvite={selectedId != null}
+          onClose={() => setDetail(null)}
+          onInvite={handleInvite}
+          onTerminate={handleTerminate}
+        />
       )}
     </div>
   );

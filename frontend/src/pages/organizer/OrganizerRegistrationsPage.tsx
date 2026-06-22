@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ClipboardList, Lock, UserCheck, Users, X, XCircle } from "lucide-react";
+import { ChevronRight, ClipboardList, Lock, UserCheck, Users } from "lucide-react";
 
 import {
   approveOrganizerJockeyApplication,
@@ -13,6 +13,7 @@ import {
   rejectOrganizerTournamentRegistration,
 } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useSelectedTournamentId } from "../../hooks/useSelectedTournamentId";
 import type {
   JockeyPoolApplication,
   Tournament,
@@ -20,6 +21,8 @@ import type {
   TournamentRegistration,
 } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { ConfirmDialog } from "../../components/organizer/ConfirmDialog";
+import { RegistrationDetailDrawer, type RegistrationDetail } from "../../components/organizer/RegistrationDetailDrawer";
 
 const statusBadge: Record<string, string> = {
   PENDING: "bg-amber-100 text-amber-800",
@@ -32,7 +35,6 @@ const statusBadge: Record<string, string> = {
 };
 
 type Tab = "horses" | "jockeys" | "participants";
-type RejectTarget = { kind: "horses" | "jockeys"; id: number; label: string };
 
 function formatDate(value?: string) {
   if (!value) return "—";
@@ -47,7 +49,7 @@ export function OrganizerRegistrationsPage() {
   useDocumentTitle("Registrations | Organizer");
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useSelectedTournamentId();
   const [tab, setTab] = useState<Tab>("horses");
   const [horses, setHorses] = useState<TournamentRegistration[]>([]);
   const [jockeys, setJockeys] = useState<JockeyPoolApplication[]>([]);
@@ -57,9 +59,9 @@ export function OrganizerRegistrationsPage() {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [reject, setReject] = useState<RejectTarget | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
   const [locking, setLocking] = useState(false);
+  const [confirmLock, setConfirmLock] = useState(false);
+  const [detail, setDetail] = useState<RegistrationDetail | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -67,7 +69,7 @@ export function OrganizerRegistrationsPage() {
       .then((data) => {
         if (!active) return;
         setTournaments(data);
-        setSelectedId(data[0]?.id ?? null);
+        setSelectedId((prev) => (prev != null && data.some((t) => t.id === prev) ? prev : data[0]?.id ?? null));
       })
       .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your tournaments.")))
       .finally(() => active && setLoading(false));
@@ -121,12 +123,16 @@ export function OrganizerRegistrationsPage() {
     [participants],
   );
 
-  const approveHorse = async (id: number) => {
-    if (selectedId == null) return;
-    setBusyKey(`horse-${id}`);
+  const detailBusyKey = detail ? `${detail.kind}-${detail.data.id}` : "";
+
+  const approveFromDetail = async () => {
+    if (!detail || selectedId == null) return;
+    setBusyKey(detailBusyKey);
     setError(null);
     try {
-      await approveOrganizerTournamentRegistration(id);
+      if (detail.kind === "horses") await approveOrganizerTournamentRegistration(detail.data.id);
+      else await approveOrganizerJockeyApplication(selectedId, detail.data.id);
+      setDetail(null);
       await loadEntries(selectedId);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not approve the entry."));
@@ -135,29 +141,14 @@ export function OrganizerRegistrationsPage() {
     }
   };
 
-  const approveJockey = async (id: number) => {
-    if (selectedId == null) return;
-    setBusyKey(`jockey-${id}`);
+  const rejectFromDetail = async (reason: string) => {
+    if (!detail || selectedId == null || reason.trim().length === 0) return;
+    setBusyKey(detailBusyKey);
     setError(null);
     try {
-      await approveOrganizerJockeyApplication(selectedId, id);
-      await loadEntries(selectedId);
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Could not approve the jockey."));
-    } finally {
-      setBusyKey(null);
-    }
-  };
-
-  const submitReject = async () => {
-    if (!reject || selectedId == null || rejectReason.trim().length === 0) return;
-    setBusyKey(`${reject.kind}-${reject.id}`);
-    setError(null);
-    try {
-      if (reject.kind === "horses") await rejectOrganizerTournamentRegistration(reject.id, rejectReason.trim());
-      else await rejectOrganizerJockeyApplication(selectedId, reject.id, rejectReason.trim());
-      setReject(null);
-      setRejectReason("");
+      if (detail.kind === "horses") await rejectOrganizerTournamentRegistration(detail.data.id, reason.trim());
+      else await rejectOrganizerJockeyApplication(selectedId, detail.data.id, reason.trim());
+      setDetail(null);
       await loadEntries(selectedId);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not reject the entry."));
@@ -168,7 +159,6 @@ export function OrganizerRegistrationsPage() {
 
   const lockField = async () => {
     if (selectedId == null) return;
-    if (!window.confirm("Lock the field? This turns every accepted horse+jockey contract into an official participant and closes the roster.")) return;
     setLocking(true);
     setError(null);
     setNotice(null);
@@ -177,6 +167,7 @@ export function OrganizerRegistrationsPage() {
       setNotice(`Field locked — ${res.createdParticipants} official participant(s) created. You can now build the schedule.`);
       await loadEntries(selectedId);
       setTab("participants");
+      setConfirmLock(false);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not lock the field."));
     } finally {
@@ -191,8 +182,9 @@ export function OrganizerRegistrationsPage() {
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
           <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Registrations</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
-            Review who wants into your tournament — horses entered by owners and jockeys applying to your pool. When
-            contracts are accepted, lock the field to finalise the official roster.
+            Review who wants into your tournament — horses entered by owners and jockeys applying to your pool. Open a
+            row to see the full detail and approve or reject. When contracts are accepted, lock the field to finalise the
+            official roster.
           </p>
         </div>
         <div className="flex flex-col items-end gap-2">
@@ -215,7 +207,7 @@ export function OrganizerRegistrationsPage() {
             <button
               type="button"
               disabled={locking}
-              onClick={lockField}
+              onClick={() => setConfirmLock(true)}
               className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#1c1816] bg-[#1c1816] px-4 text-xs font-black uppercase tracking-wide text-[#f7f4ee] transition hover:bg-[#2a241f] disabled:opacity-50"
             >
               <Lock className="h-4 w-4" /> Lock the field
@@ -259,8 +251,8 @@ export function OrganizerRegistrationsPage() {
               ) : (
                 <ul className="divide-y divide-[#efe9dd]">
                   {sortedHorses.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
+                    <li key={r.id}>
+                      <RowButton onClick={() => setDetail({ kind: "horses", data: r })} status={r.status}>
                         {r.horseImageUrl ? (
                           <img src={r.horseImageUrl} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
                         ) : (
@@ -272,19 +264,9 @@ export function OrganizerRegistrationsPage() {
                           <p className="truncate font-semibold text-[#211d1a]">{r.horseName}</p>
                           <p className="truncate text-xs text-[#8a8276]">
                             {r.ownerName ?? "Unknown owner"} · {formatDate(r.createdAt)}
-                            {r.status === "REJECTED" && r.rejectionReason ? ` · ${r.rejectionReason}` : ""}
                           </p>
                         </div>
-                      </div>
-                      <Actions
-                        status={r.status}
-                        busy={busyKey === `horse-${r.id}`}
-                        onApprove={() => approveHorse(r.id)}
-                        onReject={() => {
-                          setReject({ kind: "horses", id: r.id, label: `${r.horseName} · ${r.ownerName ?? ""}` });
-                          setRejectReason("");
-                        }}
-                      />
+                      </RowButton>
                     </li>
                   ))}
                 </ul>
@@ -295,8 +277,8 @@ export function OrganizerRegistrationsPage() {
               ) : (
                 <ul className="divide-y divide-[#efe9dd]">
                   {sortedJockeys.map((j) => (
-                    <li key={j.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
+                    <li key={j.id}>
+                      <RowButton onClick={() => setDetail({ kind: "jockeys", data: j })} status={j.status}>
                         {j.jockeyAvatarUrl ? (
                           <img src={j.jockeyAvatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
                         ) : (
@@ -308,19 +290,9 @@ export function OrganizerRegistrationsPage() {
                           <p className="truncate font-semibold text-[#211d1a]">{j.jockeyName}</p>
                           <p className="truncate text-xs text-[#8a8276]">
                             {j.message ? j.message : j.jockeyEmail ?? "Applied"} · {formatDate(j.createdAt)}
-                            {j.status === "REJECTED" && j.rejectionReason ? ` · ${j.rejectionReason}` : ""}
                           </p>
                         </div>
-                      </div>
-                      <Actions
-                        status={j.status}
-                        busy={busyKey === `jockey-${j.id}`}
-                        onApprove={() => approveJockey(j.id)}
-                        onReject={() => {
-                          setReject({ kind: "jockeys", id: j.id, label: j.jockeyName });
-                          setRejectReason("");
-                        }}
-                      />
+                      </RowButton>
                     </li>
                   ))}
                 </ul>
@@ -360,50 +332,52 @@ export function OrganizerRegistrationsPage() {
         </>
       )}
 
-      {reject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1816]/50 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-md rounded-2xl border border-[#e7e0d3] bg-white p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="font-display text-xl font-light text-[#211d1a]">Reject {reject.kind === "horses" ? "entry" : "applicant"}</h3>
-                <p className="mt-1 text-sm text-[#6f665b]">{reject.label}</p>
-              </div>
-              <button type="button" onClick={() => setReject(null)} className="text-[#8a8276] hover:text-[#211d1a]">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <label className="mt-4 block text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
-              Reason (sent to the applicant)
-              <textarea
-                autoFocus
-                rows={3}
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="e.g. Roster is full for this division."
-                className="mt-2 block w-full rounded-lg border border-[#e2d9c8] bg-white px-3 py-2 text-sm font-medium text-[#3a342d] outline-none focus:border-[#bb8a3c]"
-              />
-            </label>
-            <div className="mt-5 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setReject(null)}
-                className="inline-flex min-h-10 items-center rounded-lg border border-[#e2d9c8] px-4 text-sm font-bold text-[#6f665b] transition hover:bg-[#faf7f0]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={rejectReason.trim().length === 0 || busyKey === `${reject.kind}-${reject.id}`}
-                onClick={submitReject}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700 disabled:opacity-50"
-              >
-                <XCircle className="h-4 w-4" /> Reject
-              </button>
-            </div>
-          </div>
-        </div>
+      <ConfirmDialog
+        open={confirmLock}
+        title="Lock the field?"
+        message="Every accepted horse + jockey contract becomes an official participant and the roster closes. You can’t add entries after this."
+        confirmLabel={locking ? "Locking…" : "Lock field"}
+        busy={locking}
+        onConfirm={lockField}
+        onClose={() => setConfirmLock(false)}
+      />
+
+      {detail && (
+        <RegistrationDetailDrawer
+          entry={detail}
+          busy={busyKey === detailBusyKey}
+          onClose={() => setDetail(null)}
+          onApprove={approveFromDetail}
+          onReject={rejectFromDetail}
+        />
       )}
     </div>
+  );
+}
+
+function RowButton({
+  onClick,
+  status,
+  children,
+}: {
+  onClick: () => void;
+  status: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left transition hover:bg-[#faf7f0] focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[#bb8a3c]"
+    >
+      <div className="flex min-w-0 items-center gap-3">{children}</div>
+      <div className="flex shrink-0 items-center gap-3">
+        <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusBadge[status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
+          {prettyStatus(status)}
+        </span>
+        <ChevronRight className="h-4 w-4 text-[#bdb3a0]" aria-hidden="true" />
+      </div>
+    </button>
   );
 }
 
@@ -439,45 +413,5 @@ function TabButton({
         <span className={`rounded-full px-1.5 text-[10px] ${active ? "bg-black/15" : "bg-[#efe9dd] text-[#6f665b]"}`}>{total}</span>
       )}
     </button>
-  );
-}
-
-function Actions({
-  status,
-  busy,
-  onApprove,
-  onReject,
-}: {
-  status: string;
-  busy: boolean;
-  onApprove: () => void;
-  onReject: () => void;
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusBadge[status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
-        {prettyStatus(status)}
-      </span>
-      {status === "PENDING" && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onApprove}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#0d4a37] px-3 text-xs font-black uppercase tracking-wide text-white transition hover:bg-[#0b5a41] disabled:opacity-50"
-          >
-            <Check className="h-4 w-4" /> Approve
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onReject}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
-          >
-            <XCircle className="h-4 w-4" /> Reject
-          </button>
-        </div>
-      )}
-    </div>
   );
 }

@@ -25,6 +25,8 @@ import { OrganizerOfficialsPage } from "../pages/organizer/OrganizerOfficialsPag
 import { OrganizerRegistrationsPage } from "../pages/organizer/OrganizerRegistrationsPage";
 import { OrganizerSchedulePage } from "../pages/organizer/OrganizerSchedulePage";
 import { OrganizerResultsPage } from "../pages/organizer/OrganizerResultsPage";
+import { OrganizerProfilePage } from "../pages/organizer/OrganizerProfilePage";
+import { OrganizerOrganizationPage } from "../pages/organizer/OrganizerOrganizationPage";
 import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage";
 import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWorkspace";
 import { AdminOrganizationsPage } from "../pages/admin/AdminOrganizationsPage";
@@ -128,6 +130,8 @@ export function AppRouter() {
           <Route path="schedule" element={<OrganizerSchedulePage />} />
           <Route path="officials" element={<OrganizerOfficialsPage />} />
           <Route path="results" element={<OrganizerResultsPage />} />
+          <Route path="profile" element={<OrganizerProfilePage />} />
+          <Route path="organization" element={<OrganizerOrganizationPage />} />
         </Route>
 
 

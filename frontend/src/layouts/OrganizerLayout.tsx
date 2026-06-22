@@ -10,10 +10,12 @@ import {
   Search,
   ShieldCheck,
   Trophy,
+  UserRound,
 } from "lucide-react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 
 import { getMyOrganization } from "../api/racingApi";
+import { NotificationBell } from "../components/NotificationBell";
 import { useClientSession } from "../hooks/useClientSession";
 import type { Organization } from "../types/racing";
 
@@ -48,7 +50,10 @@ const navSections: Array<{
   },
   {
     label: "Account",
-    items: [{ label: "Organization", href: "/organizer/register", icon: Building2 }],
+    items: [
+      { label: "Profile", href: "/organizer/profile", icon: UserRound },
+      { label: "Organization", href: "/organizer/organization", icon: Building2 },
+    ],
   },
 ];
 
@@ -69,6 +74,7 @@ export function OrganizerLayout() {
   const { session, logout } = useClientSession();
   const navigate = useNavigate();
   const [org, setOrg] = useState<Organization | null>(null);
+  const [search, setSearch] = useState("");
   const displayName = session?.fullName || "Organizer";
 
   useEffect(() => {
@@ -111,7 +117,15 @@ export function OrganizerLayout() {
             </div>
           </Link>
 
-          <form className="relative hidden md:block" role="search">
+          <form
+            className="relative hidden md:block"
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = search.trim();
+              navigate(q ? `/organizer/tournaments?q=${encodeURIComponent(q)}` : "/organizer/tournaments");
+            }}
+          >
             <label className="sr-only" htmlFor="organizer-search">
               Search the workspace
             </label>
@@ -121,16 +135,22 @@ export function OrganizerLayout() {
               id="organizer-search"
               placeholder="Search your tournaments..."
               type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
             />
           </form>
 
           <div className="absolute right-4 top-3 flex items-center gap-2 md:static md:justify-end">
-            <div className="hidden min-h-12 items-center gap-3 rounded-lg border border-[#e7e0d3] bg-white px-4 text-sm font-black text-[#3a342d] sm:flex">
+            <NotificationBell />
+            <Link
+              to="/organizer/profile"
+              className="hidden min-h-12 items-center gap-3 rounded-lg border border-[#e7e0d3] bg-white px-4 text-sm font-black text-[#3a342d] transition hover:border-[#bb8a3c] hover:bg-[#fdf8ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bb8a3c] sm:flex"
+            >
               <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f3ead6] text-xs text-[#8a6a1c]">
                 {getInitials(displayName)}
               </span>
               <span className="max-w-44 truncate">{displayName}</span>
-            </div>
+            </Link>
             <button
               type="button"
               onClick={handleLogout}

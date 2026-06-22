@@ -12,8 +12,11 @@ import {
   updateOrganizerTournamentStatus,
 } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useSelectedTournamentId } from "../../hooks/useSelectedTournamentId";
 import type { Race, RacePayload, Tournament } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { ConfirmDialog } from "../../components/organizer/ConfirmDialog";
+import { RaceDetailDrawer } from "../../components/organizer/RaceDetailDrawer";
 
 const raceBadge: Record<string, string> = {
   SCHEDULED: "bg-[#f3ead6] text-[#8a6a1c]",
@@ -43,7 +46,7 @@ export function OrganizerSchedulePage() {
   useDocumentTitle("Schedule | Organizer");
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useSelectedTournamentId();
   const [races, setRaces] = useState<Race[]>([]);
   const [activeReferees, setActiveReferees] = useState<Array<{ refereeId: number; refereeName: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,8 @@ export function OrganizerSchedulePage() {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Race | null>(null);
+  const [detailRace, setDetailRace] = useState<Race | null>(null);
 
   const [editor, setEditor] = useState<{ mode: "new" } | { mode: "edit"; race: Race } | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -63,7 +68,7 @@ export function OrganizerSchedulePage() {
       .then((data) => {
         if (!active) return;
         setTournaments(data);
-        setSelectedId(data[0]?.id ?? null);
+        setSelectedId((prev) => (prev != null && data.some((t) => t.id === prev) ? prev : data[0]?.id ?? null));
       })
       .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your tournaments.")))
       .finally(() => active && setLoading(false));
@@ -195,12 +200,12 @@ export function OrganizerSchedulePage() {
 
   const removeRace = async (race: Race) => {
     if (selectedId == null) return;
-    if (!window.confirm(`Delete "${race.name}"? This cannot be undone.`)) return;
     setBusyId(race.id);
     setError(null);
     try {
       await deleteOrganizerRace(race.id);
       await loadRaces(selectedId);
+      setConfirmDelete(null);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not delete the round."));
     } finally {
@@ -329,7 +334,11 @@ export function OrganizerSchedulePage() {
                 const editable = race.status === "SCHEDULED";
                 return (
                   <li key={race.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-                    <div className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setDetailRace(race)}
+                      className="min-w-0 rounded-lg text-left transition hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bb8a3c]"
+                    >
                       <div className="flex items-center gap-2">
                         <p className="truncate font-semibold text-[#211d1a]">{race.name}</p>
                         <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${raceBadge[race.status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
@@ -342,7 +351,7 @@ export function OrganizerSchedulePage() {
                         <span>· {race.distanceMeters} m</span>
                         <span>· max {race.maxParticipants}</span>
                       </p>
-                    </div>
+                    </button>
 
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="flex items-center gap-1.5">
@@ -378,7 +387,7 @@ export function OrganizerSchedulePage() {
                           <button
                             type="button"
                             disabled={busyId === race.id}
-                            onClick={() => removeRace(race)}
+                            onClick={() => setConfirmDelete(race)}
                             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
                           >
                             <Trash2 className="h-3.5 w-3.5" /> Delete
@@ -394,6 +403,19 @@ export function OrganizerSchedulePage() {
         </section>
         </>
       )}
+
+      <ConfirmDialog
+        open={confirmDelete != null}
+        tone="danger"
+        title="Delete this round?"
+        message={confirmDelete ? `“${confirmDelete.name}” will be removed from the schedule. This can’t be undone.` : ""}
+        confirmLabel={confirmDelete != null && busyId === confirmDelete.id ? "Deleting…" : "Delete round"}
+        busy={confirmDelete != null && busyId === confirmDelete.id}
+        onConfirm={() => confirmDelete && removeRace(confirmDelete)}
+        onClose={() => setConfirmDelete(null)}
+      />
+
+      {detailRace && <RaceDetailDrawer race={detailRace} onClose={() => setDetailRace(null)} />}
 
       {editor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#1c1816]/50 p-4" role="dialog" aria-modal="true">

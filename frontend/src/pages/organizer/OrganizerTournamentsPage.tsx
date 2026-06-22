@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Plus } from "lucide-react";
 
 import {
@@ -48,6 +48,11 @@ export function OrganizerTournamentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const query = (searchParams.get("q") ?? "").trim().toLowerCase();
+  const visible = query
+    ? tournaments.filter((t) => `${t.name} ${t.code} ${t.location ?? ""}`.toLowerCase().includes(query))
+    : tournaments;
 
   const load = async () => {
     setLoading(true);
@@ -100,6 +105,17 @@ export function OrganizerTournamentsPage() {
         </div>
       )}
 
+      {query && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#e7e0d3] bg-[#fbf8f1] px-4 py-2.5 text-sm">
+          <span className="text-[#6f665b]">
+            Showing tournaments matching <span className="font-black text-[#211d1a]">“{searchParams.get("q")}”</span>
+          </span>
+          <Link to="/organizer/tournaments" className="ml-auto text-xs font-black uppercase tracking-wide text-[#8a6a1c] transition hover:text-[#bb8a3c]">
+            Clear
+          </Link>
+        </div>
+      )}
+
       {loading ? (
         <div className="h-56 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
       ) : tournaments.length === 0 ? (
@@ -107,9 +123,14 @@ export function OrganizerTournamentsPage() {
           <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
           <p className="mt-2 text-sm text-[#6f665b]">Create your first championship to get started.</p>
         </div>
+      ) : visible.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
+          <p className="font-display text-2xl font-light text-[#211d1a]">No matches</p>
+          <p className="mt-2 text-sm text-[#6f665b]">No tournaments match “{searchParams.get("q")}”.</p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {tournaments.map((t) => {
+          {visible.map((t) => {
             const next = LIFECYCLE[t.status];
             const busy = processingId === t.id;
             return (
@@ -129,8 +150,8 @@ export function OrganizerTournamentsPage() {
                       <p className="mt-3 text-sm font-semibold text-amber-700">Awaiting admin approval (Gate 2).</p>
                     )}
                     {t.status === "DRAFT" && t.rejectionReason && (
-                      <p className="mt-3 rounded-md border-l-2 border-rose-400 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-                        Rejected: {t.rejectionReason}
+                      <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
+                        <span className="font-black">Rejected:</span> {t.rejectionReason}
                       </p>
                     )}
                   </div>
