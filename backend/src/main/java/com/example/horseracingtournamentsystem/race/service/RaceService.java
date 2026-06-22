@@ -22,6 +22,7 @@ import com.example.horseracingtournamentsystem.championship.entity.TournamentPar
 import com.example.horseracingtournamentsystem.championship.entity.RefereeContract;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
@@ -54,6 +55,7 @@ public class RaceService {
     private final RaceResultRepository raceResultRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
     private final RefereeContractRepository refereeContractRepository;
+    private final NotificationService notificationService;
 
     private static final Map<RaceStatus, Set<RaceStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             RaceStatus.SCHEDULED, Set.of(RaceStatus.CHECKING, RaceStatus.CANCELLED),
@@ -250,13 +252,14 @@ public class RaceService {
 
     @Transactional
     public RaceResponse createRaceForOrganizer(RaceRequest req, String organizerEmail) {
-        requireOwnedTournament(req.getTournamentId(), organizerEmail);
+        requireOwnedTournament(req.getTournamentId(), organizerEmail).assertOrganizationOperational();
         return createRace(req, organizerEmail);
     }
 
     @Transactional
     public RaceResponse updateRaceForOrganizer(Long id, RaceRequest req, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
         assertRaceEditable(race);
         Tournament tournament = requireOwnedTournament(req.getTournamentId(), organizerEmail);
         if (raceRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
@@ -270,6 +273,7 @@ public class RaceService {
     @Transactional
     public void deleteRaceForOrganizer(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
         assertRaceEditable(race);
         race.cancel();
         race.softDelete();
@@ -278,7 +282,7 @@ public class RaceService {
 
     @Transactional
     public RaceResponse assignRefereeForOrganizer(Long id, Long refereeId, String organizerEmail) {
-        requireOrganizerRace(id, organizerEmail);
+        requireOrganizerRace(id, organizerEmail).getTournament().assertOrganizationOperational();
         return assignReferee(id, refereeId);
     }
 
@@ -286,7 +290,8 @@ public class RaceService {
     @Transactional
     public RaceResponse confirmRaceResults(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
-        if (!"RESULT_SUBMITTED".equals(race.getStatus())) {
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_SUBMITTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only races with submitted results can be confirmed (BR-16)");
         }
@@ -298,11 +303,42 @@ public class RaceService {
     @Transactional
     public RaceResponse publishRaceResults(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
-        if (!"RESULT_CONFIRMED".equals(race.getStatus())) {
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_CONFIRMED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only confirmed results can be published");
         }
         return transitionRaceStatus(race, RaceStatus.PUBLISHED, null);
+    }
+
+    /**
+     * Trả kết quả về để referee sửa — AN TOÀN vì chỉ cho phép TRƯỚC khi chốt
+     * (RESULT_SUBMITTED -> FINISHED): lúc này prediction CHƯA settle (settle ở RESULT_CONFIRMED) và
+     * standings CHƯA cộng (ở PUBLISHED) nên không phát sinh clawback. Sau khi đã chốt thì phải xử lý
+     * qua luồng tranh chấp/dispute, KHÔNG reopen ở đây. Referee nộp lại bình thường (FINISHED -> RESULT_SUBMITTED).
+     */
+    @Transactional
+    public RaceResponse reopenResultsForOrganizer(Long id, String organizerEmail, String reason) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_SUBMITTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only submitted results that have not been confirmed can be sent back for correction");
+        }
+        String trimmed = reason == null ? "" : reason.trim();
+        if (trimmed.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A reason is required when sending results back for correction");
+        }
+        for (RaceResult result : raceResultRepository.findByRace_Id(id)) {
+            result.markReopened(trimmed);
+            raceResultRepository.save(result);
+        }
+        race.updateStatus(RaceStatus.FINISHED);
+        raceRepository.save(race);
+        notificationService.notify(race.getReferee(), "RESULT_REOPENED", "Result sent back for correction",
+                "“" + race.getName() + "”: " + trimmed, "RACE", race.getId());
+        return mapToResponse(race);
     }
 
     private Tournament requireOwnedTournament(Long tournamentId, String organizerEmail) {
@@ -324,7 +360,7 @@ public class RaceService {
     }
 
     private void assertRaceEditable(Race race) {
-        if (!"SCHEDULED".equals(race.getStatus())) {
+        if (race.getStatus() != RaceStatus.SCHEDULED) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Race can only be edited before race-day operations begin (status SCHEDULED)");
         }

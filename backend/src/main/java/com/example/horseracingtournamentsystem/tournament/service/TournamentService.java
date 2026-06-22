@@ -16,6 +16,7 @@ import com.example.horseracingtournamentsystem.organization.repository.Organizat
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,6 +56,7 @@ public class TournamentService {
     private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
     private final RaceResultRepository raceResultRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public TournamentResponse createTournament(TournamentRequest req, String creatorEmail) {
@@ -112,7 +114,8 @@ public class TournamentService {
     @Transactional
     public TournamentResponse submitForApproval(Long id, String organizerEmail) {
         Tournament tournament = requireOwnedTournament(id, organizerEmail);
-        if (!"DRAFT".equals(tournament.getStatus())) {
+        tournament.assertOrganizationOperational();
+        if (tournament.getStatus() != TournamentStatus.DRAFT) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only DRAFT tournaments can be submitted for approval");
         }
@@ -127,6 +130,11 @@ public class TournamentService {
         User reviewer = requireReviewer(adminEmail);
         tournament.approveLaunch(reviewer);
         tournamentRepository.save(tournament);
+        notificationService.notify(
+                tournament.getOrganization() == null ? null : tournament.getOrganization().getOwner(),
+                "TOURNAMENT_APPROVED", "Tournament approved",
+                "“" + tournament.getName() + "” was approved — you can open registration now.",
+                "TOURNAMENT", tournament.getId());
         return mapToResponse(tournament);
     }
 
@@ -136,12 +144,18 @@ public class TournamentService {
         User reviewer = requireReviewer(adminEmail);
         tournament.rejectLaunch(reviewer, reason == null ? null : reason.trim());
         tournamentRepository.save(tournament);
+        notificationService.notify(
+                tournament.getOrganization() == null ? null : tournament.getOrganization().getOwner(),
+                "TOURNAMENT_REJECTED", "Tournament needs changes",
+                "“" + tournament.getName() + "” was sent back"
+                        + (reason == null || reason.isBlank() ? "." : ": " + reason.trim()),
+                "TOURNAMENT", tournament.getId());
         return mapToResponse(tournament);
     }
 
     @Transactional
     public void updateStatusForOrganizer(Long id, String status, String organizerEmail) {
-        requireOwnedTournament(id, organizerEmail);
+        requireOwnedTournament(id, organizerEmail).assertOrganizationOperational();
         TournamentStatus target;
         try {
             target = TournamentStatus.valueOf(status.trim().toUpperCase(java.util.Locale.ROOT));
@@ -165,7 +179,7 @@ public class TournamentService {
     private Tournament requirePendingApproval(Long id) {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
-        if (!"PENDING_APPROVAL".equals(tournament.getStatus())) {
+        if (tournament.getStatus() != TournamentStatus.PENDING_APPROVAL) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only tournaments pending approval can be reviewed");
         }

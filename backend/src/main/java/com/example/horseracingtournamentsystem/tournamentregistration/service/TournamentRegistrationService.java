@@ -14,6 +14,7 @@ import com.example.horseracingtournamentsystem.tournamentregistration.enums.Regi
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,6 +38,7 @@ public class TournamentRegistrationService {
     private final HorseRepository horseRepository;
     private final HorseDocumentRepository horseDocumentRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public List<TournamentRegistrationResponse> listOwnerRegistrations(String email) {
         return registrationRepository.findAllByOwnerEmailOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
@@ -86,6 +88,12 @@ public class TournamentRegistrationService {
         Horse horse = horseRepository.findByIdAndDeletedAtIsNull(request.horseId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Horse not found"));
         String note = normalizeNote(request.note());
+
+        // BR-11: chủ tổ chức sở hữu giải KHÔNG được đăng ký ngựa dự chính giải của mình (xung đột lợi ích).
+        if (tournament.isManagedBy(email)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "You cannot enter a tournament owned by your own organization (BR-11)");
+        }
 
         validateOwnerRegistration(owner, tournament, horse);
 
@@ -151,27 +159,43 @@ public class TournamentRegistrationService {
     @Transactional
     public TournamentRegistrationResponse approveAsOrganizer(Long id, String organizerEmail) {
         TournamentRegistration registration = requireOrganizerRegistration(id, organizerEmail);
+        registration.getTournament().assertOrganizationOperational();
         assertApprovalCapacity(registration.getTournament());
         User reviewer = findUserByEmail(organizerEmail);
         registration.approve(reviewer);
         registrationRepository.save(registration);
+        notificationService.notify(registration.getOwner(), "ENTRY_APPROVED", "Horse entry approved",
+                "“" + registration.getHorse().getName() + "” was approved for “"
+                        + registration.getTournament().getName() + "”.",
+                "REGISTRATION", registration.getId());
         return mapToResponse(registration);
     }
 
     @Transactional
     public TournamentRegistrationResponse rejectAsOrganizer(Long id, String organizerEmail, String reason) {
         TournamentRegistration registration = requireOrganizerRegistration(id, organizerEmail);
+        registration.getTournament().assertOrganizationOperational();
         User reviewer = findUserByEmail(organizerEmail);
         registration.reject(reviewer, reason);
         registrationRepository.save(registration);
+        notificationService.notify(registration.getOwner(), "ENTRY_REJECTED", "Horse entry rejected",
+                "“" + registration.getHorse().getName() + "” was not accepted for “"
+                        + registration.getTournament().getName() + "”"
+                        + (reason == null || reason.isBlank() ? "." : ": " + reason),
+                "REGISTRATION", registration.getId());
         return mapToResponse(registration);
     }
 
     /** BR-15: không duyệt vượt sức chứa giải (cap chỉ áp khi giải có đặt maxHorses). */
     private void assertApprovalCapacity(Tournament tournament) {
-        if (tournament.getMaxHorses() != null
-                && registrationRepository.countByTournament_IdAndStatus(tournament.getId(), RegistrationStatus.APPROVED)
-                        >= tournament.getMaxHorses()) {
+        if (tournament.getMaxHorses() == null) {
+            return;
+        }
+        // BR-15: khóa ghi bi quan dòng giải → các lệnh duyệt đồng thời cho cùng giải bị tuần tự hóa,
+        // nên đếm-rồi-duyệt (check-then-act) không còn vượt được sức chứa.
+        tournamentRepository.findByIdForUpdate(tournament.getId());
+        if (registrationRepository.countByTournament_IdAndStatus(tournament.getId(), RegistrationStatus.APPROVED)
+                >= tournament.getMaxHorses()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Tournament is full: the approved-horse cap has been reached (BR-15)");
         }

@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -177,6 +179,19 @@ public class Tournament {
         return organization != null
                 && organization.getOwner() != null
                 && organization.getOwner().getEmail().equalsIgnoreCase(email);
+    }
+
+    /**
+     * BR-10/BR-13: chặn mọi thao tác VẬN HÀNH khi tổ chức chủ quản không còn ACTIVE
+     * (bị đình chỉ SUSPENDED). Gọi ở các method mutating của organizer (duyệt đăng ký,
+     * xếp race, chốt KQ, mời/gỡ referee...). Đường đọc/list KHÔNG gọi để organizer vẫn
+     * xem được giải và biết vì sao bị khóa.
+     */
+    public void assertOrganizationOperational() {
+        if (organization == null || !organization.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your organization is not active — operations are locked (BR-10)");
+        }
     }
 
     /** Cổng 2 / BR-17: DRAFT -> chờ admin duyệt. Service kiểm tra điều kiện chuyển trạng thái. */
