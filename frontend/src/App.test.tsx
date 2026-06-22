@@ -23,6 +23,25 @@ vi.mock("./api/adminUserApi", () => ({
   }),
 }));
 
+vi.mock("./api/adminDashboardApi", () => ({
+  adminDashboardApi: {
+    getDashboardData: vi.fn().mockResolvedValue({
+      metrics: {
+        pendingRoleRequests: 0,
+        pendingRoleRequestsDetail: "No pending requests",
+        upcomingTournaments: 0,
+        upcomingTournamentsDetail: "No upcoming tournaments",
+        activeUsers: 0,
+        activeUsersDetail: "No active users",
+        blogDrafts: 0,
+        blogDraftsDetail: "No blog drafts",
+      },
+      queueRows: [],
+      alerts: [],
+    }),
+  },
+}));
+
 vi.mock("./api/pointSettingsApi", () => ({
   getPointSettings: vi.fn().mockResolvedValue({
     FIRST_LOGIN_BONUS: 0,
@@ -324,7 +343,7 @@ describe("App", () => {
     expect(screen.getByRole("link", { name: /return home/i })).toHaveAttribute("href", "/");
   });
 
-  it("renders the admin operations foundation route for admin users", () => {
+  it("renders the admin operations foundation route for admin users", async () => {
     window.history.pushState({}, "", "/admin");
     setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
 
@@ -337,7 +356,7 @@ describe("App", () => {
       screen.getByRole("navigation", { name: /admin workspace/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: /admin operations/i }),
+      await screen.findByRole("heading", { name: /admin operations/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("searchbox", {
@@ -387,7 +406,7 @@ describe("App", () => {
 
     expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /horse approvals/i })).toBeInTheDocument();
-    expect(await screen.findByText(/no horses match this filter/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no horses matching the current filter/i)).toBeInTheDocument();
   });
 
   it("keeps admin tournament registrations inside the admin shell", async () => {

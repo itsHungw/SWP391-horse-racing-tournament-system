@@ -95,6 +95,17 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                            OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.location) LIKE LOWER(CONCAT('%', :search, '%')))
+                      AND (:horse = '' OR EXISTS (
+                           SELECT participant.id FROM RaceParticipant participant
+                           WHERE participant.race = r
+                             AND LOWER(participant.horse.name) LIKE LOWER(CONCAT('%', :horse, '%'))
+                      ))
+                      AND (:jockey = '' OR EXISTS (
+                           SELECT participant.id FROM RaceParticipant participant
+                           WHERE participant.race = r
+                             AND participant.jockey IS NOT NULL
+                             AND LOWER(participant.jockey.fullName) LIKE LOWER(CONCAT('%', :jockey, '%'))
+                      ))
                     ORDER BY
                       CASE WHEN :sortBy = 'NEXT_RACE' THEN r.raceAt END ASC,
                       CASE WHEN :sortBy = 'LATEST_RESULT' THEN r.raceAt END DESC,
@@ -120,6 +131,17 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                            OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(r.tournament.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(r.tournament.location) LIKE LOWER(CONCAT('%', :search, '%')))
+                      AND (:horse = '' OR EXISTS (
+                           SELECT participant.id FROM RaceParticipant participant
+                           WHERE participant.race = r
+                             AND LOWER(participant.horse.name) LIKE LOWER(CONCAT('%', :horse, '%'))
+                      ))
+                      AND (:jockey = '' OR EXISTS (
+                           SELECT participant.id FROM RaceParticipant participant
+                           WHERE participant.race = r
+                             AND participant.jockey IS NOT NULL
+                             AND LOWER(participant.jockey.fullName) LIKE LOWER(CONCAT('%', :jockey, '%'))
+                      ))
                     """
     )
     Page<Race> searchPublic(
@@ -128,6 +150,8 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
             LocalDateTime toDate,
             Long tournamentId,
             String search,
+            String horse,
+            String jockey,
             String sortBy,
             Pageable pageable
     );

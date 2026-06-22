@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.auth.entity;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -44,5 +45,25 @@ class AuthEntityMappingTest {
         token.markUsed();
 
         assertNotNull(token.getUsedAt());
+    }
+
+    @Test
+    void passwordResetTokenTracksFailedAttemptsAndLockState() {
+        User user = User.pending("Reset User", "reset@example.com", "hash");
+        PasswordResetToken token = PasswordResetToken.create(user, "reset", LocalDateTime.now().plusMinutes(10));
+
+        assertThat(token.getFailedAttempts()).isZero();
+        assertThat(token.isLocked()).isFalse();
+
+        token.incrementFailedAttempts();
+        token.incrementFailedAttempts();
+        token.incrementFailedAttempts();
+        token.incrementFailedAttempts();
+        token.incrementFailedAttempts();
+        token.lockNow();
+
+        assertThat(token.getFailedAttempts()).isEqualTo(5);
+        assertThat(token.getLockedAt()).isNotNull();
+        assertThat(token.isLocked()).isTrue();
     }
 }

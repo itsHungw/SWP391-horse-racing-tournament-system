@@ -38,10 +38,18 @@ describe("SubmitResultsPage", () => {
     expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
     expect(screen.getByText("Julian Sterling")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
     fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
-      results: mockEntries,
+      results: [
+        {
+          ...mockEntries[0],
+          position: 1,
+          finishTimeSeconds: 94.5,
+        },
+      ],
       requiresAdminReview: false,
       reviewReason: null,
     });
@@ -55,6 +63,7 @@ describe("SubmitResultsPage", () => {
 
     expect(await screen.findByText("Submit race results")).toBeInTheDocument();
 
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
     const timeInput = screen.getByPlaceholderText("94.25");
 
     fireEvent.change(timeInput, { target: { value: "94" } });
@@ -74,7 +83,7 @@ describe("SubmitResultsPage", () => {
           participantId: 1,
           horseName: "Thunderstrike",
           jockeyName: "Julian Sterling",
-          position: "",
+          position: 1,
           finishTimeSeconds: 94.25,
           status: "FINISHED",
         },

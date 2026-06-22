@@ -65,6 +65,16 @@ describe("Auth pages", () => {
     expect(localStorage.getItem("email")).toBe("official@nyra.com");
   });
 
+  it("shows a forgot password link on the login form", () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("link", { name: /forgot password/i })).toHaveAttribute("href", "/forgot-password");
+  });
+
   it("redirects admins to the admin dashboard after login", async () => {
     mockedLogin.mockResolvedValue({
       accessToken: createAccessTokenWithRoles(["ADMIN", "SPECTATOR"]),

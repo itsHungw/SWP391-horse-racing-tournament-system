@@ -389,6 +389,8 @@ public class RaceService {
             LocalDateTime toDate,
             Long tournamentId,
             String search,
+            String horse,
+            String jockey,
             String sortBy,
             Pageable pageable
     ) {
@@ -412,6 +414,8 @@ public class RaceService {
                 toDate,
                 tournamentId,
                 search == null ? "" : search.trim(),
+                horse == null ? "" : horse.trim(),
+                jockey == null ? "" : jockey.trim(),
                 normalizedSort,
                 pageable
         );

@@ -39,6 +39,12 @@ public class PasswordResetToken {
     @Column(name = "used_at")
     private LocalDateTime usedAt;
 
+    @Column(name = "failed_attempts", nullable = false)
+    private int failedAttempts;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -47,6 +53,8 @@ public class PasswordResetToken {
         token.user = user;
         token.tokenHash = tokenHash;
         token.expiresAt = expiresAt;
+        token.failedAttempts = 0;
+        token.lockedAt = null;
         token.createdAt = LocalDateTime.now();
         return token;
     }
@@ -57,5 +65,17 @@ public class PasswordResetToken {
 
     public void markUsed() {
         this.usedAt = LocalDateTime.now();
+    }
+
+    public void incrementFailedAttempts() {
+        this.failedAttempts++;
+    }
+
+    public void lockNow() {
+        this.lockedAt = LocalDateTime.now();
+    }
+
+    public boolean isLocked() {
+        return lockedAt != null;
     }
 }

@@ -227,13 +227,14 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(await screen.findByRole("heading", { name: /championship rounds/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /season timeline/i })).toBeInTheDocument();
     expect(screen.getByText(/registration closed/i)).toBeInTheDocument();
-    expect(screen.getByText(/pool approved/i)).toBeInTheDocument();
+    expect(screen.getByText(/schedule published/i)).toBeInTheDocument();
     expect(screen.getAllByText(/participants locked/i).length).toBeGreaterThan(0);
     expect(getAdminRaces).toHaveBeenCalledWith({ tournamentId: 7 });
     expect(screen.getByText("Round 1 - Belmont Stakes")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /open control center for round 1 - belmont stakes/i }));
     expect(await screen.findByRole("heading", { name: /round control center/i })).toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: /close control center/i }));
     fireEvent.click(screen.getByRole("button", { name: /^controls$/i }));
     expect(screen.getByRole("heading", { name: /championship controls/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /race operations/i })).not.toBeInTheDocument();

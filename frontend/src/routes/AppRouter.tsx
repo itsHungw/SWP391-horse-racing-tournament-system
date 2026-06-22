@@ -14,6 +14,7 @@ import { LeaderboardPage } from "../pages/public/LeaderboardPage";
 import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
+import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { ProfilePage } from "../pages/user/ProfilePage";
 import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
 import { OrganizerLayout } from "../layouts/OrganizerLayout";
@@ -117,6 +118,7 @@ export function AppRouter() {
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="verify-email" element={<VerifyEmailPage />} />
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
         
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
