@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
+
 public record AdminRoleRequestUserResponse(
         Long id,
         String fullName,
@@ -14,7 +16,7 @@ public record AdminRoleRequestUserResponse(
         LocalDate dateOfBirth,
         String gender,
         String address,
-        String status,
+        UserStatus status,
         boolean emailVerified,
         boolean phoneVerified,
         boolean ageVerified,

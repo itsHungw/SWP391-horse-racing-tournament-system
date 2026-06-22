@@ -36,6 +36,34 @@
   --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-grotesk: "Hanken Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono-data: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+
+  /* ── Race Office: organizer workspace ───────────────────────────
+     Tokenised from the hand-placed brass/charcoal/parchment identity so
+     workspace polish propagates without copy-pasted hex. Usage-scoped to the
+     organizer pages; distinct from the cinematic client theme above. Identity
+     preserved (PRODUCT.md: "charcoal + brass/gold, workspace not showroom").
+     Tailwind v4 surfaces these as utilities, e.g. bg-office-charcoal,
+     text-office-muted, border-office-line. */
+  --color-office-brass: #bb8a3c;          /* primary accent: buttons, active nav */
+  --color-office-brass-bright: #cfa24f;   /* accent hover */
+  --color-office-brass-ink: #a8801f;      /* eyebrow / accent label on light */
+  --color-office-gilt: #8a6a1c;           /* deep brass: links, small icons */
+  --color-office-charcoal: #1c1816;       /* dark surfaces: sidebar, drawer header */
+  --color-office-charcoal-soft: #2a241f;  /* charcoal hover */
+  --color-office-bg: #f7f4ee;             /* workspace background (parchment) */
+  --color-office-bg-soft: #faf7f0;        /* subtle fill / row hover */
+  --color-office-panel: #fdfbf6;          /* raised panel / header bg */
+  --color-office-ink: #211d1a;            /* primary text */
+  --color-office-ink-soft: #3a342d;       /* strong secondary text / inputs */
+  --color-office-muted: #6f665b;          /* muted body — ~5.3:1 on light, AA */
+  --color-office-muted-soft: #8a8276;     /* faint label — large text only (see DESIGN.md a11y note) */
+  --color-office-faint: #a99f8c;          /* faintest meta — non-essential only */
+  --color-office-line: #e7e0d3;           /* card borders */
+  --color-office-line-soft: #efe9dd;      /* dividers */
+  --color-office-line-strong: #e2d9c8;    /* input borders */
+  --color-office-sand: #f3ead6;           /* brass-tint chip / avatar bg */
+  --color-office-go: #0d4a37;             /* confirm / approve action (success-action green) */
+  --color-office-go-bright: #0b5a41;      /* confirm action hover */
 }
 
 @layer base {
@@ -205,7 +233,7 @@
     #e8cd7e 64%,
     #b8912b 100%
   );
-  background-size: 220% 100%;
+  background-size: 200% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -251,7 +279,7 @@
 
 @keyframes foil-pan {
   to {
-    background-position: 220% 0;
+    background-position: 200% 0;
   }
 }
 
@@ -282,4 +310,59 @@
   .text-foil {
     background-position: 0 0;
   }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Scrollbar Theming
+   ════════════════════════════════════════════════════════════════ */
+
+/* Global Scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-turf-600) var(--color-turf-950);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-turf-950);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-turf-700);
+  border-radius: 5px;
+  border: 2px solid var(--color-turf-950);
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-600);
+}
+
+/* Utility class for internal scrollable elements (like PredictionSlip, Modals) */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-turf-600) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-turf-600);
+  border-radius: 4px;
+  border: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gold-400);
 }

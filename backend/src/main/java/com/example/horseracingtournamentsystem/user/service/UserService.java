@@ -67,7 +67,7 @@ public class UserService {
     // ==========================================
 
     @Transactional(readOnly = true)
-    public Page<AdminUserDetailResponse> searchActiveUsers(String query, String status, String role, Pageable pageable) {
+    public Page<AdminUserDetailResponse> searchActiveUsers(String query, com.example.horseracingtournamentsystem.user.enums.UserStatus status, String role, Pageable pageable) {
         String searchQuery = query == null ? "" : query;
         Page<User> usersPage = userRepository.searchUsers(searchQuery, status, role, pageable);
         return usersPage.map(AdminUserDetailResponse::from);
@@ -157,7 +157,7 @@ public class UserService {
         // private String status;
         // There is no setStatus() method. Let's check how we change status.
         // In User.java: verifyEmail() sets this.status = STATUS_ACTIVE.
-        // If we want to change status directly, we can add a method setStatus(String status) or changeStatus(String status) in User.java.
+        // user.setStatus(status);
         // Let's modify User.java to add a method for changing status!
         try {
             java.lang.reflect.Field field = User.class.getDeclaredField("status");
@@ -236,7 +236,7 @@ public class UserService {
                 userRoleRepository.save(activeNonSpectatorUserRole);
                 
                 String transitionReason = String.format("Changed role from %s to %s. Reason: %s", oldRoleName, newRole.getName(), auditReason);
-                UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, UserRole.STATUS_ACTIVE, UserRole.STATUS_ACTIVE, adminUser, transitionReason);
+                UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, transitionReason);
                 userRoleHistoryRepository.save(history);
             }
         } else if (activeNonSpectatorUserRole != null) {
@@ -244,7 +244,7 @@ public class UserService {
             activeNonSpectatorUserRole.remove(adminUser);
             userRoleRepository.save(activeNonSpectatorUserRole);
             
-            UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, UserRole.STATUS_ACTIVE, UserRole.STATUS_REMOVED, adminUser, auditReason);
+            UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.REMOVED, adminUser, auditReason);
             userRoleHistoryRepository.save(history);
         } else if (targetNonSpectatorRoleId != null) {
             // User did not have a non-spectator role, and now we are adding one
@@ -255,11 +255,11 @@ public class UserService {
                     .orElse(null);
 
             if (existingUserRole != null) {
-                String oldStatus = existingUserRole.getStatus();
+                com.example.horseracingtournamentsystem.user.enums.UserRoleStatus oldStatus = existingUserRole.getStatus();
                 existingUserRole.reactivate(adminUser);
                 userRoleRepository.save(existingUserRole);
                 
-                UserRoleHistory history = UserRoleHistory.record(existingUserRole, oldStatus, UserRole.STATUS_ACTIVE, adminUser, auditReason);
+                UserRoleHistory history = UserRoleHistory.record(existingUserRole, oldStatus, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, auditReason);
                 userRoleHistoryRepository.save(history);
             } else {
                 Role role = roleRepository.findById(targetNonSpectatorRoleId)
@@ -267,7 +267,7 @@ public class UserService {
                 UserRole newUserRole = UserRole.active(user, role, adminUser);
                 userRoleRepository.save(newUserRole);
                 
-                UserRoleHistory history = UserRoleHistory.record(newUserRole, null, UserRole.STATUS_ACTIVE, adminUser, auditReason);
+                UserRoleHistory history = UserRoleHistory.record(newUserRole, null, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, auditReason);
                 userRoleHistoryRepository.save(history);
             }
         }
@@ -294,7 +294,7 @@ public class UserService {
         try {
             java.lang.reflect.Field field = User.class.getDeclaredField("status");
             field.setAccessible(true);
-            field.set(user, "LOCKED");
+            field.set(user, com.example.horseracingtournamentsystem.user.enums.UserStatus.BANNED);
         } catch (Exception e) {
             throw new RuntimeException("Failed to update status field on User entity", e);
         }

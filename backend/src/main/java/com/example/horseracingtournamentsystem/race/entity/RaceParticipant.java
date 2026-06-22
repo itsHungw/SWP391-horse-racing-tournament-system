@@ -3,9 +3,14 @@ package com.example.horseracingtournamentsystem.race.entity;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyInvitation;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantCheckStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantConfirmationStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -34,15 +39,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RaceParticipant {
 
-    public static final String CONFIRMATION_PENDING = "PENDING";
-    public static final String CHECK_NOT_CHECKED = "NOT_CHECKED";
-    public static final String CHECK_PASSED = "PASSED";
-    public static final String CHECK_FAILED = "FAILED";
-    public static final String CHECK_CONDITIONAL = "CONDITIONAL";
-    public static final String STATUS_REGISTERED = "REGISTERED";
-    public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_WITHDRAWN = "WITHDRAWN";
-    public static final String STATUS_DISQUALIFIED = "DISQUALIFIED";
+
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -77,14 +74,20 @@ public class RaceParticipant {
     @Column(name = "weight_carried_kg", precision = 5, scale = 2)
     private BigDecimal weightCarriedKg;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "confirmation_status", nullable = false, length = 30)
-    private String confirmationStatus;
+    private ParticipantConfirmationStatus confirmationStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "check_status", nullable = false, length = 30)
-    private String checkStatus;
+    private ParticipantCheckStatus checkStatus;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private ParticipantStatus status;
+
+    @Column(name = "base_win_probability", precision = 5, scale = 4)
+    private BigDecimal baseWinProbability = new BigDecimal("0.1000");
 
     @Column(name = "check_note")
     private String checkNote;
@@ -106,17 +109,21 @@ public class RaceParticipant {
         participant.owner = tournamentParticipant.getOwner();
         participant.jockey = tournamentParticipant.getJockey();
         participant.invitation = invitation;
-        participant.confirmationStatus = CONFIRMATION_PENDING;
-        participant.checkStatus = CHECK_NOT_CHECKED;
-        participant.status = STATUS_REGISTERED;
+        participant.confirmationStatus = ParticipantConfirmationStatus.PENDING;
+        participant.checkStatus = ParticipantCheckStatus.NOT_CHECKED;
+        participant.status = ParticipantStatus.REGISTERED;
         participant.createdAt = LocalDateTime.now();
         return participant;
     }
 
-    public void updateCheck(String checkStatus, String participantStatus, String note) {
+    public void updateCheck(ParticipantCheckStatus checkStatus, ParticipantStatus participantStatus, String note) {
         this.checkStatus = checkStatus;
         this.status = participantStatus;
         this.checkNote = note;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setBaseWinProbability(BigDecimal baseWinProbability) {
+        this.baseWinProbability = baseWinProbability;
     }
 }

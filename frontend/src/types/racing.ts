@@ -89,6 +89,76 @@ export type Tournament = {
   maxHorses?: number;
   maxHorsesPerOwner?: number;
   status: string;
+  organizationId?: number;
+  organizationName?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+};
+
+export type OrganizationStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "REJECTED";
+
+export type Organization = {
+  id: number;
+  code: string;
+  name: string;
+  status: OrganizationStatus;
+  licenseNumber?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  logoUrl?: string;
+  evidenceUrl?: string;
+  description?: string;
+  applicationNote?: string;
+  rejectionReason?: string;
+  ownerId?: number;
+  ownerName?: string;
+  approvedById?: number;
+  approvedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RegisterOrganizationPayload = {
+  name: string;
+  licenseNumber?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  description?: string;
+  evidenceUrl?: string;
+  logoUrl?: string;
+  applicationNote: string;
+};
+
+export type RefereeContractStatus = "PENDING" | "ACTIVE" | "DECLINED" | "TERMINATED";
+
+export type RefereeContract = {
+  id: number;
+  tournamentId: number;
+  tournamentName?: string;
+  refereeId: number;
+  refereeName?: string;
+  invitedById?: number;
+  status: RefereeContractStatus;
+  agreementUrl?: string;
+  reason?: string;
+  createdAt?: string;
+  respondedAt?: string;
+  terminatedAt?: string;
+};
+
+export type InviteRefereePayload = {
+  refereeId: number;
+  message?: string;
+  agreementUrl?: string;
+};
+
+export type RefereeDirectoryEntry = {
+  refereeId: number;
+  fullName: string;
+  email: string;
+  licenseNumber?: string;
+  experienceYears?: number;
+  certification?: string;
 };
 
 export type TournamentSummary = {
@@ -320,6 +390,22 @@ export type TournamentParticipant = {
   points: number;
   createdAt?: string;
   updatedAt?: string;
+};
+
+export type RaceParticipant = {
+  id: number;
+  raceId: number;
+  horseId: number;
+  horseName: string;
+  ownerId: number;
+  ownerName: string;
+  jockeyId?: number | null;
+  jockeyName?: string | null;
+  startNumber?: number | null;
+  laneNumber?: number | null;
+  confirmationStatus?: string;
+  checkStatus?: string;
+  status: string;
 };
 
 export type JockeyScheduleItem = {

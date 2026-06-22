@@ -1,9 +1,12 @@
 package com.example.horseracingtournamentsystem.championship.entity;
 
+import com.example.horseracingtournamentsystem.championship.enums.JockeyApplicationStatus;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -31,10 +34,6 @@ import org.springframework.web.server.ResponseStatusException;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JockeyTournamentApplication {
 
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_APPROVED_FOR_POOL = "APPROVED_FOR_POOL";
-    public static final String STATUS_REJECTED = "REJECTED";
-    public static final String STATUS_WITHDRAWN = "WITHDRAWN";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,8 +47,9 @@ public class JockeyTournamentApplication {
     @JoinColumn(name = "jockey_id", nullable = false)
     private User jockey;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private JockeyApplicationStatus status;
 
     @Column(name = "message", length = 500)
     private String message;
@@ -78,14 +78,14 @@ public class JockeyTournamentApplication {
         application.tournament = tournament;
         application.jockey = jockey;
         application.message = message;
-        application.status = STATUS_PENDING;
+        application.status = JockeyApplicationStatus.PENDING;
         application.createdAt = LocalDateTime.now();
         return application;
     }
 
     public void approve(User reviewer) {
         ensurePendingForReview();
-        this.status = STATUS_APPROVED_FOR_POOL;
+        this.status = JockeyApplicationStatus.APPROVED_FOR_POOL;
         this.reviewedBy = reviewer;
         this.reviewedAt = LocalDateTime.now();
         this.rejectionReason = null;
@@ -94,7 +94,7 @@ public class JockeyTournamentApplication {
 
     public void reject(User reviewer, String reason) {
         ensurePendingForReview();
-        this.status = STATUS_REJECTED;
+        this.status = JockeyApplicationStatus.REJECTED;
         this.reviewedBy = reviewer;
         this.reviewedAt = LocalDateTime.now();
         this.rejectionReason = reason;
@@ -102,20 +102,20 @@ public class JockeyTournamentApplication {
     }
 
     public void withdraw() {
-        if (!STATUS_PENDING.equals(this.status)) {
+        if (JockeyApplicationStatus.PENDING != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending pool applications can be withdrawn");
         }
-        this.status = STATUS_WITHDRAWN;
+        this.status = JockeyApplicationStatus.WITHDRAWN;
         this.withdrawnAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
     public void resubmit(String message) {
-        if (!STATUS_REJECTED.equals(this.status) && !STATUS_WITHDRAWN.equals(this.status)) {
+        if (JockeyApplicationStatus.REJECTED != this.status && JockeyApplicationStatus.WITHDRAWN != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Only rejected or withdrawn pool applications can be resubmitted");
         }
-        this.status = STATUS_PENDING;
+        this.status = JockeyApplicationStatus.PENDING;
         this.message = message;
         this.reviewedBy = null;
         this.reviewedAt = null;
@@ -125,7 +125,7 @@ public class JockeyTournamentApplication {
     }
 
     private void ensurePendingForReview() {
-        if (!STATUS_PENDING.equals(this.status)) {
+        if (JockeyApplicationStatus.PENDING != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending pool applications can be reviewed");
         }
     }

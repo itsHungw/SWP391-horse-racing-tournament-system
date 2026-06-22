@@ -1,6 +1,9 @@
 package com.example.horseracingtournamentsystem.race.dto.response;
 
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantCheckStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantConfirmationStatus;
+import com.example.horseracingtournamentsystem.race.enums.ParticipantStatus;
 import lombok.Builder;
 
 @Builder
@@ -19,9 +22,9 @@ public record RaceParticipantResponse(
         String jockeyName,
         Integer startNumber,
         Integer laneNumber,
-        String confirmationStatus,
-        String checkStatus,
-        String status,
+        ParticipantConfirmationStatus confirmationStatus,
+        ParticipantCheckStatus checkStatus,
+        ParticipantStatus status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

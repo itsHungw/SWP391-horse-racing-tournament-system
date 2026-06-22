@@ -1,23 +1,33 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { Compass, History, ShieldCheck } from "lucide-react";
+import { motion } from "framer-motion";
+import { Plus, Minus } from "lucide-react";
 import { ClientHeader } from "../../../components/client/ClientHeader";
 import { ClientFooter } from "../../../components/client/ClientFooter";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
 import { useSpectatorPredictions } from "./hooks/useSpectatorPredictions";
-import { PredictionArenaHeader } from "./components/PredictionArenaHeader";
-import { ActiveRacesList } from "./components/ActiveRacesList";
-import { StepRail } from "./components/StepRail";
-import { HorsePickPanel, EMPTY_PICKS, type Picks } from "./components/HorsePickPanel";
-import { TicketReview } from "./components/TicketReview";
-import { CommunityChoices } from "./components/CommunityChoices";
+import { RaceTimeline } from "./components/RaceTimeline";
+import { RaceCockpitHeader } from "./components/RaceCockpitHeader";
+import { PredictionModeSelector } from "./components/PredictionModeSelector";
+import { HeadToHeadSelector } from "./components/HeadToHeadSelector";
+import { RunnerTable } from "./components/RunnerTable";
+import { PredictionSlip } from "./components/PredictionSlip";
+import { StreakSlip } from "./components/StreakSlip";
 import { MyPredictionsList } from "./components/MyPredictionsList";
-import type { PredictionType, UserPrediction } from "./types/prediction.types";
+import { X } from "lucide-react";
+import { spectatorPredictionApi } from "./services/spectatorPredictionApi";
+import {
+  EMPTY_PICKS,
+  derivePredictionValidation,
+  getEntryCost,
+  pickRunnerForMode,
+  setPickSlot,
+  type Picks,
+  type PickSlot,
+} from "./predictionCockpitUtils";
+import type { PredictionType, UserPrediction, StreakPredictionLeg } from "./types/prediction.types";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-
-type WizardStep = 1 | 2 | 3;
 
 export function SpectatorPredictionsPage() {
   useDocumentTitle("Prediction Arena | Night at the Races");
@@ -28,28 +38,37 @@ export function SpectatorPredictionsPage() {
     selectedRace,
     predictionOptions,
     myPredictions,
+    myStreaks,
     loading,
     error,
     selectRace,
     submitPrediction,
     updatePrediction,
+    refreshAll,
   } = useSpectatorPredictions();
 
-  const [activeTab, setActiveTab] = useState<"open" | "my">("open");
-  const [step, setStep] = useState<WizardStep>(1);
-  const [predType, setPredType] = useState<PredictionType>("WINNER");
+  const [predType, setPredType] = useState<PredictionType>("EXACT_POSITION");
   const [picks, setPicks] = useState<Picks>(EMPTY_PICKS);
-  const [stepError, setStepError] = useState<string | null>(null);
+  const [streakLegs, setStreakLegs] = useState<StreakPredictionLeg[]>([]);
+  const [wagerAmount, setWagerAmount] = useState<number>(10000);
+  const [isCustomWager, setIsCustomWager] = useState<boolean>(false);
+  const [activeTop3Slot, setActiveTop3Slot] = useState<PickSlot | null>(null);
+  const [editingPredictionId, setEditingPredictionId] = useState<number | null>(null);
   const [booted, setBooted] = useState(false);
+  const [editNotice, setEditNotice] = useState<string | null>(null);
+  const [cockpitSubmitting, setCockpitSubmitting] = useState(false);
+  const [cockpitSubmitStatus, setCockpitSubmitStatus] = useState<string | null>(null);
+  const [cockpitSubmitError, setCockpitSubmitError] = useState<string | null>(null);
+  const [isAllPredictionsModalOpen, setIsAllPredictionsModalOpen] = useState(false);
+  const [isAllStreaksModalOpen, setIsAllStreaksModalOpen] = useState(false);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkApplied = useRef(false);
 
   useEffect(() => {
     if (!loading) setBooted(true);
   }, [loading]);
 
-  /* Deep link: /spectator/predictions?raceId=N preselects the race. */
   useEffect(() => {
     if (deepLinkApplied.current || loading) return;
     const raw = searchParams.get("raceId");
@@ -58,79 +77,149 @@ export function SpectatorPredictionsPage() {
       return;
     }
     deepLinkApplied.current = true;
-    const target = openRaces.find((r) => r.raceId === Number(raw));
-    if (target) {
-      selectRace(target);
-      setStep(2);
-    }
+    const target = openRaces.find((race) => race.raceId === Number(raw));
+    if (target) selectRace(target);
+    // selectRace is intentionally omitted because it is not memoized by the hook.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, openRaces, searchParams]);
 
-  const existingPred = predictionOptions?.myPredictions?.find((p) => p.predictionType === predType);
+  const existingPred = predictionOptions?.myPredictions?.find((prediction) => {
+    if (editingPredictionId) return prediction.id === editingPredictionId;
+    if (predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") return false;
+    return prediction.predictionType === predType;
+  });
   const pointBalance = pointAccount?.pointBalance ?? 0;
+  const cockpitValidation = selectedRace
+    ? derivePredictionValidation({
+        predType,
+        picks,
+        options: predictionOptions,
+        pointBalance,
+        isUpdate: Boolean(existingPred),
+        wagerAmount,
+      })
+    : { canConfirm: false, message: "Select a race to continue." };
 
-  /* Prefill picks from an already-submitted prediction of the current type. */
+  const cockpitPointPresets = [10000, 20000, 50000, 100000, 200000, 500000];
+
   useEffect(() => {
     if (existingPred) {
       setPicks({
         winnerId: existingPred.predictedWinnerId,
+        predictedPosition: existingPred.predictedPosition,
         secondId: existingPred.predictedSecondId ?? null,
         thirdId: existingPred.predictedThirdId ?? null,
       });
+      if (existingPred.entryCostPoints) {
+        setWagerAmount(existingPred.entryCostPoints);
+        if (!cockpitPointPresets.includes(existingPred.entryCostPoints)) {
+          setIsCustomWager(true);
+        }
+      }
     } else {
       setPicks(EMPTY_PICKS);
+      setWagerAmount(10000);
+      setIsCustomWager(false);
     }
-    setStepError(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [existingPred?.id, predType, predictionOptions?.raceId]);
+    setActiveTop3Slot(null);
+  }, [existingPred, predType, predictionOptions?.raceId]);
 
   const handleSelectRace = (race: (typeof openRaces)[number]) => {
     selectRace(race);
-    setStep(2);
-    setStepError(null);
+    setActiveTop3Slot(null);
+    setEditNotice(null);
+    setSearchParams({ raceId: String(race.raceId) }, { replace: true });
   };
 
-  const handleEdit = (pred: UserPrediction) => {
-    const matchingRace = openRaces.find((r) => r.raceId === pred.raceId);
+  const handleModeChange = (nextType: PredictionType) => {
+    setPredType(nextType);
+    setActiveTop3Slot(null);
+    setEditingPredictionId(null);
+  };
+
+  const handleSelectRunner = (participantId: number, position?: number) => {
+    if (predType === "EXACT_POSITION") {
+      // Toggle if already selected, otherwise select
+      if (picks.winnerId === participantId && picks.predictedPosition === position) {
+        setPicks(EMPTY_PICKS);
+      } else {
+        setPicks({ ...EMPTY_PICKS, winnerId: participantId, predictedPosition: position });
+      }
+      return;
+    }
+
+    if (predType === "WINNING_STREAK") {
+      const runner = predictionOptions?.options.find((opt) => opt.raceParticipantId === participantId);
+      const odds = predictionOptions?.positionOddsMatrix?.[participantId]?.[1];
+      if (!runner || !odds || !selectedRace) return;
+
+      setStreakLegs((prev) => {
+        const existingIndex = prev.findIndex(leg => leg.raceId === selectedRace.raceId);
+        const newLeg = {
+          raceId: selectedRace.raceId,
+          raceName: selectedRace.raceName,
+          predictedWinnerId: participantId,
+          horseName: runner.horseName,
+          lockedOdds: odds,
+          status: "PENDING"
+        };
+        if (existingIndex >= 0) {
+          if (prev[existingIndex].predictedWinnerId === participantId) {
+            // Deselect if already selected
+            const next = [...prev];
+            next.splice(existingIndex, 1);
+            return next;
+          }
+          const next = [...prev];
+          next[existingIndex] = newLeg;
+          return next;
+        }
+        return [...prev, newLeg];
+      });
+      return;
+    }
+
+    setPicks((current) =>
+      pickRunnerForMode({
+        picks: current,
+        predType,
+        participantId,
+        activeSlot: predType === "TOP3" ? activeTop3Slot : null,
+      }),
+    );
+    if (predType === "TOP3") setActiveTop3Slot(null);
+  };
+
+  const handleClearSlot = (slot: PickSlot) => {
+    setPicks((current) => setPickSlot(current, slot, null));
+    setActiveTop3Slot(slot);
+  };
+
+  const handleClearSelections = () => {
+    setPicks(EMPTY_PICKS);
+    setActiveTop3Slot(null);
+    setEditingPredictionId(null);
+  };
+
+  useEffect(() => {
+    setCockpitSubmitStatus(null);
+    setCockpitSubmitError(null);
+  }, [selectedRace?.raceId, predictionOptions?.raceId, predType, picks.winnerId, picks.secondId, picks.thirdId]);
+
+  const handleEdit = (prediction: UserPrediction) => {
+    const matchingRace = openRaces.find((race) => race.raceId === prediction.raceId);
     if (!matchingRace) {
-      setActiveTab("open");
-      setStep(1);
-      setStepError("That race is no longer open, so its prediction can't be edited.");
+      setEditNotice("That race is no longer open for editing.");
       return;
     }
-    setPredType(pred.predictionType);
+    setPredType(prediction.predictionType);
+    if (prediction.predictionType === "EXACT_POSITION" || prediction.predictionType === "HEAD_TO_HEAD") {
+      setEditingPredictionId(prediction.id);
+    }
     selectRace(matchingRace);
-    setActiveTab("open");
-    setStep(2);
-    setStepError(null);
-  };
-
-  const validateAndReview = () => {
-    setStepError(null);
-    const cost = predType === "WINNER"
-      ? predictionOptions?.entryCost.winner ?? 0
-      : predictionOptions?.entryCost.top3 ?? 0;
-
-    if (!picks.winnerId) {
-      setStepError("Pick a horse for 1st place first.");
-      return;
-    }
-    if (predType === "TOP3") {
-      if (!picks.secondId || !picks.thirdId) {
-        setStepError("A Top 3 ticket needs all three places filled.");
-        return;
-      }
-      const ids = [picks.winnerId, picks.secondId, picks.thirdId];
-      if (new Set(ids).size !== 3) {
-        setStepError("Pick three different horses for 1st, 2nd, and 3rd.");
-        return;
-      }
-    }
-    if (!existingPred && pointBalance < cost) {
-      setStepError(`Not enough points — you need ${cost - pointBalance} more. Read stories in the Newsroom to earn points.`);
-      return;
-    }
-    setStep(3);
+    setSearchParams({ raceId: String(matchingRace.raceId) }, { replace: true });
+    setActiveTop3Slot(null);
+    setEditNotice(null);
   };
 
   const handleConfirm = async () => {
@@ -139,9 +228,10 @@ export function SpectatorPredictionsPage() {
       raceId: selectedRace.raceId,
       predictionType: predType,
       predictedWinnerId: picks.winnerId,
-      predictedSecondId: predType === "TOP3" ? picks.secondId : null,
-      predictedThirdId: predType === "TOP3" ? picks.thirdId : null,
+      predictedPosition: predType === "EXACT_POSITION" ? picks.predictedPosition : null,
+      wagerAmount,
     };
+
     if (existingPred) {
       await updatePrediction(existingPred.id, payload);
     } else {
@@ -149,63 +239,55 @@ export function SpectatorPredictionsPage() {
     }
   };
 
-  const handleDone = () => {
-    setPicks(EMPTY_PICKS);
-    setStep(1);
-    setActiveTab("my");
+  const handleCockpitConfirm = async () => {
+    if (!cockpitValidation.canConfirm || cockpitSubmitting) return;
+
+    setCockpitSubmitting(true);
+    setCockpitSubmitError(null);
+    setCockpitSubmitStatus(null);
+    try {
+      await handleConfirm();
+      setCockpitSubmitStatus(existingPred ? "Prediction updated." : "Prediction confirmed.");
+      if ((predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") && !existingPred) {
+        setPicks(EMPTY_PICKS);
+      }
+      setEditingPredictionId(null);
+    } catch (err) {
+      setCockpitSubmitError(err instanceof Error ? err.message : "Unable to confirm prediction.");
+    } finally {
+      setCockpitSubmitting(false);
+    }
   };
-
-  const stepVariants = {
-    initial: { opacity: 0, x: 24 },
-    animate: { opacity: 1, x: 0, transition: { duration: 0.45, ease: EASE } },
-    exit: { opacity: 0, x: -24, transition: { duration: 0.2 } },
-  };
-
-  const tabs = [
-    { key: "open" as const, label: "Make a Prediction", Icon: Compass },
-    { key: "my" as const, label: `My Predictions (${myPredictions.length})`, Icon: History },
-  ];
-
-  const showCommunity =
-    predictionOptions != null &&
-    (predType === "WINNER"
-      ? predictionOptions.winnerDistributionVisible
-      : predictionOptions.top3DistributionVisible);
 
   return (
     <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
 
-      <main className="mx-auto max-w-[1400px] px-5 py-10 sm:px-7 lg:px-12">
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: EASE }}
-        >
-          <PredictionArenaHeader pointBalance={pointBalance} />
-        </motion.div>
-
-        {/* Disclaimer — always visible */}
-        <div className="mt-5 flex items-center justify-center gap-2.5 rounded-xl border border-gold-600/25 bg-turf-900/60 px-4 py-3 text-center">
-          <ShieldCheck size={16} className="shrink-0 text-gold-400" />
-          <p className="eyebrow text-gold-300">Virtual points only — no real-money betting</p>
-        </div>
-
+      <main className="mx-auto max-w-[1240px] px-3 py-4 sm:px-4 lg:px-5">
         {!booted && (
-          <div className="mt-8 rounded-2xl border border-white/8 bg-turf-900 p-12 text-center">
+          <div className="rounded-lg border border-turf-700 bg-turf-900 p-10 text-center">
             <div className="flex items-center justify-center gap-3 font-data text-sm uppercase tracking-[0.16em] text-ivory-dim">
               <span className="h-2 w-2 rounded-full bg-emerald-soft live-pulse" />
-              Loading the prediction arena…
+              Loading the prediction arena...
             </div>
           </div>
         )}
 
         {error && (
           <div
-            className="mt-6 rounded-xl border-l-4 border-nyraRed bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300"
+            className="rounded-lg border-l-4 border-nyraRed bg-rose-500/10 px-5 py-4 text-sm font-semibold text-rose-300"
             role="alert"
           >
             {error}
+          </div>
+        )}
+
+        {editNotice && (
+          <div
+            className="mt-3 rounded-lg border border-gold-600/30 bg-gold-400/5 px-5 py-4 text-sm font-semibold text-gold-200"
+            role="alert"
+          >
+            {editNotice}
           </div>
         )}
 
@@ -214,171 +296,295 @@ export function SpectatorPredictionsPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.15, ease: EASE }}
-            className="mt-8 grid gap-8 lg:grid-cols-[260px_1fr]"
+            className="space-y-3"
           >
-            {/* Sidebar tabs */}
-            <div className="flex h-fit shrink-0 flex-col gap-2 rounded-2xl border border-white/8 bg-turf-900 p-4 sm:flex-row lg:flex-col">
-              {tabs.map(({ key, label, Icon }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setActiveTab(key)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-[11px] font-bold uppercase tracking-[0.14em] transition-colors ${
-                    activeTab === key
-                      ? "bg-emerald-glow text-turf-950 shadow-[0_12px_30px_-12px_rgba(31,157,118,0.7)]"
-                      : "text-ivory-dim hover:bg-white/5 hover:text-ivory"
-                  }`}
-                >
-                  <Icon className="h-4.5 w-4.5 shrink-0" />
-                  {label}
-                </button>
-              ))}
-            </div>
+            <RaceTimeline
+              races={openRaces}
+              selectedRace={selectedRace}
+              selectedPredictionOpen={predictionOptions?.predictionOpen}
+              onSelectRace={handleSelectRace}
+            />
 
-            {/* Active content */}
-            <div className="min-w-0 flex-1">
-              <AnimatePresence mode="wait">
-                {activeTab === "open" ? (
-                  <motion.div
-                    key="open-tab"
-                    variants={stepVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                  >
-                    {/* Step rail */}
-                    <div className="rounded-2xl border border-white/8 bg-turf-900 px-5 py-4 sm:px-7">
-                      <StepRail
-                        current={step}
-                        onGo={(s) => {
-                          setStep(s);
-                          setStepError(null);
-                        }}
-                      />
-                    </div>
+            {selectedRace ? (
+              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
+                <section className="min-w-0 overflow-hidden rounded-lg border border-turf-800 bg-turf-900/95 shadow-[0_18px_70px_-36px_rgba(0,0,0,0.85)]">
+                  <div className="border-b border-turf-800 p-3 sm:p-4">
+                    <PredictionModeSelector
+                      options={predictionOptions}
+                      predType={predType}
+                      onChange={handleModeChange}
+                    />
+                  </div>
 
-                    {stepError && (
+                  <div className="grid gap-0 lg:grid-cols-[225px_minmax(0,1fr)]">
+                    <RaceCockpitHeader race={selectedRace} options={predictionOptions} />
+
+                    {!predictionOptions || loading ? (
                       <div
-                        className="mt-4 rounded-xl border border-nyraRed/40 bg-rose-500/10 p-4 text-xs font-semibold text-rose-300"
-                        role="alert"
-                      >
-                        {stepError}
+                        className="h-72 animate-pulse border-l border-turf-800 bg-turf-850"
+                        aria-label="Loading race options"
+                      />
+                    ) : predType === "HEAD_TO_HEAD" ? (
+                      <div className="border-l border-turf-800 bg-turf-850 p-3">
+                        <HeadToHeadSelector
+                          matchups={predictionOptions.h2hMatchups || []}
+                          participants={predictionOptions.options}
+                          selectedWinnerId={picks.winnerId}
+                          onSelectWinner={(horseId) => setPicks({ ...EMPTY_PICKS, winnerId: horseId })}
+                          disabled={!predictionOptions.predictionOpen || cockpitSubmitting}
+                        />
                       </div>
+                    ) : (
+                      <RunnerTable
+                        options={predictionOptions}
+                        predType={predType}
+                        picks={
+                          predType === "WINNING_STREAK"
+                            ? { ...EMPTY_PICKS, winnerId: streakLegs.find((l) => l.raceId === selectedRace?.raceId)?.predictedWinnerId ?? null }
+                            : picks
+                        }
+                        disabled={!predictionOptions.predictionOpen || cockpitSubmitting}
+                        onSelectRunner={handleSelectRunner}
+                      />
                     )}
+                  </div>
 
-                    <div className="mt-6">
-                      <AnimatePresence mode="wait">
-                        {step === 1 && (
-                          <motion.div
-                            key="step-1"
-                            variants={stepVariants}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
+                  <div className="p-3 sm:p-4">
+                    <div className="mt-3 grid gap-4 border-t border-turf-800 pt-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                      <div>
+                        <p className="text-[12px] font-semibold text-ivory">Wager Amount</p>
+                        <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                          {cockpitPointPresets.map((points, index) => (
+                            <button
+                              key={`${points}-${index}`}
+                              type="button"
+                              onClick={() => {
+                                setWagerAmount(points);
+                                setIsCustomWager(false);
+                              }}
+                              className={`grid min-h-10 place-items-center rounded-md border px-2 font-data text-[13px] font-extrabold transition-colors ${
+                                !isCustomWager && wagerAmount === points
+                                  ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
+                                  : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
+                              }`}
+                            >
+                              {points > 0 ? (points / 1000) + "k" : "-"}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomWager(true)}
+                            className={`grid min-h-10 place-items-center rounded-md border px-2 text-[13px] font-semibold transition-colors ${
+                              isCustomWager
+                                ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
+                                : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
+                            }`}
                           >
-                            <ActiveRacesList
-                              races={openRaces}
-                              selectedRace={selectedRace}
-                              onSelectRace={handleSelectRace}
-                            />
-                          </motion.div>
-                        )}
-
-                        {step === 2 && (
-                          <motion.div
-                            key="step-2"
-                            variants={stepVariants}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                          >
-                            {!selectedRace || !predictionOptions || loading ? (
-                              <div
-                                className="h-72 animate-pulse rounded-2xl border border-white/8 bg-turf-900"
-                                aria-label="Loading race options"
+                            Other
+                          </button>
+                        </div>
+                        {isCustomWager && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <span className="text-[13px] text-ivory-dim font-medium">Custom Wager:</span>
+                            <div className="flex items-center overflow-hidden rounded-lg border border-turf-600 bg-turf-900/50 p-1 transition-all focus-within:border-gold-400 focus-within:ring-1 focus-within:ring-gold-400">
+                              <button
+                                type="button"
+                                onClick={() => setWagerAmount(Math.max(10000, wagerAmount - 10000))}
+                                className="grid h-7 w-7 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </button>
+                              <input
+                                type="number"
+                                min={10000}
+                                step={10000}
+                                value={wagerAmount}
+                                onChange={(e) => setWagerAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                                className="w-24 bg-transparent px-2 text-center font-data text-[15px] font-bold text-gold-300 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               />
-                            ) : (
-                              <>
-                                <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-                                  <h2 className="font-display text-2xl font-medium tracking-tight text-ivory">
-                                    {selectedRace.raceName}
-                                  </h2>
-                                  <p className="font-data text-[11px] uppercase tracking-[0.16em] text-ivory-faint">
-                                    {selectedRace.tournamentName}
-                                  </p>
-                                </div>
-                                <HorsePickPanel
-                                  options={predictionOptions}
-                                  predType={predType}
-                                  onPredType={setPredType}
-                                  picks={picks}
-                                  onPicksChange={setPicks}
-                                />
-                                {existingPred && (
-                                  <p className="mt-3 text-[11px] font-semibold text-emerald-soft">
-                                    * You already hold a {predType === "WINNER" ? "Winner" : "Top 3"} ticket for
-                                    this race — editing it costs no extra points.
-                                  </p>
-                                )}
-                                {predictionOptions.predictionOpen && (
-                                  <button
-                                    type="button"
-                                    onClick={validateAndReview}
-                                    className="mt-6 inline-flex min-h-12 w-full cursor-pointer items-center justify-center rounded-lg bg-emerald-glow px-8 text-sm font-bold uppercase tracking-[0.12em] text-turf-950 shadow-[0_16px_40px_-16px_rgba(31,157,118,0.8)] transition-colors hover:bg-emerald-soft"
-                                  >
-                                    Review ticket
-                                  </button>
-                                )}
-                                {showCommunity && predictionOptions && (
-                                  <CommunityChoices options={predictionOptions.options} predictionType={predType} />
-                                )}
-                              </>
-                            )}
-                          </motion.div>
+                              <button
+                                type="button"
+                                onClick={() => setWagerAmount(wagerAmount + 10000)}
+                                className="grid h-7 w-7 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <span className="text-[12px] text-ivory-dim">VND</span>
+                          </div>
                         )}
+                      </div>
 
-                        {step === 3 && selectedRace && predictionOptions && (
-                          <motion.div
-                            key="step-3"
-                            variants={stepVariants}
-                            initial="initial"
-                            animate="animate"
-                            exit="exit"
-                            className="mx-auto max-w-xl"
-                          >
-                            <TicketReview
-                              race={selectedRace}
-                              options={predictionOptions}
-                              predType={predType}
-                              picks={picks}
-                              pointBalance={pointBalance}
-                              isUpdate={Boolean(existingPred)}
-                              onConfirm={handleConfirm}
-                              onBack={() => setStep(2)}
-                              onDone={handleDone}
-                            />
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                      <div className="flex flex-col justify-end">
+                        <p className="text-[12px] font-semibold text-ivory-dim">Total Wager:</p>
+                        <p className="mt-1 font-data text-[28px] font-extrabold leading-none text-gold-300">
+                          {wagerAmount > 0 ? wagerAmount.toLocaleString("en-US") : "0"}{" "}
+                          <span className="font-sans text-[18px] text-ivory">VND</span>
+                        </p>
+                      </div>
                     </div>
-                  </motion.div>
+
+                  </div>
+                </section>
+
+                {predType === "WINNING_STREAK" ? (
+                  <StreakSlip
+                    legs={streakLegs}
+                    wagerAmount={wagerAmount}
+                    pointBalance={pointBalance}
+                    myStreaks={myStreaks}
+                    onClearAll={() => setStreakLegs([])}
+                    onRemoveLeg={(id) => setStreakLegs(prev => prev.filter(l => l.raceId !== id))}
+                    onWagerChange={setWagerAmount}
+                    onViewAllStreaks={() => setIsAllStreaksModalOpen(true)}
+                    onSubmit={async () => {
+                      if (!selectedRace?.tournamentId) throw new Error("Tournament not found");
+                      await spectatorPredictionApi.submitStreakPrediction({
+                        tournamentId: selectedRace.tournamentId,
+                        wagerAmount,
+                        legs: streakLegs.map(l => ({
+                          raceId: l.raceId,
+                          predictedWinnerId: l.predictedWinnerId
+                        }))
+                      });
+                      await refreshAll();
+                    }}
+                  />
                 ) : (
-                  <motion.div
-                    key="my-tab"
-                    variants={stepVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    className="max-w-3xl"
-                  >
-                    <MyPredictionsList predictions={myPredictions} onEditPrediction={handleEdit} />
-                  </motion.div>
+                  <PredictionSlip
+                    race={selectedRace}
+                    options={predictionOptions}
+                    predType={predType}
+                    picks={picks}
+                    wagerAmount={wagerAmount}
+                    pointBalance={pointBalance}
+                    isUpdate={Boolean(existingPred)}
+                    myPredictions={myPredictions}
+                    onClear={handleClearSelections}
+                    onConfirm={handleCockpitConfirm}
+                    onEditPrediction={handleEdit}
+                    onViewAll={() => setIsAllPredictionsModalOpen(true)}
+                  />
                 )}
-              </AnimatePresence>
-            </div>
+              </div>
+            ) : null}
           </motion.div>
         )}
       </main>
+
+      {/* All Predictions Modal */}
+      {isAllPredictionsModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-turf-950/80 backdrop-blur-sm"
+            onClick={() => setIsAllPredictionsModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative flex h-full max-h-[800px] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl border border-turf-700 bg-turf-900 shadow-2xl">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-turf-800 p-4 sm:p-6">
+              <div>
+                <h2 className="text-xl font-extrabold text-ivory">All Predictions</h2>
+                <p className="mt-1 text-sm font-semibold text-ivory-dim">
+                  Your complete betting history
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAllPredictionsModalOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-full bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+              <MyPredictionsList
+                predictions={myPredictions}
+                onEditPrediction={(pred) => {
+                  setIsAllPredictionsModalOpen(false);
+                  handleEdit(pred);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* All Streaks Modal */}
+      {isAllStreaksModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 md:p-12">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-turf-950/80 backdrop-blur-sm"
+            onClick={() => setIsAllStreaksModalOpen(false)}
+          />
+
+          {/* Modal Content */}
+          <div className="relative flex h-full max-h-[800px] w-full max-w-[800px] flex-col overflow-hidden rounded-2xl border border-turf-700 bg-turf-900 shadow-2xl">
+            {/* Header */}
+            <div className="flex shrink-0 items-center justify-between border-b border-turf-800 p-4 sm:p-6">
+              <div>
+                <h2 className="text-xl font-extrabold text-ivory">All Streaks</h2>
+                <p className="mt-1 text-sm font-semibold text-ivory-dim">
+                  Your complete streak history
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAllStreaksModalOpen(false)}
+                className="grid h-10 w-10 place-items-center rounded-full bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar space-y-4">
+              {myStreaks.length === 0 ? (
+                <p className="text-center text-sm text-turf-400">No streaks found.</p>
+              ) : (
+                [...myStreaks].sort((a, b) => b.id - a.id).map(streak => (
+                  <div key={streak.id} className="rounded-lg border border-turf-800 bg-turf-950 shadow-lg">
+                    <div className="flex items-center justify-between border-b border-turf-800 bg-turf-900 px-4 py-3">
+                      <span className="font-data text-sm font-bold text-turf-300">Ticket #{streak.id}</span>
+                      <span className={`rounded px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+                        streak.status === 'WON' ? 'bg-green-500/20 text-green-400' :
+                        streak.status === 'LOST' ? 'bg-red-500/20 text-red-400' :
+                        'bg-gold-500/20 text-gold-400'
+                      }`}>
+                        {streak.status}
+                      </span>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {streak.legs.map((leg, idx) => (
+                        <div key={leg.id} className="flex items-center justify-between text-base">
+                          <span className="text-xs uppercase font-bold text-ivory-dim">Leg {idx + 1}</span>
+                          <span className="font-semibold text-ivory">{leg.predictedWinnerName}</span>
+                          <span className="font-data text-gold-300">x{leg.lockedOdds.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between border-t border-turf-800 bg-turf-900/50 px-4 py-3 text-base">
+                      <div className="flex flex-col">
+                        <span className="text-xs uppercase text-ivory-dim font-bold">Wager</span>
+                        <span className="font-data font-semibold text-ivory">{streak.wagerAmount.toLocaleString()} VND</span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className="text-xs uppercase text-ivory-dim font-bold">Total Odds</span>
+                        <span className="font-data font-bold text-gold-400">x{streak.totalOdds.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <ClientFooter />
     </div>

@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.race.controller;
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.security.Principal;
 import java.util.List;
+import java.util.Locale;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/v1/admin/races")
@@ -52,7 +55,11 @@ public class AdminRaceController {
 
     @PutMapping("/{id}/status")
     public RaceResponse updateStatus(@PathVariable Long id, @RequestParam String status) {
-        return raceService.updateRaceStatus(id, status);
+        try {
+            return raceService.updateRaceStatus(id, RaceStatus.valueOf(status.trim().toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid race status");
+        }
     }
 
     @PutMapping("/{id}/referee")

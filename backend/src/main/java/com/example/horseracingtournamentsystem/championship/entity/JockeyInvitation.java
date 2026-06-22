@@ -1,11 +1,14 @@
 package com.example.horseracingtournamentsystem.championship.entity;
 
+import com.example.horseracingtournamentsystem.championship.enums.JockeyInvitationStatus;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -26,10 +29,6 @@ import org.springframework.web.server.ResponseStatusException;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JockeyInvitation {
 
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_ACCEPTED = "ACCEPTED";
-    public static final String STATUS_REJECTED = "REJECTED";
-    public static final String STATUS_EXPIRED = "EXPIRED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -59,8 +58,9 @@ public class JockeyInvitation {
     @JoinColumn(name = "jockey_id", nullable = false)
     private User jockey;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private JockeyInvitationStatus status;
 
     @Column(name = "message", length = 500)
     private String message;
@@ -103,7 +103,7 @@ public class JockeyInvitation {
         invitation.horse = registration.getHorse();
         invitation.owner = registration.getOwner();
         invitation.jockey = application.getJockey();
-        invitation.status = STATUS_PENDING;
+        invitation.status = JockeyInvitationStatus.PENDING;
         invitation.message = message;
         invitation.agreementUrl = agreementUrl;
         invitation.agreementFileName = agreementFileName;
@@ -114,7 +114,7 @@ public class JockeyInvitation {
     public void accept(String jockeyEmail) {
         ensureOwnedByJockey(jockeyEmail);
         ensurePending();
-        this.status = STATUS_ACCEPTED;
+        this.status = JockeyInvitationStatus.ACCEPTED;
         this.acceptedAt = LocalDateTime.now();
         if (this.readAt == null) {
             this.readAt = this.acceptedAt;
@@ -125,7 +125,7 @@ public class JockeyInvitation {
     public void reject(String jockeyEmail, String reason) {
         ensureOwnedByJockey(jockeyEmail);
         ensurePending();
-        this.status = STATUS_REJECTED;
+        this.status = JockeyInvitationStatus.REJECTED;
         this.rejectedAt = LocalDateTime.now();
         this.rejectionReason = reason;
         if (this.readAt == null) {
@@ -141,7 +141,7 @@ public class JockeyInvitation {
     }
 
     private void ensurePending() {
-        if (!STATUS_PENDING.equals(this.status)) {
+        if (JockeyInvitationStatus.PENDING != this.status) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Only pending contracts can be reviewed");
         }
     }

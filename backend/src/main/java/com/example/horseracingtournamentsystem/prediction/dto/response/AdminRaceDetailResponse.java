@@ -37,7 +37,7 @@ public class AdminRaceDetailResponse {
     @Setter
     public static class SettlementJobInfo {
         private Long id;
-        private String status; // PENDING, PROCESSING, COMPLETED, FAILED
+        private com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus status; // PENDING, PROCESSING, COMPLETED, FAILED
         private int processedCount;
         private int rewardedCount;
         private int failedCount;

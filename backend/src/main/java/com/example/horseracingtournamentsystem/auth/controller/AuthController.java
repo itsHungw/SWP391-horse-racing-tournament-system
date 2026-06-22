@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "01 · Auth", description = "Register, verify email, login — get the JWT for the Authorize button.")
 public class AuthController {
 
     private final AuthService authService;

@@ -5,9 +5,13 @@ import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Data;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 
-@Getter
+@Data
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class TournamentSummaryResponse {
     private Long id;
@@ -19,7 +23,7 @@ public class TournamentSummaryResponse {
     private LocalDate endDate;
     private LocalDateTime registrationEndAt;
     private Integer maxHorses;
-    private String status;
+    private TournamentStatus status;
     private long raceCount;
     private long participantCount;
     private NextRaceSummary nextRace;
@@ -31,6 +35,6 @@ public class TournamentSummaryResponse {
         private Long id;
         private String name;
         private LocalDateTime raceDateTime;
-        private String status;
+        private com.example.horseracingtournamentsystem.race.enums.RaceStatus status;
     }
 }

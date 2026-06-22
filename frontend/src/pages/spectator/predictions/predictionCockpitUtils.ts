@@ -1,0 +1,265 @@
+import type { OpenRacePrediction, PredictionOptions, PredictionType, UserPrediction } from "./types/prediction.types";
+
+export type PickSlot = "winnerId" | "secondId" | "thirdId";
+
+export interface Picks {
+  winnerId: number | null; // Used as horseId for EXACT_POSITION
+  predictedPosition?: number | null; // Used for EXACT_POSITION
+  secondId: number | null;
+  thirdId: number | null;
+}
+
+export interface PredictionValidation {
+  canConfirm: boolean;
+  message: string;
+}
+
+export interface RaceTimelineStatus {
+  label: "Open" | "Closing Soon" | "Locked" | "Finished";
+  tone: "success" | "warning" | "muted" | "neutral";
+}
+
+export const EMPTY_PICKS: Picks = {
+  winnerId: null,
+  predictedPosition: null,
+  secondId: null,
+  thirdId: null,
+};
+
+export const bibClasses = [
+  "bg-[#c9252d] text-white",
+  "bg-[#2d63d8] text-white",
+  "bg-[#f2cc49] text-turf-900",
+  "bg-[#65aa4d] text-white",
+  "bg-[#7b54d9] text-white",
+  "bg-[#4b5568] text-white",
+  "bg-[#f28a18] text-turf-900",
+  "bg-[#e7edf7] text-turf-900",
+];
+
+export function formatBib(startNumber: number | null, laneNumber: number | null): string {
+  return String(startNumber ?? laneNumber ?? "-");
+}
+
+export function getBibClass(value: string): string {
+  const index = Number(value) - 1;
+  return bibClasses[index] ?? "bg-turf-800 text-ivory";
+}
+
+const slotLabels: Record<PickSlot, string> = {
+  winnerId: "First",
+  secondId: "Second",
+  thirdId: "Third",
+};
+
+export function getEntryCost(options: PredictionOptions | null | undefined, predType: PredictionType): number {
+  if (!options) {
+    return 0;
+  }
+
+  return options.entryCost?.winner || 0;
+}
+
+export function getRewardLabel(options: PredictionOptions | null | undefined, predType: PredictionType): string {
+  if (!options) {
+    return "-";
+  }
+
+  if (predType === "HEAD_TO_HEAD") {
+    return "AMM Dynamic Odds";
+  }
+
+  return "-";
+}
+
+export function formatRunnerName(options: PredictionOptions | null | undefined, participantId: number | null): string {
+  if (participantId == null || !options) {
+    return "-";
+  }
+
+  const runner = options.options.find((option) => option.raceParticipantId === participantId);
+  if (!runner) {
+    return "-";
+  }
+
+  return `#${runner.startNumber ?? runner.laneNumber ?? "-"} ${runner.horseName}`;
+}
+
+export function getPickedSlot(picks: Picks, participantId: number): PickSlot | null {
+  if (picks.winnerId === participantId) {
+    return "winnerId";
+  }
+  if (picks.secondId === participantId) {
+    return "secondId";
+  }
+  if (picks.thirdId === participantId) {
+    return "thirdId";
+  }
+
+  return null;
+}
+
+export function setPickSlot(picks: Picks, slot: PickSlot, participantId: number | null): Picks {
+  return {
+    ...picks,
+    [slot]: participantId,
+  };
+}
+
+export function pickRunnerForMode({
+  picks,
+  predType,
+  participantId,
+  activeSlot,
+}: {
+  picks: Picks;
+  predType: PredictionType;
+  participantId: number;
+  activeSlot: PickSlot | null;
+}): Picks {
+  if (predType === "WINNER") {
+    return { ...EMPTY_PICKS, winnerId: participantId };
+  }
+
+  // EXACT_POSITION is handled separately by a custom UI component because it needs both horse and position.
+  // We won't use pickRunnerForMode for EXACT_POSITION.
+
+  if (activeSlot) {
+    const pickedSlot = getPickedSlot(picks, participantId);
+    const dedupedPicks = pickedSlot && pickedSlot !== activeSlot ? setPickSlot(picks, pickedSlot, null) : picks;
+    return setPickSlot(dedupedPicks, activeSlot, participantId);
+  }
+
+  const pickedSlot = getPickedSlot(picks, participantId);
+  if (pickedSlot) {
+    return setPickSlot(picks, pickedSlot, null);
+  }
+
+  const nextOpenSlot = (["winnerId", "secondId", "thirdId"] as const).find((slot) => picks[slot] == null);
+  return nextOpenSlot ? setPickSlot(picks, nextOpenSlot, participantId) : picks;
+}
+
+export function derivePredictionValidation({
+  predType,
+  picks,
+  options,
+  pointBalance,
+  isUpdate,
+  wagerAmount,
+}: {
+  predType: PredictionType;
+  picks: Picks;
+  options: PredictionOptions | null | undefined;
+  pointBalance: number;
+  isUpdate: boolean;
+  wagerAmount: number;
+}): PredictionValidation {
+  if (!options) {
+    return { canConfirm: false, message: "Race options are still loading." };
+  }
+
+  if (!options.predictionOpen) {
+    return { canConfirm: false, message: "Predictions are locked for this race." };
+  }
+
+  if (predType === "EXACT_POSITION") {
+    if (picks.winnerId == null || picks.predictedPosition == null) {
+      return { canConfirm: false, message: "Choose a horse and position." };
+    }
+    if (!isUpdate) {
+      const hasDuplicate = options.myPredictions.some(
+        (p) =>
+          p.predictionType === "EXACT_POSITION" &&
+          p.status === "PENDING" &&
+          p.predictedWinnerId === picks.winnerId &&
+          p.predictedPosition === picks.predictedPosition
+      );
+      if (hasDuplicate) {
+        return { canConfirm: false, message: "You already placed this exact prediction. Edit to update wager." };
+      }
+    }
+  }
+
+  if (predType === "WINNER" && picks.winnerId == null) {
+    return { canConfirm: false, message: "Choose a runner for First." };
+  }
+
+  if (predType === "HEAD_TO_HEAD") {
+    if (picks.winnerId == null) {
+      return { canConfirm: false, message: "Choose a horse for the Head-to-Head matchup." };
+    }
+    if (!isUpdate) {
+      const selectedMatchup = options.h2hMatchups?.find(
+        (m) => m.participantAId === picks.winnerId || m.participantBId === picks.winnerId
+      );
+      if (selectedMatchup) {
+        const pA = selectedMatchup.participantAId;
+        const pB = selectedMatchup.participantBId;
+        const hasDuplicate = options.myPredictions.some(
+          (p) =>
+            p.predictionType === "HEAD_TO_HEAD" &&
+            p.status === "PENDING" &&
+            (p.predictedWinnerId === pA || p.predictedWinnerId === pB)
+        );
+        if (hasDuplicate) {
+          return { canConfirm: false, message: "You already have a prediction for this matchup. Click 'Edit'." };
+        }
+      }
+    }
+  }
+
+  if (wagerAmount < 10000) {
+    return { canConfirm: false, message: "Minimum wager is 10,000 VND." };
+  }
+
+  if (!isUpdate && pointBalance < wagerAmount) {
+    return { canConfirm: false, message: `You need ${(wagerAmount - pointBalance).toLocaleString("en-US")} more VND.` };
+  }
+
+  return { canConfirm: true, message: "Ready to confirm." };
+}
+
+export function getRaceTimelineStatus(race: OpenRacePrediction, predictionOpen?: boolean): RaceTimelineStatus {
+  const raceTime = new Date(race.raceAt).getTime();
+  const now = Date.now();
+
+  if (Number.isFinite(raceTime) && raceTime <= now) {
+    return { label: "Finished", tone: "neutral" };
+  }
+
+  if (predictionOpen === false) {
+    return { label: "Locked", tone: "muted" };
+  }
+
+  if (Number.isFinite(raceTime) && raceTime - now <= 15 * 60 * 1000) {
+    return { label: "Closing Soon", tone: "warning" };
+  }
+
+  return { label: "Open", tone: "success" };
+}
+
+function normalizeTournamentName(value: string | undefined): string {
+  return value?.trim().toLocaleLowerCase() ?? "";
+}
+
+export function filterSlipPredictions(items: UserPrediction[], selectedRace: OpenRacePrediction | null): UserPrediction[] {
+  const sortedItems = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  if (!selectedRace) {
+    return sortedItems.slice(0, 3);
+  }
+
+  const selectedRaceItems = sortedItems.filter((item) => item.raceId === selectedRace.raceId);
+  if (selectedRaceItems.length > 0) {
+    return selectedRaceItems;
+  }
+
+  const selectedTournamentName = normalizeTournamentName(selectedRace.tournamentName);
+  const tournamentItems = sortedItems.filter((item) => {
+    return selectedTournamentName !== "" && normalizeTournamentName(item.championshipName) === selectedTournamentName;
+  });
+  if (tournamentItems.length > 0) {
+    return tournamentItems.slice(0, 3);
+  }
+
+  return sortedItems.slice(0, 3);
+}

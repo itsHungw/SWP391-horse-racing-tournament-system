@@ -10,6 +10,8 @@ import com.example.horseracingtournamentsystem.auth.repository.EmailVerification
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
+import com.example.horseracingtournamentsystem.user.enums.UserRoleStatus;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
@@ -74,12 +76,12 @@ class AuthRegistrationIntegrationTest {
                 .andExpect(status().isCreated());
 
         User user = userRepository.findByEmail("spec@example.com").orElseThrow();
-        assertThat(user.getStatus()).isEqualTo(User.STATUS_PENDING_EMAIL_VERIFY);
+        assertThat(user.getStatus()).isEqualTo(UserStatus.PENDING_EMAIL_VERIFY);
         assertThat(user.isEmailVerified()).isFalse();
         assertThat(user.isPhoneVerified()).isFalse();
         assertThat(user.isAgeVerified()).isFalse();
         assertThat(user.isProfileCompleted()).isFalse();
-        assertThat(userRoleRepository.findByUserIdAndStatus(user.getId(), UserRole.STATUS_ACTIVE))
+        assertThat(userRoleRepository.findByUserIdAndStatus(user.getId(), UserRoleStatus.ACTIVE))
                 .hasSize(1);
     }
 
@@ -138,7 +140,7 @@ class AuthRegistrationIntegrationTest {
                 .andExpect(status().isOk());
 
         User verifiedUser = userRepository.findByEmail("verify@example.com").orElseThrow();
-        assertThat(verifiedUser.getStatus()).isEqualTo(User.STATUS_ACTIVE);
+        assertThat(verifiedUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(verifiedUser.isEmailVerified()).isTrue();
     }
 

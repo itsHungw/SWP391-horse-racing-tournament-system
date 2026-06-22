@@ -8,6 +8,8 @@ import com.example.horseracingtournamentsystem.championship.dto.response.Tournam
 import com.example.horseracingtournamentsystem.championship.entity.JockeyInvitation;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.enums.JockeyApplicationStatus;
+import com.example.horseracingtournamentsystem.championship.enums.JockeyInvitationStatus;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyInvitationRepository;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
@@ -18,6 +20,7 @@ import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.enums.RegistrationStatus;
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
@@ -33,9 +36,9 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 public class JockeyInvitationContractService {
 
-    private static final List<String> ACTIVE_CONTRACT_STATUSES = List.of(
-            JockeyInvitation.STATUS_PENDING,
-            JockeyInvitation.STATUS_ACCEPTED
+    private static final List<JockeyInvitationStatus> ACTIVE_CONTRACT_STATUSES = List.of(
+            JockeyInvitationStatus.PENDING,
+            JockeyInvitationStatus.ACCEPTED
     );
 
     private final JockeyInvitationRepository invitationRepository;
@@ -122,7 +125,7 @@ public class JockeyInvitationContractService {
         List<JockeyInvitation> acceptedContracts = invitationRepository
                 .findAllByTournament_IdAndStatusOrderByAcceptedAtAsc(
                         championshipId,
-                        JockeyInvitation.STATUS_ACCEPTED
+                        JockeyInvitationStatus.ACCEPTED
                 );
 
         for (JockeyInvitation contract : acceptedContracts) {
@@ -145,6 +148,28 @@ public class JockeyInvitationContractService {
         return new LockParticipantsResponse(championshipId, createdParticipants);
     }
 
+    // ---- Organizer chốt danh sách thi đấu giải của mình (BR-09) ----
+
+    @Transactional
+    public LockParticipantsResponse lockParticipantsForOrganizer(Long championshipId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail).assertOrganizationOperational();
+        return lockParticipants(championshipId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<TournamentParticipantResponse> listParticipantsForOrganizer(Long championshipId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail);
+        return listParticipants(championshipId);
+    }
+
+    private Tournament requireOwnedTournament(Long championshipId, String organizerEmail) {
+        Tournament tournament = ensureTournamentExists(championshipId);
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this championship");
+        }
+        return tournament;
+    }
+
     @Transactional(readOnly = true)
     public List<TournamentParticipantResponse> listParticipants(Long championshipId) {
         ensureTournamentExists(championshipId);
@@ -153,7 +178,11 @@ public class JockeyInvitationContractService {
                 .map(this::mapParticipantToResponse)
                 .toList());
 
-        List<JockeyInvitation> acceptedContracts = invitationRepository.findAllByTournament_IdAndStatusOrderByAcceptedAtAsc(championshipId, JockeyInvitation.STATUS_ACCEPTED);
+        List<JockeyInvitation> acceptedContracts = invitationRepository
+                .findAllByTournament_IdAndStatusOrderByAcceptedAtAsc(
+                        championshipId,
+                        JockeyInvitationStatus.ACCEPTED
+                );
 
         for (JockeyInvitation contract : acceptedContracts) {
             boolean alreadyLocked = officialParticipants.stream()
@@ -212,7 +241,7 @@ public class JockeyInvitationContractService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Horse registration does not belong to current owner");
         }
-        if (!"APPROVED".equals(registration.getStatus())) {
+        if (RegistrationStatus.APPROVED != registration.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Horse registration must be approved before sending a contract");
         }
@@ -223,7 +252,7 @@ public class JockeyInvitationContractService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Jockey application does not belong to this championship");
         }
-        if (!JockeyTournamentApplication.STATUS_APPROVED_FOR_POOL.equals(application.getStatus())) {
+        if (JockeyApplicationStatus.APPROVED_FOR_POOL != application.getStatus()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Jockey must be approved for the championship pool before receiving a contract");
         }
@@ -325,7 +354,7 @@ public class JockeyInvitationContractService {
                 .message(invitation.getMessage())
                 .agreementUrl(invitation.getAgreementUrl())
                 .agreementFileName(invitation.getAgreementFileName())
-                .status(invitation.getStatus())
+                .status(invitation.getStatus().name())
                 .readAt(invitation.getReadAt())
                 .acceptedAt(invitation.getAcceptedAt())
                 .rejectedAt(invitation.getRejectedAt())
@@ -352,7 +381,7 @@ public class JockeyInvitationContractService {
                 .jockeyId(jockey.getId())
                 .jockeyName(jockey.getFullName())
                 .jockeyInvitationId(participant.getJockeyInvitationId())
-                .status(participant.getStatus())
+                .status(participant.getStatus().name())
                 .points(participant.getPoints())
                 .createdAt(participant.getCreatedAt())
                 .updatedAt(participant.getUpdatedAt())

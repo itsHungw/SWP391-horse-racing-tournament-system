@@ -8,6 +8,7 @@ import com.example.horseracingtournamentsystem.championship.repository.Tournamen
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
@@ -96,7 +97,7 @@ class RefereeRaceResultValidationIntegrationTest {
                 admin
         );
         race.assignReferee(referee);
-        race.updateStatus("FINISHED");
+        race.updateStatus(RaceStatus.FINISHED);
         race = raceRepository.save(race);
 
         firstParticipant = createParticipant(tournament, race, owner, firstJockey, "Validator One", "RV-1", admin);

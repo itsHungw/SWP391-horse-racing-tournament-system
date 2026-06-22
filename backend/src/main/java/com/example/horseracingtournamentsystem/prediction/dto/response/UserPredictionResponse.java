@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.prediction.dto.response;
 
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 
 public record UserPredictionResponse(
         Long id,
@@ -20,12 +21,14 @@ public record UserPredictionResponse(
         String predictedThirdName,
         Integer entryCostPoints,
         Integer rewardPoints,
-        String status,
+        PredictionStatus status,
         String resultCategory,
         LocalDateTime lockedAt,
         LocalDateTime evaluatedAt,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        Integer wagerAmount,
+        java.math.BigDecimal lockedOdds
 ) {
     public static UserPredictionResponse from(RacePrediction prediction) {
         return from(prediction, java.util.Map.of(), null);
@@ -54,7 +57,9 @@ public record UserPredictionResponse(
                 prediction.getLockedAt(),
                 prediction.getEvaluatedAt(),
                 prediction.getCreatedAt(),
-                prediction.getUpdatedAt()
+                prediction.getUpdatedAt(),
+                prediction.getWagerAmount(),
+                prediction.getLockedOdds()
         );
     }
 }

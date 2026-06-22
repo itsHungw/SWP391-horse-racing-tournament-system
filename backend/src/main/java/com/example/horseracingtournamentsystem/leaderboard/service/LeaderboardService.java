@@ -6,13 +6,16 @@ import com.example.horseracingtournamentsystem.leaderboard.dto.response.Spectato
 import com.example.horseracingtournamentsystem.point.entity.UserPointAccount;
 import com.example.horseracingtournamentsystem.point.repository.UserPointAccountRepository;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,10 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class LeaderboardService {
 
-    private static final List<String> CONFIRMED_RESULT_STATUSES = List.of(
-            RaceResult.STATUS_CONFIRMED, RaceResult.STATUS_PUBLISHED);
-    private static final List<String> SETTLED_PREDICTION_STATUSES = List.of(
-            RacePrediction.STATUS_CORRECT, RacePrediction.STATUS_INCORRECT);
+    private static final List<ResultRecordStatus> CONFIRMED_RESULT_STATUSES = List.of(
+            ResultRecordStatus.CONFIRMED, ResultRecordStatus.PUBLISHED);
+    private static final List<PredictionStatus> SETTLED_PREDICTION_STATUSES = List.of(
+            PredictionStatus.CORRECT, PredictionStatus.INCORRECT);
     private static final Set<String> EXCLUDED_ROLES = Set.of("ADMIN", "REFEREE");
 
     private final RaceResultRepository raceResultRepo;
@@ -133,7 +136,7 @@ public class LeaderboardService {
             }
             long[] tally = counts.computeIfAbsent(spectator.getId(), k -> new long[2]);
             tally[1]++;
-            if (RacePrediction.STATUS_CORRECT.equals(prediction.getStatus())) {
+            if (PredictionStatus.CORRECT == prediction.getStatus()) {
                 tally[0]++;
             }
         }
@@ -141,7 +144,7 @@ public class LeaderboardService {
         List<Row> rows = new ArrayList<>();
         for (UserPointAccount account : pointAccountRepo.findAll()) {
             User user = account.getUser();
-            if (user == null || user.getDeletedAt() != null || !User.STATUS_ACTIVE.equals(user.getStatus())) {
+            if (user == null || user.getDeletedAt() != null || UserStatus.ACTIVE != user.getStatus()) {
                 continue;
             }
             Set<String> roles = user.getActiveRoleNames();

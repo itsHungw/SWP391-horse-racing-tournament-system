@@ -8,6 +8,7 @@ import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -357,6 +358,11 @@ class TournamentIntegrationTest {
             );
         t = tournamentRepository.save(t);
 
+        // BR-17: giải phải được duyệt (APPROVED) trước khi mở đăng ký.
+        t.submitForApproval();
+        t.approveLaunch(adminUser);
+        tournamentRepository.save(t);
+
         // Transition to OPEN_REGISTRATION
         mockMvc.perform(put("/api/v1/admin/tournaments/" + t.getId() + "/status")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -439,7 +445,7 @@ class TournamentIntegrationTest {
 
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updated = 
             tournamentRepository.findById(t.getId()).orElseThrow();
-        org.junit.jupiter.api.Assertions.assertEquals("OPEN_REGISTRATION", updated.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.OPEN_REGISTRATION, updated.getStatus());
     }
 
     @Test
@@ -502,9 +508,9 @@ class TournamentIntegrationTest {
         com.example.horseracingtournamentsystem.tournament.entity.Tournament updatedT4 =
             tournamentRepository.findById(t4.getId()).orElseThrow();
 
-        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT1.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("CLOSED_REGISTRATION", updatedT2.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("PARTICIPANTS_LOCKED", updatedT3.getStatus());
-        org.junit.jupiter.api.Assertions.assertEquals("ONGOING", updatedT4.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.CLOSED_REGISTRATION, updatedT1.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.CLOSED_REGISTRATION, updatedT2.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.PARTICIPANTS_LOCKED, updatedT3.getStatus());
+        org.junit.jupiter.api.Assertions.assertEquals(TournamentStatus.ONGOING, updatedT4.getStatus());
     }
 }

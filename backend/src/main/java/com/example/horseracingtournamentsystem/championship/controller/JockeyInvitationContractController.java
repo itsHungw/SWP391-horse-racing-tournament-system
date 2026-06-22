@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequiredArgsConstructor
+@io.swagger.v3.oas.annotations.tags.Tag(name = "11 · Owner & Jockey · Jockey contracts", description = "Owner contracts an approved jockey for a horse; jockey accepts/declines.")
 public class JockeyInvitationContractController {
 
     private final JockeyInvitationContractService contractService;

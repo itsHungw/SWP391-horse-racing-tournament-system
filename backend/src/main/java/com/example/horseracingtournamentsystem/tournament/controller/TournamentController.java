@@ -24,7 +24,7 @@ public class TournamentController {
     @GetMapping("/search")
     public Page<TournamentSummaryResponse> searchPublic(
             @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status,
+            @RequestParam(required = false) com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus status,
             @RequestParam(required = false) Integer year,
             @RequestParam(defaultValue = "ONGOING_FIRST") String sortBy,
             @RequestParam(defaultValue = "0") int page,

@@ -20,7 +20,7 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
             SELECT participant.tournament.id, COUNT(participant)
             FROM TournamentParticipant participant
             WHERE participant.tournament.id IN :tournamentIds
-              AND participant.status = 'ACTIVE'
+              AND participant.status = com.example.horseracingtournamentsystem.championship.enums.TournamentParticipantStatus.ACTIVE
             GROUP BY participant.tournament.id
             """)
     List<Object[]> countActiveByTournamentIds(@Param("tournamentIds") List<Long> tournamentIds);

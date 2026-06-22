@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
+import com.example.horseracingtournamentsystem.user.enums.ProfileStatus;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
@@ -12,10 +13,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class HorseOwnerProfile {
 
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_APPROVED = "APPROVED";
-    public static final String STATUS_REJECTED = "REJECTED";
-    public static final String STATUS_SUSPENDED = "SUSPENDED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -61,8 +58,9 @@ public class HorseOwnerProfile {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status;
+    private ProfileStatus status;
 
     @Column(name = "rejection_reason")
     private String rejectionReason;
@@ -83,7 +81,7 @@ public class HorseOwnerProfile {
     public static HorseOwnerProfile pending(User user) {
         HorseOwnerProfile profile = new HorseOwnerProfile();
         profile.user = user;
-        profile.status = STATUS_PENDING;
+        profile.status = ProfileStatus.PENDING;
         profile.experienceYears = 0;
         profile.createdAt = LocalDateTime.now();
         return profile;

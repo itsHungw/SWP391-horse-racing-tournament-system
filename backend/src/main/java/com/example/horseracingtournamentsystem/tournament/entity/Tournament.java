@@ -1,10 +1,14 @@
 package com.example.horseracingtournamentsystem.tournament.entity;
 
+import com.example.horseracingtournamentsystem.organization.entity.Organization;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -47,12 +51,27 @@ public class Tournament {
     @Column(name = "max_horses_per_owner", nullable = false)
     private Integer maxHorsesPerOwner;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
-    private String status;
+    private TournamentStatus status;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approved_by")
+    private User approvedBy;
+
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "rejection_reason", length = 255)
+    private String rejectionReason;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -77,7 +96,7 @@ public class Tournament {
         tournament.registrationEndAt = regEnd;
         tournament.maxHorses = maxHorses;
         tournament.maxHorsesPerOwner = 2;
-        tournament.status = "DRAFT";
+        tournament.status = TournamentStatus.DRAFT;
         tournament.createdBy = creator;
         tournament.createdAt = LocalDateTime.now();
         return tournament;
@@ -113,37 +132,86 @@ public class Tournament {
     }
 
     public void postpone() {
-        this.status = "POSTPONED";
+        this.status = TournamentStatus.POSTPONED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void openRegistration() {
-        this.status = "OPEN_REGISTRATION";
+        this.status = TournamentStatus.OPEN_REGISTRATION;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void closeRegistration() {
-        this.status = "CLOSED_REGISTRATION";
+        this.status = TournamentStatus.CLOSED_REGISTRATION;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void lockParticipants() {
-        this.status = "PARTICIPANTS_LOCKED";
+        this.status = TournamentStatus.PARTICIPANTS_LOCKED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void publishSchedule() {
-        this.status = "SCHEDULE_PUBLISHED";
+        this.status = TournamentStatus.SCHEDULE_PUBLISHED;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void startOngoing() {
-        this.status = "ONGOING";
+        this.status = TournamentStatus.ONGOING;
         this.updatedAt = LocalDateTime.now();
     }
 
     public void completeTournament() {
-        this.status = "COMPLETED";
+        this.status = TournamentStatus.COMPLETED;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void assignOrganization(Organization organization) {
+        this.organization = organization;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * True khi {@code email} là chủ tổ chức đang sở hữu giải này (BR-09). Dùng để chặn
+     * quyền vận hành cross-organization ở mọi service organizer (duyệt đăng ký, xếp race, chốt KQ).
+     */
+    public boolean isManagedBy(String email) {
+        return organization != null
+                && organization.getOwner() != null
+                && organization.getOwner().getEmail().equalsIgnoreCase(email);
+    }
+
+    /**
+     * BR-10/BR-13: chặn mọi thao tác VẬN HÀNH khi tổ chức chủ quản không còn ACTIVE
+     * (bị đình chỉ SUSPENDED). Gọi ở các method mutating của organizer (duyệt đăng ký,
+     * xếp race, chốt KQ, mời/gỡ referee...). Đường đọc/list KHÔNG gọi để organizer vẫn
+     * xem được giải và biết vì sao bị khóa.
+     */
+    public void assertOrganizationOperational() {
+        if (organization == null || !organization.isActive()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Your organization is not active — operations are locked (BR-10)");
+        }
+    }
+
+    /** Cổng 2 / BR-17: DRAFT -> chờ admin duyệt. Service kiểm tra điều kiện chuyển trạng thái. */
+    public void submitForApproval() {
+        this.status = TournamentStatus.PENDING_APPROVAL;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void approveLaunch(User reviewer) {
+        this.status = TournamentStatus.APPROVED;
+        this.approvedBy = reviewer;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectionReason = null;
+        this.updatedAt = this.approvedAt;
+    }
+
+    public void rejectLaunch(User reviewer, String reason) {
+        this.status = TournamentStatus.DRAFT;
+        this.approvedBy = reviewer;
+        this.rejectionReason = reason;
         this.updatedAt = LocalDateTime.now();
     }
 

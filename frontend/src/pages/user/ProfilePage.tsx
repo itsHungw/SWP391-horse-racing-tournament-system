@@ -9,7 +9,6 @@ import { Eyebrow, MotionReveal } from "../../components/client/primitives";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Profile } from "../../types/profile";
-import { sanitizePhoneNumber, validateVietnamesePhone } from "../../utils/validation";
 
 type ReadinessItem = {
   label: string;
@@ -23,22 +22,6 @@ const defaultAvatar = "";
 const ledgerLabel = "eyebrow block text-gold-300";
 const ledgerInput =
   "mt-3 block w-full border-0 border-b border-white/15 bg-transparent pb-3 font-display text-2xl font-light tracking-tight text-ivory outline-none transition-colors [color-scheme:dark] placeholder:text-white/20 focus:border-gold-400";
-
-function normalizePhoneForInput(value: string) {
-  if (value.startsWith("+84")) {
-    return value.slice(3);
-  }
-
-  if (value.startsWith("84") && value.length > 9) {
-    return value.slice(2);
-  }
-
-  if (value.startsWith("0")) {
-    return value.slice(1);
-  }
-
-  return value;
-}
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -90,7 +73,6 @@ export function ProfilePage() {
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [address, setAddress] = useState("");
-  const [countryCode, setCountryCode] = useState("+84");
   const [avatarPreview, setAvatarPreview] = useState(defaultAvatar);
   const [pendingAvatarFile, setPendingAvatarFile] = useState<File | null>(null);
 
@@ -108,7 +90,7 @@ export function ProfilePage() {
 
         setProfile(data);
         setFullName(data.fullName || "");
-        setPhone(normalizePhoneForInput(data.phone || ""));
+        setPhone(data.phone || "");
         setGender(data.gender || "");
         setDateOfBirth(data.dateOfBirth || "");
         setAddress(data.address || "");
@@ -132,8 +114,6 @@ export function ProfilePage() {
     };
   }, []);
 
-  const fullPhoneNumber = `${countryCode}${phone}`;
-  const cleanedPhone = sanitizePhoneNumber(fullPhoneNumber);
   const profileComplete = Boolean(profile?.profileCompleted);
 
   const readinessItems: ReadinessItem[] = useMemo(
@@ -145,8 +125,8 @@ export function ProfilePage() {
       },
       {
         label: "Phone number",
-        ready: phone.trim().length > 0 && validateVietnamesePhone(fullPhoneNumber),
-        helper: "A valid Vietnam phone number helps operations contact you quickly.",
+        ready: phone.trim().length > 0,
+        helper: "So operations can reach you quickly.",
       },
       {
         label: "Gender",
@@ -169,7 +149,7 @@ export function ProfilePage() {
         helper: "Save your profile once all required information is ready.",
       },
     ],
-    [address, dateOfBirth, fullName, fullPhoneNumber, gender, phone, profileComplete],
+    [address, dateOfBirth, fullName, gender, phone, profileComplete],
   );
 
   const readyCount = readinessItems.filter((item) => item.ready).length;
@@ -208,12 +188,6 @@ export function ProfilePage() {
       return;
     }
 
-    if (!validateVietnamesePhone(fullPhoneNumber)) {
-      setError("Phone number must be a valid Vietnam mobile number.");
-      setSuccess(null);
-      return;
-    }
-
     try {
       setSaving(true);
       setError(null);
@@ -228,7 +202,7 @@ export function ProfilePage() {
 
       const updatedProfile = await updateMyProfile({
         fullName: fullName.trim(),
-        phone: cleanedPhone,
+        phone: phone.trim(),
         gender,
         dateOfBirth,
         address: address.trim(),
@@ -491,31 +465,16 @@ export function ProfilePage() {
                     <label className={ledgerLabel} htmlFor="phone">
                       Phone number
                     </label>
-                    <div className="mt-3 flex items-end gap-4 border-b border-white/15 transition-colors focus-within:border-gold-400">
-                      <label className="sr-only" htmlFor="countryCode">
-                        Country code
-                      </label>
-                      <select
-                        className="border-0 bg-transparent pb-3 font-data text-sm text-ivory-dim outline-none [color-scheme:dark]"
-                        id="countryCode"
-                        onChange={(event) => setCountryCode(event.target.value)}
-                        value={countryCode}
-                      >
-                        <option value="+84">VN +84</option>
-                        <option value="+1">US +1</option>
-                        <option value="+81">JP +81</option>
-                      </select>
-                      <input
-                        className="block w-full border-0 bg-transparent pb-3 font-display text-2xl font-light tracking-tight text-ivory outline-none placeholder:text-white/20"
-                        id="phone"
-                        inputMode="tel"
-                        onChange={(event) => setPhone(event.target.value)}
-                        placeholder="901234567"
-                        type="text"
-                        value={phone}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-ivory-faint">Vietnam mobile format is validated before saving.</p>
+                    <input
+                      className={`${ledgerInput} text-xl`}
+                      id="phone"
+                      inputMode="tel"
+                      onChange={(event) => setPhone(event.target.value)}
+                      placeholder="0901 234 567"
+                      type="tel"
+                      value={phone}
+                    />
+                    <p className="mt-2 text-xs text-ivory-faint">So operations can reach you on race day.</p>
                   </div>
                   <div>
                     <label className={ledgerLabel} htmlFor="emailAddress">

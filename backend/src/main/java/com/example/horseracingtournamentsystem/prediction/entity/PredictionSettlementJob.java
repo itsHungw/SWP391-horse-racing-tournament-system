@@ -8,17 +8,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
+
 @Entity
 @Table(name = "prediction_settlement_jobs")
 @Getter
 @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PredictionSettlementJob {
-
-    public static final String STATUS_PENDING = "PENDING";
-    public static final String STATUS_PROCESSING = "PROCESSING";
-    public static final String STATUS_COMPLETED = "COMPLETED";
-    public static final String STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -29,8 +26,9 @@ public class PredictionSettlementJob {
     @JoinColumn(name = "race_id", nullable = false)
     private Race race;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private String status = STATUS_PENDING;
+    private PredictionSettlementJobStatus status = PredictionSettlementJobStatus.PENDING;
 
     @Column(name = "processed_count", nullable = false)
     private Integer processedCount = 0;
@@ -62,7 +60,7 @@ public class PredictionSettlementJob {
     public static PredictionSettlementJob create(Race race) {
         PredictionSettlementJob job = new PredictionSettlementJob();
         job.setRace(race);
-        job.setStatus(STATUS_PENDING);
+        job.setStatus(PredictionSettlementJobStatus.PENDING);
         job.setProcessedCount(0);
         job.setRewardedCount(0);
         job.setFailedCount(0);

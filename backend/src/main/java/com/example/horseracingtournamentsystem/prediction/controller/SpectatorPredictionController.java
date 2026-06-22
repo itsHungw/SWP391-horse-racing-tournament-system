@@ -5,13 +5,20 @@ import com.example.horseracingtournamentsystem.point.service.PointSettingsServic
 import com.example.horseracingtournamentsystem.point.service.PointAccountService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
+import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitStreakPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionOptionsResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.OpenRacePredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.response.StreakPredictionResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.UserPredictionResponse;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.service.PredictionService;
+import com.example.horseracingtournamentsystem.prediction.service.OddsCalculationService;
+import com.example.horseracingtournamentsystem.prediction.service.StreakPredictionService;
 import com.example.horseracingtournamentsystem.race.entity.Race;
+import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
+import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import jakarta.validation.Valid;
@@ -32,19 +39,28 @@ public class SpectatorPredictionController {
     private final UserRepository userRepo;
     private final PointAccountService pointsService;
     private final PointSettingsService pointSettingsService;
+    private final OddsCalculationService oddsCalculationService;
+    private final RaceParticipantRepository raceParticipantRepository;
+    private final StreakPredictionService streakPredictionService;
 
     public SpectatorPredictionController(PredictionService predictionService,
                                          RacePredictionRepository predictionRepo,
                                          RaceRepository raceRepo,
                                          UserRepository userRepo,
                                          PointAccountService pointsService,
-                                         PointSettingsService pointSettingsService) {
+                                         PointSettingsService pointSettingsService,
+                                         OddsCalculationService oddsCalculationService,
+                                         RaceParticipantRepository raceParticipantRepository,
+                                         StreakPredictionService streakPredictionService) {
         this.predictionService = predictionService;
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
         this.userRepo = userRepo;
         this.pointsService = pointsService;
         this.pointSettingsService = pointSettingsService;
+        this.oddsCalculationService = oddsCalculationService;
+        this.raceParticipantRepository = raceParticipantRepository;
+        this.streakPredictionService = streakPredictionService;
     }
 
     @GetMapping("/races/open-for-prediction")
@@ -103,8 +119,8 @@ public class SpectatorPredictionController {
         PredictionOptionsResponse res = new PredictionOptionsResponse();
         res.setRaceId(race.getId());
         res.setRaceName(race.getName());
-        res.setRaceStatus(race.getStatus());
-        res.setPredictionOpen("SCHEDULED".equals(race.getStatus()) && race.getRaceAt().isAfter(java.time.LocalDateTime.now()));
+        res.setRaceStatus(race.getStatus().name());
+        res.setPredictionOpen(RaceStatus.SCHEDULED.equals(race.getStatus()) && race.getRaceAt().isAfter(java.time.LocalDateTime.now()));
 
         res.getEntryCost().setWinner(pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_ENTRY_COST));
         res.getEntryCost().setTop3(pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ENTRY_COST));
@@ -148,6 +164,10 @@ public class SpectatorPredictionController {
         res.setWinnerDistributionVisible(hasWinnerPred);
         res.setTop3DistributionVisible(hasTop3Pred);
 
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+        res.setPositionOddsMatrix(oddsCalculationService.calculatePositionOddsMatrix(raceId, participants));
+        res.setH2hMatchups(oddsCalculationService.calculateH2HMatchups(raceId, participants));
+
         // Compute rates if visible
         List<RacePrediction> allPredictions = predictionRepo.findByRace_Id(raceId);
         long totalWinnerPreds = allPredictions.stream().filter(p -> "WINNER".equals(p.getPredictionType())).count();
@@ -165,9 +185,9 @@ public class SpectatorPredictionController {
 
             if (hasTop3Pred && totalTop3Preds > 0) {
                 long top3Selections = allPredictions.stream()
-                    .filter(p -> "TOP3".equals(p.getPredictionType()) && 
-                        (opt.getRaceParticipantId().equals(p.getPredictedWinnerId()) || 
-                         opt.getRaceParticipantId().equals(p.getPredictedSecondId()) || 
+                    .filter(p -> "TOP3".equals(p.getPredictionType()) &&
+                        (opt.getRaceParticipantId().equals(p.getPredictedWinnerId()) ||
+                         opt.getRaceParticipantId().equals(p.getPredictedSecondId()) ||
                          opt.getRaceParticipantId().equals(p.getPredictedThirdId())))
                     .count();
                 opt.setCommunityTop3Rate((double) top3Selections / totalTop3Preds);
@@ -208,6 +228,29 @@ public class SpectatorPredictionController {
         Map<Long, String> horseNames = getHorseNamesForPredictions(predictions);
         Map<Long, Integer> roundNumbers = getRoundNumbersForRaces(predictions.stream().map(RacePrediction::getRace).toList());
         return ResponseEntity.ok(predictions.stream().map(p -> UserPredictionResponse.from(p, horseNames, roundNumbers.get(p.getRace().getId()))).toList());
+    }
+
+    @PostMapping("/streak")
+    public ResponseEntity<StreakPredictionResponse> submitStreakPrediction(
+            Authentication authentication,
+            @RequestBody SubmitStreakPredictionRequest request) {
+
+        User spectator = userRepo.findByEmail(authentication.getName())
+            .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
+
+        StreakPredictionResponse response = streakPredictionService.submitStreakPrediction(spectator.getId(), request);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/streak")
+    public ResponseEntity<List<StreakPredictionResponse>> getSpectatorStreaks(
+            Authentication authentication) {
+
+        User spectator = userRepo.findByEmail(authentication.getName())
+            .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
+
+        List<StreakPredictionResponse> streaks = streakPredictionService.getSpectatorStreaks(spectator.getId());
+        return ResponseEntity.ok(streaks);
     }
 
     private Map<Long, String> getHorseNamesForPredictions(List<RacePrediction> preds) {

@@ -482,6 +482,37 @@ export function MyRoleRequestsPage() {
                 </MotionReveal>
               )}
 
+              {/* ═══ Organizer cross-sell — a different funnel (B2B) ════ */}
+              <MotionReveal delay={0.06}>
+                <section
+                  aria-labelledby="organizer-crosssell-title"
+                  className="border border-gold-400/30 bg-turf-900 p-8 md:p-10"
+                >
+                  <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <Eyebrow tone="gold">Hosting, not competing?</Eyebrow>
+                      <h2
+                        id="organizer-crosssell-title"
+                        className="mt-3 font-display text-3xl font-light tracking-tight md:text-4xl"
+                      >
+                        Become an Organizer
+                      </h2>
+                      <p className="mt-3 max-w-xl text-sm leading-relaxed text-ivory-dim">
+                        Running a club or hosting championships is a <strong className="text-ivory">business account</strong>,
+                        not an individual role. Apply through a quick KYB review to unlock tournament hosting, referee
+                        hiring, and entry management.
+                      </p>
+                    </div>
+                    <Link
+                      to="/organizer/register"
+                      className="inline-flex min-h-12 shrink-0 items-center justify-center bg-gold-400 px-7 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300"
+                    >
+                      Apply as Organizer
+                    </Link>
+                  </div>
+                </section>
+              </MotionReveal>
+
               {/* ═══ The application desk — centered telegram ═══════════ */}
               <MotionReveal delay={0.08}>
                 <section aria-labelledby="application-form-title">

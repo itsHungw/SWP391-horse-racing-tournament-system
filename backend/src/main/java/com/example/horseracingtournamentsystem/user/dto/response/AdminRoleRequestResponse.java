@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.user.dto.response;
 
 import com.example.horseracingtournamentsystem.user.entity.RoleRequest;
 import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus;
 
 public record AdminRoleRequestResponse(
         Long id,
@@ -9,7 +10,7 @@ public record AdminRoleRequestResponse(
         String fullName,
         String email,
         String requestedRole,
-        String status,
+        RoleRequestStatus status,
         String cvReviewStatus,
         String reason,
         String resumeUrl,

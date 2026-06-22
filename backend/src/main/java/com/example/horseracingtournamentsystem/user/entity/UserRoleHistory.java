@@ -1,15 +1,7 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -30,11 +22,13 @@ public class UserRoleHistory {
     @JoinColumn(name = "user_role_id", nullable = false)
     private UserRole userRole;
 
+    @Enumerated(jakarta.persistence.EnumType.STRING)
     @Column(name = "old_status", length = 30)
-    private String oldStatus;
+    private com.example.horseracingtournamentsystem.user.enums.UserRoleStatus oldStatus;
 
+    @Enumerated(jakarta.persistence.EnumType.STRING)
     @Column(name = "new_status", nullable = false, length = 30)
-    private String newStatus;
+    private com.example.horseracingtournamentsystem.user.enums.UserRoleStatus newStatus;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "changed_by")
@@ -49,8 +43,8 @@ public class UserRoleHistory {
 
     public static UserRoleHistory record(
             UserRole userRole,
-            String oldStatus,
-            String newStatus,
+            com.example.horseracingtournamentsystem.user.enums.UserRoleStatus oldStatus,
+            com.example.horseracingtournamentsystem.user.enums.UserRoleStatus newStatus,
             User changedBy,
             String reason
     ) {

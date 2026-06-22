@@ -19,7 +19,13 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.championship.entity.TournamentParticipant;
+import com.example.horseracingtournamentsystem.championship.entity.RefereeContract;
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
+import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
+import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
+import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
@@ -48,28 +54,30 @@ public class RaceService {
     private final PredictionService predictionService;
     private final RaceResultRepository raceResultRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
+    private final RefereeContractRepository refereeContractRepository;
+    private final NotificationService notificationService;
 
-    private static final Map<String, Set<String>> ALLOWED_STATUS_TRANSITIONS = Map.of(
-            "SCHEDULED", Set.of("CHECKING", "CANCELLED"),
-            "CHECKING", Set.of("READY", "CANCELLED"),
-            "READY", Set.of("ONGOING", "CANCELLED"),
-            "ONGOING", Set.of("FINISHED", "CANCELLED"),
-            "FINISHED", Set.of("RESULT_SUBMITTED"),
-            "RESULT_SUBMITTED", Set.of("RESULT_CONFIRMED"),
-            "RESULT_CONFIRMED", Set.of("PUBLISHED"),
-            "PUBLISHED", Set.of()
+    private static final Map<RaceStatus, Set<RaceStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
+            RaceStatus.SCHEDULED, Set.of(RaceStatus.CHECKING, RaceStatus.CANCELLED),
+            RaceStatus.CHECKING, Set.of(RaceStatus.READY, RaceStatus.CANCELLED),
+            RaceStatus.READY, Set.of(RaceStatus.ONGOING, RaceStatus.CANCELLED),
+            RaceStatus.ONGOING, Set.of(RaceStatus.FINISHED, RaceStatus.CANCELLED),
+            RaceStatus.FINISHED, Set.of(RaceStatus.RESULT_SUBMITTED),
+            RaceStatus.RESULT_SUBMITTED, Set.of(RaceStatus.RESULT_CONFIRMED),
+            RaceStatus.RESULT_CONFIRMED, Set.of(RaceStatus.PUBLISHED),
+            RaceStatus.PUBLISHED, Set.of()
     );
 
-    private static final List<String> VISIBLE_JOCKEY_SCHEDULE_STATUSES = List.of(
-            "SCHEDULE_PUBLISHED",
-            "ONGOING",
-            "COMPLETED"
+    private static final List<TournamentStatus> VISIBLE_JOCKEY_SCHEDULE_STATUSES = List.of(
+            TournamentStatus.SCHEDULE_PUBLISHED,
+            TournamentStatus.ONGOING,
+            TournamentStatus.COMPLETED
     );
-    private static final List<String> PUBLIC_TOURNAMENT_STATUSES = List.of(
-            "OPEN_REGISTRATION", "CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"
+    private static final List<TournamentStatus> PUBLIC_TOURNAMENT_STATUSES = List.of(
+            TournamentStatus.OPEN_REGISTRATION, TournamentStatus.CLOSED_REGISTRATION, TournamentStatus.SCHEDULE_PUBLISHED, TournamentStatus.ONGOING, TournamentStatus.COMPLETED
     );
-    private static final Set<String> PUBLIC_RESULT_STATUSES = Set.of(
-            RaceResult.STATUS_CONFIRMED, RaceResult.STATUS_PUBLISHED
+    private static final Set<ResultRecordStatus> PUBLIC_RESULT_STATUSES = Set.of(
+            ResultRecordStatus.CONFIRMED, ResultRecordStatus.PUBLISHED
     );
 
     @Transactional
@@ -136,28 +144,59 @@ public class RaceService {
     }
 
     @Transactional
-    public RaceResponse updateRaceStatus(Long id, String targetStatus) {
+    public RaceResponse updateRaceStatus(Long id, RaceStatus targetStatus) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        return transitionRaceStatus(race, targetStatus, null);
+    }
 
-        String normalizedStatus = targetStatus == null ? "" : targetStatus.trim().toUpperCase();
-        if (!ALLOWED_STATUS_TRANSITIONS.containsKey(normalizedStatus) && !"CANCELLED".equals(normalizedStatus)) {
+    /**
+     * Lõi chuyển trạng thái race dùng chung cho admin (Cổng 3) và organizer (BR-16):
+     * kiểm tra state machine, đẩy prediction lifecycle, và đồng bộ trạng thái RaceResult
+     * (SUBMITTED -> CONFIRMED -> PUBLISHED) để kết quả công khai khớp với trạng thái race.
+     */
+    private RaceResponse transitionRaceStatus(Race race, RaceStatus targetStatus, User confirmer) {
+        if (targetStatus == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid race status");
+        }
+
+        if (!ALLOWED_STATUS_TRANSITIONS.containsKey(targetStatus) && RaceStatus.CANCELLED != targetStatus) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported race status");
         }
 
-        Set<String> allowedTargets = ALLOWED_STATUS_TRANSITIONS.getOrDefault(race.getStatus(), Set.of());
-        if (!allowedTargets.contains(normalizedStatus)) {
+        Set<RaceStatus> allowedTargets = ALLOWED_STATUS_TRANSITIONS.getOrDefault(race.getStatus(), Set.of());
+        if (!allowedTargets.contains(targetStatus)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Race status cannot move from " + race.getStatus() + " to " + normalizedStatus
+                    "Race status cannot move from " + race.getStatus() + " to " + targetStatus
             );
         }
 
-        String previousStatus = race.getStatus();
-        race.updateStatus(normalizedStatus);
+        RaceStatus previousStatus = race.getStatus();
+        race.updateStatus(targetStatus);
         raceRepository.save(race);
-        applyPredictionLifecycle(race, previousStatus, normalizedStatus);
+        applyPredictionLifecycle(race, previousStatus, targetStatus);
+        applyResultGovernance(race, targetStatus, confirmer);
         return mapToResponse(race);
+    }
+
+    /** Đồng bộ trạng thái các dòng RaceResult theo trạng thái race khi chốt/công bố. */
+    private void applyResultGovernance(Race race, RaceStatus status, User confirmer) {
+        if (RaceStatus.RESULT_CONFIRMED == status) {
+            for (RaceResult result : raceResultRepository.findByRace_Id(race.getId())) {
+                if (ResultRecordStatus.SUBMITTED == result.getStatus()) {
+                    result.confirm(confirmer);
+                    raceResultRepository.save(result);
+                }
+            }
+        } else if (RaceStatus.PUBLISHED == status) {
+            for (RaceResult result : raceResultRepository.findByRace_Id(race.getId())) {
+                if (ResultRecordStatus.CONFIRMED == result.getStatus()) {
+                    result.publish();
+                    raceResultRepository.save(result);
+                }
+            }
+        }
     }
 
     @Transactional
@@ -171,9 +210,165 @@ public class RaceService {
         if (!refereeWithRoles.getActiveRoleNames().contains("REFEREE")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not an approved referee");
         }
+        // BR-07: referee phải có hợp đồng ACTIVE với giải của race này.
+        if (!refereeContractRepository.existsByTournament_IdAndReferee_IdAndStatus(
+                race.getTournament().getId(), referee.getId(), RefereeContract.STATUS_ACTIVE)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Referee has no active contract for this tournament");
+        }
+        // BR-12: chống trùng lịch — không gán nếu referee đã có race khác quanh khung giờ này (±2h).
+        long conflicts = raceRepository.countRefereeScheduleConflicts(
+                referee.getId(), race.getId(),
+                race.getRaceAt().minusHours(2), race.getRaceAt().plusHours(2));
+        if (conflicts > 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Referee is already assigned to another race around this time");
+        }
         race.assignReferee(referee);
         raceRepository.save(race);
         return mapToResponse(race);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // Organizer tự vận hành race card + chốt kết quả giải của mình (BR-09 / BR-16).
+    // Mọi method dưới đây kiểm tra quyền sở hữu qua Tournament.isManagedBy.
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public List<RaceResponse> getOrganizerRaces(Long tournamentId, String organizerEmail) {
+        requireOwnedTournament(tournamentId, organizerEmail);
+        return raceRepository.findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(tournamentId)
+                .stream().map(this::mapToResponse).collect(Collectors.toList());
+    }
+
+    public RaceResponse getOrganizerRaceDetail(Long id, String organizerEmail) {
+        return mapToResponse(requireOrganizerRace(id, organizerEmail));
+    }
+
+    public List<RaceParticipantResponse> getOrganizerRaceParticipants(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+                .stream().map(this::mapParticipantToResponse).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public RaceResponse createRaceForOrganizer(RaceRequest req, String organizerEmail) {
+        requireOwnedTournament(req.getTournamentId(), organizerEmail).assertOrganizationOperational();
+        return createRace(req, organizerEmail);
+    }
+
+    @Transactional
+    public RaceResponse updateRaceForOrganizer(Long id, RaceRequest req, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        assertRaceEditable(race);
+        Tournament tournament = requireOwnedTournament(req.getTournamentId(), organizerEmail);
+        if (raceRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race code already exists");
+        }
+        race.update(tournament, req.getName(), req.getRaceDateTime(), req.getDistanceMeters(), req.getMaxParticipants());
+        raceRepository.save(race);
+        return mapToResponse(race);
+    }
+
+    @Transactional
+    public void deleteRaceForOrganizer(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        assertRaceEditable(race);
+        race.cancel();
+        race.softDelete();
+        raceRepository.save(race);
+    }
+
+    @Transactional
+    public RaceResponse assignRefereeForOrganizer(Long id, Long refereeId, String organizerEmail) {
+        requireOrganizerRace(id, organizerEmail).getTournament().assertOrganizationOperational();
+        return assignReferee(id, refereeId);
+    }
+
+    /** BR-16: organizer chốt kết quả referee đã nộp (RESULT_SUBMITTED -> RESULT_CONFIRMED). */
+    @Transactional
+    public RaceResponse confirmRaceResults(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_SUBMITTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only races with submitted results can be confirmed (BR-16)");
+        }
+        User organizer = requireUserByEmail(organizerEmail);
+        return transitionRaceStatus(race, RaceStatus.RESULT_CONFIRMED, organizer);
+    }
+
+    /** Lên bảng chính thức (RESULT_CONFIRMED -> PUBLISHED): công khai kết quả + cộng điểm standings. */
+    @Transactional
+    public RaceResponse publishRaceResults(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_CONFIRMED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only confirmed results can be published");
+        }
+        return transitionRaceStatus(race, RaceStatus.PUBLISHED, null);
+    }
+
+    /**
+     * Trả kết quả về để referee sửa — AN TOÀN vì chỉ cho phép TRƯỚC khi chốt
+     * (RESULT_SUBMITTED -> FINISHED): lúc này prediction CHƯA settle (settle ở RESULT_CONFIRMED) và
+     * standings CHƯA cộng (ở PUBLISHED) nên không phát sinh clawback. Sau khi đã chốt thì phải xử lý
+     * qua luồng tranh chấp/dispute, KHÔNG reopen ở đây. Referee nộp lại bình thường (FINISHED -> RESULT_SUBMITTED).
+     */
+    @Transactional
+    public RaceResponse reopenResultsForOrganizer(Long id, String organizerEmail, String reason) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        race.getTournament().assertOrganizationOperational();
+        if (race.getStatus() != RaceStatus.RESULT_SUBMITTED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Only submitted results that have not been confirmed can be sent back for correction");
+        }
+        String trimmed = reason == null ? "" : reason.trim();
+        if (trimmed.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A reason is required when sending results back for correction");
+        }
+        for (RaceResult result : raceResultRepository.findByRace_Id(id)) {
+            result.markReopened(trimmed);
+            raceResultRepository.save(result);
+        }
+        race.updateStatus(RaceStatus.FINISHED);
+        raceRepository.save(race);
+        notificationService.notify(race.getReferee(), "RESULT_REOPENED", "Result sent back for correction",
+                "“" + race.getName() + "”: " + trimmed, "RACE", race.getId());
+        return mapToResponse(race);
+    }
+
+    private Tournament requireOwnedTournament(Long tournamentId, String organizerEmail) {
+        Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(tournamentId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
+        if (!tournament.isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this tournament");
+        }
+        return tournament;
+    }
+
+    private Race requireOrganizerRace(Long id, String organizerEmail) {
+        Race race = raceRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
+        if (!race.getTournament().isManagedBy(organizerEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not manage this race");
+        }
+        return race;
+    }
+
+    private void assertRaceEditable(Race race) {
+        if (race.getStatus() != RaceStatus.SCHEDULED) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Race can only be edited before race-day operations begin (status SCHEDULED)");
+        }
+    }
+
+    private User requireUserByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
     }
 
     public List<RaceResponse> getPublicRaces(Long tournamentId) {
@@ -244,7 +439,7 @@ public class RaceService {
     public PublicRaceResultResponse getPublicRaceResults(Long raceId) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
-        boolean official = Set.of("RESULT_CONFIRMED", "PUBLISHED").contains(race.getStatus());
+        boolean official = Set.of(RaceStatus.RESULT_CONFIRMED, RaceStatus.PUBLISHED).contains(race.getStatus());
         if (!official) {
             return PublicRaceResultResponse.builder()
                     .raceId(raceId)
@@ -325,7 +520,7 @@ public class RaceService {
     }
 
     private RaceSummaryResponse mapToSummary(Race race, long participantCount, RaceResult winner) {
-        boolean resultOfficial = Set.of("RESULT_CONFIRMED", "PUBLISHED").contains(race.getStatus());
+        boolean resultOfficial = Set.of(RaceStatus.RESULT_CONFIRMED, RaceStatus.PUBLISHED).contains(race.getStatus());
         return RaceSummaryResponse.builder()
                 .id(race.getId())
                 .name(race.getName())
@@ -339,7 +534,7 @@ public class RaceService {
                 .maxParticipants(race.getMaxParticipants())
                 .participantCount(participantCount)
                 .status(race.getStatus())
-                .predictionOpen("SCHEDULED".equals(race.getStatus()) && race.getRaceAt().isAfter(LocalDateTime.now()))
+                .predictionOpen(RaceStatus.SCHEDULED == race.getStatus() && race.getRaceAt().isAfter(LocalDateTime.now()))
                 .predictionCloseTime(race.getRaceAt())
                 .resultOfficial(resultOfficial)
                 .winner(!resultOfficial || winner == null ? null : RaceSummaryResponse.WinnerSummary.builder()
@@ -360,7 +555,7 @@ public class RaceService {
                 .finishTimeSeconds(result.getFinishTimeSeconds())
                 .penaltySeconds(result.getPenaltySeconds())
                 .points(result.getPoints())
-                .resultStatus(result.getResultStatus())
+                .resultStatus(result.getResultStatus().name())
                 .build();
     }
 
@@ -414,18 +609,18 @@ public class RaceService {
                 .build();
     }
 
-    private void applyPredictionLifecycle(Race race, String previousStatus, String normalizedStatus) {
-        if ("CANCELLED".equals(normalizedStatus)) {
+    private void applyPredictionLifecycle(Race race, RaceStatus previousStatus, RaceStatus normalizedStatus) {
+        if (RaceStatus.CANCELLED == normalizedStatus) {
             predictionService.refundCancelledRace(race.getId());
             return;
         }
-        if ("SCHEDULED".equals(previousStatus) && !"SCHEDULED".equals(normalizedStatus)) {
+        if (RaceStatus.SCHEDULED == previousStatus && RaceStatus.SCHEDULED != normalizedStatus) {
             predictionService.lockPredictionsForRace(race.getId());
         }
-        if ("RESULT_CONFIRMED".equals(normalizedStatus)) {
+        if (RaceStatus.RESULT_CONFIRMED == normalizedStatus) {
             predictionService.createSettlementJob(race.getId());
         }
-        if ("PUBLISHED".equals(normalizedStatus)) {
+        if (RaceStatus.PUBLISHED == normalizedStatus) {
             updateTournamentStandings(race);
         }
     }

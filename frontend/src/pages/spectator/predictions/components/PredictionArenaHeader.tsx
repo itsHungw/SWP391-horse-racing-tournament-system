@@ -19,8 +19,8 @@ export function PredictionArenaHeader({ pointBalance }: PredictionArenaHeaderPro
             Prediction Arena
           </h1>
           <p className="mt-3 max-w-lg text-sm leading-relaxed text-ivory-dim">
-            Use your prediction points to forecast race outcomes and earn virtual reward points — free to
-            play, never a real-money bet.
+            Use your prediction funds to forecast race outcomes and earn real rewards. Free to
+            play, open to all registered users.
           </p>
         </div>
 
@@ -29,13 +29,13 @@ export function PredictionArenaHeader({ pointBalance }: PredictionArenaHeaderPro
             <Award className="h-6 w-6" />
           </span>
           <div>
-            <p className="eyebrow text-gold-300">Prediction Points</p>
+            <p className="eyebrow text-gold-300">Wallet Balance</p>
             <p className="font-data mt-1 text-3xl font-semibold leading-none text-foil">{pointBalance}</p>
             <Link
               to="/blogs"
               className="mt-2 inline-block text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-soft transition-colors hover:text-emerald-glow"
             >
-              Read stories to earn points →
+              Read stories to earn VND {"->"}
             </Link>
           </div>
         </div>
