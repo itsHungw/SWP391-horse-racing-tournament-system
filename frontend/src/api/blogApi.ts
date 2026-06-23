@@ -1,7 +1,5 @@
 import {
   Blog,
-  BlogRewardClaimRequest,
-  BlogRewardClaimResponse,
   CreateBlogRequest,
   UpdateBlogRequest,
   PageResponse,
@@ -19,11 +17,6 @@ export const blogApi = {
 
   getPublishedBlogBySlug: async (slug: string) => {
     const response = await httpClient.get<Blog>(`/blogs/${slug}`);
-    return response.data;
-  },
-
-  claimBlogReward: async (slug: string, data: BlogRewardClaimRequest) => {
-    const response = await httpClient.post<BlogRewardClaimResponse>(`/blogs/${slug}/claim-reward`, data);
     return response.data;
   },
 
