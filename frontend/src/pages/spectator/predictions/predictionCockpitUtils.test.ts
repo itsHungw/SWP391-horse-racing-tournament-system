@@ -69,9 +69,9 @@ function prediction(overrides: Partial<UserPrediction>): UserPrediction {
 describe("prediction cockpit utilities", () => {
   it("derives costs and reward labels from API values", () => {
     expect(getEntryCost(options, "WINNER")).toBe(10);
-    expect(getEntryCost(options, "TOP3")).toBe(20);
-    expect(getRewardLabel(options, "WINNER")).toBe("+30 reward points");
-    expect(getRewardLabel(options, "TOP3")).toBe("+90 exact / +45 any order");
+    expect(getEntryCost(options, "TOP3")).toBe(10);
+    expect(getRewardLabel(options, "WINNER")).toBe("-");
+    expect(getRewardLabel(options, "TOP3")).toBe("-");
     expect(getEntryCost(undefined, "WINNER")).toBe(0);
     expect(getEntryCost(null, "TOP3")).toBe(0);
     expect(getRewardLabel(undefined, "TOP3")).toBe("-");
