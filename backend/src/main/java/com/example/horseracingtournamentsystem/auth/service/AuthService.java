@@ -11,7 +11,6 @@ import com.example.horseracingtournamentsystem.auth.entity.AuthSession;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
 import com.example.horseracingtournamentsystem.auth.exception.PasswordResetRejectedException;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
-import com.example.horseracingtournamentsystem.point.service.FirstLoginBonusService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -49,7 +48,6 @@ public class AuthService {
     private final OneTimeTokenService oneTimeTokenService;
     private final EmailSender emailSender;
     private final JwtService jwtService;
-    private final FirstLoginBonusService firstLoginBonusService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.refresh-token-ttl-days}")
@@ -69,7 +67,6 @@ public class AuthService {
             throw new IllegalArgumentException("INVALID_CREDENTIALS");
         }
 
-        firstLoginBonusService.awardIfEligible(user);
         user.recordLogin();
 
         String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());

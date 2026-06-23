@@ -1,10 +1,8 @@
 package com.example.horseracingtournamentsystem.prediction.service;
 
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
-import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
@@ -30,23 +28,20 @@ public class PredictionService {
     private final RacePredictionRepository predictionRepo;
     private final PredictionSettlementJobRepository jobRepo;
     private final RaceRepository raceRepo;
-    private final PointAccountService pointsService;
-    private final PointSettingsService pointSettingsService;
+    private final WalletService walletService;
     private final OddsCalculationService oddsCalculationService;
     private final RaceParticipantRepository raceParticipantRepository;
 
     public PredictionService(RacePredictionRepository predictionRepo,
                              PredictionSettlementJobRepository jobRepo,
                              RaceRepository raceRepo,
-                             PointAccountService pointsService,
-                             PointSettingsService pointSettingsService,
+                             WalletService walletService,
                              OddsCalculationService oddsCalculationService,
                              RaceParticipantRepository raceParticipantRepository) {
         this.predictionRepo = predictionRepo;
         this.jobRepo = jobRepo;
         this.raceRepo = raceRepo;
-        this.pointsService = pointsService;
-        this.pointSettingsService = pointSettingsService;
+        this.walletService = walletService;
         this.oddsCalculationService = oddsCalculationService;
         this.raceParticipantRepository = raceParticipantRepository;
     }
@@ -166,11 +161,11 @@ public class PredictionService {
         prediction.setLockedOdds(lockedOdds);
         RacePrediction saved = predictionRepo.saveAndFlush(prediction);
 
-        // 2. Adjust points (deduct cost) and reference it back in the transaction ledger
-        pointsService.adjustPoints(
-            spectator, -cost, PointTransactionType.PREDICTION_ENTRY,
-            PointTransaction.REF_RACE_PREDICTION, saved.getId(),
-            "Deducted " + cost + " virtual points for race prediction entry #" + saved.getId()
+        // 2. Trừ tiền cược khỏi ví (idempotent theo prediction id) và ghi sổ cái
+        walletService.adjust(
+            spectator, -cost, WalletTransactionType.BET_PLACED,
+            WalletTransaction.REF_RACE_PREDICTION, saved.getId(),
+            "Placed bet of " + cost + " VND on race prediction #" + saved.getId()
         );
 
         return saved;
@@ -266,11 +261,11 @@ public class PredictionService {
                 p.setUpdatedAt(LocalDateTime.now());
                 predictionRepo.save(p);
 
-                // Refund the points (Idempotency checked by adjustPoints using index)
-                pointsService.adjustPoints(
-                    p.getSpectator(), p.getEntryCostPoints(), PointTransactionType.RACE_CANCEL_REFUND,
-                    PointTransaction.REF_RACE_PREDICTION, p.getId(),
-                    "Refunded " + p.getEntryCostPoints() + " entry cost points for cancelled race"
+                // Hoàn tiền cược (idempotent theo prediction id)
+                walletService.adjust(
+                    p.getSpectator(), p.getEntryCostPoints(), WalletTransactionType.BET_REFUND,
+                    WalletTransaction.REF_RACE_PREDICTION, p.getId(),
+                    "Refund " + p.getEntryCostPoints() + " VND for cancelled race"
                 );
             }
         }

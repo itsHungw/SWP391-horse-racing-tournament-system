@@ -20,7 +20,7 @@ public record UserPredictionResponse(
         Long predictedThirdId,
         String predictedThirdName,
         Integer entryCostPoints,
-        Integer rewardPoints,
+        Long rewardPoints,
         PredictionStatus status,
         String resultCategory,
         LocalDateTime lockedAt,

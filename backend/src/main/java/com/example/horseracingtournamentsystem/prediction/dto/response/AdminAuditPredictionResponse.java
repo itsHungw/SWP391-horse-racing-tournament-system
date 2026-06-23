@@ -25,7 +25,7 @@ public class AdminAuditPredictionResponse {
     private PredictionStatus status;
     private String displayStatus; // Submitted, Locked, Won, Lost, Refunded
     private String resultCategory; // Winner Correct, Exact Top 3, Top 3 Any Order, Incorrect, Refunded, Pending, Locked
-    private Integer rewardPoints;
+    private Long rewardPoints;
     private LocalDateTime submittedAt;
     private LocalDateTime evaluatedAt;
 }
