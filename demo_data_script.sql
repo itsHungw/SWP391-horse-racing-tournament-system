@@ -220,47 +220,28 @@ BEGIN TRY
     FROM OwnerRows;
 
     /* ================================================================
-       7. POINT SETTINGS + POINT ACCOUNTS
+       7. WALLETS + SEED BALANCES (tiền thật VND)
        ================================================================ */
-    INSERT INTO point_settings(setting_key, setting_value, updated_at, updated_by, description)
-    SELECT v.setting_key, v.setting_value, @Now, @AdminId, v.description
-    FROM (VALUES
-        ('FIRST_LOGIN_BONUS', 100, N'Điểm thưởng lần đăng nhập đầu tiên'),
-        ('BLOG_REWARD_POINTS', 20, N'Điểm thưởng đọc blog'),
-        ('DAILY_BLOG_REWARD_LIMIT', 100, N'Giới hạn điểm blog mỗi ngày'),
-        ('PREDICTION_WINNER_ENTRY_COST', 10, N'Chi phí dự đoán Winner'),
-        ('PREDICTION_TOP3_ENTRY_COST', 20, N'Chi phí dự đoán Top 3'),
-        ('PREDICTION_WINNER_REWARD', 50, N'Thưởng dự đoán Winner đúng'),
-        ('PREDICTION_TOP3_EXACT_REWARD', 150, N'Thưởng Top 3 đúng thứ tự'),
-        ('PREDICTION_TOP3_ANY_ORDER_REWARD', 80, N'Thưởng Top 3 đúng không cần thứ tự')
-    ) v(setting_key, setting_value, description)
-    WHERE NOT EXISTS (
-        SELECT 1 FROM point_settings ps WHERE ps.setting_key = v.setting_key
-    );
-
-    UPDATE point_settings
-    SET updated_by = @AdminId,
-        updated_at = @Now
-    WHERE updated_by IS NULL;
-
-    INSERT INTO user_point_accounts(user_id, point_balance, updated_at)
+    INSERT INTO wallets(user_id, balance, status, updated_at)
     SELECT id,
-           CASE WHEN id = @SpectatorId THEN 1000 ELSE 100 END,
+           CASE WHEN id = @SpectatorId THEN 1000000 ELSE 100000 END,
+           'ACTIVE',
            @Now
     FROM users;
 
-    INSERT INTO point_transactions(
+    INSERT INTO wallet_transactions(
         amount, created_at, reference_id, user_id, reference_type,
-        transaction_type, description
+        transaction_type, balance_after, description
     )
     SELECT
-        CASE WHEN id = @SpectatorId THEN 1000 ELSE 100 END,
+        CASE WHEN id = @SpectatorId THEN 1000000 ELSE 100000 END,
         @Now,
         NULL,
         id,
         'SEED',
         'ADMIN_ADJUSTMENT',
-        N'Initial demo point allocation'
+        CASE WHEN id = @SpectatorId THEN 1000000 ELSE 100000 END,
+        N'Initial demo balance'
     FROM users;
 
     /* ================================================================
@@ -575,14 +556,14 @@ BEGIN TRY
         'TOP3', 'PENDING'
     );
 
-    UPDATE user_point_accounts
-    SET point_balance = point_balance - 30,
+    UPDATE wallets
+    SET balance = balance - 30,
         updated_at = @Now
     WHERE user_id = @SpectatorId;
 
-    INSERT INTO point_transactions(
+    INSERT INTO wallet_transactions(
         amount, created_at, reference_id, user_id,
-        reference_type, transaction_type, description
+        reference_type, transaction_type, balance_after, description
     )
     SELECT
         -entry_cost_points,
@@ -590,8 +571,9 @@ BEGIN TRY
         id,
         spectator_id,
         'RACE_PREDICTION',
-        'PREDICTION_ENTRY',
-        CONCAT(N'Prediction entry cost for ', prediction_type)
+        'BET_PLACED',
+        NULL,
+        CONCAT(N'Bet on ', prediction_type)
     FROM race_predictions
     WHERE spectator_id = @SpectatorId
       AND race_id = @FirstRaceId;
@@ -758,15 +740,15 @@ BEGIN TRY
     SET status = 'INCORRECT', reward_points = 0, evaluated_at = @Now, locked_at = @Now, updated_at = @Now
     WHERE race_id = @FirstRaceId AND prediction_type = 'TOP3';
 
-    UPDATE user_point_accounts
-    SET point_balance = point_balance + 50, updated_at = @Now
+    UPDATE wallets
+    SET balance = balance + 50, updated_at = @Now
     WHERE user_id = @SpectatorId;
 
-    INSERT INTO point_transactions(
-        amount, created_at, reference_id, user_id, reference_type, transaction_type, description
+    INSERT INTO wallet_transactions(
+        amount, created_at, reference_id, user_id, reference_type, transaction_type, balance_after, description
     )
-    SELECT 50, @Now, id, @SpectatorId, 'RACE_PREDICTION', 'PREDICTION_REWARD',
-        N'Winner prediction reward for the published race.'
+    SELECT 50, @Now, id, @SpectatorId, 'RACE_PREDICTION', 'BET_PAYOUT', NULL,
+        N'Winner bet payout for published race.'
     FROM race_predictions
     WHERE race_id = @FirstRaceId AND prediction_type = 'WINNER';
 

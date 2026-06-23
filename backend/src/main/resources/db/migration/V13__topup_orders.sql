@@ -1,0 +1,16 @@
+-- V13: Đơn nạp tiền VNPay.
+CREATE TABLE topup_orders (
+    id BIGINT IDENTITY NOT NULL,
+    user_id BIGINT NOT NULL,
+    amount BIGINT NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    vnpay_txn_ref VARCHAR(100) NOT NULL,
+    vnpay_response_code VARCHAR(10),
+    vnpay_transaction_no VARCHAR(50),
+    created_at DATETIME2(7) NOT NULL,
+    paid_at DATETIME2(7),
+    PRIMARY KEY (id),
+    CONSTRAINT UK_topup_txn_ref UNIQUE (vnpay_txn_ref),
+    CONSTRAINT CK_topup_status CHECK (status IN ('INITIATED', 'PENDING', 'SUCCESS', 'FAILED', 'EXPIRED'))
+);
+ALTER TABLE topup_orders ADD CONSTRAINT FK_topup_user FOREIGN KEY (user_id) REFERENCES users(id);
