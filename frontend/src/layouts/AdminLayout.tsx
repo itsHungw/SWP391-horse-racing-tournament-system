@@ -9,6 +9,7 @@ import {
   FileText,
   Settings,
   Building2,
+  Wallet,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -43,9 +44,14 @@ const adminNavGroups = [
     ],
   },
   {
+    label: "FINANCE",
+    items: [
+      { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
+    ],
+  },
+  {
     label: "SYSTEM",
     items: [
-      { label: "Point Settings", href: "/admin/points", icon: Settings },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },

@@ -167,6 +167,12 @@ export function ClientHeader() {
                         >
                           Profile
                         </Link>
+                        <Link
+                          to="/wallet"
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
+                        >
+                          Wallet
+                        </Link>
                         <div className="my-1 h-px bg-white/10" />
                         <button
                           onClick={handleLogout}

@@ -73,8 +73,8 @@ export function HorsePickPanel({
       <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl border border-white/8 bg-turf-950 p-1.5">
         {(
           [
-            { key: "WINNER" as const, label: "Winner Pick", cost: options.entryCost.winner },
-            { key: "TOP3" as const, label: "Top 3 Pick", cost: options.entryCost.top3 },
+            { key: "WINNER" as const, label: "Winner Pick" },
+            { key: "TOP3" as const, label: "Top 3 Pick" },
           ]
         ).map((t) => (
           <button
@@ -86,25 +86,17 @@ export function HorsePickPanel({
               predType === t.key ? "bg-emerald-glow text-turf-950" : "text-ivory-dim hover:text-ivory"
             }`}
           >
-            {t.label} ({t.cost} VND)
+            {t.label}
           </button>
         ))}
       </div>
 
       {/* Reward explainer */}
       <div className="mt-4 rounded-xl border border-gold-600/25 bg-gold-400/5 px-4 py-3 text-xs font-semibold leading-relaxed text-ivory-dim">
-        {predType === "WINNER" ? (
-          <p>
-            <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +
-            {options.rewardConfig.winnerReward} VND if your chosen horse finishes 1st.
-          </p>
-        ) : (
-          <p>
-            <span className="font-data uppercase tracking-[0.12em] text-gold-300">Reward:</span> +
-            {options.rewardConfig.top3ExactReward} VND for the exact order (1st, 2nd, 3rd) · +
-            {options.rewardConfig.top3AnyOrderReward} VND if all three finish in the Top 3 in any order.
-          </p>
-        )}
+        <p>
+          <span className="font-data uppercase tracking-[0.12em] text-gold-300">Payout:</span> your stake × the odds
+          shown, credited to your wallet if the prediction is correct.
+        </p>
       </div>
 
       {!predictionOpen && (
