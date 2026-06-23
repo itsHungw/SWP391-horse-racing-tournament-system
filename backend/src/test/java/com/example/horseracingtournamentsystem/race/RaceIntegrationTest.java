@@ -22,7 +22,7 @@ import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettle
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -83,7 +83,7 @@ class RaceIntegrationTest {
     private PredictionSettlementJobRepository settlementJobRepository;
 
     @Autowired
-    private PointAccountService pointsService;
+    private WalletService walletService;
 
     @Autowired
     private TournamentRepository tournamentRepository;
@@ -435,7 +435,7 @@ class RaceIntegrationTest {
                 1600, 12, adminUser
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
-        pointsService.initializeAccount(spectator, 100);
+        walletService.initializeAccount(spectator, 100L);
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
                 race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
         ));

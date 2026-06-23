@@ -5,12 +5,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.example.horseracingtournamentsystem.blog.repository.BlogRepository;
-import com.example.horseracingtournamentsystem.blog.repository.UserBlogRewardRepository;
-import com.example.horseracingtournamentsystem.blog.repository.UserDailyPointLimitRepository;
 import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
-import com.example.horseracingtournamentsystem.point.repository.PointTransactionRepository;
-import com.example.horseracingtournamentsystem.point.repository.UserPointAccountRepository;
+import com.example.horseracingtournamentsystem.wallet.repository.WalletRepository;
+import com.example.horseracingtournamentsystem.wallet.repository.WalletTransactionRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
@@ -68,16 +66,10 @@ class AdminChampionshipWorkspaceIntegrationTest {
     private BlogRepository blogRepository;
 
     @Autowired
-    private UserBlogRewardRepository userBlogRewardRepository;
+    private WalletTransactionRepository walletTransactionRepository;
 
     @Autowired
-    private UserDailyPointLimitRepository userDailyPointLimitRepository;
-
-    @Autowired
-    private PointTransactionRepository pointTransactionRepository;
-
-    @Autowired
-    private UserPointAccountRepository userPointAccountRepository;
+    private WalletRepository walletRepository;
 
     private String adminToken;
     private User adminUser;
@@ -88,11 +80,9 @@ class AdminChampionshipWorkspaceIntegrationTest {
         raceRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
-        userBlogRewardRepository.deleteAll();
-        userDailyPointLimitRepository.deleteAll();
         blogRepository.deleteAll();
-        pointTransactionRepository.deleteAll();
-        userPointAccountRepository.deleteAll();
+        walletTransactionRepository.deleteAll();
+        walletRepository.deleteAll();
         roleRepository.deleteAll();
         userRepository.deleteAll();
 
