@@ -5,13 +5,12 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CheckCircle2,
-  ChevronDown,
-  History,
   Landmark,
   Lock,
   Plus,
   ReceiptText,
   RefreshCw,
+  Search,
   Wallet as WalletIcon,
   X,
 } from "lucide-react";
@@ -23,6 +22,7 @@ import { ClientHeader } from "../../components/client/ClientHeader";
 import { CountUp } from "../../components/client/CountUp";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { setWalletBalance } from "../../hooks/useWalletBalance";
 import type {
   WalletSummary,
   WalletTransaction,
@@ -32,6 +32,7 @@ import type {
 } from "../../types/wallet";
 import { BankLogo } from "./BankLogo";
 import { maskAccount, parseBankInfo } from "./banks";
+import { Modal } from "./Modal";
 import { PerformanceChart } from "./PerformanceChart";
 import { SavedAccounts } from "./SavedAccounts";
 import { TopUpSheet } from "./TopUpSheet";
@@ -65,6 +66,25 @@ const LEDGER_FILTERS: { key: LedgerFilterKey; label: string; types: WalletTransa
   { key: "predictions", label: "Predictions", types: ["BET_PLACED"] },
   { key: "payouts", label: "Payouts", types: ["BET_PAYOUT", "BET_REFUND"] },
   { key: "withdrawals", label: "Withdrawals", types: ["WITHDRAWAL_HOLD", "WITHDRAWAL_REFUND"] },
+];
+
+type TimeRangeKey = "all" | "7d" | "30d" | "90d";
+const TIME_FILTERS: { key: TimeRangeKey; label: string; days: number | null }[] = [
+  { key: "all", label: "All time", days: null },
+  { key: "7d", label: "7 days", days: 7 },
+  { key: "30d", label: "30 days", days: 30 },
+  { key: "90d", label: "90 days", days: 90 },
+];
+
+const LEDGER_PAGE_SIZE = 12;
+const PAYOUT_RAIL_LIMIT = 5;
+const PAYOUT_STATUS_FILTERS: { key: "ALL" | WithdrawalStatus; label: string }[] = [
+  { key: "ALL", label: "All" },
+  { key: "REQUESTED", label: "Requested" },
+  { key: "APPROVED", label: "Approved" },
+  { key: "PAID", label: "Paid" },
+  { key: "REJECTED", label: "Rejected" },
+  { key: "CANCELLED", label: "Cancelled" },
 ];
 
 function formatVnd(amount: number) {
@@ -252,7 +272,11 @@ export function WalletPage() {
   const [topUpOpen, setTopUpOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [ledgerFilter, setLedgerFilter] = useState<LedgerFilterKey>("all");
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [timeRange, setTimeRange] = useState<TimeRangeKey>("all");
+  const [ledgerSearch, setLedgerSearch] = useState("");
+  const [ledgerVisible, setLedgerVisible] = useState(LEDGER_PAGE_SIZE);
+  const [payoutAllOpen, setPayoutAllOpen] = useState(false);
+  const [payoutStatusFilter, setPayoutStatusFilter] = useState<"ALL" | WithdrawalStatus>("ALL");
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -267,6 +291,7 @@ export function WalletPage() {
     setSummary(summaryData);
     setTransactions(txData);
     setWithdrawals(wdData);
+    setWalletBalance(summaryData.balance); // keep the header chip live without a reload
   }, []);
 
   useEffect(() => {
@@ -289,33 +314,56 @@ export function WalletPage() {
   }, [refresh]);
 
   const walletLocked = summary?.status === "LOCKED";
+  // `balance` is already the free, withdrawable amount. Stakes (BET_PLACED) and payout
+  // holds (WITHDRAWAL_HOLD) are debited from the wallet the moment they happen, so the
+  // money behind `inPlay` / `pendingWithdrawal` has already left `balance`. They are
+  // informational buckets shown alongside — never subtract them from balance again.
   const balance = summary?.balance ?? 0;
   const inPlay = summary?.inPlay ?? 0;
   const pendingWithdrawal = summary?.pendingWithdrawal ?? 0;
-  const availableToWithdraw = Math.max(0, balance - inPlay - pendingWithdrawal);
 
   const filteredTransactions = useMemo(() => {
     const config = LEDGER_FILTERS.find((item) => item.key === ledgerFilter);
-    if (!config || !config.types) return transactions;
-    const allowed = new Set(config.types);
-    return transactions.filter((tx) => allowed.has(tx.type));
-  }, [transactions, ledgerFilter]);
+    const allowed = config?.types ? new Set(config.types) : null;
+    const tf = TIME_FILTERS.find((item) => item.key === timeRange);
+    const cutoff = tf?.days != null ? Date.now() - tf.days * 86400000 : null;
+    const q = ledgerSearch.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      if (allowed && !allowed.has(tx.type)) return false;
+      if (cutoff != null && Date.parse(tx.createdAt) < cutoff) return false;
+      if (q) {
+        const haystack = `${tx.description ?? ""} ${TX_LABEL[tx.type] ?? ""} ${tx.amount}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [transactions, ledgerFilter, timeRange, ledgerSearch]);
+
+  // Reset the visible window whenever the result set changes.
+  useEffect(() => {
+    setLedgerVisible(LEDGER_PAGE_SIZE);
+  }, [ledgerFilter, timeRange, ledgerSearch]);
 
   const ledgerGroups = useMemo(() => {
     const groups: { label: string; items: WalletTransaction[] }[] = [];
-    for (const tx of filteredTransactions) {
+    for (const tx of filteredTransactions.slice(0, ledgerVisible)) {
       const label = dateGroupLabel(tx.createdAt);
       const last = groups[groups.length - 1];
       if (last && last.label === label) last.items.push(tx);
       else groups.push({ label, items: [tx] });
     }
     return groups;
-  }, [filteredTransactions]);
+  }, [filteredTransactions, ledgerVisible]);
 
-  const activeWithdrawals = withdrawals.filter((w) => w.status === "REQUESTED" || w.status === "APPROVED");
-  const historyWithdrawals = withdrawals.filter(
-    (w) => w.status === "PAID" || w.status === "REJECTED" || w.status === "CANCELLED",
-  );
+  const sortedWithdrawals = useMemo(() => {
+    const rank = (s: WithdrawalStatus) => (s === "REQUESTED" || s === "APPROVED" ? 0 : 1);
+    return [...withdrawals].sort(
+      (a, b) => rank(a.status) - rank(b.status) || Date.parse(b.requestedAt) - Date.parse(a.requestedAt),
+    );
+  }, [withdrawals]);
+  const railWithdrawals = sortedWithdrawals.slice(0, PAYOUT_RAIL_LIMIT);
+  const payoutModalList =
+    payoutStatusFilter === "ALL" ? sortedWithdrawals : sortedWithdrawals.filter((w) => w.status === payoutStatusFilter);
 
   async function handleCancel(id: number) {
     setCancelingId(id);
@@ -423,8 +471,7 @@ export function WalletPage() {
                   </p>
                 ) : null}
 
-                <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
-                  <MoneyState label="Available" value={availableToWithdraw} caption="Ready to withdraw" tone="text-emerald-soft" loading={loading} />
+                <div className="grid grid-cols-1 divide-y divide-white/10 border-t border-white/10 sm:grid-cols-2 sm:divide-x sm:divide-y-0">
                   <MoneyState label="In play" value={inPlay} caption="Locked in open predictions" tone="text-gold-300" loading={loading} />
                   <MoneyState label="Pending withdrawal" value={pendingWithdrawal} caption="Awaiting payout" tone="text-sky-200" loading={loading} />
                 </div>
@@ -462,6 +509,40 @@ export function WalletPage() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by time">
+                    {TIME_FILTERS.map((item) => {
+                      const active = item.key === timeRange;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setTimeRange(item.key)}
+                          className={`min-h-9 rounded-full border px-3.5 font-data text-[11px] font-bold uppercase tracking-[0.12em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400 motion-reduce:transition-none ${
+                            active
+                              ? "border-emerald-soft bg-emerald-soft/15 text-emerald-soft"
+                              : "border-white/12 text-ivory-dim hover:border-emerald-soft/40 hover:text-emerald-soft"
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="flex min-h-9 items-center gap-2 rounded-full border border-white/12 bg-[#04120f] px-3 sm:w-64">
+                    <Search className="h-4 w-4 shrink-0 text-ivory-faint" aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={ledgerSearch}
+                      onChange={(e) => setLedgerSearch(e.target.value)}
+                      placeholder="Search transactions"
+                      aria-label="Search transactions"
+                      className="min-h-9 w-full bg-transparent text-sm text-ivory outline-none placeholder:text-ivory-faint"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -538,6 +619,18 @@ export function WalletPage() {
                   </table>
                 </div>
               )}
+
+              {!loading && !error && filteredTransactions.length > ledgerVisible ? (
+                <div className="border-t border-white/10 p-4 text-center">
+                  <button
+                    type="button"
+                    onClick={() => setLedgerVisible((v) => v + LEDGER_PAGE_SIZE)}
+                    className="inline-flex min-h-10 items-center justify-center rounded-sm border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.12em] text-ivory-dim transition-colors hover:border-gold-400/60 hover:text-gold-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                  >
+                    Load more ({filteredTransactions.length - ledgerVisible})
+                  </button>
+                </div>
+              ) : null}
             </Panel>
           </div>
 
@@ -579,40 +672,19 @@ export function WalletPage() {
                 </div>
               ) : (
                 <>
-                  {activeWithdrawals.length > 0 ? (
-                    <ul className="mt-5 space-y-3">
-                      {activeWithdrawals.map((item) => (
-                        <WithdrawalCard key={item.id} item={item} onCancel={handleCancel} canceling={cancelingId === item.id} />
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="mt-5 rounded-lg border border-dashed border-white/15 p-4 text-center text-sm text-ivory-dim">
-                      No active requests.
-                    </p>
-                  )}
-
-                  {historyWithdrawals.length > 0 ? (
-                    <div className="mt-3">
-                      <button
-                        type="button"
-                        onClick={() => setHistoryOpen((v) => !v)}
-                        aria-expanded={historyOpen}
-                        className="flex w-full items-center justify-between gap-3 rounded-lg border border-white/8 bg-white/[0.02] px-4 py-3 text-sm text-ivory-dim transition-colors hover:border-white/15 hover:text-ivory"
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          <History className="h-4 w-4 text-ivory-faint" aria-hidden="true" />
-                          Past requests <span className="text-ivory-faint">({historyWithdrawals.length})</span>
-                        </span>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${historyOpen ? "rotate-180" : ""}`} aria-hidden="true" />
-                      </button>
-                      {historyOpen ? (
-                        <ul className="mt-3 space-y-3">
-                          {historyWithdrawals.map((item) => (
-                            <WithdrawalCard key={item.id} item={item} onCancel={handleCancel} canceling={cancelingId === item.id} />
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
+                  <ul className="mt-5 space-y-3">
+                    {railWithdrawals.map((item) => (
+                      <WithdrawalCard key={item.id} item={item} onCancel={handleCancel} canceling={cancelingId === item.id} />
+                    ))}
+                  </ul>
+                  {withdrawals.length > PAYOUT_RAIL_LIMIT ? (
+                    <button
+                      type="button"
+                      onClick={() => setPayoutAllOpen(true)}
+                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-4 py-3 text-sm font-semibold text-ivory-dim transition-colors hover:border-gold-400/40 hover:text-gold-200"
+                    >
+                      View all requests ({withdrawals.length})
+                    </button>
                   ) : null}
                 </>
               )}
@@ -623,11 +695,61 @@ export function WalletPage() {
         </div>
       </main>
 
-      <TopUpSheet open={topUpOpen} onClose={() => setTopUpOpen(false)} />
+      <TopUpSheet open={topUpOpen} onClose={() => setTopUpOpen(false)} currentBalance={balance} />
+
+      <Modal open={payoutAllOpen} onClose={() => setPayoutAllOpen(false)} label="Withdrawal requests" panelClassName="max-w-lg">
+        <div className="flex items-start justify-between gap-4 border-b border-white/8 px-6 pb-4 pt-5">
+          <div>
+            <p className="font-data text-[10px] font-bold uppercase tracking-[0.22em] text-gold-300">Payout queue</p>
+            <h2 className="mt-1 font-display text-2xl font-medium text-ivory">Withdrawal requests</h2>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPayoutAllOpen(false)}
+            aria-label="Close"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2 border-b border-white/8 px-6 py-3">
+          {PAYOUT_STATUS_FILTERS.map((item) => {
+            const active = item.key === payoutStatusFilter;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setPayoutStatusFilter(item.key)}
+                className={`min-h-8 rounded-full border px-3 font-data text-[10px] font-bold uppercase tracking-[0.12em] transition-colors ${
+                  active
+                    ? "border-gold-400 bg-gold-400 text-turf-950"
+                    : "border-white/12 text-ivory-dim hover:border-gold-400/40 hover:text-gold-200"
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">
+          {payoutModalList.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-white/15 p-6 text-center text-sm text-ivory-dim">
+              No requests in this status.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {payoutModalList.map((item) => (
+                <WithdrawalCard key={item.id} item={item} onCancel={handleCancel} canceling={cancelingId === item.id} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </Modal>
 
       <WithdrawSheet
         open={withdrawOpen}
-        available={availableToWithdraw}
+        available={balance}
         onClose={() => setWithdrawOpen(false)}
         onSubmitted={() => {
           void refresh();

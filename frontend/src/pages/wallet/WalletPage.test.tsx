@@ -141,7 +141,6 @@ describe("WalletPage", () => {
     expect(await screen.findByRole("heading", { name: /available balance/i })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/top-up successful/i);
 
-    expect(screen.getByText("970,875 VND")).toBeInTheDocument();
     expect(screen.getByText("125,000 VND")).toBeInTheDocument();
     expect(screen.getAllByText("150,000 VND")[0]).toBeInTheDocument();
 
@@ -183,6 +182,9 @@ describe("WalletPage", () => {
     expect(within(dialog).queryByText(/continue/i)).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/amount to withdraw/i)).toBeInTheDocument();
     expect(within(dialog).getByText(/vietcombank/i)).toBeInTheDocument();
+    // Withdrawable cap = full wallet balance (already net of in-play / holds),
+    // not balance − inPlay − pendingWithdrawal.
+    expect(within(dialog).getByText(/available: 1,245,875 vnd/i)).toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByLabelText(/amount to withdraw/i), { target: { value: "100000" } });
     fireEvent.click(within(dialog).getByRole("button", { name: /withdraw 100,000 vnd/i }));
@@ -207,14 +209,14 @@ describe("WalletPage", () => {
     });
   });
 
-  it("reveals cancelled requests under past requests", async () => {
+  it("shows a cancelled request in the payout queue", async () => {
     render(
       <MemoryRouter initialEntries={["/wallet"]}>
         <WalletPage />
       </MemoryRouter>,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: /past requests/i }));
+    await screen.findByRole("heading", { name: /available balance/i });
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 });

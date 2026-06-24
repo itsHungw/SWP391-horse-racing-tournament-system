@@ -6,15 +6,16 @@ import { Bell, ChevronDown, Eye, EyeOff, Flag, LayoutDashboard, LogOut, Menu, Ti
 import logo from "../../assets/logo.png";
 import { getMyProfile } from "../../api/profileApi";
 import { walletApi } from "../../api/walletApi";
+import { setWalletBalance, useWalletBalance } from "../../hooks/useWalletBalance";
 import { useClientSession } from "../../hooks/useClientSession";
 import { getDashboardRouteForRoles } from "../../utils/dashboardRoute";
 
 const vnd = new Intl.NumberFormat("en-US");
 
-// Cached across navigations within the SPA session so the header doesn't refetch
-// the name/avatar/balance on every page mount. Cleared on logout.
+// Name/avatar rarely change, so cache them across navigations to avoid refetching
+// on every page mount. Cleared on logout. The balance lives in a shared store
+// (useWalletBalance) instead — it must stay live as the user spends/tops up.
 let cachedHeaderProfile: { fullName: string | null; avatarUrl: string | null } | null = null;
-let cachedHeaderBalance: number | null = null;
 
 function initialsFrom(name: string | null, email: string | null) {
   const source = (name && name.trim()) || (email ? email.split("@")[0] : "") || "";
@@ -69,7 +70,7 @@ export function ClientHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [walletBalance, setWalletBalance] = useState<number | null>(cachedHeaderBalance);
+  const walletBalance = useWalletBalance();
   const [balanceRevealed, setBalanceRevealed] = useState(true);
   const [profile, setProfile] = useState(cachedHeaderProfile);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -131,26 +132,25 @@ export function ClientHeader() {
         })
         .catch(() => undefined);
     }
-    if (walletBalance === null) {
-      walletApi
-        .getMyWallet()
-        .then((w) => {
-          if (!mounted) return;
-          cachedHeaderBalance = w.balance;
-          setWalletBalance(w.balance);
-        })
-        .catch(() => undefined);
-    }
+    // Always refetch the balance on mount. ClientHeader remounts on every navigation,
+    // so this keeps the chip fresh after balance-changing actions on other pages
+    // (placing bets, payouts). The shared store seeds the first render, so the last
+    // known value shows instantly with no flash while this reconciles with the server.
+    walletApi
+      .getMyWallet()
+      .then((w) => {
+        if (mounted) setWalletBalance(w.balance);
+      })
+      .catch(() => undefined);
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, profile, walletBalance]);
+  }, [isAuthenticated, profile]);
 
   const balanceText = walletBalance === null ? "—" : balanceRevealed ? `${vnd.format(walletBalance)} ₫` : "•••••• ₫";
 
   const handleLogout = () => {
     cachedHeaderProfile = null;
-    cachedHeaderBalance = null;
     setProfile(null);
     setWalletBalance(null);
     logout();
