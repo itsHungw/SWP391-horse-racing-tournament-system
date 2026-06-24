@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import { AssignedRace } from "./refereeRaceDayModels";
 import {
   formatRaceDate,
@@ -11,7 +13,7 @@ type AssignedRaceTimelineProps = {
   races: AssignedRace[];
   now: Date;
   selectedRaceId?: number;
-  onSelectRace: (race: AssignedRace) => void;
+  onSelectRace: (race: AssignedRace | undefined) => void;
 };
 
 const actionStatuses = new Set(["CHECKING", "READY", "ONGOING", "FINISHED", "RESULT_SUBMITTED"]);
@@ -141,43 +143,104 @@ export function AssignedRaceTimeline({
                   const dateToken = getDateToken(race.scheduledAt);
 
                   return (
-                    <button
-                      aria-pressed={selectedRaceId === race.id}
-                      className={`grid w-full gap-4 rounded-lg border p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] sm:grid-cols-[72px_minmax(0,1fr)] ${
+                    <div
+                      key={race.id}
+                      className={`grid w-full gap-4 rounded-lg border p-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
                         selectedRaceId === race.id
                           ? "border-[#007a68] bg-[#eefbf7] shadow-sm"
                           : "border-slate-200 bg-white"
                       }`}
-                      key={race.id}
-                      onClick={() => onSelectRace(race)}
-                      type="button"
                     >
-                      <div className="flex w-fit items-center gap-3 sm:block sm:w-auto">
-                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
-                          <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{dateToken.month}</p>
-                          <p className="text-2xl font-black leading-none text-slate-950">{dateToken.day}</p>
-                        </div>
-                        <p className="text-xs font-black text-slate-500 sm:mt-2 sm:text-center">{formatRaceTime(race.scheduledAt)}</p>
-                      </div>
+                      <button
+                        type="button"
+                        className="flex w-full items-center justify-between text-left focus-visible:outline-none"
+                        onClick={() => onSelectRace(selectedRaceId === race.id ? undefined : race)}
+                        aria-expanded={selectedRaceId === race.id}
+                        aria-controls={`race-detail-${race.id}`}
+                      >
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 min-w-0 flex-1">
+                          {/* Date and time info section (left side) */}
+                          <div className="flex w-fit items-center gap-3 sm:block sm:w-auto shrink-0">
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center">
+                              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{dateToken.month}</p>
+                              <p className="text-2xl font-black leading-none text-slate-950">{dateToken.day}</p>
+                            </div>
+                            <p className="text-xs font-black text-slate-500 sm:mt-2 sm:text-center">{formatRaceTime(race.scheduledAt)}</p>
+                          </div>
 
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <strong className="text-sm text-slate-950">{race.name}</strong>
-                          <span className={`rounded-md border px-2.5 py-1 text-[10px] font-black uppercase ${statusChipClasses(race.status)}`}>
-                            {meta.label}
-                          </span>
+                          {/* Name and status chip (right side) */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <strong className="text-sm text-slate-950">{race.name}</strong>
+                              <span className={`rounded-md border px-2.5 py-1 text-[10px] font-black uppercase ${statusChipClasses(race.status)}`}>
+                                {meta.label}
+                              </span>
+                            </div>
+                            {/* Collapsed label for next action */}
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Next: <span className="font-black text-slate-700">{action.label}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs font-semibold text-slate-500">
-                          <span>{formatNaturalSchedule(race.scheduledAt, now)}</span>
-                          <span>{race.venue}</span>
-                          <span>{race.distanceMeters}m</span>
-                        </div>
-                        <div className="mt-3 rounded-md border border-slate-100 bg-slate-50 px-3 py-2">
-                          <p className="text-xs font-black text-slate-950">{action.label}</p>
-                          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{action.helper}</p>
-                        </div>
+
+                        {/* Rotating ChevronDown icon */}
+                        <ChevronDown
+                          className={`h-5 w-5 text-slate-400 transition-transform duration-200 shrink-0 ml-4 ${
+                            selectedRaceId === race.id ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {/* Collapsible details container */}
+                      <div
+                        id={`race-detail-${race.id}`}
+                        role="region"
+                        className={`accordion-wrapper overflow-hidden ${
+                          selectedRaceId === race.id ? "expanded" : ""
+                        }`}
+                      >
+                        {selectedRaceId === race.id && (
+                          <div className="accordion-content">
+                            <div className="pt-4 border-t border-slate-100 mt-4 space-y-4">
+                              {/* Key-Value details grid (like the original drawer) */}
+                              <dl className="grid grid-cols-2 gap-3 text-xs border-b border-slate-100 pb-4">
+                                <div>
+                                  <dt className="text-slate-500">Date</dt>
+                                  <dd className="font-black text-slate-800">{formatRaceDate(race.scheduledAt)}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-slate-500">Start time</dt>
+                                  <dd className="font-black text-slate-800">{formatRaceTime(race.scheduledAt)}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-slate-500">Venue</dt>
+                                  <dd className="font-black text-slate-800">{race.venue}</dd>
+                                </div>
+                                <div>
+                                  <dt className="text-slate-500">Distance</dt>
+                                  <dd className="font-black text-slate-800">{race.distanceMeters}m</dd>
+                                </div>
+                              </dl>
+
+                              {/* Action brief details */}
+                              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Next action</p>
+                                <p className="mt-1 text-sm font-black text-slate-950">{action.label}</p>
+                                <p className="mt-1 text-xs font-semibold leading-relaxed text-slate-500">{action.helper}</p>
+                              </div>
+
+                              {/* Action link styled as button */}
+                              <Link
+                                className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-[#007a68] px-4 text-sm font-black text-white transition hover:bg-[#006f5f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
+                                to={action.to}
+                              >
+                                {action.label}
+                              </Link>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

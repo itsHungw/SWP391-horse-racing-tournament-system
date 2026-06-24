@@ -134,6 +134,9 @@ describe("RefereeProfileDashboardPage", () => {
 
     expect(await screen.findByRole("heading", { name: "Professional race official profile" })).toBeInTheDocument();
 
+    // Switch to edit tab
+    fireEvent.click(screen.getByRole("button", { name: /Edit Profile & Credentials/i }));
+
     const evidenceFile = new File(["certificate"], "referee-evidence.pdf", { type: "application/pdf" });
     fireEvent.change(screen.getByLabelText(/certification evidence file/i), {
       target: { files: [evidenceFile] },
@@ -173,6 +176,9 @@ describe("RefereeProfileDashboardPage", () => {
       await screen.findByRole("heading", { name: "Professional race official profile" }),
     ).toBeInTheDocument();
 
+    // Switch to edit tab
+    fireEvent.click(screen.getByRole("button", { name: /Edit Profile & Credentials/i }));
+
     const avatarFile = new File(["avatar"], "referee-avatar.webp", {
       type: "image/webp",
     });
@@ -203,6 +209,9 @@ describe("RefereeProfileDashboardPage", () => {
       await screen.findByRole("heading", { name: "Professional race official profile" }),
     ).toBeInTheDocument();
 
+    // Switch to edit tab
+    fireEvent.click(screen.getByRole("button", { name: /Edit Profile & Credentials/i }));
+
     fireEvent.change(screen.getByLabelText(/profile photo/i), {
       target: {
         files: [new File(["not-an-image"], "profile.pdf", { type: "application/pdf" })],
@@ -228,6 +237,9 @@ describe("RefereeProfileDashboardPage", () => {
       await screen.findByRole("heading", { name: "Professional race official profile" }),
     ).toBeInTheDocument();
 
+    // Switch to edit tab
+    fireEvent.click(screen.getByRole("button", { name: /Edit Profile & Credentials/i }));
+
     const oversizedPhoto = new File(["avatar"], "large-avatar.png", {
       type: "image/png",
     });
@@ -239,5 +251,38 @@ describe("RefereeProfileDashboardPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Profile photo must be 5MB or smaller.",
     );
+  });
+
+  it("toggles content and switches tabs when clicking buttons", async () => {
+    vi.spyOn(refereeApi, "getAssignedRaces").mockResolvedValue(mockRaces);
+    vi.spyOn(profileApi, "getMyProfile").mockResolvedValue(mockProfile);
+
+    render(
+      <MemoryRouter>
+        <RefereeProfileDashboardPage now={new Date("2026-06-02T12:30:00+07:00")} />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "Professional race official profile" })).toBeInTheDocument();
+
+    // 1. Dashboard tab is active by default.
+    // Bio heading is on the dashboard tab.
+    expect(screen.getByRole("heading", { name: "Referee biography" })).toBeInTheDocument();
+    // Profile photo input is NOT visible.
+    expect(screen.queryByLabelText(/profile photo/i)).not.toBeInTheDocument();
+
+    // 2. Click "Edit Profile & Credentials" tab.
+    fireEvent.click(screen.getByRole("button", { name: /Edit Profile & Credentials/i }));
+    // Bio heading is NOT visible anymore.
+    expect(screen.queryByRole("heading", { name: "Referee biography" })).not.toBeInTheDocument();
+    // Profile photo input is now visible.
+    expect(screen.getByLabelText(/profile photo/i)).toBeInTheDocument();
+
+    // 3. Click "Steward Dashboard" tab.
+    fireEvent.click(screen.getByRole("button", { name: /Steward Dashboard/i }));
+    // Bio heading is visible again.
+    expect(screen.getByRole("heading", { name: "Referee biography" })).toBeInTheDocument();
+    // Profile photo input is hidden.
+    expect(screen.queryByLabelText(/profile photo/i)).not.toBeInTheDocument();
   });
 });
