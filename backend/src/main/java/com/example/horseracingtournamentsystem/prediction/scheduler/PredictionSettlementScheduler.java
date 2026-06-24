@@ -1,10 +1,8 @@
 package com.example.horseracingtournamentsystem.prediction.scheduler;
 
-import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
-import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
@@ -36,8 +34,7 @@ public class PredictionSettlementScheduler {
     private final PredictionSettlementJobRepository jobRepo;
     private final RacePredictionRepository predictionRepo;
     private final RaceResultRepository resultRepo;
-    private final PointAccountService pointsService;
-    private final PointSettingsService pointSettingsService;
+    private final WalletService walletService;
     private final StreakPredictionRepository streakPredictionRepo;
     private final StreakPredictionLegRepository streakPredictionLegRepo;
 
@@ -48,15 +45,13 @@ public class PredictionSettlementScheduler {
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
-                                         PointAccountService pointsService,
-                                         PointSettingsService pointSettingsService,
+                                         WalletService walletService,
                                          StreakPredictionRepository streakPredictionRepo,
                                          StreakPredictionLegRepository streakPredictionLegRepo) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.resultRepo = resultRepo;
-        this.pointsService = pointsService;
-        this.pointSettingsService = pointSettingsService;
+        this.walletService = walletService;
         this.streakPredictionRepo = streakPredictionRepo;
         this.streakPredictionLegRepo = streakPredictionLegRepo;
     }
@@ -143,23 +138,22 @@ public class PredictionSettlementScheduler {
                         p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
-                        int refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
-                        pointsService.adjustPoints(
-                            p.getSpectator(), refundAmount, PointTransactionType.RACE_CANCEL_REFUND,
-                            PointTransaction.REF_RACE_PREDICTION, p.getId(),
-                            "Refunded " + refundAmount + " entry points due to horse withdrawal"
+                        long refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
+                        walletService.adjust(
+                            p.getSpectator(), refundAmount, WalletTransactionType.BET_REFUND,
+                            WalletTransaction.REF_RACE_PREDICTION, p.getId(),
+                            "Refund " + refundAmount + " VND (horse withdrawn)"
                         );
                         continue;
                     }
 
                     boolean isCorrect = false;
-                    int reward = 0;
+                    long reward = 0;
 
                     if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
                         Integer pos = participantPositions.get(p.getPredictedWinnerId());
                         if (pos != null && pos == 1) {
                             isCorrect = true;
-                            reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_REWARD);
                         }
                     } else if (RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
                         Integer pos = participantPositions.get(p.getPredictedWinnerId());
@@ -175,8 +169,7 @@ public class PredictionSettlementScheduler {
                             if (p.getPredictedWinnerId().equals(actual1) &&
                                 p.getPredictedSecondId().equals(actual2) &&
                                 p.getPredictedThirdId().equals(actual3)) {
-                                isCorrect = true;
-                                reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD); // Exact order
+                                isCorrect = true; // Exact order
                             } else {
                                 // Correct horses, wrong order
                                 boolean hasWinner = actualTop3.contains(p.getPredictedWinnerId());
@@ -184,7 +177,6 @@ public class PredictionSettlementScheduler {
                                 boolean hasThird = actualTop3.contains(p.getPredictedThirdId());
                                 if (hasWinner && hasSecond && hasThird) {
                                     isCorrect = true;
-                                    reward = pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD);
                                 }
                             }
                         }
@@ -206,18 +198,18 @@ public class PredictionSettlementScheduler {
                         // (Fallback to old logic if lockedOdds is null, for backward compatibility with old data)
                         if (p.getLockedOdds() != null && p.getWagerAmount() != null) {
                             java.math.BigDecimal payout = java.math.BigDecimal.valueOf(p.getWagerAmount()).multiply(p.getLockedOdds());
-                            reward = payout.intValue(); // truncate or round
+                            reward = payout.setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
                         }
 
                         p.setRewardPoints(reward);
                         p.setEvaluatedAt(LocalDateTime.now());
                         predictionRepo.save(p);
 
-                        // Credit reward
-                        pointsService.adjustPoints(
-                            p.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
-                            PointTransaction.REF_RACE_PREDICTION, p.getId(), 
-                            "Awarded " + reward + " reward points for correct prediction #" + p.getId()
+                        // Trả thưởng vào ví (idempotent theo prediction id)
+                        walletService.adjust(
+                            p.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
+                            WalletTransaction.REF_RACE_PREDICTION, p.getId(),
+                            "Bet payout: +" + reward + " VND for prediction #" + p.getId()
                         );
                         rewardedCount++;
                     } else {
@@ -298,13 +290,14 @@ public class PredictionSettlementScheduler {
                     streak.setTotalOdds(currentTotalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
                     streak.setEvaluatedAt(LocalDateTime.now());
 
-                    int reward = java.math.BigDecimal.valueOf(streak.getWagerAmount()).multiply(streak.getTotalOdds()).intValue();
+                    long reward = java.math.BigDecimal.valueOf(streak.getWagerAmount()).multiply(streak.getTotalOdds())
+                            .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
                     streak.setRewardPoints(reward);
 
-                    pointsService.adjustPoints(
-                        streak.getSpectator(), reward, PointTransactionType.PREDICTION_REWARD,
-                        PointTransaction.REF_STREAK_PREDICTION, streak.getId(),
-                        "Awarded " + reward + " points for WON streak prediction #" + streak.getId()
+                    walletService.adjust(
+                        streak.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
+                        WalletTransaction.REF_STREAK_PREDICTION, streak.getId(),
+                        "Streak payout: +" + reward + " VND #" + streak.getId()
                     );
                 } else {
                     streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS);
@@ -332,11 +325,11 @@ public class PredictionSettlementScheduler {
                     p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
                     p.setUpdatedAt(LocalDateTime.now());
                     predictionRepo.save(p);
-                    int refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
-                    pointsService.adjustPoints(
-                        p.getSpectator(), refundAmount, PointTransactionType.RACE_CANCEL_REFUND,
-                        PointTransaction.REF_RACE_PREDICTION, p.getId(),
-                        "Refunded " + refundAmount + " entry points due to system error processing results"
+                    long refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
+                    walletService.adjust(
+                        p.getSpectator(), refundAmount, WalletTransactionType.BET_REFUND,
+                        WalletTransaction.REF_RACE_PREDICTION, p.getId(),
+                        "Refund " + refundAmount + " VND (system error during settlement)"
                     );
                 }
             }

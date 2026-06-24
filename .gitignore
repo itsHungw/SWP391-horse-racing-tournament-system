@@ -30,3 +30,5 @@ pptx/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+frontend/.vite

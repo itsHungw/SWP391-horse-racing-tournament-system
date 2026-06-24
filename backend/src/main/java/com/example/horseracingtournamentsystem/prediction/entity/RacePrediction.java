@@ -62,7 +62,7 @@ public class RacePrediction {
     private Integer entryCostPoints;
 
     @Column(name = "reward_points", nullable = false)
-    private Integer rewardPoints = 0;
+    private long rewardPoints = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)

@@ -18,7 +18,7 @@ public class StreakPredictionResponse {
     private Integer wagerAmount;
     private BigDecimal totalOdds;
     private StreakPredictionStatus status;
-    private Integer rewardPoints;
+    private Long rewardPoints;
     private LocalDateTime createdAt;
     private LocalDateTime evaluatedAt;
     private List<StreakPredictionLegResponse> legs;

@@ -46,7 +46,7 @@ public class StreakPrediction {
 
     @Builder.Default
     @Column(name = "reward_points")
-    private Integer rewardPoints = 0;
+    private long rewardPoints = 0;
 
     @Column(name = "created_at", insertable = false, updatable = false)
     private LocalDateTime createdAt;

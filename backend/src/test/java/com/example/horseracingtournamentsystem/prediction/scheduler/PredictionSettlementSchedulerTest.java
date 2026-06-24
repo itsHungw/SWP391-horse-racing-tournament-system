@@ -8,10 +8,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
-import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg;
@@ -42,8 +41,7 @@ class PredictionSettlementSchedulerTest {
     @Mock private PredictionSettlementJobRepository jobRepository;
     @Mock private RacePredictionRepository predictionRepository;
     @Mock private RaceResultRepository resultRepository;
-    @Mock private PointAccountService pointsService;
-    @Mock private PointSettingsService pointSettingsService;
+    @Mock private WalletService walletService;
     @Mock private StreakPredictionRepository streakRepository;
     @Mock private StreakPredictionLegRepository streakLegRepository;
 
@@ -53,7 +51,7 @@ class PredictionSettlementSchedulerTest {
     void setUp() {
         scheduler = new PredictionSettlementScheduler(
                 jobRepository, predictionRepository, resultRepository,
-                pointsService, pointSettingsService, streakRepository, streakLegRepository);
+                walletService, streakRepository, streakLegRepository);
     }
 
     @Test
@@ -66,10 +64,10 @@ class PredictionSettlementSchedulerTest {
         assertEquals(StreakPredictionStatus.WON, fixture.streak().getStatus());
         assertEquals(new BigDecimal("3.75"), fixture.streak().getTotalOdds());
         assertEquals(37_500, fixture.streak().getRewardPoints());
-        verify(pointsService, times(1)).adjustPoints(
-                eq(fixture.spectator()), eq(37_500),
-                eq(PointTransactionType.PREDICTION_REWARD),
-                eq(PointTransaction.REF_STREAK_PREDICTION),
+        verify(walletService, times(1)).adjust(
+                eq(fixture.spectator()), eq(37_500L),
+                eq(WalletTransactionType.BET_PAYOUT),
+                eq(WalletTransaction.REF_STREAK_PREDICTION),
                 eq(51L), anyString());
     }
 
@@ -83,10 +81,10 @@ class PredictionSettlementSchedulerTest {
         assertEquals(BigDecimal.ZERO, fixture.currentLeg().getLockedOdds());
         assertEquals(new BigDecimal("1.50"), fixture.streak().getTotalOdds());
         assertEquals(15_000, fixture.streak().getRewardPoints());
-        verify(pointsService).adjustPoints(
-                eq(fixture.spectator()), eq(15_000),
-                eq(PointTransactionType.PREDICTION_REWARD),
-                eq(PointTransaction.REF_STREAK_PREDICTION),
+        verify(walletService).adjust(
+                eq(fixture.spectator()), eq(15_000L),
+                eq(WalletTransactionType.BET_PAYOUT),
+                eq(WalletTransaction.REF_STREAK_PREDICTION),
                 eq(51L), anyString());
     }
 

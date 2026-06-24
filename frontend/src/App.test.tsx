@@ -42,19 +42,6 @@ vi.mock("./api/adminDashboardApi", () => ({
   },
 }));
 
-vi.mock("./api/pointSettingsApi", () => ({
-  getPointSettings: vi.fn().mockResolvedValue({
-    FIRST_LOGIN_BONUS: 0,
-    BLOG_REWARD_POINTS: 0,
-    DAILY_BLOG_REWARD_LIMIT: 0,
-    PREDICTION_WINNER_ENTRY_COST: 0,
-    PREDICTION_TOP3_ENTRY_COST: 0,
-    PREDICTION_WINNER_REWARD: 0,
-    PREDICTION_TOP3_EXACT_REWARD: 0,
-    PREDICTION_TOP3_ANY_ORDER_REWARD: 0,
-  }),
-  updatePointSettings: vi.fn(),
-}));
 
 vi.mock("./api/racingApi", () => ({
   applyToJockeyChampionship: vi.fn(),
@@ -212,6 +199,8 @@ describe("App", () => {
 
     const primaryNav = screen.getByRole("navigation", { name: /primary/i });
 
+    fireEvent.click(screen.getByRole("button", { name: /account/i }));
+
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
       "/spectator/dashboard",
@@ -304,6 +293,8 @@ describe("App", () => {
       expect(blogApi.getPublishedBlogs).toHaveBeenCalledWith(undefined, 0, 3);
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /account/i }));
+
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
       "/spectator/dashboard",
@@ -316,6 +307,8 @@ describe("App", () => {
     setClientSession(createTokenWithRoles(["HORSE_OWNER"]), "Owner User", "owner@example.com");
 
     render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /account/i }));
 
     expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
       "href",
@@ -420,20 +413,7 @@ describe("App", () => {
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
-it("renders admin point settings inside the admin shell", async () => {
-  window.history.pushState({}, "", "/admin/points");
-  setClientSession(
-    createTokenWithRoles(["ADMIN"]),
-    "Admin Operator",
-    "admin@example.com",
-  );
 
-  render(<App />);
-
-  expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
-  expect(await screen.findByRole("heading", { name: /point settings/i })).toBeInTheDocument();
-  expect(screen.getByLabelText(/blog reward points/i)).toBeInTheDocument();
-});
   it("renders referee result packages as a read-only confirmed results archive", () => {
     window.history.pushState({}, "", "/referee/result-history");
     setClientSession(createTokenWithRoles(["REFEREE"]), "Julian Sterling", "referee@equine.com");

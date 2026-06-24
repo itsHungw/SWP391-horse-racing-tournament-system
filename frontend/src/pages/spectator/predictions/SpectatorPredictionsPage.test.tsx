@@ -14,6 +14,7 @@ vi.mock("./services/spectatorPredictionApi", () => ({
     updatePrediction: vi.fn(),
     getMyPredictions: vi.fn(),
     getPointAccount: vi.fn(),
+    getSpectatorStreaks: vi.fn(),
   },
 }));
 
@@ -65,12 +66,13 @@ async function clickFirstButton(name: RegExp) {
 describe("SpectatorPredictionsPage cockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50 });
+    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50000 });
     vi.mocked(spectatorPredictionApi.getOpenRaces).mockResolvedValue([openRace]);
     vi.mocked(spectatorPredictionApi.getMyPredictions).mockResolvedValue([]);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
     vi.mocked(spectatorPredictionApi.submitPrediction).mockResolvedValue({} as never);
     vi.mocked(spectatorPredictionApi.updatePrediction).mockResolvedValue({} as never);
+    vi.mocked(spectatorPredictionApi.getSpectatorStreaks).mockResolvedValue([]);
   });
 
   it("selects a race, mirrors the winner pick in the right slip, and submits the prediction", async () => {
@@ -85,13 +87,13 @@ describe("SpectatorPredictionsPage cockpit", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /confirm prediction/i }));
 
-    expect(await screen.findByText(/prediction is confirmed/i)).toBeInTheDocument();
+    expect(await screen.findByText(/prediction confirmed/i)).toBeInTheDocument();
     expect(spectatorPredictionApi.submitPrediction).toHaveBeenCalledWith({
       raceId: 7,
-      predictionType: "WINNER",
+      predictionType: "EXACT_POSITION",
       predictedWinnerId: 1,
-      predictedSecondId: null,
-      predictedThirdId: null,
+      predictedPosition: null,
+      wagerAmount: 10000,
     });
   });
 
@@ -114,14 +116,14 @@ describe("SpectatorPredictionsPage cockpit", () => {
   });
 
   it("disables confirmation when a new prediction needs more points", async () => {
-    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 5 });
+    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 5000 });
 
     renderArena();
 
     fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
     await clickFirstButton(/choose thunder bay/i);
 
-    expect(screen.getByText(/you need 5 more points/i)).toBeInTheDocument();
+    expect(screen.getByText(/you need 5,000 more VND/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
     expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();
   });

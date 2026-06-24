@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Gift } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 
@@ -19,25 +18,12 @@ function formatBlogDate(value: string) {
   );
 }
 
-function calculateScrollPercent() {
-  const scrollTop = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  const scrollHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
-  if (scrollHeight <= viewportHeight) return 100;
-  return Math.min(100, Math.floor(((scrollTop + viewportHeight) / scrollHeight) * 100));
-}
-
 export function SpectatorBlogDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const reduce = useReducedMotion();
   const [blog, setBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [readingSeconds, setReadingSeconds] = useState(0);
-  const [scrollPercent, setScrollPercent] = useState(0);
-  const [claiming, setClaiming] = useState(false);
-  const [claimMessage, setClaimMessage] = useState<string | null>(null);
-  const [claimError, setClaimError] = useState<string | null>(null);
 
   useDocumentTitle(blog?.title || "Newsroom | Night at the Races");
 
@@ -58,10 +44,6 @@ export function SpectatorBlogDetailPage() {
         const data = await blogApi.getPublishedBlogBySlug(slug);
         if (isMounted) {
           setBlog(data);
-          setReadingSeconds(0);
-          setScrollPercent(0);
-          setClaimMessage(null);
-          setClaimError(null);
         }
       } catch (err) {
         console.error("Public blog article unavailable.", err);
@@ -78,51 +60,6 @@ export function SpectatorBlogDetailPage() {
       isMounted = false;
     };
   }, [slug]);
-
-  useEffect(() => {
-    if (!blog) return;
-    const timeoutId = window.setTimeout(() => setReadingSeconds(30), 30_000);
-    return () => window.clearTimeout(timeoutId);
-  }, [blog]);
-
-  useEffect(() => {
-    if (!blog) return;
-    function updateScrollProgress() {
-      setScrollPercent((current) => Math.max(current, calculateScrollPercent()));
-    }
-    window.addEventListener("scroll", updateScrollProgress, { passive: true });
-    window.addEventListener("resize", updateScrollProgress);
-    updateScrollProgress();
-    return () => {
-      window.removeEventListener("scroll", updateScrollProgress);
-      window.removeEventListener("resize", updateScrollProgress);
-    };
-  }, [blog]);
-
-  async function handleClaimReward() {
-    if (!blog || claiming) return;
-    setClaiming(true);
-    setClaimError(null);
-    setClaimMessage(null);
-    try {
-      const response = await blogApi.claimBlogReward(blog.slug, {
-        readingSeconds: Math.floor(readingSeconds),
-        scrollPercent: Math.floor(Math.min(100, scrollPercent)),
-      });
-      if (response.outcome === "CLAIMED") {
-        setClaimMessage(`You earned ${response.pointsAwarded} virtual points.`);
-      } else if (response.outcome === "ALREADY_CLAIMED") {
-        setClaimMessage("Reward already claimed.");
-      } else {
-        setClaimMessage("Daily reward limit reached.");
-      }
-    } catch (err) {
-      console.error("Blog reward claim failed.", err);
-      setClaimError("Could not claim reward. Please sign in and try again.");
-    } finally {
-      setClaiming(false);
-    }
-  }
 
   if (loading) {
     return (
@@ -162,8 +99,6 @@ export function SpectatorBlogDetailPage() {
       </div>
     );
   }
-
-  const rewardUnlocked = readingSeconds >= 30 && scrollPercent >= 80;
 
   return (
     <div className="client-theme bg-turf-950 text-ivory">
@@ -230,77 +165,6 @@ export function SpectatorBlogDetailPage() {
                   </div>
                 </dl>
 
-                <section aria-labelledby="reward-heading" className="mt-8 border-t border-white/10 pt-7">
-                  <h2 id="reward-heading" className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-soft live-pulse" />
-                    <Eyebrow tone="emerald">Reading Reward</Eyebrow>
-                  </h2>
-
-                  <div className="mt-5 space-y-4">
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold text-ivory-dim">
-                        <span>Reading time</span>
-                        <span className={readingSeconds >= 30 ? "text-emerald-soft" : ""}>
-                          {Math.min(30, readingSeconds)}s / 30s
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                        <motion.div
-                          className="h-full bg-emerald-glow"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(100, (readingSeconds / 30) * 100)}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-xs font-semibold text-ivory-dim">
-                        <span>Scroll progress</span>
-                        <span className={scrollPercent >= 80 ? "text-emerald-soft" : ""}>{scrollPercent}% / 80%</span>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-                        <motion.div
-                          className="h-full bg-emerald-glow"
-                          animate={{ width: `${scrollPercent}%` }}
-                          transition={{ ease: "easeOut" }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <motion.button
-                    whileHover={rewardUnlocked && !claiming ? { scale: 1.02 } : undefined}
-                    whileTap={rewardUnlocked && !claiming ? { scale: 0.98 } : undefined}
-                    type="button"
-                    disabled={!rewardUnlocked || claiming}
-                    onClick={handleClaimReward}
-                    className={`mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-sm px-4 text-[13px] font-bold uppercase tracking-[0.16em] transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed ${
-                      rewardUnlocked
-                        ? "bg-gold-400 text-turf-950 shadow-[0_14px_36px_-12px_rgba(212,175,55,0.6)] hover:bg-gold-300 focus-visible:outline-ivory"
-                        : "border border-white/10 bg-white/5 text-ivory-faint"
-                    }`}
-                  >
-                    <Gift aria-hidden="true" size={17} strokeWidth={2.2} />
-                    {claiming ? "Claiming…" : "Claim Reward"}
-                  </motion.button>
-
-                  {claimMessage ? (
-                    <p
-                      className="mt-4 border-l-2 border-emerald-glow bg-emerald-glow/10 p-3 text-sm font-semibold text-emerald-soft"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {claimMessage}
-                    </p>
-                  ) : null}
-                  {claimError ? (
-                    <p
-                      className="mt-4 border-l-2 border-nyraRed bg-rose-500/10 p-3 text-sm font-semibold text-rose-300"
-                      role="alert"
-                    >
-                      {claimError}
-                    </p>
-                  ) : null}
-                </section>
               </div>
             </motion.aside>
 

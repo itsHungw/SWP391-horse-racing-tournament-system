@@ -28,19 +28,6 @@ export interface UpdateBlogRequest {
   status: 'DRAFT' | 'PUBLISHED';
 }
 
-export interface BlogRewardClaimRequest {
-  readingSeconds: number;
-  scrollPercent: number;
-}
-
-export type BlogRewardClaimOutcome = 'CLAIMED' | 'ALREADY_CLAIMED' | 'DAILY_LIMIT_REACHED';
-
-export interface BlogRewardClaimResponse {
-  outcome: BlogRewardClaimOutcome;
-  pointsAwarded: number;
-  balance: number;
-}
-
 export interface PageResponse<T> {
   content: T[];
   totalPages: number;

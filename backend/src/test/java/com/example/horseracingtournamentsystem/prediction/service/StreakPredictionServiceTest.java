@@ -9,9 +9,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.dto.request.StreakPredictionLegRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitStreakPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.StreakPredictionResponse;
@@ -46,7 +46,7 @@ class StreakPredictionServiceTest {
     @Mock private RaceRepository raceRepository;
     @Mock private RaceParticipantRepository participantRepository;
     @Mock private OddsCalculationService oddsService;
-    @Mock private PointAccountService pointsService;
+    @Mock private WalletService walletService;
 
     private StreakPredictionService service;
 
@@ -54,7 +54,7 @@ class StreakPredictionServiceTest {
     void setUp() {
         service = new StreakPredictionService(
                 streakRepository, userRepository, tournamentRepository,
-                raceRepository, participantRepository, oddsService, pointsService);
+                raceRepository, participantRepository, oddsService, walletService);
     }
 
     @Test
@@ -80,7 +80,7 @@ class StreakPredictionServiceTest {
         when(oddsService.calculatePositionOddsMatrix(anyLong(), anyList())).thenReturn(Map.of(
                 1001L, Map.of(1, new BigDecimal("1.50")),
                 1002L, Map.of(1, new BigDecimal("2.25"))));
-        when(pointsService.getBalance(7L)).thenReturn(100_000);
+        when(walletService.getBalance(7L)).thenReturn(100_000L);
         when(streakRepository.saveAndFlush(any(StreakPrediction.class))).thenAnswer(invocation -> {
             StreakPrediction streak = invocation.getArgument(0);
             streak.setId(41L);
@@ -95,10 +95,10 @@ class StreakPredictionServiceTest {
         StreakPredictionResponse response = service.submitStreakPrediction(7L, request);
 
         assertEquals(new BigDecimal("3.75"), response.getTotalOdds());
-        verify(pointsService).adjustPoints(
-                spectator, -10_000, PointTransactionType.PREDICTION_ENTRY,
-                PointTransaction.REF_STREAK_PREDICTION, 41L,
-                "Deducted 10000 points for streak prediction #41");
+        verify(walletService).adjust(
+                spectator, -10_000L, WalletTransactionType.BET_PLACED,
+                WalletTransaction.REF_STREAK_PREDICTION, 41L,
+                "Placed streak bet of 10000 VND #41");
     }
 
     private Race race(Long id, String name) {

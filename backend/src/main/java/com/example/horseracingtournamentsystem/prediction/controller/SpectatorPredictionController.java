@@ -1,8 +1,6 @@
 package com.example.horseracingtournamentsystem.prediction.controller;
 
-import com.example.horseracingtournamentsystem.point.entity.PointSettingKey;
-import com.example.horseracingtournamentsystem.point.service.PointSettingsService;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitStreakPredictionRequest;
@@ -37,8 +35,7 @@ public class SpectatorPredictionController {
     private final RacePredictionRepository predictionRepo;
     private final RaceRepository raceRepo;
     private final UserRepository userRepo;
-    private final PointAccountService pointsService;
-    private final PointSettingsService pointSettingsService;
+    private final WalletService walletService;
     private final OddsCalculationService oddsCalculationService;
     private final RaceParticipantRepository raceParticipantRepository;
     private final StreakPredictionService streakPredictionService;
@@ -47,8 +44,7 @@ public class SpectatorPredictionController {
                                          RacePredictionRepository predictionRepo,
                                          RaceRepository raceRepo,
                                          UserRepository userRepo,
-                                         PointAccountService pointsService,
-                                         PointSettingsService pointSettingsService,
+                                         WalletService walletService,
                                          OddsCalculationService oddsCalculationService,
                                          RaceParticipantRepository raceParticipantRepository,
                                          StreakPredictionService streakPredictionService) {
@@ -56,8 +52,7 @@ public class SpectatorPredictionController {
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
         this.userRepo = userRepo;
-        this.pointsService = pointsService;
-        this.pointSettingsService = pointSettingsService;
+        this.walletService = walletService;
         this.oddsCalculationService = oddsCalculationService;
         this.raceParticipantRepository = raceParticipantRepository;
         this.streakPredictionService = streakPredictionService;
@@ -122,12 +117,8 @@ public class SpectatorPredictionController {
         res.setRaceStatus(race.getStatus().name());
         res.setPredictionOpen(RaceStatus.SCHEDULED.equals(race.getStatus()) && race.getRaceAt().isAfter(java.time.LocalDateTime.now()));
 
-        res.getEntryCost().setWinner(pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_ENTRY_COST));
-        res.getEntryCost().setTop3(pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ENTRY_COST));
-
-        res.getRewardConfig().setWinnerReward(pointSettingsService.getInt(PointSettingKey.PREDICTION_WINNER_REWARD));
-        res.getRewardConfig().setTop3ExactReward(pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_EXACT_REWARD));
-        res.getRewardConfig().setTop3AnyOrderReward(pointSettingsService.getInt(PointSettingKey.PREDICTION_TOP3_ANY_ORDER_REWARD));
+        // Cá cược nay dùng tiền thật + odds động: không còn entry-cost/reward cố định.
+        // Giữ entryCost/rewardConfig mặc định 0 để không phá hợp đồng JSON với FE.
 
         List<Object[]> rawOptions = predictionRepo.findActiveParticipantsByRaceId(raceId);
         List<PredictionOptionsResponse.Option> options = rawOptions.stream().map(row -> {
@@ -295,7 +286,7 @@ public class SpectatorPredictionController {
         User spectator = userRepo.findByEmail(authentication.getName())
             .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
 
-        int balance = pointsService.getBalance(spectator.getId());
+        long balance = walletService.getBalance(spectator.getId());
         return ResponseEntity.ok(Map.of(
             "userId", spectator.getId(),
             "pointBalance", balance

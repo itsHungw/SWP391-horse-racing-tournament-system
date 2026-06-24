@@ -16,6 +16,8 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { ProfilePage } from "../pages/user/ProfilePage";
+import { WalletPage } from "../pages/wallet/WalletPage";
+import { AdminWithdrawalsPage } from "../pages/admin/AdminWithdrawalsPage";
 import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
 import { OrganizerLayout } from "../layouts/OrganizerLayout";
 import { OrganizerRegisterPage } from "../pages/organizer/OrganizerRegisterPage";
@@ -38,7 +40,6 @@ import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
 import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
 import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
 import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
-import { AdminPointSettingsPage } from "../pages/admin/AdminPointSettingsPage";
 import { AdminBlogListPage } from "../pages/admin/AdminBlogListPage";
 import { AdminBlogFormPage } from "../pages/admin/AdminBlogFormPage";
 import { AdminPredictionsWorkspace } from "../pages/admin/AdminPredictionsWorkspace";
@@ -122,6 +123,7 @@ export function AppRouter() {
         
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
+        <Route path="wallet" element={authRoute(<WalletPage />)} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
         <Route path="organizer/register" element={authRoute(<OrganizerRegisterPage />)} />
         <Route path="organizer" element={organizerRoute(<OrganizerLayout />)}>
@@ -214,12 +216,9 @@ export function AppRouter() {
 
         <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
+        <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
         
 
-        <Route
-          path="admin/points"
-          element={adminRoute(<AdminPointSettingsPage />)}
-        />
         <Route
           path="admin/settings"
           element={adminRoute(

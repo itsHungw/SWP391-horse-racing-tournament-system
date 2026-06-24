@@ -77,17 +77,6 @@ describe("blogApi", () => {
     expect(result).toEqual(blog);
   });
 
-  it("claims a blog reward through the shared http client", async () => {
-    const response = { outcome: "CLAIMED" as const, pointsAwarded: 10, balance: 30 };
-    const payload = { readingSeconds: 30, scrollPercent: 80 };
-    vi.mocked(httpClient.post).mockResolvedValue({ data: response });
-
-    const result = await blogApi.claimBlogReward("race-preview", payload);
-
-    expect(httpClient.post).toHaveBeenCalledWith("/blogs/race-preview/claim-reward", payload);
-    expect(result).toEqual(response);
-  });
-
   it("uploads a blog thumbnail with FormData through the shared http client", async () => {
     const file = new File(["image"], "preview.jpg", { type: "image/jpeg" });
     vi.mocked(httpClient.post).mockResolvedValue({ data: { url: "http://localhost/api/v1/files/download/preview.jpg" } });

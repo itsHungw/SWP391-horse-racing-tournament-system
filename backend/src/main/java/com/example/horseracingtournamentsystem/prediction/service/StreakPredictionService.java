@@ -16,9 +16,9 @@ import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRe
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -39,7 +39,7 @@ public class StreakPredictionService {
     private final RaceRepository raceRepository;
     private final RaceParticipantRepository raceParticipantRepository;
     private final OddsCalculationService oddsCalculationService;
-    private final PointAccountService pointsService;
+    private final WalletService walletService;
 
     // Maximum total odds allowed to limit house risk
     private static final BigDecimal MAX_TOTAL_ODDS = BigDecimal.valueOf(1000.00);
@@ -51,7 +51,7 @@ public class StreakPredictionService {
         RaceRepository raceRepository,
         RaceParticipantRepository raceParticipantRepository,
         OddsCalculationService oddsCalculationService,
-        PointAccountService pointsService
+        WalletService walletService
     ) {
         this.streakPredictionRepository = streakPredictionRepository;
         this.spectatorRepository = spectatorRepository;
@@ -59,7 +59,7 @@ public class StreakPredictionService {
         this.raceRepository = raceRepository;
         this.raceParticipantRepository = raceParticipantRepository;
         this.oddsCalculationService = oddsCalculationService;
-        this.pointsService = pointsService;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -78,8 +78,8 @@ public class StreakPredictionService {
             throw new IllegalArgumentException("Invalid wager amount");
         }
 
-        if (pointsService.getBalance(spectator.getId()) < request.getWagerAmount()) {
-            throw new IllegalArgumentException("Insufficient points");
+        if (walletService.getBalance(spectator.getId()) < request.getWagerAmount()) {
+            throw new IllegalArgumentException("Insufficient balance");
         }
 
         StreakPrediction streakPrediction = StreakPrediction.builder()
@@ -150,10 +150,10 @@ public class StreakPredictionService {
 
         StreakPrediction saved = streakPredictionRepository.saveAndFlush(streakPrediction);
 
-        pointsService.adjustPoints(
-            spectator, -request.getWagerAmount(), PointTransactionType.PREDICTION_ENTRY,
-            PointTransaction.REF_STREAK_PREDICTION, saved.getId(),
-            "Deducted " + request.getWagerAmount() + " points for streak prediction #" + saved.getId()
+        walletService.adjust(
+            spectator, -request.getWagerAmount(), WalletTransactionType.BET_PLACED,
+            WalletTransaction.REF_STREAK_PREDICTION, saved.getId(),
+            "Placed streak bet of " + request.getWagerAmount() + " VND #" + saved.getId()
         );
 
         return mapToResponse(saved);
