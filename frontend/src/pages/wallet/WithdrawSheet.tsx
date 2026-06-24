@@ -4,14 +4,11 @@ import { Check, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 
 import { walletApi } from "../../api/walletApi";
 import type { BankAccount } from "../../types/wallet";
+import { BankLogo } from "./BankLogo";
 import { BankSelect } from "./BankSelect";
 import { BANKS } from "./banks";
 
 const vnd = new Intl.NumberFormat("en-US");
-
-function bankColor(code: string) {
-  return BANKS.find((b) => b.code === code)?.color ?? "#3a4a44";
-}
 
 function mask(account: string) {
   return account.length >= 4 ? `\u2022\u2022\u2022\u2022 ${account.slice(-4)}` : account;
@@ -139,7 +136,7 @@ export function WithdrawSheet({
     setSubmitting(true);
     setError(null);
     try {
-      const bankInfo = `${selectedAccount.accountHolder} - ${selectedAccount.accountNumber} - ${selectedAccount.bankName} (${selectedAccount.bankCode})`;
+      const bankInfo = `${selectedAccount.accountHolder} · ${selectedAccount.accountNumber} · ${selectedAccount.bankName} (${selectedAccount.bankCode})`;
       await walletApi.createWithdrawal(amountValue, bankInfo);
       onSubmitted();
       onClose();
@@ -299,13 +296,7 @@ export function WithdrawSheet({
                           aria-pressed={active}
                           className="flex min-h-12 min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
                         >
-                          <span
-                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-data text-[10px] font-bold text-white"
-                            style={{ backgroundColor: bankColor(acc.bankCode) }}
-                            aria-hidden="true"
-                          >
-                            {acc.bankCode}
-                          </span>
+                          <BankLogo code={acc.bankCode} size={40} />
                           <span className="min-w-0">
                             <span className="block truncate text-sm font-semibold text-ivory">{acc.bankName}</span>
                             <span className="block truncate font-data text-xs text-ivory-faint">

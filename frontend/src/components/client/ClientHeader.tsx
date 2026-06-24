@@ -1,11 +1,51 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown, Menu, User, X } from "lucide-react";
+import { Bell, ChevronDown, Eye, EyeOff, Flag, LayoutDashboard, LogOut, Menu, Ticket, User, UserPlus, Wallet, X } from "lucide-react";
 
 import logo from "../../assets/logo.png";
+import { getMyProfile } from "../../api/profileApi";
+import { walletApi } from "../../api/walletApi";
 import { useClientSession } from "../../hooks/useClientSession";
 import { getDashboardRouteForRoles } from "../../utils/dashboardRoute";
+
+const vnd = new Intl.NumberFormat("en-US");
+
+// Cached across navigations within the SPA session so the header doesn't refetch
+// the name/avatar/balance on every page mount. Cleared on logout.
+let cachedHeaderProfile: { fullName: string | null; avatarUrl: string | null } | null = null;
+let cachedHeaderBalance: number | null = null;
+
+function initialsFrom(name: string | null, email: string | null) {
+  const source = (name && name.trim()) || (email ? email.split("@")[0] : "") || "";
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return source.slice(0, 2).toUpperCase() || "ME";
+}
+
+function HeaderAvatar({ url, initials, size }: { url: string | null; initials: string; size: number }) {
+  const [failed, setFailed] = useState(false);
+  const dimension = { width: size, height: size };
+  if (url && !failed) {
+    return (
+      <img
+        src={url}
+        alt=""
+        onError={() => setFailed(true)}
+        className="shrink-0 rounded-full border border-gold-400/60 bg-turf-900 object-cover"
+        style={dimension}
+      />
+    );
+  }
+  return (
+    <span
+      className="grid shrink-0 place-items-center rounded-full border border-gold-400/60 bg-turf-900 font-data font-bold text-gold-200"
+      style={{ ...dimension, fontSize: Math.round(size * 0.36) }}
+    >
+      {initials}
+    </span>
+  );
+}
 
 const navLinks = [
   { label: "Championships", to: "/championships" },
@@ -29,12 +69,20 @@ export function ClientHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(cachedHeaderBalance);
+  const [balanceRevealed, setBalanceRevealed] = useState(true);
+  const [profile, setProfile] = useState(cachedHeaderProfile);
+  const [notifOpen, setNotifOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   const dashboardHref = getDashboardRouteForRoles(session?.roles ?? []);
   const isOrganizer = (session?.roles ?? []).includes("ORGANIZER");
   const organizerLabel = isOrganizer ? "Organizer" : "Organize";
   const organizerHref = isOrganizer ? "/organizer" : "/organizer/register";
+  const displayName = profile?.fullName || session?.fullName || "Member";
+  const avatarUrl = profile?.avatarUrl ?? null;
+  const initials = initialsFrom(profile?.fullName ?? session?.fullName ?? null, session?.email ?? null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -46,6 +94,7 @@ export function ClientHeader() {
   useEffect(() => {
     setMenuOpen(false);
     setUserMenuOpen(false);
+    setNotifOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -57,15 +106,53 @@ export function ClientHeader() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setUserMenuOpen(false);
+      }
+      if (notifRef.current && !notifRef.current.contains(target)) {
+        setNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let mounted = true;
+    if (profile === null) {
+      getMyProfile()
+        .then((p) => {
+          if (!mounted) return;
+          const value = { fullName: p.fullName ?? null, avatarUrl: p.avatarUrl ?? null };
+          cachedHeaderProfile = value;
+          setProfile(value);
+        })
+        .catch(() => undefined);
+    }
+    if (walletBalance === null) {
+      walletApi
+        .getMyWallet()
+        .then((w) => {
+          if (!mounted) return;
+          cachedHeaderBalance = w.balance;
+          setWalletBalance(w.balance);
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated, profile, walletBalance]);
+
+  const balanceText = walletBalance === null ? "—" : balanceRevealed ? `${vnd.format(walletBalance)} ₫` : "•••••• ₫";
+
   const handleLogout = () => {
+    cachedHeaderProfile = null;
+    cachedHeaderBalance = null;
+    setProfile(null);
+    setWalletBalance(null);
     logout();
     setMenuOpen(false);
     navigate("/", { replace: true });
@@ -107,20 +194,51 @@ export function ClientHeader() {
           <nav aria-label="Primary" className="hidden items-center gap-6 xl:flex">
             {navLinks.map((item) => {
               const active = isActivePath(location.pathname, item.to);
-              return (
-                <Link
-                  key={item.label}
-                  to={item.to}
-                  className={`group relative whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-400 ${
-                    active ? "text-gold-300" : "text-ivory-dim hover:text-ivory"
+              const linkClass = `group relative whitespace-nowrap text-[13px] font-bold uppercase tracking-[0.14em] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-400 ${
+                active ? "text-gold-300" : "text-ivory-dim hover:text-ivory"
+              }`;
+              const underline = (
+                <span
+                  className={`absolute -bottom-2 left-1/2 h-[2px] -translate-x-1/2 bg-gold-400 transition-all duration-300 ${
+                    active ? "w-full" : "w-0 group-hover:w-full"
                   }`}
-                >
+                />
+              );
+              if (item.label === "Join Us") {
+                return (
+                  <div
+                    key={item.label}
+                    className="relative [&:focus-within>div]:visible [&:focus-within>div]:opacity-100 [&:hover>div]:visible [&:hover>div]:opacity-100"
+                  >
+                    <Link to={item.to} className={linkClass}>
+                      {item.label}
+                      {underline}
+                    </Link>
+                    <div className="invisible absolute left-1/2 top-full z-50 w-60 -translate-x-1/2 pt-3 opacity-0 transition-all duration-200">
+                      <div className="overflow-hidden rounded-xl border border-white/10 bg-turf-900/95 p-2 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+                        <Link
+                          to="/join-us"
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
+                        >
+                          <UserPlus size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
+                          Join as a fan
+                        </Link>
+                        <Link
+                          to={organizerHref}
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
+                        >
+                          <Flag size={17} className="shrink-0 text-gold-300" aria-hidden="true" />
+                          {isOrganizer ? "Organizer workspace" : "Organize a championship"}
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <Link key={item.label} to={item.to} className={linkClass}>
                   {item.label}
-                  <span
-                    className={`absolute -bottom-2 left-1/2 h-[2px] -translate-x-1/2 bg-gold-400 transition-all duration-300 ${
-                      active ? "w-full" : "w-0 group-hover:w-full"
-                    }`}
-                  />
+                  {underline}
                 </Link>
               );
             })}
@@ -130,19 +248,46 @@ export function ClientHeader() {
             <div className="hidden items-center gap-4 xl:flex">
               {isAuthenticated ? (
                 <>
-                  <Link
-                    to={organizerHref}
-                    className="mr-2 whitespace-nowrap rounded-full border border-gold-400/40 bg-gold-400/10 px-4 py-2 text-[12px] font-bold uppercase tracking-[0.14em] text-gold-300 transition-colors hover:bg-gold-400/20 hover:text-gold-200"
-                  >
-                    {organizerLabel}
-                  </Link>
+                  <div className="relative" ref={notifRef}>
+                    <button
+                      type="button"
+                      onClick={() => setNotifOpen(!notifOpen)}
+                      aria-label="Notifications"
+                      aria-expanded={notifOpen}
+                      className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-ivory-dim transition-colors hover:bg-white/10 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                    >
+                      <Bell size={18} />
+                    </button>
+                    <AnimatePresence>
+                      {notifOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          transition={{ duration: 0.2 }}
+                          className="absolute right-0 mt-3 w-72 overflow-hidden rounded-xl border border-white/10 bg-turf-900/95 p-2 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                        >
+                          <p className="px-2 py-2 text-sm font-semibold text-ivory">Notifications</p>
+                          <div className="rounded-lg border border-dashed border-white/10 px-3 py-8 text-center">
+                            <Bell size={22} className="mx-auto text-ivory-faint" aria-hidden="true" />
+                            <p className="mt-2 text-sm text-ivory-dim">You're all caught up.</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                   <div className="relative" ref={userMenuRef}>
                     <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
-                    className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 py-2 pl-4 pr-3 text-[13px] font-semibold uppercase tracking-[0.1em] text-ivory transition-all hover:bg-white/10 hover:border-white/20 focus:outline-none"
+                    aria-label="Account menu"
+                    aria-expanded={userMenuOpen}
+                    className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 py-1.5 pl-1.5 pr-3 transition-all hover:bg-white/10 hover:border-white/20 focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
                   >
-                    <User size={16} className="text-gold-400" />
-                    <span>Account</span>
+                    <HeaderAvatar url={avatarUrl} initials={initials} size={34} />
+                    <span className="hidden max-w-[140px] text-left min-[1360px]:block">
+                      <span className="block truncate text-[13px] font-semibold leading-tight text-ivory">{displayName}</span>
+                      <span className="block truncate font-data text-[11px] leading-tight text-gold-300">{balanceText}</span>
+                    </span>
                     <ChevronDown size={14} className={`text-ivory-dim transition-transform duration-300 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
 
@@ -153,31 +298,68 @@ export function ClientHeader() {
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
                         transition={{ duration: 0.2 }}
-                        className="absolute right-0 mt-3 w-56 overflow-hidden rounded-xl border border-white/10 bg-turf-900/95 p-2 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+                        className="absolute right-0 mt-3 w-72 overflow-hidden rounded-xl border border-white/10 bg-turf-900/95 p-2 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl"
                       >
+                        <div className="flex items-center gap-3 px-2 py-2">
+                          <HeaderAvatar url={avatarUrl} initials={initials} size={40} />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-ivory">{displayName}</p>
+                            <p className="truncate text-xs text-ivory-dim">{session?.email ?? ""}</p>
+                          </div>
+                        </div>
+
+                        <Link
+                          to="/wallet"
+                          className="mx-0.5 mt-1 flex items-center gap-3 rounded-lg border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2.5 transition-colors hover:bg-gold-400/10"
+                        >
+                          <Wallet size={18} className="shrink-0 text-gold-300" aria-hidden="true" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[11px] text-ivory-faint">Wallet balance</span>
+                            <span className="block font-data text-sm font-bold text-ivory">{balanceText}</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setBalanceRevealed((v) => !v);
+                            }}
+                            aria-label={balanceRevealed ? "Hide balance" : "Show balance"}
+                            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-ivory-faint transition-colors hover:bg-white/10 hover:text-ivory"
+                          >
+                            {balanceRevealed ? <EyeOff size={15} /> : <Eye size={15} />}
+                          </button>
+                        </Link>
+
+                        <div className="my-1.5 h-px bg-white/10" />
+
                         <a
                           href={dashboardHref}
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
                         >
+                          <LayoutDashboard size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
                           Dashboard
                         </a>
                         <Link
                           to="/profile"
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
                         >
+                          <User size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
                           Profile
                         </Link>
                         <Link
-                          to="/wallet"
+                          to="/spectator/predictions"
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
                         >
-                          Wallet
+                          <Ticket size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
+                          My predictions
                         </Link>
                         <div className="my-1 h-px bg-white/10" />
                         <button
                           onClick={handleLogout}
                           className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-rose-400 transition-colors hover:bg-white/5 hover:text-rose-300"
                         >
+                          <LogOut size={17} className="shrink-0" aria-hidden="true" />
                           Logout
                         </button>
                       </motion.div>
@@ -261,14 +443,24 @@ export function ClientHeader() {
                 {isAuthenticated ? (
                   <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                     <div className="mb-4 flex items-center gap-3 border-b border-white/10 pb-4">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-turf-900 text-gold-400">
-                        <User size={20} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-ivory">My Account</p>
-                        <p className="text-xs text-ivory-dim">Manage your profile</p>
+                      <HeaderAvatar url={avatarUrl} initials={initials} size={44} />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ivory">{displayName}</p>
+                        <p className="truncate text-xs text-ivory-dim">{session?.email ?? "Manage your profile"}</p>
                       </div>
                     </div>
+                    <Link
+                      to="/wallet"
+                      className="mb-3 flex items-center gap-3 rounded-lg border border-gold-400/20 bg-gold-400/[0.06] px-4 py-3"
+                    >
+                      <Wallet size={18} className="shrink-0 text-gold-300" aria-hidden="true" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] text-ivory-faint">Wallet balance</span>
+                        <span className="block font-data text-sm font-bold text-ivory">
+                          {walletBalance === null ? "—" : `${vnd.format(walletBalance)} ₫`}
+                        </span>
+                      </span>
+                    </Link>
                     <div className="flex flex-col gap-2">
                       <Link
                         to={organizerHref}

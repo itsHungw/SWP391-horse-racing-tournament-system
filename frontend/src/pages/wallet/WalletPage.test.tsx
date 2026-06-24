@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -22,11 +22,7 @@ vi.mock("../../api/walletApi", () => ({
 
 describe("WalletPage", () => {
   beforeEach(() => {
-    vi.mocked(walletApi.getMyWallet).mockResolvedValue({
-      userId: 7,
-      balance: 1245875,
-      status: "ACTIVE",
-    });
+    vi.mocked(walletApi.getMyWallet).mockResolvedValue({ userId: 7, balance: 1245875, status: "ACTIVE" });
     vi.mocked(walletApi.getSummary).mockResolvedValue({
       balance: 1245875,
       status: "ACTIVE",
@@ -55,16 +51,6 @@ describe("WalletPage", () => {
         createdAt: "2026-06-19T08:30:00Z",
       },
       {
-        id: 4,
-        amount: -150000,
-        type: "WITHDRAWAL_HOLD",
-        referenceType: "WITHDRAWAL",
-        referenceId: 3,
-        balanceAfter: 1210875,
-        description: "Withdrawal hold",
-        createdAt: "2026-06-18T08:30:00Z",
-      },
-      {
         id: 5,
         amount: 500000,
         type: "TOPUP",
@@ -83,7 +69,7 @@ describe("WalletPage", () => {
         userEmail: "fan@example.com",
         amount: 150000,
         status: "REQUESTED",
-        bankInfo: "RACING FAN - 123456789 - Vietcombank (VCB)",
+        bankInfo: "RACING FAN · 123456789 · Vietcombank (VCB)",
         reviewNote: null,
         reviewedByName: null,
         requestedAt: "2026-06-21T10:00:00Z",
@@ -97,7 +83,7 @@ describe("WalletPage", () => {
         userEmail: "fan@example.com",
         amount: 80000,
         status: "CANCELLED",
-        bankInfo: "RACING FAN - 987654321 - Techcombank (TCB)",
+        bankInfo: "RACING FAN · 987654321 · Techcombank (TCB)",
         reviewNote: null,
         reviewedByName: null,
         requestedAt: "2026-06-18T10:00:00Z",
@@ -122,7 +108,7 @@ describe("WalletPage", () => {
       userEmail: "fan@example.com",
       amount: 100000,
       status: "REQUESTED",
-      bankInfo: "RACING FAN - 123456789 - Vietcombank (VCB)",
+      bankInfo: "RACING FAN · 123456789 · Vietcombank (VCB)",
       reviewNote: null,
       reviewedByName: null,
       requestedAt: "2026-06-22T10:00:00Z",
@@ -136,7 +122,7 @@ describe("WalletPage", () => {
       userEmail: "fan@example.com",
       amount: 150000,
       status: "CANCELLED",
-      bankInfo: "RACING FAN - 123456789 - Vietcombank (VCB)",
+      bankInfo: "RACING FAN · 123456789 · Vietcombank (VCB)",
       reviewNote: null,
       reviewedByName: null,
       requestedAt: "2026-06-21T10:00:00Z",
@@ -145,7 +131,7 @@ describe("WalletPage", () => {
     });
   });
 
-  it("renders a platform-grade wallet with money states, performance, top-up, ledger, and payout queue", async () => {
+  it("renders money states, performance, ledger, and the active payout request", async () => {
     render(
       <MemoryRouter initialEntries={["/wallet?topup=success"]}>
         <WalletPage />
@@ -162,17 +148,28 @@ describe("WalletPage", () => {
     expect(screen.getByRole("img", { name: /performance: net result \+15,000 vnd/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /performance/i })).toBeInTheDocument();
 
-    const topUp = screen.getByRole("region", { name: /add money/i });
-    expect(within(topUp).getByRole("button", { name: /top up 50,000 vnd/i })).toBeEnabled();
-    expect(within(topUp).getByLabelText(/custom top-up amount/i)).toBeInTheDocument();
-
     const ledger = screen.getByRole("table", { name: /wallet ledger/i });
     expect(within(ledger).getByText("Race payout")).toBeInTheDocument();
     expect(within(ledger).getByText("+25,000 VND")).toBeInTheDocument();
-    expect(screen.getByText(/cancelled/i)).toBeInTheDocument();
+
+    expect(screen.getByRole("heading", { name: /payout queue/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /cancel withdrawal 3/i })).toBeInTheDocument();
   });
 
-  it("opens the single-screen withdraw sheet and submits to the selected saved account", async () => {
+  it("opens the add-money sheet from the hero", async () => {
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /^add money$/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /add money/i });
+    expect(within(dialog).getByLabelText(/top-up amount/i)).toBeInTheDocument();
+  });
+
+  it("opens the withdraw sheet and submits to the selected saved account", async () => {
     render(
       <MemoryRouter initialEntries={["/wallet"]}>
         <WalletPage />
@@ -191,14 +188,11 @@ describe("WalletPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /withdraw 100,000 vnd/i }));
 
     await waitFor(() => {
-      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(
-        100000,
-        "RACING FAN · 123456789 · Vietcombank (VCB)",
-      );
+      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(100000, "RACING FAN · 123456789 · Vietcombank (VCB)");
     });
   });
 
-  it("cancels requested withdrawals from the payout queue", async () => {
+  it("cancels a requested withdrawal from the payout queue", async () => {
     render(
       <MemoryRouter initialEntries={["/wallet"]}>
         <WalletPage />
@@ -211,5 +205,16 @@ describe("WalletPage", () => {
     await waitFor(() => {
       expect(walletApi.cancelWithdrawal).toHaveBeenCalledWith(3);
     });
+  });
+
+  it("reveals cancelled requests under past requests", async () => {
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /past requests/i }));
+    expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 });
