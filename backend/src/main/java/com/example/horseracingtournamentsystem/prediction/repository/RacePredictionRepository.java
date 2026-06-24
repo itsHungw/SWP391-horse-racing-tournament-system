@@ -71,4 +71,15 @@ public interface RacePredictionRepository extends JpaRepository<RacePrediction, 
               )
             """)
     long sumWagersByRaceAndTypeAndParticipant(@org.springframework.data.repository.query.Param("raceId") Long raceId, @org.springframework.data.repository.query.Param("type") String type, @org.springframework.data.repository.query.Param("participantId") Long participantId);
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COALESCE(SUM(p.wagerAmount), 0)
+            FROM RacePrediction p
+            WHERE p.spectator.id = :userId
+              AND p.status IN (
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING,
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED
+              )
+            """)
+    long sumOpenStakeBySpectator(@org.springframework.data.repository.query.Param("userId") Long userId);
 }

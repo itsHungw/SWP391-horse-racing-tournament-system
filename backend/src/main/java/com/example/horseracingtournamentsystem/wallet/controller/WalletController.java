@@ -3,8 +3,10 @@ package com.example.horseracingtournamentsystem.wallet.controller;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.dto.WalletResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.WalletSummaryResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.WalletTransactionResponse;
 import com.example.horseracingtournamentsystem.wallet.service.WalletService;
+import com.example.horseracingtournamentsystem.wallet.service.WalletSummaryService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,12 +23,19 @@ import org.springframework.web.server.ResponseStatusException;
 public class WalletController {
 
     private final WalletService walletService;
+    private final WalletSummaryService walletSummaryService;
     private final UserRepository userRepository;
 
     @GetMapping("/me")
     public ResponseEntity<WalletResponse> getMyWallet(Authentication authentication) {
         User user = currentUser(authentication);
         return ResponseEntity.ok(WalletResponse.from(walletService.getOrCreateAccount(user)));
+    }
+
+    @GetMapping("/me/summary")
+    public ResponseEntity<WalletSummaryResponse> getMySummary(Authentication authentication) {
+        User user = currentUser(authentication);
+        return ResponseEntity.ok(walletSummaryService.getSummary(user));
     }
 
     @GetMapping("/me/transactions")
