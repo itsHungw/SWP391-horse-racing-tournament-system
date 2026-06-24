@@ -446,13 +446,13 @@ it("renders admin point settings inside the admin shell", async () => {
       "/referee/result-history",
     );
     expect(screen.getByRole("heading", { name: /confirmed race results/i })).toBeInTheDocument();
-    const resultsTable = screen.getByRole("table", { name: /published race results/i });
-    expect(resultsTable).toBeInTheDocument();
-    expect(within(resultsTable).getAllByText("PUBLISHED")).toHaveLength(2);
-    expect(within(resultsTable).getByText("June Stakes - Heat 2")).toBeInTheDocument();
-    expect(within(resultsTable).getByText(/Golden Arrow, Night Bloom, River Comet/i)).toBeInTheDocument();
-    expect(within(resultsTable).getByText(/Track Hazard - Caution Period Enabled/i)).toBeInTheDocument();
-    expect(within(resultsTable).getByText(/Warning: Lane drift/i)).toBeInTheDocument();
+    const resultsContainer = screen.getByRole("region", { name: /published race results/i });
+    expect(resultsContainer).toBeInTheDocument();
+    expect(within(resultsContainer).getAllByText("PUBLISHED")).toHaveLength(2);
+    expect(within(resultsContainer).getByText("June Stakes - Heat 2")).toBeInTheDocument();
+    expect(within(resultsContainer).getByText(/Golden Arrow, Night Bloom, River Comet/i)).toBeInTheDocument();
+    expect(within(resultsContainer).getByText(/Track Hazard - Caution Period Enabled/i)).toBeInTheDocument();
+    expect(within(resultsContainer).getByText(/Warning: Lane drift/i)).toBeInTheDocument();
     expect(screen.queryByText("DRAFT")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /update|publish|save|edit/i })).not.toBeInTheDocument();
 

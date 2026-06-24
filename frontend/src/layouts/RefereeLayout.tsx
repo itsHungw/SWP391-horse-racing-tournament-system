@@ -124,19 +124,25 @@ export function RefereeLayout() {
       <div className="mx-auto grid max-w-[1680px] lg:grid-cols-[318px_minmax(0,1fr)]">
         <aside className="hidden bg-[#062f2b] text-white lg:sticky lg:top-[81px] lg:block lg:h-[calc(100dvh-81px)] lg:border-r lg:border-emerald-950/40">
           <div className="hidden border-b border-white/10 p-5 lg:block">
-            <div className="rounded-lg border border-white/10 bg-white/[0.06] p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.24em] text-emerald-100">
-                On Duty
-              </p>
-              <p className="mt-3 text-lg font-black text-white">{displayName}</p>
-              <p className="mt-1 text-sm font-semibold text-emerald-100">Race Day Official</p>
+            <div className="rounded-xl border border-white/5 bg-white/[0.04] p-4 shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] backdrop-blur-md">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-300">
+                  On Duty
+                </p>
+              </div>
+              <p className="mt-3 text-base font-black text-white leading-none">{displayName}</p>
+              <p className="mt-1.5 text-xs font-semibold text-emerald-200/60">Race Day Official</p>
             </div>
           </div>
 
           <nav aria-label="Referee workspace" className="space-y-7 p-5">
             {refereeNavSections.map((section) => (
               <div key={section.label}>
-                <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-200/70">
+                <p className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-300/50">
                   {section.label}
                 </p>
                 <div className="mt-3 space-y-2">
@@ -148,14 +154,14 @@ export function RefereeLayout() {
                         key={item.href}
                         className={({ isActive }) =>
                           [
-                            "flex min-h-12 items-center gap-3 rounded-lg px-4 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200",
+                            "group flex min-h-12 items-center gap-3 rounded-lg border-l-4 pl-3.5 text-sm font-black transition duration-200 ease-in-out hover:translate-x-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-250",
                             isActive
-                              ? "bg-[#00806d] text-white shadow-sm"
-                              : "text-emerald-50/85 hover:bg-white/10 hover:text-white",
+                              ? "border-emerald-400 bg-[#00806d] text-white shadow-sm"
+                              : "border-transparent text-emerald-50/85 hover:bg-white/5 hover:text-white",
                           ].join(" ")
                         }
                       >
-                        <Icon aria-hidden="true" className="h-5 w-5" />
+                        <Icon aria-hidden="true" className="h-5 w-5 shrink-0" />
                         <span>{item.label}</span>
                       </NavLink>
                     );

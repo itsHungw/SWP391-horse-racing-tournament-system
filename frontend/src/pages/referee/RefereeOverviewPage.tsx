@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { getAssignedRaces } from "../../api/refereeApi";
 import { AssignedRaceTimeline } from "./race-day/AssignedRaceTimeline";
 import { MonthRaceCalendar } from "./race-day/MonthRaceCalendar";
-import { RaceDetailDrawer } from "./race-day/RaceDetailDrawer";
+import { StewardDeskPanel } from "./race-day/StewardDeskPanel";
 import { normalizeAssignedRace } from "./race-day/refereeRaceDayAdapter";
 import { AssignedRace } from "./race-day/refereeRaceDayModels";
 import { countRaceStatuses } from "./refereeUi";
@@ -50,37 +50,36 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
   }, [loadRaces]);
 
   useEffect(() => {
-    if (!raceIdParam || races.length === 0) {
+    if (!raceIdParam) {
+      setSelectedRace(undefined);
+      return;
+    }
+
+    if (races.length === 0) {
       return;
     }
 
     const raceId = Number(raceIdParam);
     if (!Number.isFinite(raceId)) {
+      setSelectedRace(undefined);
       return;
     }
 
     const matchingRace = races.find((race) => race.id === raceId);
-    if (matchingRace) {
-      setSelectedRace(matchingRace);
-    }
+    setSelectedRace(matchingRace);
   }, [raceIdParam, races]);
 
   const handleSelectRace = useCallback(
-    (race: AssignedRace) => {
-      setSelectedRace(race);
-      if (raceIdParam) {
+    (race: AssignedRace | undefined) => {
+      if (race) {
+        setSearchParams({ raceId: String(race.id) }, { replace: true });
+        setViewMode("queue");
+      } else {
         setSearchParams({}, { replace: true });
       }
     },
-    [raceIdParam, setSearchParams]
+    [setSearchParams]
   );
-
-  const handleCloseDrawer = useCallback(() => {
-    setSelectedRace(undefined);
-    if (raceIdParam) {
-      setSearchParams({}, { replace: true });
-    }
-  }, [raceIdParam, setSearchParams]);
 
   if (loading) {
     return (
@@ -165,13 +164,7 @@ export function RefereeOverviewPage({ mode = "all", now }: RefereeOverviewPagePr
         ) : (
           <MonthRaceCalendar races={races} referenceDate={referenceNow} onRaceSelect={handleSelectRace} />
         )}
-        {selectedRace ? (
-          <RaceDetailDrawer onClose={handleCloseDrawer} race={selectedRace} />
-        ) : (
-          <aside className="hidden rounded-xl border border-dashed border-slate-300 bg-white p-5 text-sm leading-6 text-slate-500 xl:block">
-            Select a race card to inspect the assignment brief and continue the next officiating action.
-          </aside>
-        )}
+        <StewardDeskPanel races={races} now={referenceNow} onSelectRace={handleSelectRace} />
       </div>
     </div>
   );
