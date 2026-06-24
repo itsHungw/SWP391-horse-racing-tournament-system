@@ -26,7 +26,23 @@ export interface WalletTransaction {
   createdAt: string;
 }
 
-export type WithdrawalStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "PAID";
+export interface WalletSummary {
+  balance: number;
+  status: WalletStatus;
+  inPlay: number;
+  pendingWithdrawal: number;
+}
+
+export interface BankAccount {
+  id: number;
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  label: string | null;
+}
+
+export type WithdrawalStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "PAID" | "CANCELLED";
 
 export interface Withdrawal {
   id: number;
