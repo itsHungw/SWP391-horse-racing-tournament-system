@@ -11,4 +11,11 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     List<WithdrawalRequest> findByStatusOrderByRequestedAtAsc(WithdrawalStatus status);
 
     List<WithdrawalRequest> findAllByOrderByRequestedAtDesc();
+
+    @org.springframework.data.jpa.repository.Query(
+            "select coalesce(sum(w.amount), 0) from WithdrawalRequest w "
+                    + "where w.user.id = :userId and w.status in :statuses")
+    long sumAmountByUserAndStatusIn(
+            @org.springframework.data.repository.query.Param("userId") Long userId,
+            @org.springframework.data.repository.query.Param("statuses") java.util.Collection<WithdrawalStatus> statuses);
 }

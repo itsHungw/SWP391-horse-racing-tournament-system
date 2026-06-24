@@ -97,6 +97,21 @@ public class WithdrawalService {
         return request;
     }
 
+    @Transactional
+    public WithdrawalRequest cancel(Long id, String userEmail) {
+        WithdrawalRequest request = get(id);
+        if (!request.getUser().getEmail().equalsIgnoreCase(userEmail)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only cancel your own request");
+        }
+        request.cancelByUser();
+        walletService.adjust(
+                request.getUser(), request.getAmount(), WalletTransactionType.WITHDRAWAL_REFUND,
+                WalletTransaction.REF_WITHDRAWAL, request.getId(),
+                "Withdrawal cancelled — refund for request #" + request.getId()
+        );
+        return request;
+    }
+
     private WithdrawalRequest get(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Withdrawal request not found"));

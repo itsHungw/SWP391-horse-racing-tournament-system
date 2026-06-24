@@ -97,6 +97,13 @@ public class WithdrawalRequest {
         this.paidAt = LocalDateTime.now();
     }
 
+    /** User huỷ lệnh của chính mình khi còn chờ duyệt. */
+    public void cancelByUser() {
+        ensureStatus(WithdrawalStatus.REQUESTED);
+        this.status = WithdrawalStatus.CANCELLED;
+        this.reviewedAt = LocalDateTime.now();
+    }
+
     private void ensureStatus(WithdrawalStatus expected) {
         if (this.status != expected) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
