@@ -49,6 +49,7 @@ class HorseIntegrationTest {
 
     private String adminToken;
     private String spectatorToken;
+    private String ownerToken;
     private User ownerUser;
 
     @BeforeEach
@@ -60,6 +61,7 @@ class HorseIntegrationTest {
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Admin"));
         Role specRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
+        Role ownerRole = roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
 
         User adminUser = User.pending("Admin User", "admin@example.com", "hash");
         adminUser.verifyEmail();
@@ -69,9 +71,10 @@ class HorseIntegrationTest {
         ownerUser = User.pending("Owner User", "owner@example.com", "hash");
         ownerUser.verifyEmail();
         ownerUser = userRepository.save(ownerUser);
-        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(ownerUser, specRole, adminUser));
+        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(ownerUser, ownerRole, adminUser));
 
         adminToken = jwtService.generateToken(adminUser.getEmail(), Set.of("ADMIN"));
+        ownerToken = jwtService.generateToken(ownerUser.getEmail(), Set.of("HORSE_OWNER"));
         spectatorToken = jwtService.generateToken(ownerUser.getEmail(), Set.of("SPECTATOR"));
     }
 
@@ -146,5 +149,60 @@ class HorseIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Only pending horses can be reviewed"));
+    }
+
+    @Test
+    void ownerCanUpdateOwnHorse() throws Exception {
+        Horse horse = Horse.create(ownerUser, "Old Name", "H_CODE_UPD_1", "Thoroughbred", "MALE", LocalDate.of(2018, 5, 10), "Brown");
+        horse = horseRepository.save(horse);
+
+        String updateBody = """
+                {
+                    "name": "New Name",
+                    "breed": "Quarter Horse",
+                    "gender": "FEMALE",
+                    "dateOfBirth": "2019-06-12",
+                    "color": "Grey",
+                    "heightCm": 160,
+                    "weightKg": 500,
+                    "healthStatus": "Healthy",
+                    "medicalNote": "Updated Note",
+                    "description": "Updated Description"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/owner/horses/{id}", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("New Name"))
+                .andExpect(jsonPath("$.breed").value("Quarter Horse"))
+                .andExpect(jsonPath("$.gender").value("FEMALE"))
+                .andExpect(jsonPath("$.color").value("Grey"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void cannotUpdateOtherOwnerHorse() throws Exception {
+        User otherOwner = User.pending("Other Owner", "other@example.com", "hash");
+        otherOwner.verifyEmail();
+        otherOwner = userRepository.save(otherOwner);
+
+        Horse horse = Horse.create(otherOwner, "Other Horse", "H_CODE_UPD_2", "Thoroughbred", "MALE", LocalDate.now(), "Brown");
+        horse = horseRepository.save(horse);
+
+        String updateBody = """
+                {
+                    "name": "Hacked Name",
+                    "gender": "MALE"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/owner/horses/{id}", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isNotFound());
     }
 }
