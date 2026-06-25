@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.horse.controller;
 
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseDocumentMultipartRequest;
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseMultipartRequest;
+import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseUpdateRequest;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseDocumentResponse;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseResponse;
 import com.example.horseracingtournamentsystem.horse.service.HorseService;
@@ -19,6 +20,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -62,6 +65,15 @@ public class OwnerHorseController {
     @ResponseStatus(HttpStatus.CREATED)
     public HorseResponse create(Authentication authentication, @Valid @ModelAttribute OwnerHorseMultipartRequest request) {
         return horseService.createOwnerHorse(authentication.getName(), request);
+    }
+
+    @PutMapping("/{id}")
+    public HorseResponse update(
+            Authentication authentication,
+            @PathVariable Long id,
+            @Valid @RequestBody OwnerHorseUpdateRequest request
+    ) {
+        return horseService.updateOwnerHorse(authentication.getName(), id, request);
     }
 
     @PostMapping(path = "/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
