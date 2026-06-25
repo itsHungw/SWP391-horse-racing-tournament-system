@@ -2,6 +2,8 @@ package com.example.horseracingtournamentsystem.user.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -31,7 +33,7 @@ public class RefereeProfile {
     @Column(name = "experience_years", nullable = false)
     private int experienceYears;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "bio")
     private String bio;
 
