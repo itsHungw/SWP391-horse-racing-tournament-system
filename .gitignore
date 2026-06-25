@@ -32,3 +32,5 @@ pptx/
 /playwright/.auth/
 
 frontend/.vite
+
+run-backend.ps1
