@@ -50,6 +50,7 @@ import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
 import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
+import { OwnerJockeyInvitationsPage } from "../pages/owner/OwnerJockeyInvitationsPage";
 import { JockeyChampionshipsPage } from "../pages/jockey/JockeyChampionshipsPage";
 import { JockeyContractsPage } from "../pages/jockey/JockeyContractsPage";
 import { JockeyDashboardPage } from "../pages/jockey/JockeyDashboardPage";
@@ -145,6 +146,7 @@ export function AppRouter() {
 <Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
 <Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
 <Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
+<Route path="owner/invitations" element={authRoute(<OwnerJockeyInvitationsPage />)} />
 
 <Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
 <Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />

@@ -437,3 +437,16 @@ export type PageResponse<T> = {
   totalElements: number;
   totalPages: number;
 };
+
+export type OwnerHorseUpdateRequest = {
+  name: string;
+  breed?: string;
+  gender: "MALE" | "FEMALE" | string;
+  dateOfBirth?: string;
+  color?: string;
+  heightCm?: number;
+  weightKg?: number;
+  healthStatus?: string;
+  medicalNote?: string;
+  description?: string;
+};
