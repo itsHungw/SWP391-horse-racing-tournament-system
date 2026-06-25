@@ -1,27 +1,24 @@
 -- V12: point ledger -> wallet ledger (tiền thật VND). int -> BIGINT + money-safety primitives.
--- Tests dùng H2 (ddl-auto create-drop, flyway off) nên migration này chỉ chạy trên SQL Server.
+-- Dialect: PostgreSQL. (Tests dùng H2 create-drop, flyway off, nên migration chỉ chạy trên Postgres.)
 
--- 1) Drop CHECK (tên auto-generated) trên point_transactions.transaction_type — enum sẽ đổi.
-DECLARE @ck sysname = (
-    SELECT cc.name FROM sys.check_constraints cc
-    JOIN sys.columns c ON c.object_id = cc.parent_object_id AND c.column_id = cc.parent_column_id
-    WHERE cc.parent_object_id = OBJECT_ID('point_transactions') AND c.name = 'transaction_type'
-);
-IF @ck IS NOT NULL EXEC('ALTER TABLE point_transactions DROP CONSTRAINT ' + @ck);
+-- 1) Drop CHECK trên point_transactions.transaction_type — enum sẽ đổi.
+--    Postgres tự đặt tên check inline 1-cột là <table>_<column>_check; drop theo tên đó.
+ALTER TABLE point_transactions DROP CONSTRAINT IF EXISTS point_transactions_transaction_type_check;
 
--- 2) Rename tables.
-EXEC sp_rename 'user_point_accounts', 'wallets';
-EXEC sp_rename 'point_transactions',  'wallet_transactions';
+-- 2) Rename tables (T-SQL sp_rename -> Postgres ALTER TABLE ... RENAME TO).
+ALTER TABLE user_point_accounts RENAME TO wallets;
+ALTER TABLE point_transactions  RENAME TO wallet_transactions;
 
 -- 3) Rename money column + widen BIGINT (VND đồng).
-EXEC sp_rename 'wallets.point_balance', 'balance', 'COLUMN';
-ALTER TABLE wallets             ALTER COLUMN balance BIGINT NOT NULL;
-ALTER TABLE wallet_transactions ALTER COLUMN amount  BIGINT NOT NULL;
+--    T-SQL "ALTER COLUMN x BIGINT" -> Postgres "ALTER COLUMN x TYPE bigint".
+ALTER TABLE wallets RENAME COLUMN point_balance TO balance;
+ALTER TABLE wallets             ALTER COLUMN balance TYPE bigint;
+ALTER TABLE wallet_transactions ALTER COLUMN amount  TYPE bigint;
 
 -- 4) Cột mới: trạng thái ví + running balance cho audit.
-ALTER TABLE wallets ADD status VARCHAR(20) NOT NULL CONSTRAINT DF_wallets_status DEFAULT 'ACTIVE';
+ALTER TABLE wallets ADD COLUMN status varchar(20) NOT NULL DEFAULT 'ACTIVE';
 ALTER TABLE wallets ADD CONSTRAINT CK_wallets_status CHECK (status IN ('ACTIVE', 'LOCKED'));
-ALTER TABLE wallet_transactions ADD balance_after BIGINT NULL;
+ALTER TABLE wallet_transactions ADD COLUMN balance_after bigint;
 
 -- 5) Map enum cũ -> mới (BLOG_REWARD/FIRST_LOGIN_BONUS đã bị V11 xóa).
 UPDATE wallet_transactions SET transaction_type = 'BET_PLACED' WHERE transaction_type = 'PREDICTION_ENTRY';
@@ -34,7 +31,7 @@ ALTER TABLE wallet_transactions ADD CONSTRAINT CK_wallet_txn_type CHECK (
                          'WITHDRAWAL_HOLD', 'WITHDRAWAL_REFUND', 'ADMIN_ADJUSTMENT')
 );
 
--- 7) Idempotency được DB ép buộc (filtered vì reference_id có thể NULL).
+-- 7) Idempotency được DB ép buộc (partial vì reference_id có thể NULL).
 CREATE UNIQUE INDEX UQ_wallet_txn_idem
     ON wallet_transactions (reference_type, reference_id, transaction_type)
     WHERE reference_id IS NOT NULL;
