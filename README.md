@@ -44,12 +44,12 @@ npm run dev
   14330 is used so the container does not clash with a locally installed SQL
   Server on 1433.
 - `.env` is gitignored — never commit real secrets. Keep `.env.example` current.
-- Dev admin (dev profile only, seeded on first boot): `admin@local.dev` /
-  `Admin@12345`.
+- Dev admin (dev profile only, seeded on first boot): `admin@gmail.com` /
+  `123456789`.
 - Client demo accounts (dev profile only, all use `Demo@12345`):
-  - Horse owner: `owner@local.dev`
-  - Jockeys: `jockey1@local.dev` through `jockey4@local.dev`
-  - Spectators: `spectator@local.dev`, `spectator2@local.dev`
+  - Horse owner: `owner@gmail.com`
+  - Jockeys: `jockey1@gmail.com` through `jockey4@gmail.com`
+  - Spectators: `spectator@gmail.com`, `spectator2@gmail.com`
 
 The client demo seed includes two championships, three races, active race
 fields, a published result, and both pending and settled predictions. It is

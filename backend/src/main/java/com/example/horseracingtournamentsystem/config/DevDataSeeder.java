@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DevDataSeeder implements ApplicationRunner {
 
-    private static final String ADMIN_EMAIL = "admin@local.dev";
-    private static final String ADMIN_PASSWORD = "Admin@12345";
+    private static final String ADMIN_EMAIL = "admin@gmail.com";
+    private static final String ADMIN_PASSWORD = "123456789";
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
