@@ -4,6 +4,8 @@ import { AlertTriangle, Check, Plus, ShieldCheck, X } from "lucide-react";
 import { walletApi } from "../../api/walletApi";
 import { Modal } from "./Modal";
 
+import vnpayLogo from "../../../public/banks/VNPAY.svg";
+
 const vnd = new Intl.NumberFormat("en-US");
 const PRESETS = [50000, 100000, 200000, 500000];
 const TOPUP_MIN = 10000;
@@ -93,11 +95,10 @@ export function TopUpSheet({
               key={preset}
               type="button"
               onClick={() => setAmount(String(preset))}
-              className={`min-h-12 rounded-xl border font-data text-sm font-bold transition-colors ${
-                amount === String(preset)
+              className={`min-h-12 rounded-xl border font-data text-sm font-bold transition-colors ${amount === String(preset)
                   ? "border-gold-400 bg-gold-400/10 text-gold-200"
                   : "border-white/10 bg-white/[0.03] text-ivory-dim hover:border-gold-400/40 hover:text-gold-200"
-              }`}
+                }`}
             >
               +{vnd.format(preset)}
             </button>
@@ -107,8 +108,12 @@ export function TopUpSheet({
         {/* Payment method */}
         <p className="mt-6 font-data text-[11px] uppercase tracking-[0.2em] text-ivory-faint">Payment method</p>
         <div className="mt-2 flex items-center gap-3 rounded-xl border border-gold-400/40 bg-gold-400/[0.06] p-3.5">
-          <span className="grid h-9 w-12 shrink-0 place-items-center rounded-md bg-white font-data text-[11px] font-black text-[#004a8f]">
-            VNPay
+          <span className="grid h-15 w-18 shrink-0 place-items-center rounded-md bg-white">
+            <img
+              src={vnpayLogo}
+              alt="VNPay"
+              className="h-full w-full object-contain"
+            />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-semibold text-ivory">VNPay gateway</span>
