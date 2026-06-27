@@ -156,7 +156,7 @@ export function HomePage() {
     `${homeStats[1].value} Race Days`,
     `${homeStats[2].value} Championships`,
     `${homeStats[3].value} Season Finale`,
-    "Virtual Points Only",
+    "VND Pool Estimates",
   ];
 
   return (
@@ -211,7 +211,7 @@ export function HomePage() {
               </div>
             </MotionStaggerItem>
             <MotionStaggerItem>
-              <p className="eyebrow mt-7 text-ivory-faint">Virtual points only — no real-money betting</p>
+              <p className="eyebrow mt-7 text-ivory-faint">VND wallet picks - final odds lock at race start</p>
             </MotionStaggerItem>
           </MotionStagger>
         </div>
@@ -389,8 +389,8 @@ export function HomePage() {
                   Read the race. Earn the reward.
                 </h2>
                 <p className="mt-6 max-w-lg text-lg font-light leading-relaxed text-ivory-dim">
-                  Make your race picks before the gates open and earn virtual points when the form runs your
-                  way. Free to play, built for spectators — never a real-money bet.
+                  Make your race picks before the gates open. Your VND stake, projected return, and possible
+                  loss are shown before confirmation.
                 </p>
                 <div className="mt-9 flex flex-wrap items-center gap-4">
                   <Link
@@ -400,7 +400,7 @@ export function HomePage() {
                     Enter the Arena
                     <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
                   </Link>
-                  <span className="eyebrow text-ivory-faint">Virtual points only</span>
+                  <span className="eyebrow text-ivory-faint">Pool estimate, final at lock</span>
                 </div>
               </MotionReveal>
 
@@ -408,8 +408,8 @@ export function HomePage() {
                 <div className="space-y-3">
                   {[
                     ["01", "Pick the Winner", "Choose from the field before post time."],
-                    ["02", "Set Your Entry", "Spend virtual points — never real money."],
-                    ["03", "Collect Rewards", "Earn points when your pick runs true."],
+                    ["02", "Set Your Stake", "Review the VND receipt before you confirm."],
+                    ["03", "Settle at Lock", "Returns are based on the final locked odds."],
                   ].map(([n, t, d]) => (
                     <div
                       key={n}

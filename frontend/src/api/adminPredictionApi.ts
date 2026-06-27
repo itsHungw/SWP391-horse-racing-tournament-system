@@ -11,10 +11,7 @@ export interface AdminRaceSummary {
   predictionStatus: string;
   totalPredictions: number;
   winnerPickCount: number;
-  top3PickCount: number;
   correctWinnerCount: number;
-  exactTop3Count: number;
-  partialTop3Count: number;
   incorrectCount: number;
   settlementJobStatus: string | null;
 }
@@ -29,10 +26,7 @@ export interface AdminRaceDetail {
   summary: {
     totalPredictions: number;
     winnerPickCount: number;
-    top3PickCount: number;
     winnerCorrectCount: number;
-    exactTop3Count: number;
-    top3AnyOrderCount: number;
     incorrectCount: number;
     refundedCount: number;
     rewardedPoints: number;

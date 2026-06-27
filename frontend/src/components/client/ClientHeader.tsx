@@ -167,7 +167,7 @@ export function ClientHeader() {
             <span className="mr-2 inline-block h-1.5 w-1.5 rounded-full bg-emerald-soft align-middle live-pulse" />
             Championship Season — Official schedules, race cards, and results
           </p>
-          <p className="eyebrow text-ivory-faint tracking-wider">Virtual points only · No real-money betting</p>
+          <p className="eyebrow text-ivory-faint tracking-wider">VND wallet picks - pool estimates lock at race start</p>
         </div>
       </div>
 

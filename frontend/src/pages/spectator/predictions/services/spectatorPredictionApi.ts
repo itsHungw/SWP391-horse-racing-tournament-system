@@ -2,6 +2,7 @@ import { httpClient } from "../../../../api/httpClient";
 import {
   OpenRacePrediction,
   PredictionOptions,
+  PredictionQuote,
   UserPrediction,
   PointAccount,
   PredictionType,
@@ -19,8 +20,6 @@ export const spectatorPredictionApi = {
     raceId: number;
     predictionType: PredictionType;
     predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
     predictedPosition?: number | null;
     matchupOpponentId?: number | null;
     handicapSeconds?: number | null;
@@ -28,18 +27,16 @@ export const spectatorPredictionApi = {
   }) =>
     httpClient.post<UserPrediction>("/predictions", payload).then(res => res.data),
 
-  updatePrediction: (predictionId: number, payload: {
+  quotePrediction: (payload: {
     raceId: number;
     predictionType: PredictionType;
     predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
     predictedPosition?: number | null;
     matchupOpponentId?: number | null;
     handicapSeconds?: number | null;
     wagerAmount: number;
   }) =>
-    httpClient.put<UserPrediction>(`/predictions/${predictionId}`, payload).then(res => res.data),
+    httpClient.post<PredictionQuote>("/predictions/quote", payload).then(res => res.data),
 
   getMyPredictions: () =>
     httpClient.get<UserPrediction[]>("/predictions/my").then(res => res.data),

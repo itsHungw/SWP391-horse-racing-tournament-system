@@ -206,14 +206,14 @@ export function AdminPredictionsWorkspace() {
                         <td className="px-6 py-4 text-right font-black text-[#070f4f]">
                           <p>{race.totalPredictions}</p>
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            {race.winnerPickCount} Win / {race.top3PickCount} Top3
+                            {race.winnerPickCount} Win
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold">
                           {race.predictionStatus === "COMPLETED" ? (
                             <div>
                               <p className="text-emerald-700 font-bold">
-                                +{race.correctWinnerCount + race.exactTop3Count + race.partialTop3Count} correct
+                                +{race.correctWinnerCount} correct
                               </p>
                               <p className="text-slate-400 text-xs mt-0.5">
                                 {race.incorrectCount} incorrect

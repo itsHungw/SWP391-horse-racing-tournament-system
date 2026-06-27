@@ -38,11 +38,10 @@ const options: PredictionOptions = {
   raceName: "Twilight Sprint",
   raceStatus: "SCHEDULED",
   predictionOpen: true,
-  entryCost: { winner: 10, top3: 20 },
-  rewardConfig: { winnerReward: 30, top3ExactReward: 90, top3AnyOrderReward: 45 },
+  entryCost: { winner: 10 },
+  rewardConfig: { winnerReward: 30 },
   myPredictions: [],
   winnerDistributionVisible: false,
-  top3DistributionVisible: false,
   options: [
     { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider" },
     { raceParticipantId: 2, startNumber: 2, laneNumber: 5, horseName: "Silver Reef", jockeyName: "M. Swift" },

@@ -69,8 +69,6 @@ export function useSpectatorPredictions() {
     raceId: number;
     predictionType: PredictionType;
     predictedWinnerId: number;
-    predictedSecondId?: number | null;
-    predictedThirdId?: number | null;
     predictedPosition?: number | null;
     wagerAmount: number;
   }) => {
@@ -82,29 +80,24 @@ export function useSpectatorPredictions() {
     }
   };
 
-  const updatePrediction = async (
-    predictionId: number,
-    payload: {
-      raceId: number;
-      predictionType: PredictionType;
-      predictedWinnerId: number;
-      predictedSecondId?: number | null;
-      predictedThirdId?: number | null;
-      predictedPosition?: number | null;
-      wagerAmount: number;
-    }
-  ) => {
-    try {
-      await spectatorPredictionApi.updatePrediction(predictionId, payload);
-      await loadInitialData();
-    } catch (err: any) {
-      throw new Error(err?.response?.data?.message || "Failed to update prediction.");
-    }
-  };
-
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (!selectedRace) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const options = await spectatorPredictionApi.getPredictionOptions(selectedRace.raceId);
+        setPredictionOptions(options);
+      } catch {
+        // Keep the current board stable if one realtime refresh fails.
+      }
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [selectedRace?.raceId]);
 
   return {
     pointAccount,
@@ -117,7 +110,6 @@ export function useSpectatorPredictions() {
     error,
     selectRace,
     submitPrediction,
-    updatePrediction,
     refreshAll: loadInitialData
   };
 }

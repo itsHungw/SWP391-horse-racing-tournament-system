@@ -13,16 +13,12 @@ public class SubmitPredictionRequest {
     private Long raceId;
 
     @NotNull(message = "Prediction type is required")
-    private String predictionType; // WINNER or TOP3
+    private String predictionType; // EXACT_POSITION or HEAD_TO_HEAD
 
     @NotNull(message = "Predicted horse ID is required")
     private Long predictedWinnerId; // race_participants.id
 
     private Integer predictedPosition; // Required for EXACT_POSITION
-
-    private Long predictedSecondId; // Required for TOP3
-
-    private Long predictedThirdId; // Required for TOP3
 
     private Long matchupOpponentId;
 
@@ -30,5 +26,5 @@ public class SubmitPredictionRequest {
 
     @NotNull(message = "Wager amount is required")
     @Min(value = 10000, message = "Minimum wager is 10000 points")
-    private Integer wagerAmount;
+    private Long wagerAmount;
 }

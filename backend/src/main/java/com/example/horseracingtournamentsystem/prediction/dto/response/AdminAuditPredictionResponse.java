@@ -21,7 +21,7 @@ public class AdminAuditPredictionResponse {
     private String spectatorEmail;
     private String predictionType;
     private List<String> selections; // List of selected horse names
-    private Integer entryCostPoints;
+    private Long entryCostPoints;
     private PredictionStatus status;
     private String displayStatus; // Submitted, Locked, Won, Lost, Refunded
     private String resultCategory; // Winner Correct, Exact Top 3, Top 3 Any Order, Incorrect, Refunded, Pending, Locked

@@ -1,13 +1,11 @@
-export type PredictionType = "WINNER" | "TOP3" | "EXACT_POSITION" | "HEAD_TO_HEAD" | "WINNING_STREAK";
+export type PredictionType = "WINNER" | "EXACT_POSITION" | "HEAD_TO_HEAD" | "WINNING_STREAK";
 
-export type PredictionStatus = "PENDING" | "LOCKED" | "CORRECT" | "CORRECT_EXACT" | "CORRECT_ANY_ORDER" | "INCORRECT" | "CANCELLED" | "REFUNDED";
+export type PredictionStatus = "PENDING" | "LOCKED" | "CORRECT" | "INCORRECT" | "CANCELLED" | "REFUNDED";
 
 export const predictionStatusLabel: Record<PredictionStatus, string> = {
   PENDING: "Pending",
   LOCKED: "Locked",
   CORRECT: "Correct",
-  CORRECT_EXACT: "Correct",
-  CORRECT_ANY_ORDER: "Correct",
   INCORRECT: "Incorrect",
   CANCELLED: "Cancelled",
   REFUNDED: "Refunded",
@@ -43,19 +41,37 @@ export interface PredictionOptions {
   predictionOpen: boolean;
   entryCost: {
     winner: number;
-    top3: number;
   };
   rewardConfig: {
     winnerReward: number;
-    top3ExactReward: number;
-    top3AnyOrderReward: number;
   };
   myPredictions: UserPrediction[];
   winnerDistributionVisible: boolean;
-  top3DistributionVisible: boolean;
   options: ParticipantOption[];
   positionOddsMatrix?: Record<number, Record<number, number>>;
   h2hMatchups?: HeadToHeadMatchup[];
+}
+
+export interface PredictionQuote {
+  accepted: boolean;
+  raceId: number;
+  predictionType: PredictionType;
+  predictedWinnerId: number;
+  predictedPosition?: number | null;
+  wagerAmount: number;
+  currentOdds: number;
+  oddsAfterStake: number;
+  priceImpactPercent: number;
+  estimatedReturn: number;
+  estimatedProfit: number;
+  potentialLoss: number;
+  playerPoolBefore: number;
+  playerPoolAfter: number;
+  houseFeeAmount: number;
+  netPlayerPoolAfter: number;
+  pricingLiquidity: number;
+  houseFeePercent: number;
+  liquidityNote?: string;
 }
 
 export interface ParticipantOption {
@@ -65,7 +81,7 @@ export interface ParticipantOption {
   horseName: string;
   jockeyName: string;
   communityWinnerRate?: number | null;
-  communityTop3Rate?: number | null;
+  winOdds?: number | null; // fair win odds (1/p) — used to price streak legs
 }
 
 export interface UserPrediction {
@@ -80,10 +96,6 @@ export interface UserPrediction {
   predictedWinnerId: number; // Horse ID
   predictedPosition?: number;
   predictedWinnerName?: string;
-  predictedSecondId?: number;
-  predictedSecondName?: string;
-  predictedThirdId?: number;
-  predictedThirdName?: string;
   entryCostPoints: number;
   rewardPoints: number;
   status: PredictionStatus;

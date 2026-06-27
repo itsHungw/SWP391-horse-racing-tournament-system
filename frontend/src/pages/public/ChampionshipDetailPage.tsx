@@ -540,7 +540,7 @@ export function ChampionshipDetailPage() {
               Call the field before the gates open.
             </h2>
             <p className="mt-4 max-w-lg text-lg font-light text-ivory-dim">
-              Free-to-play predictions with virtual points — never a real-money bet.
+              VND wallet predictions with projected returns shown before confirmation.
             </p>
           </div>
           <Link

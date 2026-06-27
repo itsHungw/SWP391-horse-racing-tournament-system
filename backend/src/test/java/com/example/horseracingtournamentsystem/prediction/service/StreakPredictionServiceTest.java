@@ -55,10 +55,12 @@ class StreakPredictionServiceTest {
         service = new StreakPredictionService(
                 streakRepository, userRepository, tournamentRepository,
                 raceRepository, participantRepository, oddsService, walletService);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "parlayTakeout", new BigDecimal("0.20"));
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxTotalOdds", new BigDecimal("100"));
     }
 
     @Test
-    void submitAddsLegOddsAndDeductsUsingStreakReference() {
+    void submitMultipliesFairLegOddsWithSingleMargin() {
         User spectator = mock(User.class);
         Tournament tournament = mock(Tournament.class);
         Race raceOne = race(101L, "Race One");
@@ -77,9 +79,9 @@ class StreakPredictionServiceTest {
         when(participantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
                 anyLong(), any(ParticipantStatus.class)))
                 .thenReturn(List.of(horseOne, horseTwo));
-        when(oddsService.calculatePositionOddsMatrix(anyLong(), anyList())).thenReturn(Map.of(
-                1001L, Map.of(1, new BigDecimal("1.50")),
-                1002L, Map.of(1, new BigDecimal("2.25"))));
+        when(oddsService.getWinProbabilities(anyList())).thenReturn(Map.of(
+                1001L, new BigDecimal("0.50"),
+                1002L, new BigDecimal("0.40")));
         when(walletService.getBalance(7L)).thenReturn(100_000L);
         when(streakRepository.saveAndFlush(any(StreakPrediction.class))).thenAnswer(invocation -> {
             StreakPrediction streak = invocation.getArgument(0);
@@ -89,12 +91,13 @@ class StreakPredictionServiceTest {
 
         SubmitStreakPredictionRequest request = new SubmitStreakPredictionRequest();
         request.setTournamentId(3L);
-        request.setWagerAmount(10_000);
+        request.setWagerAmount(10_000L);
         request.setLegs(List.of(leg(101L, 1001L), leg(102L, 1002L)));
 
         StreakPredictionResponse response = service.submitStreakPrediction(7L, request);
 
-        assertEquals(new BigDecimal("3.75"), response.getTotalOdds());
+        // fair odds 1/0.50 * 1/0.40 = 2.0 * 2.5 = 5.0 ; * (1 - 0.20 parlay margin) = 4.00
+        assertEquals(new BigDecimal("4.00"), response.getTotalOdds());
         verify(walletService).adjust(
                 spectator, -10_000L, WalletTransactionType.BET_PLACED,
                 WalletTransaction.REF_STREAK_PREDICTION, 41L,

@@ -6,6 +6,7 @@ import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitPred
 import com.example.horseracingtournamentsystem.prediction.dto.request.SubmitStreakPredictionRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionOptionsResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.OpenRacePredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionQuoteResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.StreakPredictionResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.UserPredictionResponse;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
@@ -20,9 +21,11 @@ import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRe
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -133,7 +136,6 @@ public class SpectatorPredictionController {
         res.setOptions(options);
 
         boolean hasWinnerPred = false;
-        boolean hasTop3Pred = false;
 
         if (authentication != null) {
             User user = userRepo.findByEmail(authentication.getName()).orElse(null);
@@ -147,22 +149,28 @@ public class SpectatorPredictionController {
                 res.setMyPredictions(racePreds.stream().map(p -> UserPredictionResponse.from(p, horseNames, roundNumbers.get(p.getRace().getId()))).toList());
 
                 hasWinnerPred = racePreds.stream().anyMatch(p -> "WINNER".equals(p.getPredictionType()));
-                hasTop3Pred = racePreds.stream().anyMatch(p -> "TOP3".equals(p.getPredictionType()));
             }
         } else {
             res.setMyPredictions(List.of());
         }
         res.setWinnerDistributionVisible(hasWinnerPred);
-        res.setTop3DistributionVisible(hasTop3Pred);
 
         List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
         res.setPositionOddsMatrix(oddsCalculationService.calculatePositionOddsMatrix(raceId, participants));
         res.setH2hMatchups(oddsCalculationService.calculateH2HMatchups(raceId, participants));
 
+        // Fair win odds (1/p) per runner — used by the streak parlay so its preview matches settlement.
+        Map<Long, java.math.BigDecimal> winProbs = oddsCalculationService.getWinProbabilities(participants);
+        for (PredictionOptionsResponse.Option opt : res.getOptions()) {
+            java.math.BigDecimal p = winProbs.get(opt.getRaceParticipantId());
+            if (p != null && p.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                opt.setWinOdds(java.math.BigDecimal.ONE.divide(p, 2, java.math.RoundingMode.HALF_UP));
+            }
+        }
+
         // Compute rates if visible
         List<RacePrediction> allPredictions = predictionRepo.findByRace_Id(raceId);
         long totalWinnerPreds = allPredictions.stream().filter(p -> "WINNER".equals(p.getPredictionType())).count();
-        long totalTop3Preds = allPredictions.stream().filter(p -> "TOP3".equals(p.getPredictionType())).count();
 
         for (PredictionOptionsResponse.Option opt : res.getOptions()) {
             if (hasWinnerPred && totalWinnerPreds > 0) {
@@ -172,18 +180,6 @@ public class SpectatorPredictionController {
                 opt.setCommunityWinnerRate((double) winnerSelections / totalWinnerPreds);
             } else {
                 opt.setCommunityWinnerRate(null);
-            }
-
-            if (hasTop3Pred && totalTop3Preds > 0) {
-                long top3Selections = allPredictions.stream()
-                    .filter(p -> "TOP3".equals(p.getPredictionType()) &&
-                        (opt.getRaceParticipantId().equals(p.getPredictedWinnerId()) ||
-                         opt.getRaceParticipantId().equals(p.getPredictedSecondId()) ||
-                         opt.getRaceParticipantId().equals(p.getPredictedThirdId())))
-                    .count();
-                opt.setCommunityTop3Rate((double) top3Selections / totalTop3Preds);
-            } else {
-                opt.setCommunityTop3Rate(null);
             }
         }
 
@@ -200,14 +196,14 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(UserPredictionResponse.from(prediction, getHorseNamesForPredictions(List.of(prediction)), roundNumbers.get(prediction.getRace().getId())));
     }
 
-    @PutMapping("/predictions/{id}")
-    public ResponseEntity<UserPredictionResponse> updatePrediction(@PathVariable Long id, @Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
-        User spectator = userRepo.findByEmail(authentication.getName())
-            .orElseThrow(() -> new IllegalArgumentException("Spectator user not found"));
+    @PostMapping("/predictions/quote")
+    public ResponseEntity<PredictionQuoteResponse> quotePrediction(@Valid @RequestBody SubmitPredictionRequest request) {
+        return ResponseEntity.ok(predictionService.quotePrediction(request));
+    }
 
-        RacePrediction prediction = predictionService.updatePrediction(spectator, id, request);
-        Map<Long, Integer> roundNumbers = getRoundNumbersForRaces(List.of(prediction.getRace()));
-        return ResponseEntity.ok(UserPredictionResponse.from(prediction, getHorseNamesForPredictions(List.of(prediction)), roundNumbers.get(prediction.getRace().getId())));
+    @PutMapping("/predictions/{id}")
+    public ResponseEntity<UserPredictionResponse> rejectPredictionUpdate(@PathVariable Long id) {
+        throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Predictions cannot be edited after placement.");
     }
 
     @GetMapping("/predictions/my")
@@ -248,8 +244,6 @@ public class SpectatorPredictionController {
         java.util.Set<Long> ids = new java.util.HashSet<>();
         for (RacePrediction p : preds) {
             if (p.getPredictedWinnerId() != null) ids.add(p.getPredictedWinnerId());
-            if (p.getPredictedSecondId() != null) ids.add(p.getPredictedSecondId());
-            if (p.getPredictedThirdId() != null) ids.add(p.getPredictedThirdId());
         }
         if (ids.isEmpty()) return java.util.Map.of();
         

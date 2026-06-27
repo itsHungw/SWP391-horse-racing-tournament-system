@@ -21,11 +21,10 @@ const options: PredictionOptions = {
   raceName: "Twilight Sprint",
   raceStatus: "SCHEDULED",
   predictionOpen: true,
-  entryCost: { winner: 10, top3: 20 },
-  rewardConfig: { winnerReward: 30, top3ExactReward: 90, top3AnyOrderReward: 45 },
+  entryCost: { winner: 10 },
+  rewardConfig: { winnerReward: 30 },
   myPredictions: [],
   winnerDistributionVisible: false,
-  top3DistributionVisible: false,
   options: [
     { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider" },
     { raceParticipantId: 2, startNumber: 2, laneNumber: 5, horseName: "Silver Reef", jockeyName: "M. Swift" },
@@ -69,12 +68,12 @@ function prediction(overrides: Partial<UserPrediction>): UserPrediction {
 describe("prediction cockpit utilities", () => {
   it("derives costs and reward labels from API values", () => {
     expect(getEntryCost(options, "WINNER")).toBe(10);
-    expect(getEntryCost(options, "TOP3")).toBe(10);
+    expect(getEntryCost(options, "EXACT_POSITION")).toBe(10);
     expect(getRewardLabel(options, "WINNER")).toBe("-");
-    expect(getRewardLabel(options, "TOP3")).toBe("-");
+    expect(getRewardLabel(options, "EXACT_POSITION")).toBe("-");
     expect(getEntryCost(undefined, "WINNER")).toBe(0);
-    expect(getEntryCost(null, "TOP3")).toBe(0);
-    expect(getRewardLabel(undefined, "TOP3")).toBe("-");
+    expect(getEntryCost(null, "EXACT_POSITION")).toBe(0);
+    expect(getRewardLabel(undefined, "EXACT_POSITION")).toBe("-");
     expect(getRewardLabel(null, "WINNER")).toBe("-");
   });
 
@@ -87,7 +86,7 @@ describe("prediction cockpit utilities", () => {
       canConfirm: false,
       message: "Race options are still loading.",
     });
-    expect( derivePredictionValidation({ predType: "WINNER", picks: { winnerId: 1, secondId: null, thirdId: null }, options: { ...options, predictionOpen: false }, pointBalance: 50, isUpdate: false, wagerAmount: 20000 })).toMatchObject({
+    expect( derivePredictionValidation({ predType: "WINNER", picks: { winnerId: 1 }, options: { ...options, predictionOpen: false }, pointBalance: 50, isUpdate: false, wagerAmount: 20000 })).toMatchObject({
       canConfirm: false,
       message: "Predictions are locked for this race.",
     });
@@ -106,8 +105,8 @@ describe("prediction cockpit utilities", () => {
   });
 
   it("validates head-to-head selection", () => {
-    expect( derivePredictionValidation({ predType: "HEAD_TO_HEAD", picks: { winnerId: null, secondId: null, thirdId: null }, options, pointBalance: 50000, isUpdate: false, wagerAmount: 20000 }).message).toBe("Choose a horse for the Head-to-Head matchup.");
-    expect( derivePredictionValidation({ predType: "HEAD_TO_HEAD", picks: { winnerId: 1, secondId: null, thirdId: null }, options, pointBalance: 50000, isUpdate: false, wagerAmount: 20000 }).canConfirm).toBe(true);
+    expect( derivePredictionValidation({ predType: "HEAD_TO_HEAD", picks: { winnerId: null }, options, pointBalance: 50000, isUpdate: false, wagerAmount: 20000 }).message).toBe("Choose a horse for the Head-to-Head matchup.");
+    expect( derivePredictionValidation({ predType: "HEAD_TO_HEAD", picks: { winnerId: 1 }, options, pointBalance: 50000, isUpdate: false, wagerAmount: 20000 }).canConfirm).toBe(true);
   });
 
   it("formats runner labels from existing API fields", () => {

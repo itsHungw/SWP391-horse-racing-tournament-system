@@ -19,13 +19,10 @@ import { spectatorPredictionApi } from "./services/spectatorPredictionApi";
 import {
   EMPTY_PICKS,
   derivePredictionValidation,
-  getEntryCost,
   pickRunnerForMode,
-  setPickSlot,
   type Picks,
-  type PickSlot,
 } from "./predictionCockpitUtils";
-import type { PredictionType, UserPrediction, StreakPredictionLeg } from "./types/prediction.types";
+import type { PredictionType, StreakPredictionLeg } from "./types/prediction.types";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -43,7 +40,6 @@ export function SpectatorPredictionsPage() {
     error,
     selectRace,
     submitPrediction,
-    updatePrediction,
     refreshAll,
   } = useSpectatorPredictions();
 
@@ -52,10 +48,7 @@ export function SpectatorPredictionsPage() {
   const [streakLegs, setStreakLegs] = useState<StreakPredictionLeg[]>([]);
   const [wagerAmount, setWagerAmount] = useState<number>(10000);
   const [isCustomWager, setIsCustomWager] = useState<boolean>(false);
-  const [activeTop3Slot, setActiveTop3Slot] = useState<PickSlot | null>(null);
-  const [editingPredictionId, setEditingPredictionId] = useState<number | null>(null);
   const [booted, setBooted] = useState(false);
-  const [editNotice, setEditNotice] = useState<string | null>(null);
   const [cockpitSubmitting, setCockpitSubmitting] = useState(false);
   const [cockpitSubmitStatus, setCockpitSubmitStatus] = useState<string | null>(null);
   const [cockpitSubmitError, setCockpitSubmitError] = useState<string | null>(null);
@@ -83,58 +76,33 @@ export function SpectatorPredictionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, openRaces, searchParams]);
 
-  const existingPred = predictionOptions?.myPredictions?.find((prediction) => {
-    if (editingPredictionId) return prediction.id === editingPredictionId;
-    if (predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") return false;
-    return prediction.predictionType === predType;
-  });
   const pointBalance = pointAccount?.pointBalance ?? 0;
   const cockpitValidation = selectedRace
     ? derivePredictionValidation({
-        predType,
-        picks,
-        options: predictionOptions,
-        pointBalance,
-        isUpdate: Boolean(existingPred),
-        wagerAmount,
-      })
+      predType,
+      picks,
+      options: predictionOptions,
+      pointBalance,
+      isUpdate: false,
+      wagerAmount,
+    })
     : { canConfirm: false, message: "Select a race to continue." };
 
   const cockpitPointPresets = [10000, 20000, 50000, 100000, 200000, 500000];
 
   useEffect(() => {
-    if (existingPred) {
-      setPicks({
-        winnerId: existingPred.predictedWinnerId,
-        predictedPosition: existingPred.predictedPosition,
-        secondId: existingPred.predictedSecondId ?? null,
-        thirdId: existingPred.predictedThirdId ?? null,
-      });
-      if (existingPred.entryCostPoints) {
-        setWagerAmount(existingPred.entryCostPoints);
-        if (!cockpitPointPresets.includes(existingPred.entryCostPoints)) {
-          setIsCustomWager(true);
-        }
-      }
-    } else {
-      setPicks(EMPTY_PICKS);
-      setWagerAmount(10000);
-      setIsCustomWager(false);
-    }
-    setActiveTop3Slot(null);
-  }, [existingPred, predType, predictionOptions?.raceId]);
+    setPicks(EMPTY_PICKS);
+    setWagerAmount(10000);
+    setIsCustomWager(false);
+  }, [predType, predictionOptions?.raceId]);
 
   const handleSelectRace = (race: (typeof openRaces)[number]) => {
     selectRace(race);
-    setActiveTop3Slot(null);
-    setEditNotice(null);
     setSearchParams({ raceId: String(race.raceId) }, { replace: true });
   };
 
   const handleModeChange = (nextType: PredictionType) => {
     setPredType(nextType);
-    setActiveTop3Slot(null);
-    setEditingPredictionId(null);
   };
 
   const handleSelectRunner = (participantId: number, position?: number) => {
@@ -150,7 +118,8 @@ export function SpectatorPredictionsPage() {
 
     if (predType === "WINNING_STREAK") {
       const runner = predictionOptions?.options.find((opt) => opt.raceParticipantId === participantId);
-      const odds = predictionOptions?.positionOddsMatrix?.[participantId]?.[1];
+      // Streak legs use fair win odds (1/p) so the preview matches backend settlement.
+      const odds = runner?.winOdds;
       if (!runner || !odds || !selectedRace) return;
 
       setStreakLegs((prev) => {
@@ -182,45 +151,19 @@ export function SpectatorPredictionsPage() {
     setPicks((current) =>
       pickRunnerForMode({
         picks: current,
-        predType,
         participantId,
-        activeSlot: predType === "TOP3" ? activeTop3Slot : null,
       }),
     );
-    if (predType === "TOP3") setActiveTop3Slot(null);
-  };
-
-  const handleClearSlot = (slot: PickSlot) => {
-    setPicks((current) => setPickSlot(current, slot, null));
-    setActiveTop3Slot(slot);
   };
 
   const handleClearSelections = () => {
     setPicks(EMPTY_PICKS);
-    setActiveTop3Slot(null);
-    setEditingPredictionId(null);
   };
 
   useEffect(() => {
     setCockpitSubmitStatus(null);
     setCockpitSubmitError(null);
-  }, [selectedRace?.raceId, predictionOptions?.raceId, predType, picks.winnerId, picks.secondId, picks.thirdId]);
-
-  const handleEdit = (prediction: UserPrediction) => {
-    const matchingRace = openRaces.find((race) => race.raceId === prediction.raceId);
-    if (!matchingRace) {
-      setEditNotice("That race is no longer open for editing.");
-      return;
-    }
-    setPredType(prediction.predictionType);
-    if (prediction.predictionType === "EXACT_POSITION" || prediction.predictionType === "HEAD_TO_HEAD") {
-      setEditingPredictionId(prediction.id);
-    }
-    selectRace(matchingRace);
-    setSearchParams({ raceId: String(matchingRace.raceId) }, { replace: true });
-    setActiveTop3Slot(null);
-    setEditNotice(null);
-  };
+  }, [selectedRace?.raceId, predictionOptions?.raceId, predType, picks.winnerId]);
 
   const handleConfirm = async () => {
     if (!selectedRace || !picks.winnerId) return;
@@ -232,11 +175,7 @@ export function SpectatorPredictionsPage() {
       wagerAmount,
     };
 
-    if (existingPred) {
-      await updatePrediction(existingPred.id, payload);
-    } else {
-      await submitPrediction(payload);
-    }
+    await submitPrediction(payload);
   };
 
   const handleCockpitConfirm = async () => {
@@ -247,11 +186,10 @@ export function SpectatorPredictionsPage() {
     setCockpitSubmitStatus(null);
     try {
       await handleConfirm();
-      setCockpitSubmitStatus(existingPred ? "Prediction updated." : "Prediction confirmed.");
-      if ((predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") && !existingPred) {
+      setCockpitSubmitStatus("Prediction confirmed.");
+      if (predType === "EXACT_POSITION" || predType === "HEAD_TO_HEAD") {
         setPicks(EMPTY_PICKS);
       }
-      setEditingPredictionId(null);
     } catch (err) {
       setCockpitSubmitError(err instanceof Error ? err.message : "Unable to confirm prediction.");
     } finally {
@@ -263,7 +201,7 @@ export function SpectatorPredictionsPage() {
     <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
 
-      <main className="mx-auto max-w-[1240px] px-3 py-4 sm:px-4 lg:px-5">
+      <main className="mx-auto max-w-[1300px] px-3 py-4 sm:px-4 lg:px-5">
         {!booted && (
           <div className="rounded-lg border border-turf-700 bg-turf-900 p-10 text-center">
             <div className="flex items-center justify-center gap-3 font-data text-sm uppercase tracking-[0.16em] text-ivory-dim">
@@ -282,15 +220,6 @@ export function SpectatorPredictionsPage() {
           </div>
         )}
 
-        {editNotice && (
-          <div
-            className="mt-3 rounded-lg border border-gold-600/30 bg-gold-400/5 px-5 py-4 text-sm font-semibold text-gold-200"
-            role="alert"
-          >
-            {editNotice}
-          </div>
-        )}
-
         {booted && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -306,7 +235,7 @@ export function SpectatorPredictionsPage() {
             />
 
             {selectedRace ? (
-              <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_390px]">
                 <section className="min-w-0 overflow-hidden rounded-lg border border-turf-800 bg-turf-900/95 shadow-[0_18px_70px_-36px_rgba(0,0,0,0.85)]">
                   <div className="border-b border-turf-800 p-3 sm:p-4">
                     <PredictionModeSelector
@@ -316,7 +245,7 @@ export function SpectatorPredictionsPage() {
                     />
                   </div>
 
-                  <div className="grid gap-0 lg:grid-cols-[225px_minmax(0,1fr)]">
+                  <div className="grid gap-0 lg:grid-cols-[250px_minmax(0,1fr)] 2xl:grid-cols-[280px_minmax(0,1fr)]">
                     <RaceCockpitHeader race={selectedRace} options={predictionOptions} />
 
                     {!predictionOptions || loading ? (
@@ -350,7 +279,7 @@ export function SpectatorPredictionsPage() {
                   </div>
 
                   <div className="p-3 sm:p-4">
-                    <div className="mt-3 grid gap-4 border-t border-turf-800 pt-3 lg:grid-cols-[minmax(0,1fr)_220px]">
+                    <div className="mt-3 grid gap-5 border-t border-turf-800 pt-3 lg:grid-cols-[minmax(0,1fr)_260px]">
                       <div>
                         <p className="text-[12px] font-semibold text-ivory">Wager Amount</p>
                         <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7">
@@ -362,11 +291,10 @@ export function SpectatorPredictionsPage() {
                                 setWagerAmount(points);
                                 setIsCustomWager(false);
                               }}
-                              className={`grid min-h-10 place-items-center rounded-md border px-2 font-data text-[13px] font-extrabold transition-colors ${
-                                !isCustomWager && wagerAmount === points
+                              className={`grid min-h-10 place-items-center rounded-md border px-2 font-data text-[13px] font-extrabold transition-colors ${!isCustomWager && wagerAmount === points
                                   ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
                                   : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
-                              }`}
+                                }`}
                             >
                               {points > 0 ? (points / 1000) + "k" : "-"}
                             </button>
@@ -374,11 +302,10 @@ export function SpectatorPredictionsPage() {
                           <button
                             type="button"
                             onClick={() => setIsCustomWager(true)}
-                            className={`grid min-h-10 place-items-center rounded-md border px-2 text-[13px] font-semibold transition-colors ${
-                              isCustomWager
+                            className={`grid min-h-10 place-items-center rounded-md border px-2 text-[13px] font-semibold transition-colors ${isCustomWager
                                 ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
                                 : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
-                            }`}
+                              }`}
                           >
                             Other
                           </button>
@@ -458,11 +385,9 @@ export function SpectatorPredictionsPage() {
                     picks={picks}
                     wagerAmount={wagerAmount}
                     pointBalance={pointBalance}
-                    isUpdate={Boolean(existingPred)}
                     myPredictions={myPredictions}
                     onClear={handleClearSelections}
                     onConfirm={handleCockpitConfirm}
-                    onEditPrediction={handleEdit}
                     onViewAll={() => setIsAllPredictionsModalOpen(true)}
                   />
                 )}
@@ -504,10 +429,6 @@ export function SpectatorPredictionsPage() {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
               <MyPredictionsList
                 predictions={myPredictions}
-                onEditPrediction={(pred) => {
-                  setIsAllPredictionsModalOpen(false);
-                  handleEdit(pred);
-                }}
               />
             </div>
           </div>
@@ -551,11 +472,10 @@ export function SpectatorPredictionsPage() {
                   <div key={streak.id} className="rounded-lg border border-turf-800 bg-turf-950 shadow-lg">
                     <div className="flex items-center justify-between border-b border-turf-800 bg-turf-900 px-4 py-3">
                       <span className="font-data text-sm font-bold text-turf-300">Ticket #{streak.id}</span>
-                      <span className={`rounded px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-                        streak.status === 'WON' ? 'bg-green-500/20 text-green-400' :
-                        streak.status === 'LOST' ? 'bg-red-500/20 text-red-400' :
-                        'bg-gold-500/20 text-gold-400'
-                      }`}>
+                      <span className={`rounded px-3 py-1 text-xs font-bold uppercase tracking-wider ${streak.status === 'WON' ? 'bg-green-500/20 text-green-400' :
+                          streak.status === 'LOST' ? 'bg-red-500/20 text-red-400' :
+                            'bg-gold-500/20 text-gold-400'
+                        }`}>
                         {streak.status}
                       </span>
                     </div>
@@ -564,7 +484,7 @@ export function SpectatorPredictionsPage() {
                         <div key={leg.id} className="flex items-center justify-between text-base">
                           <span className="text-xs uppercase font-bold text-ivory-dim">Leg {idx + 1}</span>
                           <span className="font-semibold text-ivory">{leg.predictedWinnerName}</span>
-                          <span className="font-data text-gold-300">x{leg.lockedOdds.toFixed(2)}</span>
+                          <span className="font-data text-gold-300">{leg.lockedOdds.toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
@@ -575,7 +495,7 @@ export function SpectatorPredictionsPage() {
                       </div>
                       <div className="flex flex-col text-right">
                         <span className="text-xs uppercase text-ivory-dim font-bold">Total Odds</span>
-                        <span className="font-data font-bold text-gold-400">x{streak.totalOdds.toFixed(2)}</span>
+                        <span className="font-data font-bold text-gold-400">{streak.totalOdds.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>

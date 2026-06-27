@@ -17,7 +17,6 @@ public class PredictionOptionsResponse {
     private RewardConfig rewardConfig = new RewardConfig();
     private List<UserPredictionResponse> myPredictions;
     private boolean winnerDistributionVisible;
-    private boolean top3DistributionVisible;
     private List<Option> options;
 
     // horseId -> (position -> odds)
@@ -28,15 +27,12 @@ public class PredictionOptionsResponse {
     @Setter
     public static class EntryCost {
         private int winner;
-        private int top3;
     }
 
     @Getter
     @Setter
     public static class RewardConfig {
         private int winnerReward;
-        private int top3ExactReward;
-        private int top3AnyOrderReward;
     }
 
     @Getter
@@ -48,7 +44,9 @@ public class PredictionOptionsResponse {
         private String horseName;
         private String jockeyName;
         private Double communityWinnerRate;
-        private Double communityTop3Rate;
+        // Fair win (position-1) decimal odds = 1 / P(win). Used to price streak parlay legs
+        // consistently end-to-end (the streak is fixed-odds; single-race markets are pari-mutuel).
+        private BigDecimal winOdds;
     }
 
     @Getter

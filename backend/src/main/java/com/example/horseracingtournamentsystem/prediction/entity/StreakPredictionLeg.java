@@ -34,7 +34,7 @@ public class StreakPredictionLeg {
     @JoinColumn(name = "predicted_winner_id", nullable = false)
     private RaceParticipant predictedWinner;
 
-    @Column(name = "locked_odds", nullable = false, precision = 10, scale = 2)
+    @Column(name = "locked_odds", nullable = false, precision = 18, scale = 4)
     private BigDecimal lockedOdds;
 
     @Builder.Default

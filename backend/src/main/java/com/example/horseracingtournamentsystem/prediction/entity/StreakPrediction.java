@@ -34,9 +34,9 @@ public class StreakPrediction {
     private Tournament tournament;
 
     @Column(name = "wager_amount", nullable = false)
-    private Integer wagerAmount;
+    private Long wagerAmount;
 
-    @Column(name = "total_odds", nullable = false, precision = 10, scale = 2)
+    @Column(name = "total_odds", nullable = false, precision = 18, scale = 4)
     private BigDecimal totalOdds;
 
     @Builder.Default

@@ -42,6 +42,22 @@ public class PredictionSettlementScheduler {
     @Lazy
     private PredictionSettlementScheduler self;
 
+    /** House takeout (margin) for pari-mutuel single-race pools, e.g. 0.15 = keep 15%. */
+    @org.springframework.beans.factory.annotation.Value("${app.prediction.takeout-rate:0.15}")
+    private java.math.BigDecimal takeoutRate;
+
+    /** Single end-margin for streak parlays (applied once to the multiplied fair odds). */
+    @org.springframework.beans.factory.annotation.Value("${app.prediction.streak-takeout:0.20}")
+    private java.math.BigDecimal streakTakeout;
+
+    /** Hard cap on a streak ticket's total multiplier. */
+    @org.springframework.beans.factory.annotation.Value("${app.prediction.max-total-odds:100}")
+    private java.math.BigDecimal maxTotalOdds;
+
+    /** Hard cap on any single payout (VND). */
+    @org.springframework.beans.factory.annotation.Value("${app.prediction.max-payout:1000000000}")
+    private long maxPayout;
+
     public PredictionSettlementScheduler(PredictionSettlementJobRepository jobRepo,
                                          RacePredictionRepository predictionRepo,
                                          RaceResultRepository resultRepo,
@@ -86,13 +102,6 @@ public class PredictionSettlementScheduler {
 
         // Fetch official results
         List<RaceResult> results = resultRepo.findByRace_Id(job.getRace().getId());
-        
-        // Find top 3 actual positions (sorted by position ascending: 1, 2, 3)
-        List<Long> actualTop3 = results.stream()
-            .filter(r -> r.getPosition() != null && r.getPosition() <= 3)
-            .sorted((r1, r2) -> Integer.compare(r1.getPosition(), r2.getPosition()))
-            .map(RaceResult::getParticipantId)
-            .collect(Collectors.toList());
 
         Map<Long, Integer> participantPositions = results.stream()
             .filter(r -> r.getPosition() != null)
@@ -107,126 +116,68 @@ public class PredictionSettlementScheduler {
 
         List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
 
-        int processedCount = 0;
+        // Invert the result table: finishing position -> the participant that finished there.
+        Map<Integer, Long> horseAtPosition = new java.util.HashMap<>();
+        participantPositions.forEach((pid, pos) -> horseAtPosition.put(pos, pid));
+
+        // Pari-mutuel keep ratio (1 - takeout). Total payout of any pool == pool * keep,
+        // so the house can never pay out more than it took in (zero house risk).
+        java.math.BigDecimal keep = java.math.BigDecimal.ONE.subtract(takeoutRate);
+
+        // Only PENDING / LOCKED bets are settled.
+        List<RacePrediction> active = predictions.stream()
+            .filter(p -> com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus())
+                      || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus()))
+            .collect(Collectors.toList());
+
+        int processedCount = active.size();
         int rewardedCount = 0;
         int failedCount = 0;
 
-        for (RacePrediction p : predictions) {
-            // Check only PENDING or LOCKED predictions
-            if (com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus())) {
-                processedCount++;
-                try {
-                    boolean shouldRefund = false;
-                    if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) || RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
-                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId()))) {
-                            shouldRefund = true;
-                        }
-                    } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
-                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
-                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedSecondId())) ||
-                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedThirdId()))) {
-                            shouldRefund = true;
-                        }
-                    } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
-                        if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getPredictedWinnerId())) ||
-                            com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(p.getMatchupOpponentId()))) {
-                            shouldRefund = true;
-                        }
-                    }
+        // 1. Group bets into pools. Bets on a withdrawn horse leave the pool (refunded).
+        //    EXACT_POSITION (+ legacy WINNER = position 1) -> one pool per finishing position.
+        //    HEAD_TO_HEAD -> one 2-outcome pool per (unordered) matchup.
+        Map<Integer, List<RacePrediction>> exactByPosition = new java.util.HashMap<>();
+        Map<String, List<RacePrediction>> h2hByMatchup = new java.util.HashMap<>();
 
-                    if (shouldRefund) {
-                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
-                        p.setEvaluatedAt(LocalDateTime.now());
-                        predictionRepo.save(p);
-                        long refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
-                        walletService.adjust(
-                            p.getSpectator(), refundAmount, WalletTransactionType.BET_REFUND,
-                            WalletTransaction.REF_RACE_PREDICTION, p.getId(),
-                            "Refund " + refundAmount + " VND (horse withdrawn)"
-                        );
-                        continue;
-                    }
+        for (RacePrediction p : active) {
+            boolean withdrawn = com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN
+                    .equals(participantStatuses.get(p.getPredictedWinnerId()));
+            if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                withdrawn = withdrawn || com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN
+                        .equals(participantStatuses.get(p.getMatchupOpponentId()));
+            }
+            if (withdrawn) {
+                refundBet(p, "Refund " + stakeOf(p) + " VND (horse withdrawn)");
+                continue;
+            }
 
-                    boolean isCorrect = false;
-                    long reward = 0;
-
-                    if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
-                        Integer pos = participantPositions.get(p.getPredictedWinnerId());
-                        if (pos != null && pos == 1) {
-                            isCorrect = true;
-                        }
-                    } else if (RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
-                        Integer pos = participantPositions.get(p.getPredictedWinnerId());
-                        if (pos != null && pos.equals(p.getPredictedPosition())) {
-                            isCorrect = true;
-                        }
-                    } else if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
-                        if (actualTop3.size() >= 3) {
-                            Long actual1 = actualTop3.get(0);
-                            Long actual2 = actualTop3.get(1);
-                            Long actual3 = actualTop3.get(2);
-
-                            if (p.getPredictedWinnerId().equals(actual1) &&
-                                p.getPredictedSecondId().equals(actual2) &&
-                                p.getPredictedThirdId().equals(actual3)) {
-                                isCorrect = true; // Exact order
-                            } else {
-                                // Correct horses, wrong order
-                                boolean hasWinner = actualTop3.contains(p.getPredictedWinnerId());
-                                boolean hasSecond = actualTop3.contains(p.getPredictedSecondId());
-                                boolean hasThird = actualTop3.contains(p.getPredictedThirdId());
-                                if (hasWinner && hasSecond && hasThird) {
-                                    isCorrect = true;
-                                }
-                            }
-                        }
-                    } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
-                        java.math.BigDecimal timeA = participantFinishTimes.get(p.getPredictedWinnerId());
-                        java.math.BigDecimal timeB = participantFinishTimes.get(p.getMatchupOpponentId());
-                        if (timeA != null && timeB != null) {
-                            java.math.BigDecimal effectiveTimeA = timeA.add(java.math.BigDecimal.valueOf(p.getHandicapSeconds() != null ? p.getHandicapSeconds() : 0.0));
-                            if (effectiveTimeA.compareTo(timeB) < 0) {
-                                isCorrect = true;
-                            }
-                        }
-                    }
-
-                    if (isCorrect) {
-                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.CORRECT);
-
-                        // Dynamic Payout: wagerAmount * lockedOdds
-                        // (Fallback to old logic if lockedOdds is null, for backward compatibility with old data)
-                        if (p.getLockedOdds() != null && p.getWagerAmount() != null) {
-                            java.math.BigDecimal payout = java.math.BigDecimal.valueOf(p.getWagerAmount()).multiply(p.getLockedOdds());
-                            reward = payout.setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
-                        }
-
-                        p.setRewardPoints(reward);
-                        p.setEvaluatedAt(LocalDateTime.now());
-                        predictionRepo.save(p);
-
-                        // Trả thưởng vào ví (idempotent theo prediction id)
-                        walletService.adjust(
-                            p.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
-                            WalletTransaction.REF_RACE_PREDICTION, p.getId(),
-                            "Bet payout: +" + reward + " VND for prediction #" + p.getId()
-                        );
-                        rewardedCount++;
-                    } else {
-                        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.INCORRECT);
-                        p.setRewardPoints(0);
-                        p.setEvaluatedAt(LocalDateTime.now());
-                        predictionRepo.save(p);
-                    }
-                } catch (Exception ex) {
-                    failedCount++;
-                    log.error("Failed to evaluate prediction #{}", p.getId(), ex);
-                }
+            if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                long a = p.getPredictedWinnerId();
+                long b = p.getMatchupOpponentId();
+                String key = Math.min(a, b) + "-" + Math.max(a, b);
+                h2hByMatchup.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(p);
+            } else {
+                int pos = (RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) || p.getPredictedPosition() == null)
+                        ? 1 : p.getPredictedPosition();
+                exactByPosition.computeIfAbsent(pos, k -> new java.util.ArrayList<>()).add(p);
             }
         }
 
-        log.info("Processed {} single race predictions for raceId={}. Rewarded: {}, Failed: {}",
-                 processedCount, job.getRace().getId(), rewardedCount, failedCount);
+        // 2. EXACT_POSITION / WINNER pools: the winner of a column is the horse that finished there.
+        for (Map.Entry<Integer, List<RacePrediction>> e : exactByPosition.entrySet()) {
+            Long winningHorse = horseAtPosition.get(e.getKey());
+            rewardedCount += settlePool(e.getValue(), winningHorse, keep);
+        }
+
+        // 3. HEAD_TO_HEAD pools: the winner is the horse that finished ahead (straight-up; ties/DNF -> refund).
+        for (List<RacePrediction> bets : h2hByMatchup.values()) {
+            Long winningSide = headToHeadWinner(bets.get(0), participantFinishTimes);
+            rewardedCount += settlePool(bets, winningSide, keep);
+        }
+
+        log.info("Processed {} single race predictions for raceId={}. Rewarded: {}",
+                 processedCount, job.getRace().getId(), rewardedCount);
 
         // --- Process Streak Prediction Legs ---
         processStreakLegs(job.getRace().getId(), participantPositions, participantStatuses);
@@ -239,6 +190,101 @@ public class PredictionSettlementScheduler {
         job.setErrorMessage(failedCount > 0 ? "Failed to evaluate " + failedCount + " predictions" : null);
         job.setUpdatedAt(LocalDateTime.now());
         jobRepo.save(job);
+    }
+
+    // ---- Pari-mutuel pool settlement helpers ----
+
+    /** Effective stake of a bet (new wager, or legacy entry cost for old rows). */
+    private long stakeOf(RacePrediction p) {
+        return p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
+    }
+
+    /** Refund one bet's full stake (idempotent by prediction id). House-neutral. */
+    private void refundBet(RacePrediction p, String description) {
+        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
+        p.setEvaluatedAt(LocalDateTime.now());
+        predictionRepo.save(p);
+        walletService.adjust(
+            p.getSpectator(), stakeOf(p), WalletTransactionType.BET_REFUND,
+            WalletTransaction.REF_RACE_PREDICTION, p.getId(), description
+        );
+    }
+
+    /**
+     * Settle one pari-mutuel pool. A bet wins iff {@code predictedWinnerId == winningHorseId}.
+     * Total paid out == pool * keep (<= pool), so the house can never lose on the pool.
+     * If nobody backed the winner (or the market is void), every bet is refunded.
+     * Returns the number of winning (paid) bets.
+     */
+    private int settlePool(List<RacePrediction> bets, Long winningHorseId, java.math.BigDecimal keep) {
+        if (winningHorseId == null) {
+            for (RacePrediction b : bets) {
+                refundBet(b, "Refund " + stakeOf(b) + " VND (market voided)");
+            }
+            return 0;
+        }
+        long sWin = bets.stream()
+            .filter(b -> winningHorseId.equals(b.getPredictedWinnerId()))
+            .mapToLong(this::stakeOf).sum();
+        if (sWin == 0) {
+            for (RacePrediction b : bets) {
+                refundBet(b, "Refund " + stakeOf(b) + " VND (no winning bet in pool)");
+            }
+            return 0;
+        }
+        long poolSum = bets.stream().mapToLong(this::stakeOf).sum();
+        java.math.BigDecimal pNet = java.math.BigDecimal.valueOf(poolSum).multiply(keep);
+        java.math.BigDecimal sWinBd = java.math.BigDecimal.valueOf(sWin);
+        java.math.BigDecimal poolOdds = pNet.divide(sWinBd, 4, java.math.RoundingMode.HALF_UP);
+
+        int rewarded = 0;
+        for (RacePrediction b : bets) {
+            if (winningHorseId.equals(b.getPredictedWinnerId())) {
+                java.math.BigDecimal finalOdds = b.getLockedOdds() != null
+                    && b.getLockedOdds().compareTo(java.math.BigDecimal.ZERO) > 0
+                        ? b.getLockedOdds()
+                        : poolOdds;
+                long reward = java.math.BigDecimal.valueOf(stakeOf(b)).multiply(finalOdds)
+                    .setScale(0, java.math.RoundingMode.DOWN).longValueExact();
+                b.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.CORRECT);
+                b.setLockedOdds(finalOdds);
+                b.setRewardPoints(reward);
+                b.setEvaluatedAt(LocalDateTime.now());
+                predictionRepo.save(b);
+                walletService.adjust(
+                    b.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
+                    WalletTransaction.REF_RACE_PREDICTION, b.getId(),
+                    "Bet payout: +" + reward + " VND for prediction #" + b.getId()
+                );
+                rewarded++;
+            } else {
+                b.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.INCORRECT);
+                b.setRewardPoints(0);
+                b.setEvaluatedAt(LocalDateTime.now());
+                predictionRepo.save(b);
+            }
+        }
+        return rewarded;
+    }
+
+    /**
+     * Straight-up Head-to-Head winner: the horse that finished ahead (smaller finish time).
+     * Returns null for a push (exact tie) or when neither finished — caller refunds the pool.
+     */
+    private Long headToHeadWinner(RacePrediction sample, Map<Long, java.math.BigDecimal> finishTimes) {
+        Long x = sample.getPredictedWinnerId();
+        Long y = sample.getMatchupOpponentId();
+        java.math.BigDecimal tx = finishTimes.get(x);
+        java.math.BigDecimal ty = finishTimes.get(y);
+        if (tx != null && ty != null) {
+            int cmp = tx.compareTo(ty);
+            if (cmp < 0) return x;
+            if (cmp > 0) return y;
+            return null; // exact tie -> push
+        }
+        if (tx != null) return x; // opponent did not finish
+        if (ty != null) return y; // backed horse did not finish, opponent did
+        return null; // both DNF -> refund
     }
 
     private void processStreakLegs(Long raceId, Map<Long, Integer> participantPositions, Map<Long, com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus> participantStatuses) {
@@ -268,7 +314,10 @@ public class PredictionSettlementScheduler {
             if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(streak.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS.equals(streak.getStatus())) {
                 boolean hasLost = false;
                 boolean allFinished = true;
-                java.math.BigDecimal currentTotalOdds = java.math.BigDecimal.ZERO;
+                int wonCount = 0;
+                // True parlay: multiply the WON legs' fair odds. REFUNDED (void) legs contribute
+                // factor 1.0 (skipped), never their odds — fixes the additive/void-leg overpay bug.
+                java.math.BigDecimal product = java.math.BigDecimal.ONE;
 
                 for (StreakPredictionLeg l : streak.getLegs()) {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST.equals(l.getStatus())) {
@@ -277,8 +326,9 @@ public class PredictionSettlementScheduler {
                     }
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(l.getStatus())) {
                         allFinished = false;
-                    } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED.equals(l.getStatus())) {
-                        currentTotalOdds = currentTotalOdds.add(l.getLockedOdds());
+                    } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus())) {
+                        product = product.multiply(l.getLockedOdds());
+                        wonCount++;
                     }
                 }
 
@@ -286,22 +336,43 @@ public class PredictionSettlementScheduler {
                     streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST);
                     streak.setEvaluatedAt(LocalDateTime.now());
                 } else if (allFinished) {
-                    streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON);
-                    streak.setTotalOdds(currentTotalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
                     streak.setEvaluatedAt(LocalDateTime.now());
-
-                    long reward = java.math.BigDecimal.valueOf(streak.getWagerAmount()).multiply(streak.getTotalOdds())
-                            .setScale(0, java.math.RoundingMode.HALF_UP).longValueExact();
-                    streak.setRewardPoints(reward);
-
-                    walletService.adjust(
-                        streak.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
-                        WalletTransaction.REF_STREAK_PREDICTION, streak.getId(),
-                        "Streak payout: +" + reward + " VND #" + streak.getId()
-                    );
+                    if (wonCount == 0) {
+                        // Every leg was voided -> refund the stake (house-neutral).
+                        streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED);
+                        streak.setTotalOdds(java.math.BigDecimal.ONE.setScale(2, java.math.RoundingMode.HALF_UP));
+                        streak.setRewardPoints(streak.getWagerAmount());
+                        walletService.adjust(
+                            streak.getSpectator(), streak.getWagerAmount(), WalletTransactionType.BET_REFUND,
+                            WalletTransaction.REF_STREAK_PREDICTION, streak.getId(),
+                            "Streak refund (all legs voided) #" + streak.getId()
+                        );
+                    } else {
+                        java.math.BigDecimal totalOdds = product.multiply(java.math.BigDecimal.ONE.subtract(streakTakeout));
+                        if (totalOdds.compareTo(maxTotalOdds) > 0) {
+                            totalOdds = maxTotalOdds;
+                        }
+                        streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON);
+                        streak.setTotalOdds(totalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
+                        long reward = java.math.BigDecimal.valueOf(streak.getWagerAmount()).multiply(totalOdds)
+                                .setScale(0, java.math.RoundingMode.DOWN).longValueExact();
+                        if (reward > maxPayout) {
+                            reward = maxPayout;
+                        }
+                        streak.setRewardPoints(reward);
+                        walletService.adjust(
+                            streak.getSpectator(), reward, WalletTransactionType.BET_PAYOUT,
+                            WalletTransaction.REF_STREAK_PREDICTION, streak.getId(),
+                            "Streak payout: +" + reward + " VND #" + streak.getId()
+                        );
+                    }
                 } else {
                     streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS);
-                    streak.setTotalOdds(currentTotalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
+                    java.math.BigDecimal partial = product.multiply(java.math.BigDecimal.ONE.subtract(streakTakeout));
+                    if (partial.compareTo(maxTotalOdds) > 0) {
+                        partial = maxTotalOdds;
+                    }
+                    streak.setTotalOdds(partial.setScale(2, java.math.RoundingMode.HALF_UP));
                 }
                 streakPredictionRepo.save(streak);
             }

@@ -92,6 +92,19 @@ app:
     root: ${APP_UPLOAD_ROOT:uploads}
     horse-image-max-bytes: 5242880
     horse-evidence-max-bytes: 10485760
+  prediction:
+    # Pari-mutuel house takeout for single-race pools (EXACT_POSITION, HEAD_TO_HEAD).
+    takeout-rate: ${APP_PREDICTION_TAKEOUT:0.15}
+    # Single end-margin for streak parlays (applied once to multiplied fair odds).
+    streak-takeout: ${APP_PREDICTION_STREAK_TAKEOUT:0.20}
+    # Safety caps (VND for money, multiplier for odds).
+    min-wager: ${APP_PREDICTION_MIN_WAGER:10000}
+    max-wager: ${APP_PREDICTION_MAX_WAGER:50000000}
+    max-total-odds: ${APP_PREDICTION_MAX_TOTAL_ODDS:100}
+    max-payout: ${APP_PREDICTION_MAX_PAYOUT:1000000000}
+    # Display-only provisional odds (the live line). Settlement uses the real pool, not these.
+    display-seed: ${APP_PREDICTION_DISPLAY_SEED:40000000}
+    max-display-odds: ${APP_PREDICTION_MAX_DISPLAY_ODDS:50}
   auth:
     jwt-secret: ${AUTH_JWT_SECRET}
     access-token-ttl-minutes: 15

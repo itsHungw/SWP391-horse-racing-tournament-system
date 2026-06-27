@@ -47,8 +47,6 @@ DECLARE
 
     v_first_race_id          bigint;
     v_winner_participant_id  bigint;
-    v_second_participant_id  bigint;
-    v_third_participant_id   bigint;
 BEGIN
     /* ================================================================
        1. ROLES
@@ -536,36 +534,24 @@ BEGIN
     ORDER BY lane_number
     LIMIT 1;
 
-    SELECT id INTO v_second_participant_id
-    FROM race_participants
-    WHERE race_id = v_first_race_id
-    ORDER BY lane_number
-    OFFSET 1 LIMIT 1;
-
-    SELECT id INTO v_third_participant_id
-    FROM race_participants
-    WHERE race_id = v_first_race_id
-    ORDER BY lane_number
-    OFFSET 2 LIMIT 1;
-
     INSERT INTO race_predictions(
         entry_cost_points, reward_points, created_at, evaluated_at,
-        locked_at, predicted_second_id, predicted_third_id,
+        locked_at, predicted_position,
         predicted_winner_id, race_id, spectator_id, updated_at,
         prediction_type, status
     )
     VALUES
     (
         10, 0, v_now, NULL, NULL,
-        NULL, NULL,
+        NULL,
         v_winner_participant_id, v_first_race_id, v_spectator_id, v_now,
         'WINNER', 'PENDING'
     ),
     (
         20, 0, v_now, NULL, NULL,
-        v_second_participant_id, v_third_participant_id,
+        2,
         v_winner_participant_id, v_first_race_id, v_spectator_id, v_now,
-        'TOP3', 'PENDING'
+        'EXACT_POSITION', 'PENDING'
     );
 
     UPDATE wallets
@@ -751,7 +737,7 @@ BEGIN
 
     UPDATE race_predictions
     SET status = 'INCORRECT', reward_points = 0, evaluated_at = v_now, locked_at = v_now, updated_at = v_now
-    WHERE race_id = v_first_race_id AND prediction_type = 'TOP3';
+    WHERE race_id = v_first_race_id AND prediction_type = 'EXACT_POSITION';
 
     UPDATE wallets
     SET balance = balance + 50, updated_at = v_now

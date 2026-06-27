@@ -267,10 +267,7 @@ class RaceIntegrationTest {
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
-        ));
-        racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_TOP3, 101L, null, 102L, 103L, null, null, 10
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, 5
         ));
 
         mockMvc.perform(get("/api/v1/races/search").param("scope", "UPCOMING"))
@@ -414,7 +411,7 @@ class RaceIntegrationTest {
         ));
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())
@@ -437,7 +434,7 @@ class RaceIntegrationTest {
         User spectator = userRepository.findByEmail("spec@example.com").orElseThrow();
         walletService.initializeAccount(spectator, 100L);
         RacePrediction prediction = racePredictionRepository.save(RacePrediction.create(
-                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, null, null, 5
+                race, spectator, RacePrediction.TYPE_WINNER, 101L, 1, null, null, 5
         ));
 
         mockMvc.perform(put("/api/v1/admin/races/{id}/status", race.getId())

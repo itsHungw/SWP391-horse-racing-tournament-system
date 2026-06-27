@@ -60,7 +60,6 @@ public class AdminPredictionController {
             List<RacePrediction> preds = predictionRepo.findByRace_Id(r.getId());
             s.setTotalPredictions(preds.size());
             s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
-            s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
             // Settlement Job Status
             PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
@@ -82,8 +81,6 @@ public class AdminPredictionController {
 
             // Correct/Incorrect totals
             s.setCorrectWinnerCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
-            s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
-            s.setPartialTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
             s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
 
             return s;
@@ -125,11 +122,8 @@ public class AdminPredictionController {
         AdminRaceDetailResponse.SummaryInfo s = new AdminRaceDetailResponse.SummaryInfo();
         s.setTotalPredictions(preds.size());
         s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
-        s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
         s.setWinnerCorrectCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
-        s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
-        s.setTop3AnyOrderCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
         s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
         s.setRefundedCount(preds.stream().filter(p -> PredictionStatus.REFUNDED == p.getStatus()).count());
         s.setRewardedPoints(preds.stream().mapToLong(RacePrediction::getRewardPoints).sum());
@@ -177,14 +171,6 @@ public class AdminPredictionController {
             // Build selected horse names list
             List<String> selections = new ArrayList<>();
             selections.add(participantHorseNames.getOrDefault(p.getPredictedWinnerId(), "Unknown (#" + p.getPredictedWinnerId() + ")"));
-            if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
-                if (p.getPredictedSecondId() != null) {
-                    selections.add(participantHorseNames.getOrDefault(p.getPredictedSecondId(), "Unknown (#" + p.getPredictedSecondId() + ")"));
-                }
-                if (p.getPredictedThirdId() != null) {
-                    selections.add(participantHorseNames.getOrDefault(p.getPredictedThirdId(), "Unknown (#" + p.getPredictedThirdId() + ")"));
-                }
-            }
             r.setSelections(selections);
             r.setEntryCostPoints(p.getEntryCostPoints());
             r.setStatus(p.getStatus());
