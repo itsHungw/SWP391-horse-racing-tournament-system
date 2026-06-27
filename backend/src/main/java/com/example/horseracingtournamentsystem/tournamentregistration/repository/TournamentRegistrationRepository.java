@@ -35,7 +35,7 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             select count(registration)
             from TournamentRegistration registration
             where registration.owner.email = :ownerEmail
-              and (:horseId is null or registration.horse.id = :horseId)
+              and (CAST(:horseId AS Long) is null or registration.horse.id = :horseId)
               and (
                 registration.createdAt > :createdAt
                 or (registration.createdAt = :createdAt and registration.id > :id)

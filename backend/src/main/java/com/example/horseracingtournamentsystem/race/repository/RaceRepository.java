@@ -88,9 +88,9 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
-                      AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
-                      AND (:toDate IS NULL OR r.raceAt <= :toDate)
-                      AND (:tournamentId IS NULL OR t.id = :tournamentId)
+                      AND (CAST(:fromDate AS LocalDateTime) IS NULL OR r.raceAt >= :fromDate)
+                      AND (CAST(:toDate AS LocalDateTime) IS NULL OR r.raceAt <= :toDate)
+                      AND (CAST(:tournamentId AS Long) IS NULL OR t.id = :tournamentId)
                       AND (:search = '' OR LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.name) LIKE LOWER(CONCAT('%', :search, '%'))
@@ -124,9 +124,9 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
                             com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
-                      AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
-                      AND (:toDate IS NULL OR r.raceAt <= :toDate)
-                      AND (:tournamentId IS NULL OR r.tournament.id = :tournamentId)
+                      AND (CAST(:fromDate AS LocalDateTime) IS NULL OR r.raceAt >= :fromDate)
+                      AND (CAST(:toDate AS LocalDateTime) IS NULL OR r.raceAt <= :toDate)
+                      AND (CAST(:tournamentId AS Long) IS NULL OR r.tournament.id = :tournamentId)
                       AND (:search = '' OR LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(r.tournament.name) LIKE LOWER(CONCAT('%', :search, '%'))
