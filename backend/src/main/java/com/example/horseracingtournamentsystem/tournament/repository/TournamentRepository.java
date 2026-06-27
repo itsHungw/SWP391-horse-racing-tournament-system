@@ -40,8 +40,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                       AND (:search = '' OR LOWER(t.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.location) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:status IS NULL OR t.status = :status)
-                      AND (:year IS NULL OR YEAR(t.startDate) = :year)
+                      AND (CAST(:status AS String) IS NULL OR t.status = :status)
+                      AND (CAST(:year AS Integer) IS NULL OR YEAR(t.startDate) = :year)
                     ORDER BY
                       CASE WHEN :sortBy = 'ONGOING_FIRST' AND t.status = 'ONGOING' THEN 0 ELSE 1 END,
                       CASE WHEN :sortBy = 'REGISTRATION_CLOSING_SOON' THEN t.registrationEndAt END ASC,
@@ -55,8 +55,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                       AND (:search = '' OR LOWER(t.name) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.code) LIKE LOWER(CONCAT('%', :search, '%'))
                            OR LOWER(t.location) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:status IS NULL OR t.status = :status)
-                      AND (:year IS NULL OR YEAR(t.startDate) = :year)
+                      AND (CAST(:status AS String) IS NULL OR t.status = :status)
+                      AND (CAST(:year AS Integer) IS NULL OR YEAR(t.startDate) = :year)
                     """
     )
     Page<Tournament> searchPublic(
