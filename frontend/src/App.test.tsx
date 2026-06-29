@@ -2,8 +2,10 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { blogApi } from "./api/blogApi";
+import { walletApi } from "./api/walletApi";
 import App from "./App";
 import { clearClientSession, getClientSession, setClientSession } from "./utils/authSession";
+import { setWalletBalance } from "./hooks/useWalletBalance";
 
 vi.mock("./api/authApi", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./api/authApi")>();
@@ -80,16 +82,35 @@ vi.mock("./api/racingApi", () => ({
     totalElements: 0,
     totalPages: 1,
   }),
+  getPublicRacingSummary: vi.fn().mockResolvedValue({
+    raceCount: 0,
+    raceDayCount: 0,
+    championshipCount: 0,
+    seasonFinale: null,
+  }),
   getPublicTournaments: vi.fn(),
   rejectAdminHorse: vi.fn(),
   rejectAdminJockeyPoolApplication: vi.fn(),
   rejectAdminTournamentRegistration: vi.fn(),
+  searchPublicRaces: vi.fn().mockResolvedValue({
+    content: [],
+    number: 0,
+    size: 3,
+    totalElements: 0,
+    totalPages: 0,
+  }),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
 vi.mock("./api/blogApi", () => ({
   blogApi: {
     getPublishedBlogs: vi.fn(),
+  },
+}));
+
+vi.mock("./api/walletApi", () => ({
+  walletApi: {
+    getMyWallet: vi.fn(),
   },
 }));
 
@@ -115,8 +136,14 @@ describe("App", () => {
   beforeEach(() => {
     localStorage.clear();
     clearClientSession({ notify: false });
+    setWalletBalance(null);
     window.history.pushState({}, "", "/");
     vi.mocked(blogApi.getPublishedBlogs).mockResolvedValue(emptyBlogPage);
+    vi.mocked(walletApi.getMyWallet).mockResolvedValue({
+      userId: 1,
+      balance: 19000000,
+      status: "ACTIVE",
+    });
   });
 
   it("renders the cinematic public home page foundation", async () => {
@@ -201,10 +228,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /account/i }));
 
-    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
-      "href",
-      "/spectator/dashboard",
-    );
+    expect(await screen.findAllByText(/19,000,000/)).not.toHaveLength(0);
+    expect(screen.queryByText(/public workspace/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /change dashboard workspace/i })).toHaveTextContent(/spectator mode/i);
     expect(screen.getByRole("link", { name: /^profile$/i })).toHaveAttribute(
       "href",
       "/profile",
@@ -295,25 +321,69 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /account/i }));
 
-    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
-      "href",
-      "/spectator/dashboard",
-    );
+    expect(screen.getByRole("button", { name: /change dashboard workspace/i })).toHaveTextContent(/spectator mode/i);
     expect(getClientSession().accessToken).not.toBeNull();
     expect(localStorage.getItem("accessToken")).toBeNull();
   });
 
-  it("routes horse owner dashboard link to the owner workspace", () => {
+  it("routes horse owner dashboard selection to the owner workspace", () => {
     setClientSession(createTokenWithRoles(["HORSE_OWNER"]), "Owner User", "owner@example.com");
 
     render(<App />);
 
     fireEvent.click(screen.getByRole("button", { name: /account/i }));
+    fireEvent.click(screen.getByRole("button", { name: /change dashboard workspace/i }));
 
-    expect(screen.getByRole("link", { name: /^dashboard$/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /owner dashboard/i })).toHaveAttribute(
       "href",
       "/owner/dashboard",
     );
+  });
+
+  it("shows role dashboard targets from the authenticated profile pill", () => {
+    setClientSession(
+      createTokenWithRoles(["SPECTATOR", "HORSE_OWNER", "JOCKEY", "REFEREE", "ORGANIZER"]),
+      "Multi Role",
+      "multi@example.com",
+    );
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: /account/i }));
+
+    expect(screen.getByText(/current dashboard/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /change dashboard workspace/i })).toHaveTextContent(/spectator mode/i);
+    expect(screen.queryByRole("link", { name: /owner dashboard/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /change dashboard workspace/i }));
+
+    expect(screen.getByRole("link", { name: /owner dashboard/i })).toHaveAttribute(
+      "href",
+      "/owner/dashboard",
+    );
+    expect(screen.getByRole("link", { name: /jockey dashboard/i })).toHaveAttribute(
+      "href",
+      "/jockey/dashboard",
+    );
+    expect(screen.getByRole("link", { name: /referee dashboard/i })).toHaveAttribute(
+      "href",
+      "/referee/dashboard",
+    );
+    expect(screen.getByText(/personal dashboards/i)).toBeInTheDocument();
+    expect(screen.getByText(/business workspace/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /organizer dashboard/i })).toHaveAttribute(
+      "href",
+      "/organizer",
+    );
+  });
+
+  it("blocks owner dashboard for authenticated users without owner role", () => {
+    window.history.pushState({}, "", "/owner/dashboard");
+    setClientSession(createTokenWithRoles(["SPECTATOR"]), "Fan User", "fan@example.com");
+
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: /owner workspace is not active/i })).toBeInTheDocument();
   });
 
   it("redirects owner base route to owner dashboard for authenticated owners", async () => {
