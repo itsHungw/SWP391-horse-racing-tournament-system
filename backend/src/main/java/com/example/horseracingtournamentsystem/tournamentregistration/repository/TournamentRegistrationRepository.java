@@ -25,7 +25,10 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
 
     List<TournamentRegistration> findAllByTournament_IdOrderByCreatedAtDesc(Long tournamentId);
 
-    List<TournamentRegistration> findAllByTournament_IdAndStatusOrderByCreatedAtDesc(Long tournamentId, String status);
+    List<TournamentRegistration> findAllByTournament_IdAndStatusOrderByCreatedAtDesc(
+            Long tournamentId,
+            RegistrationStatus status
+    );
 
     Optional<TournamentRegistration> findByIdAndOwnerEmail(Long id, String ownerEmail);
 
@@ -35,7 +38,7 @@ public interface TournamentRegistrationRepository extends JpaRepository<Tourname
             select count(registration)
             from TournamentRegistration registration
             where registration.owner.email = :ownerEmail
-              and (CAST(:horseId AS Long) is null or registration.horse.id = :horseId)
+              and (:horseId is null or registration.horse.id = :horseId)
               and (
                 registration.createdAt > :createdAt
                 or (registration.createdAt = :createdAt and registration.id > :id)

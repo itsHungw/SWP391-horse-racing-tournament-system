@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "blogs")
@@ -25,7 +27,8 @@ public class Blog {
     @Column(name = "summary", length = 500)
     private String summary;
 
-    @Column(name = "content", nullable = false, columnDefinition = "NVARCHAR(MAX)")
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
+    @Column(name = "content", nullable = false)
     private String content;
 
     @Column(name = "thumbnail", length = 255)

@@ -32,14 +32,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
                 "(LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                 "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                 "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-                "(CAST(:status AS String) IS NULL OR u.status = :status) AND " +
-                "(CAST(:role AS String) IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))",
+                "(:status IS NULL OR u.status = :status) AND " +
+                "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))",
         countQuery = "SELECT COUNT(DISTINCT u) FROM User u LEFT JOIN u.userRoles ur LEFT JOIN ur.role r WHERE u.deletedAt IS NULL AND " +
                      "(LOWER(u.fullName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                      "LOWER(u.email) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
                      "LOWER(u.phone) LIKE LOWER(CONCAT('%', :query, '%'))) AND " +
-                     "(CAST(:status AS String) IS NULL OR u.status = :status) AND " +
-                     "(CAST(:role AS String) IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))"
+                     "(:status IS NULL OR u.status = :status) AND " +
+                     "(:role IS NULL OR :role = '' OR (r.name = :role AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE))"
     )
     org.springframework.data.domain.Page<User> searchUsers(@org.springframework.data.repository.query.Param("query") String query, @org.springframework.data.repository.query.Param("status") UserStatus status, @org.springframework.data.repository.query.Param("role") String role, org.springframework.data.domain.Pageable pageable);
 
@@ -54,6 +54,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countActiveAdmins();
 
     @Query("SELECT DISTINCT u FROM User u JOIN u.userRoles ur JOIN ur.role r "
-            + "WHERE u.deletedAt IS NULL AND ur.status = 'ACTIVE' AND r.name = :roleName ORDER BY u.fullName")
+            + "WHERE u.deletedAt IS NULL "
+            + "AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE "
+            + "AND r.name = :roleName ORDER BY u.fullName")
     List<User> findActiveByRoleName(String roleName);
 }

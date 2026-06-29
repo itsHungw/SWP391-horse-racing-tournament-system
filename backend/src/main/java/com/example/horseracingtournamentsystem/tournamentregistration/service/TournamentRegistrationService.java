@@ -67,16 +67,11 @@ public class TournamentRegistrationService {
     }
 
     public List<TournamentRegistrationResponse> listAdminRegistrations(String status) {
-        if (status == null || status.isBlank()) {
+        RegistrationStatus registrationStatus = parseRegistrationStatus(status);
+        if (registrationStatus == null) {
             return registrationRepository.findAllByOrderByCreatedAtDesc().stream()
                     .map(this::mapToResponse)
                     .toList();
-        }
-        RegistrationStatus registrationStatus;
-        try {
-            registrationStatus = RegistrationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid registration status");
         }
         return registrationRepository.findAllByStatusOrderByCreatedAtDesc(registrationStatus).stream()
                 .map(this::mapToResponse)
@@ -157,11 +152,22 @@ public class TournamentRegistrationService {
 
     public List<TournamentRegistrationResponse> listForOrganizer(Long tournamentId, String status, String organizerEmail) {
         requireOwnedTournament(tournamentId, organizerEmail);
-        List<TournamentRegistration> registrations = (status == null || status.isBlank())
+        RegistrationStatus registrationStatus = parseRegistrationStatus(status);
+        List<TournamentRegistration> registrations = registrationStatus == null
                 ? registrationRepository.findAllByTournament_IdOrderByCreatedAtDesc(tournamentId)
-                : registrationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(
-                        tournamentId, status.trim().toUpperCase());
+                : registrationRepository.findAllByTournament_IdAndStatusOrderByCreatedAtDesc(tournamentId, registrationStatus);
         return registrations.stream().map(this::mapToResponse).toList();
+    }
+
+    private RegistrationStatus parseRegistrationStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return RegistrationStatus.valueOf(status.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException exception) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid registration status");
+        }
     }
 
     @Transactional

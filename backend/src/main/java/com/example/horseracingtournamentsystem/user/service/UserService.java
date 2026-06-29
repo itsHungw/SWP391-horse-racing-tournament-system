@@ -151,21 +151,7 @@ public class UserService {
                 user.getAvatarUrl()
         );
 
-        // Update status field using reflection or direct setter if available. Since there's no setter, we set via reflection or adapt.
-        // Wait, User has a private status. Let's see if we can set it.
-        // In User.java:
-        // private String status;
-        // There is no setStatus() method. Let's check how we change status.
-        // In User.java: verifyEmail() sets this.status = STATUS_ACTIVE.
-        // user.setStatus(status);
-        // Let's modify User.java to add a method for changing status!
-        try {
-            java.lang.reflect.Field field = User.class.getDeclaredField("status");
-            field.setAccessible(true);
-            field.set(user, request.status());
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to update status field on User entity", e);
-        }
+        user.changeStatus(request.status());
 
         User savedUser = userRepository.save(user);
         return AdminUserDetailResponse.from(savedUser);
@@ -291,13 +277,7 @@ public class UserService {
             }
         }
 
-        try {
-            java.lang.reflect.Field field = User.class.getDeclaredField("status");
-            field.setAccessible(true);
-            field.set(user, com.example.horseracingtournamentsystem.user.enums.UserStatus.BANNED);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to update status field on User entity", e);
-        }
+        user.ban();
 
         userRepository.save(user);
     }

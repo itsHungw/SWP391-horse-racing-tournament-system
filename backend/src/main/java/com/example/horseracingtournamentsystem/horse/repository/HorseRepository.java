@@ -20,10 +20,10 @@ public interface HorseRepository extends JpaRepository<Horse, Long> {
             from Horse horse
             where horse.owner.email = :ownerEmail
               and horse.deletedAt is null
-              and (CAST(:status AS String) is null or horse.status = :status)
-              and (CAST(:gender AS String) is null or horse.gender = :gender)
+              and (:status is null or horse.status = :status)
+              and (:gender is null or horse.gender = :gender)
               and (
-                CAST(:query AS String) is null
+                :query is null
                 or lower(horse.name) like lower(concat('%', :query, '%'))
                 or lower(coalesce(horse.breed, '')) like lower(concat('%', :query, '%'))
                 or lower(coalesce(horse.registrationCode, '')) like lower(concat('%', :query, '%'))

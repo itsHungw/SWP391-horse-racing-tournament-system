@@ -15,6 +15,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.time.Period;
 import java.util.Collections;
 import java.util.HashSet;
@@ -143,6 +144,16 @@ public class User {
     public void reactivate() {
         this.status = UserStatus.ACTIVE;
         this.updatedAt = LocalDateTime.now();
+    }
+
+    public void changeStatus(UserStatus status) {
+        // Keep admin-driven status changes inside the aggregate instead of using reflection.
+        this.status = Objects.requireNonNull(status, "status");
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void ban() {
+        changeStatus(UserStatus.BANNED);
     }
 
     public Set<String> getActiveRoleNames() {

@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.tournamentregistration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,6 +13,8 @@ import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
+import com.example.horseracingtournamentsystem.organization.entity.Organization;
+import com.example.horseracingtournamentsystem.organization.repository.OrganizationRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -65,6 +68,9 @@ class TournamentRegistrationIntegrationTest {
     private TournamentRepository tournamentRepository;
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -81,9 +87,11 @@ class TournamentRegistrationIntegrationTest {
 
     private String adminToken;
     private String ownerToken;
+    private String organizerToken;
     private User adminUser;
     private User ownerUser;
     private User anotherOwnerUser;
+    private User organizerUser;
     private Tournament openTournament;
     private Horse approvedHorse;
     private Horse pendingHorse;
@@ -101,6 +109,7 @@ class TournamentRegistrationIntegrationTest {
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Admin"));
         Role ownerRole = roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
+        Role organizerRole = roleRepository.save(Role.of("ORGANIZER", "Organizer"));
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
 
         adminUser = User.pending("Admin User", "admin@example.com", "hash");
@@ -117,6 +126,11 @@ class TournamentRegistrationIntegrationTest {
         anotherOwnerUser.verifyEmail();
         anotherOwnerUser = userRepository.save(anotherOwnerUser);
         userRoleRepository.save(UserRole.active(anotherOwnerUser, ownerRole, adminUser));
+
+        organizerUser = User.pending("Organizer User", "organizer@example.com", "hash");
+        organizerUser.verifyEmail();
+        organizerUser = userRepository.save(organizerUser);
+        userRoleRepository.save(UserRole.active(organizerUser, organizerRole, adminUser));
 
         openTournament = Tournament.create(
                 "Spring Cup",
@@ -167,6 +181,7 @@ class TournamentRegistrationIntegrationTest {
 
         adminToken = jwtService.generateToken(adminUser.getEmail(), Set.of("ADMIN"));
         ownerToken = jwtService.generateToken(ownerUser.getEmail(), Set.of("HORSE_OWNER"));
+        organizerToken = jwtService.generateToken(organizerUser.getEmail(), Set.of("ORGANIZER"));
     }
 
     @Test
@@ -315,6 +330,36 @@ class TournamentRegistrationIntegrationTest {
     }
 
     @Test
+    void organizerFiltersTournamentRegistrationsByTypedStatus() throws Exception {
+        Tournament organizerTournament = createOrganizerTournament();
+        TournamentRegistration pendingRegistration =
+                registrationRepository.save(TournamentRegistration.pending(
+                        organizerTournament,
+                        approvedHorse,
+                        ownerUser,
+                        "Pending organizer review"
+                ));
+        TournamentRegistration approvedRegistration =
+                TournamentRegistration.pending(
+                        organizerTournament,
+                        anotherOwnerHorse,
+                        anotherOwnerUser,
+                        "Already reviewed"
+                );
+        approvedRegistration.approve(adminUser);
+        registrationRepository.save(approvedRegistration);
+
+        mockMvc.perform(get("/api/v1/organizer/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + organizerToken)
+                        .param("tournamentId", organizerTournament.getId().toString())
+                        .param("status", "PENDING"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].id").value(pendingRegistration.getId()))
+                .andExpect(jsonPath("$[0].status").value("PENDING"));
+    }
+
+    @Test
     void ownerCanReregisterAfterWithdrawnRegistration() throws Exception {
         long originalRegistrationId = createPendingRegistration();
 
@@ -451,6 +496,39 @@ class TournamentRegistrationIntegrationTest {
                 LocalDate.of(2020, 1, 1),
                 "Bay"
         ));
+    }
+
+    private Tournament createOrganizerTournament() {
+        Organization organization = Organization.application(
+                organizerUser,
+                "ORG-REG-FILTER",
+                "Organizer Registration Filter",
+                "ORG-LIC-001",
+                "organizer@example.com",
+                "0900000000",
+                "Integration test organizer",
+                "/uploads/org/evidence.pdf",
+                null,
+                "Ready for approval"
+        );
+        organization.approve(adminUser);
+        organization = organizationRepository.save(organization);
+
+        Tournament tournament = Tournament.create(
+                "Organizer Cup",
+                "ORG_CUP",
+                "Organizer-owned tournament",
+                "Saigon Track",
+                LocalDate.now().plusDays(20),
+                LocalDate.now().plusDays(25),
+                LocalDateTime.now().minusDays(1),
+                LocalDateTime.now().plusDays(10),
+                20,
+                organizerUser
+        );
+        tournament.assignOrganization(organization);
+        tournament.openRegistration();
+        return tournamentRepository.save(tournament);
     }
 
     private String registrationBody(Horse horse) {

@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.championship.entity.TournamentPar
 import com.example.horseracingtournamentsystem.championship.enums.JockeyApplicationStatus;
 import com.example.horseracingtournamentsystem.championship.enums.JockeyInvitationStatus;
 import com.example.horseracingtournamentsystem.championship.enums.TournamentParticipantStatus;
+import com.example.horseracingtournamentsystem.blog.entity.Blog;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
@@ -93,6 +94,28 @@ class EnumStatusContractTest {
             assertTrue(migration.contains("SET status = 'PARTICIPANTS_LOCKED'"));
             assertTrue(migration.contains("Unsupported tournaments.status value for TournamentStatus"));
         }
+    }
+
+    @Test
+    void currentStatusValidationMigrationAllowsOrganizerApprovalStatuses() throws Exception {
+        try (var input = getClass().getClassLoader()
+                .getResourceAsStream("db/migration/V19__validate_current_status_enums.sql")) {
+            assertNotNull(input, "V19 current status validation migration must be packaged");
+            String migration = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+
+            assertTrue(migration.contains("'PENDING_APPROVAL'"));
+            assertTrue(migration.contains("'APPROVED'"));
+            assertTrue(migration.contains("Unsupported tournaments.status value for TournamentStatus"));
+        }
+    }
+
+    @Test
+    void blogContentMappingDoesNotUseSqlServerColumnDefinition() throws Exception {
+        Field content = Blog.class.getDeclaredField("content");
+        jakarta.persistence.Column column = content.getAnnotation(jakarta.persistence.Column.class);
+
+        assertNotNull(column, "Blog.content must declare its database column");
+        assertFalse(column.columnDefinition().toUpperCase(java.util.Locale.ROOT).contains("NVARCHAR"));
     }
 
     @Test
