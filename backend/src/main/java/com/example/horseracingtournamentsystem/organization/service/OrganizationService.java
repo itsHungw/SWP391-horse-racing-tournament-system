@@ -10,6 +10,7 @@ import com.example.horseracingtournamentsystem.user.entity.UserRole;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
+import com.example.horseracingtournamentsystem.user.service.UserRolePolicy;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +33,9 @@ public class OrganizationService {
 
     @Transactional
     public OrganizationResponse register(String email, RegisterOrganizationRequest request) {
-        User owner = userRepository.findByEmail(email)
+        User owner = userRepository.findWithUserRolesByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
+        rejectPersonalRoleAccount(owner);
 
         Organization existing = organizationRepository.findByOwner_EmailAndDeletedAtIsNull(email).orElse(null);
         if (existing != null && !Organization.STATUS_REJECTED.equals(existing.getStatus())) {
@@ -89,8 +91,11 @@ public class OrganizationService {
     public OrganizationResponse approve(Long id, String adminEmail) {
         Organization organization = getOrganization(id);
         User reviewer = getReviewer(adminEmail);
+        User owner = userRepository.findWithUserRolesByEmail(organization.getOwner().getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization owner not found"));
+        rejectPersonalRoleAccount(owner);
         organization.approve(reviewer);
-        grantOrganizerRole(organization.getOwner(), reviewer);
+        grantOrganizerRole(owner, reviewer);
         return OrganizationResponse.from(organizationRepository.save(organization));
     }
 
@@ -138,6 +143,12 @@ public class OrganizationService {
     private User getReviewer(String adminEmail) {
         return userRepository.findByEmail(adminEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Reviewer not found"));
+    }
+
+    private void rejectPersonalRoleAccount(User owner) {
+        if (UserRolePolicy.hasActivePersonalRole(owner)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, UserRolePolicy.ORGANIZER_SEPARATION_MESSAGE);
+        }
     }
 
     private String normalize(String value) {

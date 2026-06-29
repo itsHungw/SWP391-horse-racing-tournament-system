@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.championship.entity.JockeyTournamentApplication;
+import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.entity.HorseDocument;
 import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRepository;
@@ -74,6 +76,9 @@ class TournamentRegistrationIntegrationTest {
     @Autowired
     private TournamentRegistrationRepository registrationRepository;
 
+    @Autowired
+    private JockeyTournamentApplicationRepository jockeyApplicationRepository;
+
     private String adminToken;
     private String ownerToken;
     private User adminUser;
@@ -96,6 +101,7 @@ class TournamentRegistrationIntegrationTest {
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Admin"));
         Role ownerRole = roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
+        roleRepository.save(Role.of("JOCKEY", "Jockey"));
 
         adminUser = User.pending("Admin User", "admin@example.com", "hash");
         adminUser.verifyEmail();
@@ -176,6 +182,27 @@ class TournamentRegistrationIntegrationTest {
                 .andExpect(jsonPath("$.horseId").value(approvedHorse.getId()))
                 .andExpect(jsonPath("$.ownerId").value(ownerUser.getId()))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void ownerCannotRegisterWhenAlreadyParticipatingAsJockeyInSameTournament() throws Exception {
+        Role jockeyRole = roleRepository.findByName("JOCKEY").orElseThrow();
+        userRoleRepository.save(UserRole.active(ownerUser, jockeyRole, adminUser));
+        jockeyApplicationRepository.save(JockeyTournamentApplication.pending(
+                openTournament,
+                ownerUser,
+                "Available as jockey for the full tournament."
+        ));
+        addRequiredMedicalDocuments(approvedHorse, openTournament.getEndDate().plusDays(1));
+
+        mockMvc.perform(post("/api/v1/owner/tournament-registrations")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(registrationBody(approvedHorse)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "You are already participating in this tournament as JOCKEY. "
+                                + "Use that dashboard or leave that participation before joining with another role."));
     }
 
     @Test

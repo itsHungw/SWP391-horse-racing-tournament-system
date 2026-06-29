@@ -38,19 +38,9 @@ public class UserRoleRequestService {
         }
 
         String requestedRole = request.requestedRole().trim().toUpperCase();
-        if (UserRolePolicy.isSpecialistRole(requestedRole) && UserRolePolicy.hasActiveSpecialistRole(user)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have an active specialist role");
-        }
-
-        if (UserRolePolicy.isSpecialistRole(requestedRole)) {
-            boolean hasPendingSpecialistRequest = roleRequestRepository.existsByUserEmailAndStatusAndRequestedRoleIn(
-                    email,
-                    com.example.horseracingtournamentsystem.user.enums.RoleRequestStatus.PENDING,
-                    UserRolePolicy.specialistRoles()
-            );
-            if (hasPendingSpecialistRequest) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "You already have a pending specialist role request");
-            }
+        if (UserRolePolicy.isPersonalRole(requestedRole) && UserRolePolicy.hasActiveBusinessRole(user)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Organizer accounts cannot request personal participation roles");
         }
 
         boolean alreadyPending = roleRequestRepository.existsByUserEmailAndRequestedRoleAndStatus(

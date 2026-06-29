@@ -5,8 +5,10 @@ import com.example.horseracingtournamentsystem.horse.repository.HorseDocumentRep
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentParticipationRole;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournament.service.TournamentParticipationGuardService;
 import com.example.horseracingtournamentsystem.tournamentregistration.dto.request.TournamentRegistrationRequest;
 import com.example.horseracingtournamentsystem.tournamentregistration.dto.response.TournamentRegistrationResponse;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
@@ -39,6 +41,7 @@ public class TournamentRegistrationService {
     private final HorseDocumentRepository horseDocumentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final TournamentParticipationGuardService participationGuard;
 
     public List<TournamentRegistrationResponse> listOwnerRegistrations(String email) {
         return registrationRepository.findAllByOwnerEmailOrderByCreatedAtDesc(email.trim().toLowerCase()).stream()
@@ -95,6 +98,11 @@ public class TournamentRegistrationService {
                     "You cannot enter a tournament owned by your own organization (BR-11)");
         }
 
+        participationGuard.assertNoConflictingParticipation(
+                tournament.getId(),
+                owner,
+                TournamentParticipationRole.HORSE_OWNER
+        );
         validateOwnerRegistration(owner, tournament, horse);
 
         TournamentRegistration registration = registrationRepository

@@ -6,8 +6,10 @@ import com.example.horseracingtournamentsystem.championship.entity.JockeyTournam
 import com.example.horseracingtournamentsystem.championship.enums.JockeyApplicationStatus;
 import com.example.horseracingtournamentsystem.championship.repository.JockeyTournamentApplicationRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentParticipationRole;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournament.service.TournamentParticipationGuardService;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.notification.service.NotificationService;
@@ -35,6 +37,7 @@ public class JockeyPoolApplicationService {
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final TournamentParticipationGuardService participationGuard;
 
     @Transactional(readOnly = true)
     public List<JockeyChampionshipResponse> listChampionshipsForJockey(String jockeyEmail) {
@@ -89,6 +92,11 @@ public class JockeyPoolApplicationService {
                     "You cannot ride in a tournament owned by your own organization (BR-11)");
         }
 
+        participationGuard.assertNoConflictingParticipation(
+                tournament.getId(),
+                jockey,
+                TournamentParticipationRole.JOCKEY
+        );
         if (applicationRepository.existsByTournament_IdAndJockey_IdAndStatusIn(
                 championshipId,
                 jockey.getId(),

@@ -114,11 +114,9 @@ class EnumStatusContractTest {
         Path demoSeed = findRepositoryFile("demo_data_script.sql");
         String sql = Files.readString(demoSeed, StandardCharsets.UTF_8);
 
-        assertEquals(1, occurrences(sql, "SET NOCOUNT ON"));
-        assertEquals(1, occurrences(sql, "BEGIN TRY"));
-        assertEquals(1, occurrences(sql, "END TRY"));
-        assertEquals(1, occurrences(sql, "BEGIN CATCH"));
-        assertEquals(1, occurrences(sql, "END CATCH"));
+        assertTrue(sql.contains("DO $$"));
+        assertTrue(sql.contains("BEGIN"));
+        assertTrue(sql.contains("END $$;"));
         assertFalse(sql.contains("SCHEDULED_PUBLIC"));
         assertFalse(sql.contains("SCHEDULED_PRIVATE"));
         assertTrue(sql.contains("'SCHEDULE_PUBLISHED'"));
