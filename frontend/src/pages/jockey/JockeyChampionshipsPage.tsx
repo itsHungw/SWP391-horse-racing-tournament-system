@@ -654,91 +654,93 @@ export function JockeyChampionshipsPage() {
             className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-4 sm:items-center"
             role="dialog"
           >
-            <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-lg border border-slate-200 bg-white shadow-xl">
-              <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">
-                    Championship Application
-                  </p>
-                  <h2 className="mt-2 text-2xl font-black text-slate-950">{applicationTarget.name}</h2>
-                  <p className="mt-1 text-sm font-bold text-slate-500">
-                    Submit your pool application for admin review before owners can see you.
-                  </p>
-                </div>
-                <button
-                  aria-label="Close championship application"
-                  className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                  onClick={() => setApplicationTarget(null)}
-                  type="button"
-                >
-                  <X className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </div>
-              <div className="space-y-5 p-5">
-                {submitError && (
-                  <div
-                    className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700"
-                    role="alert"
+            <div className="max-h-[90vh] w-full max-w-2xl rounded-lg border border-slate-200 bg-white shadow-xl overflow-hidden flex flex-col">
+              <div className="overflow-y-auto no-scrollbar flex-1 min-h-0">
+                <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">
+                      Championship Application
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-slate-950">{applicationTarget.name}</h2>
+                    <p className="mt-1 text-sm font-bold text-slate-500">
+                      Submit your pool application for admin review before owners can see you.
+                    </p>
+                  </div>
+                  <button
+                    aria-label="Close championship application"
+                    className="grid h-10 w-10 place-items-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                    onClick={() => setApplicationTarget(null)}
+                    type="button"
                   >
-                    {submitError}
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <InfoBlock
-                    label="Season"
-                    value={`${formatDate(applicationTarget.startDate)} - ${formatDate(applicationTarget.endDate)}`}
-                  />
-                  <InfoBlock label="Approved Pool" value={`${applicationTarget.approvedPoolCount} riders`} />
-                  <InfoBlock label="Apply By" value={formatDate(applicationTarget.registrationEndAt)} />
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
                 </div>
+                <div className="space-y-5 p-5">
+                  {submitError && (
+                    <div
+                      className="rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700"
+                      role="alert"
+                    >
+                      {submitError}
+                    </div>
+                  )}
 
-                <section aria-labelledby="eligibility-title" className="rounded-lg border border-slate-200 p-4">
-                  <h3 id="eligibility-title" className="text-lg font-black text-slate-950">
-                    Eligibility Checklist
-                  </h3>
-                  <div className="mt-4 grid gap-3">
-                    {[
-                      "Jockey role approved",
-                      "Application window open",
-                      "Not already approved in this championship",
-                    ].map((label) => (
-                      <div className="flex items-center gap-3" key={label}>
-                        <CheckCircle2 className="h-5 w-5 text-[#006d5b]" aria-hidden="true" />
-                        <p className="text-sm font-black text-slate-800">{label}</p>
-                      </div>
-                    ))}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <InfoBlock
+                      label="Season"
+                      value={`${formatDate(applicationTarget.startDate)} - ${formatDate(applicationTarget.endDate)}`}
+                    />
+                    <InfoBlock label="Approved Pool" value={`${applicationTarget.approvedPoolCount} riders`} />
+                    <InfoBlock label="Apply By" value={formatDate(applicationTarget.registrationEndAt)} />
                   </div>
-                </section>
 
-                <label className="block">
-                  <span className="text-sm font-black text-slate-800">Application note</span>
-                  <textarea
-                    className="mt-2 min-h-28 w-full rounded-md border border-slate-200 px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
-                    onChange={(event) => setApplicationNote(event.target.value)}
-                    placeholder="Add availability notes or racing context for admin review."
-                    value={applicationNote}
-                  />
-                </label>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 p-5">
-                <button
-                  className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                  onClick={() => setApplicationTarget(null)}
-                  type="button"
-                >
-                  Cancel
-                </button>
-                <button
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                  disabled={isSubmitting}
-                  onClick={submitApplication}
-                  type="button"
-                >
-                  {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                  {isSubmitting ? "Submitting..." : "Submit Application"}
-                  {!isSubmitting && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-                </button>
+                  <section aria-labelledby="eligibility-title" className="rounded-lg border border-slate-200 p-4">
+                    <h3 id="eligibility-title" className="text-lg font-black text-slate-950">
+                      Eligibility Checklist
+                    </h3>
+                    <div className="mt-4 grid gap-3">
+                      {[
+                        "Jockey role approved",
+                        "Application window open",
+                        "Not already approved in this championship",
+                      ].map((label) => (
+                        <div className="flex items-center gap-3" key={label}>
+                          <CheckCircle2 className="h-5 w-5 text-[#006d5b]" aria-hidden="true" />
+                          <p className="text-sm font-black text-slate-800">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <label className="block">
+                    <span className="text-sm font-black text-slate-800">Application note</span>
+                    <textarea
+                      className="mt-2 min-h-24 w-full rounded-md border border-slate-200 px-3.5 py-2.5 text-sm font-bold text-slate-900 outline-none focus:border-[#006d5b] focus:ring-2 focus:ring-emerald-100"
+                      onChange={(event) => setApplicationNote(event.target.value)}
+                      placeholder="Add availability notes or racing context for admin review."
+                      value={applicationNote}
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 p-5">
+                  <button
+                    className="inline-flex min-h-11 items-center rounded-md border border-slate-200 px-4 text-sm font-black text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                    onClick={() => setApplicationTarget(null)}
+                    type="button"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                    disabled={isSubmitting}
+                    onClick={submitApplication}
+                    type="button"
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                    {isSubmitting ? "Submitting..." : "Submit Application"}
+                    {!isSubmitting && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -766,8 +768,8 @@ function SummaryTile({ label, value, tone }: { label: string; value: number; ton
 
 function InfoBlock({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-      <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">{label}</p>
+    <div className="rounded-md border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+      <p className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-500">{label}</p>
       <p className="mt-1 text-sm font-black text-slate-950">{value}</p>
     </div>
   );

@@ -330,9 +330,9 @@ export function JockeySchedulePage() {
                   {championshipGroups.map((group) => (
                     <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" key={group.name}>
                       <h3 className="text-xl font-black text-slate-950">{group.name}</h3>
-                      <ol className="mt-5 flex gap-3 overflow-x-auto pb-2">
+                      <ol className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {group.items.map((item, index) => (
-                          <li className="flex min-w-56 items-stretch" key={item.raceParticipantId}>
+                          <li className="flex items-stretch" key={item.raceParticipantId}>
                             <button
                               className={`w-full rounded-lg border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] ${statusClass(
                                 item.raceStatus,
