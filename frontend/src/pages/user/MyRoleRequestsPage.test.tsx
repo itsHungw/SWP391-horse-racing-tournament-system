@@ -45,7 +45,7 @@ describe("MyRoleRequestsPage", () => {
     vi.clearAllMocks();
   });
 
-  it("shows role cards, readiness, and disables a pending role", async () => {
+  it("shows role cards, readiness, and only disables the pending role", async () => {
     vi.mocked(getMyProfile).mockResolvedValue(completedProfile);
     vi.mocked(getMyRoleRequests).mockResolvedValue([
       {
@@ -68,11 +68,13 @@ describe("MyRoleRequestsPage", () => {
 
     const jockeyCard = screen.getByRole("button", { name: /jockey application under review/i });
     expect(jockeyCard).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: /locked while another specialist application is pending/i })).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /select owner role/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /select referee role/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /locked while another personal application is pending/i })).not.toBeInTheDocument();
     expect(screen.getAllByText(/under review/i).length).toBeGreaterThan(0);
   });
 
-  it("locks specialist applications when the user already has an active specialist role", async () => {
+  it("allows another personal role application when the user already has an active personal role", async () => {
     vi.mocked(getMyProfile).mockResolvedValue({
       ...completedProfile,
       roles: ["SPECTATOR", "JOCKEY"],
@@ -81,10 +83,12 @@ describe("MyRoleRequestsPage", () => {
 
     renderPage();
 
-    expect(await screen.findByText("Active specialist role")).toBeInTheDocument();
+    expect(await screen.findByText("Active personal role")).toBeInTheDocument();
     expect(screen.getByText(/you currently hold jockey access/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /submit application/i })).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: /locked by active specialist role/i })).toHaveLength(3);
+    expect(screen.getByRole("button", { name: /jockey role already granted/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /select owner role/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /select referee role/i })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /locked by active personal role/i })).not.toBeInTheDocument();
   });
 
   it("uploads a resume file before submitting a role request", async () => {

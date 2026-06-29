@@ -13,10 +13,10 @@ import { Activity } from "lucide-react";
 
 import type { WalletTransaction } from "../../types/wallet";
 
-type RangeKey = "1W" | "1M" | "3M" | "All";
+type RangeKey = "1D" | "1W" | "1M" | "3M" | "All";
 type SeriesPoint = { time: UTCTimestamp; value: number; amount: number; createdAt: string };
 
-const RANGES: RangeKey[] = ["1W", "1M", "3M", "All"];
+const RANGES: RangeKey[] = ["1D", "1W", "1M", "3M", "All"];
 const RESULT_TYPES = new Set<WalletTransaction["type"]>(["BET_PLACED", "BET_PAYOUT", "BET_REFUND"]);
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -30,6 +30,7 @@ function formatSigned(amount: number) {
 
 function cutoffFor(range: RangeKey, now: number) {
   if (range === "All") return null;
+  if (range === "1D") return now - 24 * 60 * 60 * 1000;
   const date = new Date(now);
   if (range === "1W") date.setDate(date.getDate() - 7);
   if (range === "1M") date.setMonth(date.getMonth() - 1);
@@ -89,7 +90,7 @@ function ChartHeader({
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-1 rounded-lg border border-white/10 bg-[#04120f] p-1" role="group" aria-label="Performance range">
+      <div className="grid grid-cols-5 gap-1 rounded-lg border border-white/10 bg-[#04120f] p-1" role="group" aria-label="Performance range">
         {RANGES.map((item) => {
           const active = item === range;
           return (
@@ -153,7 +154,7 @@ export function PerformanceChart({ transactions, loading }: { transactions: Wall
         },
         grid: { vertLines: { visible: false }, horzLines: { color: "rgba(255,255,255,0.06)" } },
         rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.18, bottom: 0.12 } },
-        timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true, timeVisible: range === "1W" },
+        timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true, timeVisible: range === "1D" || range === "1W" },
         handleScroll: false,
         handleScale: false,
         crosshair: {

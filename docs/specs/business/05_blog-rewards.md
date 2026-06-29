@@ -1,8 +1,8 @@
-# Blog Rewards
+# Blog Publishing
 
 ## 1. Purpose
 
-Blog rewards encourage spectators to read racing content. They are part of the internal point economy and do not affect official tournament results.
+Blogs provide public racing content and newsroom-style updates. In the current source they are content only; blog reward claims and point rewards have been removed from the active product.
 
 ## 2. Blog Management
 
@@ -20,7 +20,7 @@ Frontend pages:
 - `/admin/blog/new`
 - `/admin/blog/edit/:id`
 
-Blog status in the current backend enum is `DRAFT` or `PUBLISHED`. Legacy schema scripts also contain `HIDDEN`; use the backend enum as the source of truth for current code behavior.
+Blog status in the current backend enum is `DRAFT` or `PUBLISHED`.
 
 ## 3. Public Blog Reading
 
@@ -34,34 +34,18 @@ Frontend pages:
 - `/blogs`
 - `/blogs/:slug`
 
-## 4. Reward Claim
+## 4. Removed Reward Workflow
 
-Authenticated users claim rewards with:
+Current source does not expose:
 
 - `POST /api/v1/blogs/{slug}/claim-reward`
+- reading seconds or scroll-percent reward evidence;
+- daily blog reward limits;
+- blog reward tables or services;
+- point settings or point-account reward transactions.
 
-The claim request includes reading evidence such as reading seconds and scroll percent. The backend validates:
+The relevant removal is represented by migration `V11__remove_gamification.sql`.
 
-- blog exists and is eligible;
-- user has not already claimed the same blog;
-- daily blog point limit is not exceeded;
-- reward setting is configured;
-- point transaction can be recorded idempotently.
+## 5. Content Safety Note
 
-## 5. Reward Data
-
-Relevant tables:
-
-- `blogs`
-- `user_blog_rewards`
-- `user_daily_point_limits`
-- `user_point_accounts`
-- `point_transactions`
-- `point_settings`
-
-Relevant services:
-
-- `BlogService`
-- `BlogRewardService`
-- `PointAccountService`
-- `PointSettingsService`
+Admin blog content is stored as submitted content and rendered by the public detail page. Keep blog editing restricted to trusted admin accounts until a sanitizer/editor pipeline is added.

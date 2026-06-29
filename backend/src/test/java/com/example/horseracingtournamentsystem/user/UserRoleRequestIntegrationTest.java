@@ -66,6 +66,7 @@ class UserRoleRequestIntegrationTest {
         roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
         roleRepository.save(Role.of("REFEREE", "Referee"));
+        roleRepository.save(Role.of("ORGANIZER", "Organizer"));
 
         User user = User.pending("Minh Quan", "quan@example.com", "hash", "0909123456");
         user.verifyEmail();
@@ -130,7 +131,7 @@ class UserRoleRequestIntegrationTest {
     }
 
     @Test
-    void userCannotSubmitAnotherSpecialistRequestWhenAlreadyHasActiveSpecialistRole() throws Exception {
+    void userCanRequestAnotherPersonalRoleWhenAlreadyHasActivePersonalRole() throws Exception {
         User user = userRepository.findWithUserRolesByEmail("quan@example.com").orElseThrow();
         Role jockeyRole = roleRepository.findByName("JOCKEY").orElseThrow();
         userRoleRepository.save(UserRole.active(user, jockeyRole, user));
@@ -147,12 +148,13 @@ class UserRoleRequestIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submitRequest))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("You already have an active specialist role"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestedRole").value("HORSE_OWNER"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
     }
 
     @Test
-    void userCannotSubmitAnotherSpecialistRequestWhenOneIsAlreadyPending() throws Exception {
+    void userCanRequestDifferentPersonalRoleWhenAnotherPersonalRequestIsPending() throws Exception {
         User user = userRepository.findByEmail("quan@example.com").orElseThrow();
         roleRequestRepository.save(RoleRequest.pending(
                 user,
@@ -173,7 +175,30 @@ class UserRoleRequestIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(submitRequest))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestedRole").value("REFEREE"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void organizerAccountCannotRequestPersonalParticipationRole() throws Exception {
+        User user = userRepository.findWithUserRolesByEmail("quan@example.com").orElseThrow();
+        Role organizerRole = roleRepository.findByName("ORGANIZER").orElseThrow();
+        userRoleRepository.save(UserRole.active(user, organizerRole, user));
+
+        String submitRequest = """
+                {
+                    "requestedRole": "JOCKEY",
+                    "reason": "I want to ride in selected championships.",
+                    "resumeUrl": "https://example.com/resumes/jockey.pdf"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/role-requests")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + userToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(submitRequest))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("You already have a pending specialist role request"));
+                .andExpect(jsonPath("$.message").value("Organizer accounts cannot request personal participation roles"));
     }
 }

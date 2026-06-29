@@ -101,6 +101,14 @@ function organizerRoute(element: ReactNode) {
   );
 }
 
+function ownerRoute(element: ReactNode) {
+  return (
+    <RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
+      {element}
+    </RequireRoleRoute>
+  );
+}
+
 export function AppRouter() {
   return (
     <Routes>
@@ -139,12 +147,12 @@ export function AppRouter() {
         </Route>
 
 
-<Route path="owner" element={authRoute(<Navigate to="/owner/dashboard" replace />)} />
-<Route path="owner/dashboard" element={authRoute(<OwnerDashboardPage />)} />
-<Route path="owner/horses" element={authRoute(<OwnerHorsesPage />)} />
-<Route path="owner/horses/:horseId" element={authRoute(<OwnerHorseProfilePage />)} />
-<Route path="owner/profile" element={authRoute(<OwnerProfilePage />)} />
-<Route path="owner/registrations" element={authRoute(<OwnerTournamentRegistrationsPage />)} />
+<Route path="owner" element={ownerRoute(<Navigate to="/owner/dashboard" replace />)} />
+<Route path="owner/dashboard" element={ownerRoute(<OwnerDashboardPage />)} />
+<Route path="owner/horses" element={ownerRoute(<OwnerHorsesPage />)} />
+<Route path="owner/horses/:horseId" element={ownerRoute(<OwnerHorseProfilePage />)} />
+<Route path="owner/profile" element={ownerRoute(<OwnerProfilePage />)} />
+<Route path="owner/registrations" element={ownerRoute(<OwnerTournamentRegistrationsPage />)} />
 
 <Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
 <Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />

@@ -49,6 +49,14 @@ function FrameTicks() {
   );
 }
 
+function normalizePhoneForProfile(value: string) {
+  const trimmed = value.trim();
+  if (/^[1-9]\d{8}$/.test(trimmed)) {
+    return `0${trimmed}`;
+  }
+  return trimmed;
+}
+
 function ReadinessDiamond({ ready }: { ready: boolean }) {
   return (
     <span
@@ -121,7 +129,7 @@ export function ProfilePage() {
       {
         label: "Full name",
         ready: fullName.trim().length > 0,
-        helper: "Used by admins when reviewing specialist applications.",
+        helper: "Used by admins when reviewing personal role applications.",
       },
       {
         label: "Phone number",
@@ -202,7 +210,7 @@ export function ProfilePage() {
 
       const updatedProfile = await updateMyProfile({
         fullName: fullName.trim(),
-        phone: phone.trim(),
+        phone: normalizePhoneForProfile(phone),
         gender,
         dateOfBirth,
         address: address.trim(),
@@ -287,7 +295,7 @@ export function ProfilePage() {
                 </p>
                 <p className="mt-5 max-w-xl text-base leading-relaxed text-ivory-dim">
                   {profileComplete
-                    ? "Your account is ready for specialist role applications."
+                    ? "Your account is ready for personal role applications."
                     : "Complete required fields before applying for a role."}
                 </p>
               </div>

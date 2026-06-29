@@ -9,7 +9,9 @@ import com.example.horseracingtournamentsystem.organization.entity.Organization;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
+import com.example.horseracingtournamentsystem.tournament.enums.TournamentParticipationRole;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournament.service.TournamentParticipationGuardService;
 import com.example.horseracingtournamentsystem.user.entity.RefereeProfile;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.RefereeProfileRepository;
@@ -43,6 +45,7 @@ public class RefereeContractService {
     private final RaceRepository raceRepository;
     private final RefereeProfileRepository refereeProfileRepository;
     private final NotificationService notificationService;
+    private final TournamentParticipationGuardService participationGuard;
 
     @Transactional
     public RefereeContractResponse invite(String organizerEmail, Long tournamentId, InviteRefereeRequest request) {
@@ -59,6 +62,11 @@ public class RefereeContractService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Selected user is not a licensed referee");
         }
 
+        participationGuard.assertNoConflictingParticipation(
+                tournament.getId(),
+                refereeWithRoles,
+                TournamentParticipationRole.REFEREE
+        );
         if (refereeContractRepository.existsByTournament_IdAndReferee_IdAndStatusIn(
                 tournamentId, referee.getId(), ACTIVE_INVITE_STATUSES)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -104,6 +112,11 @@ public class RefereeContractService {
     @Transactional
     public RefereeContractResponse accept(Long contractId, String refereeEmail) {
         RefereeContract contract = getForReferee(contractId, refereeEmail);
+        participationGuard.assertNoConflictingParticipation(
+                contract.getTournament().getId(),
+                contract.getReferee(),
+                TournamentParticipationRole.REFEREE
+        );
         contract.accept(refereeEmail);
         RefereeContract saved = refereeContractRepository.save(contract);
         notificationService.notify(contract.getInvitedBy(), "CONTRACT_ACCEPTED", "Referee accepted",

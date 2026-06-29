@@ -42,9 +42,10 @@ public class AdminRoleRequestService {
     public AdminRoleRequestResponse approve(Long requestId, String reviewerEmail, String adminNote) {
         RoleRequest request = getRequest(requestId);
         User reviewer = getReviewer(reviewerEmail);
-        if (UserRolePolicy.isSpecialistRole(request.getRequestedRole())
-                && UserRolePolicy.hasActiveSpecialistRole(request.getUser())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already has an active specialist role");
+        if (UserRolePolicy.isPersonalRole(request.getRequestedRole())
+                && UserRolePolicy.hasActiveBusinessRole(request.getUser())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Organizer accounts cannot request personal participation roles");
         }
 
         request.approve(reviewer, normalizeNote(adminNote, "Approved by admin."));

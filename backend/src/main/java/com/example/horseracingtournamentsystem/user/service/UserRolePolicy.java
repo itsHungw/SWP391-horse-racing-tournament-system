@@ -3,22 +3,34 @@ package com.example.horseracingtournamentsystem.user.service;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import java.util.Set;
 
-final class UserRolePolicy {
+public final class UserRolePolicy {
 
-    private static final Set<String> SPECIALIST_ROLES = Set.of("HORSE_OWNER", "OWNER", "JOCKEY", "REFEREE");
+    public static final String ORGANIZER_SEPARATION_MESSAGE =
+            "Personal participation accounts cannot register organizer workspaces. Use a separate account for organizing.";
+
+    private static final Set<String> PERSONAL_ROLES = Set.of("HORSE_OWNER", "OWNER", "JOCKEY", "REFEREE");
+    private static final Set<String> BUSINESS_ROLES = Set.of("ORGANIZER");
 
     private UserRolePolicy() {
     }
 
-    static Set<String> specialistRoles() {
-        return SPECIALIST_ROLES;
+    public static Set<String> personalRoles() {
+        return PERSONAL_ROLES;
     }
 
-    static boolean isSpecialistRole(String roleName) {
-        return roleName != null && SPECIALIST_ROLES.contains(roleName.trim().toUpperCase());
+    public static boolean isPersonalRole(String roleName) {
+        return roleName != null && PERSONAL_ROLES.contains(roleName.trim().toUpperCase());
     }
 
-    static boolean hasActiveSpecialistRole(User user) {
-        return user.getActiveRoleNames().stream().anyMatch(UserRolePolicy::isSpecialistRole);
+    public static boolean hasActiveBusinessRole(User user) {
+        return user.getActiveRoleNames().stream().anyMatch(UserRolePolicy::isBusinessRole);
+    }
+
+    public static boolean hasActivePersonalRole(User user) {
+        return user.getActiveRoleNames().stream().anyMatch(UserRolePolicy::isPersonalRole);
+    }
+
+    private static boolean isBusinessRole(String roleName) {
+        return roleName != null && BUSINESS_ROLES.contains(roleName.trim().toUpperCase());
     }
 }

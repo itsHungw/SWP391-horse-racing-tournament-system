@@ -71,6 +71,7 @@ class AdminRoleRequestIntegrationTest {
         Role spectatorRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
         roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
+        roleRepository.save(Role.of("ORGANIZER", "Organizer"));
 
         admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
         admin.verifyEmail();
@@ -152,7 +153,7 @@ class AdminRoleRequestIntegrationTest {
     }
 
     @Test
-    void adminCannotApproveSpecialistRequestWhenApplicantAlreadyHasActiveSpecialistRole() throws Exception {
+    void adminCanApproveAnotherPersonalRoleWhenApplicantAlreadyHasActivePersonalRole() throws Exception {
         Role jockeyRole = roleRepository.findByName("JOCKEY").orElseThrow();
         userRoleRepository.save(UserRole.active(applicant, jockeyRole, admin));
         RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
@@ -166,8 +167,28 @@ class AdminRoleRequestIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNote\":\"Approved after interview.\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.requestedRole").value("HORSE_OWNER"));
+    }
+
+    @Test
+    void adminCannotApprovePersonalRoleForOrganizerAccount() throws Exception {
+        Role organizerRole = roleRepository.findByName("ORGANIZER").orElseThrow();
+        userRoleRepository.save(UserRole.active(applicant, organizerRole, admin));
+        RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
+                applicant,
+                "JOCKEY",
+                "Please approve me as jockey.",
+                null
+        ));
+
+        mockMvc.perform(post("/api/v1/admin/role-requests/{id}/approve", request.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adminNote\":\"Approved after interview.\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("User already has an active specialist role"));
+                .andExpect(jsonPath("$.message").value("Organizer accounts cannot request personal participation roles"));
     }
 
     @Test

@@ -1,14 +1,31 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Bell, ChevronDown, Eye, EyeOff, Flag, LayoutDashboard, LogOut, Menu, Ticket, User, UserPlus, Wallet, X } from "lucide-react";
+import {
+  Bell,
+  BriefcaseBusiness,
+  ChevronDown,
+  Eye,
+  EyeOff,
+  Flag,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  ShieldCheck,
+  Ticket,
+  Trophy,
+  User,
+  UserPlus,
+  Wallet,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 import logo from "../../assets/logo.png";
 import { getMyProfile } from "../../api/profileApi";
 import { walletApi } from "../../api/walletApi";
 import { setWalletBalance, useWalletBalance } from "../../hooks/useWalletBalance";
 import { useClientSession } from "../../hooks/useClientSession";
-import { getDashboardRouteForRoles } from "../../utils/dashboardRoute";
 
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -57,6 +74,202 @@ const navLinks = [
   { label: "Join Us", to: "/join-us" },
 ];
 
+type DashboardTarget = {
+  label: string;
+  description: string;
+  href: string;
+  matchPrefixes: string[];
+  Icon: LucideIcon;
+};
+
+type DashboardGroups = {
+  personal: DashboardTarget[];
+  business: DashboardTarget[];
+  platform: DashboardTarget[];
+};
+
+function hasRole(roles: Set<string>, role: string) {
+  return roles.has(role.toUpperCase());
+}
+
+function getDashboardGroups(roles: string[]): DashboardGroups {
+  const normalizedRoles = new Set(roles.map((role) => role.toUpperCase()));
+  const personal: DashboardTarget[] = [
+    {
+      label: "Spectator Mode",
+      description: "Browse races and predictions",
+      href: "/spectator/predictions",
+      matchPrefixes: ["/spectator"],
+      Icon: Ticket,
+    },
+  ];
+
+  if (hasRole(normalizedRoles, "HORSE_OWNER")) {
+    personal.push({
+      label: "Owner Dashboard",
+      description: "Stable, horses, registrations",
+      href: "/owner/dashboard",
+      matchPrefixes: ["/owner"],
+      Icon: LayoutDashboard,
+    });
+  }
+  if (hasRole(normalizedRoles, "JOCKEY")) {
+    personal.push({
+      label: "Jockey Dashboard",
+      description: "Pools, contracts, schedule",
+      href: "/jockey/dashboard",
+      matchPrefixes: ["/jockey"],
+      Icon: Trophy,
+    });
+  }
+  if (hasRole(normalizedRoles, "REFEREE")) {
+    personal.push({
+      label: "Referee Dashboard",
+      description: "Contracts and race control",
+      href: "/referee/dashboard",
+      matchPrefixes: ["/referee"],
+      Icon: ShieldCheck,
+    });
+  }
+
+  return {
+    personal,
+    business: hasRole(normalizedRoles, "ORGANIZER")
+      ? [
+          {
+            label: "Organizer Dashboard",
+            description: "Business race office",
+            href: "/organizer",
+            matchPrefixes: ["/organizer"],
+            Icon: BriefcaseBusiness,
+          },
+        ]
+      : [],
+    platform: hasRole(normalizedRoles, "ADMIN")
+      ? [
+          {
+            label: "Admin Dashboard",
+            description: "Platform operations",
+            href: "/admin",
+            matchPrefixes: ["/admin"],
+            Icon: ShieldCheck,
+          },
+        ]
+      : [],
+  };
+}
+
+function allDashboardTargets(groups: DashboardGroups) {
+  return [...groups.personal, ...groups.business, ...groups.platform];
+}
+
+function currentDashboardTarget(groups: DashboardGroups, pathname: string) {
+  return (
+    allDashboardTargets(groups).find((target) =>
+      target.matchPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)),
+    ) ?? groups.personal[0]
+  );
+}
+
+function DashboardLink({ target }: { target: DashboardTarget }) {
+  const Icon = target.Icon;
+  return (
+    <Link
+      to={target.href}
+      className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+    >
+      <Icon size={17} className="shrink-0 text-gold-300" aria-hidden="true" />
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-semibold text-ivory">{target.label}</span>
+        <span className="block truncate text-[11px] text-ivory-faint">{target.description}</span>
+      </span>
+    </Link>
+  );
+}
+
+function DashboardGroup({ title, targets }: { title: string; targets: DashboardTarget[] }) {
+  if (targets.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="py-1">
+      <p className="px-3 pb-1 pt-2 font-data text-[10px] font-bold uppercase tracking-[0.18em] text-gold-300">
+        {title}
+      </p>
+      <div className="space-y-1">
+        {targets.map((target) => (
+          <DashboardLink key={`${title}-${target.label}`} target={target} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceSwitcher({
+  groups,
+  current,
+  expanded,
+  onToggle,
+}: {
+  groups: DashboardGroups;
+  current: DashboardTarget;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const otherGroups: DashboardGroups = {
+    personal: groups.personal.filter((target) => target.href !== current.href),
+    business: groups.business.filter((target) => target.href !== current.href),
+    platform: groups.platform.filter((target) => target.href !== current.href),
+  };
+  const hasOtherTargets = allDashboardTargets(otherGroups).length > 0;
+  const Icon = current.Icon;
+
+  return (
+    <div className="py-1">
+      <p className="px-3 pb-1 pt-2 font-data text-[10px] font-bold uppercase tracking-[0.18em] text-gold-300">
+        Current dashboard
+      </p>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-label="Change dashboard workspace"
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 rounded-lg border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2.5 text-left transition-colors hover:bg-gold-400/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+      >
+        <Icon size={17} className="shrink-0 text-gold-300" aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-ivory">{current.label}</span>
+          <span className="block truncate text-[11px] text-ivory-faint">{current.description}</span>
+        </span>
+        <ChevronDown size={14} className={`shrink-0 text-ivory-faint transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      <AnimatePresence initial={false}>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18 }}
+            className="mt-1 overflow-hidden"
+          >
+            {hasOtherTargets ? (
+              <div className="space-y-1">
+                <DashboardGroup title="Personal dashboards" targets={otherGroups.personal} />
+                <DashboardGroup title="Business workspace" targets={otherGroups.business} />
+                <DashboardGroup title="Platform workspace" targets={otherGroups.platform} />
+              </div>
+            ) : (
+              <p className="px-3 py-2 text-xs leading-5 text-ivory-faint">No other workspace is active for this account.</p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 function isActivePath(pathname: string, to: string) {
   if (to === "/") return pathname === "/";
   return pathname === to || pathname.startsWith(`${to}/`);
@@ -70,6 +283,7 @@ export function ClientHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
   const walletBalance = useWalletBalance();
   const [balanceRevealed, setBalanceRevealed] = useState(true);
   const [profile, setProfile] = useState(cachedHeaderProfile);
@@ -77,9 +291,9 @@ export function ClientHeader() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const dashboardHref = getDashboardRouteForRoles(session?.roles ?? []);
+  const dashboardGroups = getDashboardGroups(session?.roles ?? []);
+  const currentWorkspace = currentDashboardTarget(dashboardGroups, location.pathname);
   const isOrganizer = (session?.roles ?? []).includes("ORGANIZER");
-  const organizerLabel = isOrganizer ? "Organizer" : "Organize";
   const organizerHref = isOrganizer ? "/organizer" : "/organizer/register";
   const displayName = profile?.fullName || session?.fullName || "Member";
   const avatarUrl = profile?.avatarUrl ?? null;
@@ -95,6 +309,7 @@ export function ClientHeader() {
   useEffect(() => {
     setMenuOpen(false);
     setUserMenuOpen(false);
+    setWorkspaceMenuOpen(false);
     setNotifOpen(false);
   }, [location.pathname]);
 
@@ -286,7 +501,9 @@ export function ClientHeader() {
                     <HeaderAvatar url={avatarUrl} initials={initials} size={34} />
                     <span className="hidden max-w-[140px] text-left min-[1360px]:block">
                       <span className="block truncate text-[13px] font-semibold leading-tight text-ivory">{displayName}</span>
-                      <span className="block truncate font-data text-[11px] leading-tight text-gold-300">{balanceText}</span>
+                      <span className="block truncate font-data text-[11px] leading-tight text-gold-300">
+                        {balanceText}
+                      </span>
                     </span>
                     <ChevronDown size={14} className={`text-ivory-dim transition-transform duration-300 ${userMenuOpen ? 'rotate-180' : ''}`} />
                   </button>
@@ -333,13 +550,14 @@ export function ClientHeader() {
 
                         <div className="my-1.5 h-px bg-white/10" />
 
-                        <a
-                          href={dashboardHref}
-                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
-                        >
-                          <LayoutDashboard size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
-                          Dashboard
-                        </a>
+                        <WorkspaceSwitcher
+                          groups={dashboardGroups}
+                          current={currentWorkspace}
+                          expanded={workspaceMenuOpen}
+                          onToggle={() => setWorkspaceMenuOpen((open) => !open)}
+                        />
+                        <div className="my-1.5 h-px bg-white/10" />
+
                         <Link
                           to="/profile"
                           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
@@ -462,18 +680,12 @@ export function ClientHeader() {
                       </span>
                     </Link>
                     <div className="flex flex-col gap-2">
-                      <Link
-                        to={organizerHref}
-                        className="rounded-lg bg-gold-400/10 border border-gold-400/20 px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-gold-300 transition-colors hover:bg-gold-400/20"
-                      >
-                        {organizerLabel}
-                      </Link>
-                      <a
-                        href={dashboardHref}
-                        className="rounded-lg px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-white/5"
-                      >
-                        Dashboard
-                      </a>
+                      <WorkspaceSwitcher
+                        groups={dashboardGroups}
+                        current={currentWorkspace}
+                        expanded={workspaceMenuOpen}
+                        onToggle={() => setWorkspaceMenuOpen((open) => !open)}
+                      />
                       <Link
                         to="/profile"
                         className="rounded-lg px-4 py-3 text-sm font-semibold uppercase tracking-[0.12em] text-ivory transition-colors hover:bg-white/5"
