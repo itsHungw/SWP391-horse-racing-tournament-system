@@ -24,6 +24,7 @@ import { OrganizerRegisterPage } from "../pages/organizer/OrganizerRegisterPage"
 import { OrganizerDashboardPage } from "../pages/organizer/OrganizerDashboardPage";
 import { OrganizerTournamentsPage } from "../pages/organizer/OrganizerTournamentsPage";
 import { OrganizerTournamentFormPage } from "../pages/organizer/OrganizerTournamentFormPage";
+import { OrganizerTournamentDetailPage } from "../pages/organizer/OrganizerTournamentDetailPage";
 import { OrganizerOfficialsPage } from "../pages/organizer/OrganizerOfficialsPage";
 import { OrganizerRegistrationsPage } from "../pages/organizer/OrganizerRegistrationsPage";
 import { OrganizerSchedulePage } from "../pages/organizer/OrganizerSchedulePage";
@@ -138,6 +139,7 @@ export function AppRouter() {
           <Route index element={<OrganizerDashboardPage />} />
           <Route path="tournaments" element={<OrganizerTournamentsPage />} />
           <Route path="tournaments/new" element={<OrganizerTournamentFormPage />} />
+          <Route path="tournaments/:id" element={<OrganizerTournamentDetailPage />} />
           <Route path="registrations" element={<OrganizerRegistrationsPage />} />
           <Route path="schedule" element={<OrganizerSchedulePage />} />
           <Route path="officials" element={<OrganizerOfficialsPage />} />

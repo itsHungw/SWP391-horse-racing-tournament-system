@@ -7,7 +7,6 @@ import {
   LogOut,
   Medal,
   Plus,
-  Search,
   ShieldCheck,
   Trophy,
   UserRound,
@@ -33,10 +32,9 @@ const navSections: Array<{
     items: [{ label: "Dashboard", href: "/organizer", icon: LayoutDashboard, end: true }],
   },
   {
-    label: "Tournaments",
+    label: "Championships",
     items: [
-      { label: "My Tournaments", href: "/organizer/tournaments", icon: Trophy },
-      { label: "Create", href: "/organizer/tournaments/new", icon: Plus },
+      { label: "My Championships", href: "/organizer/tournaments", icon: Trophy },
     ],
   },
   {
@@ -46,13 +44,6 @@ const navSections: Array<{
       { label: "Schedule", href: "/organizer/schedule", icon: CalendarClock },
       { label: "Officials", href: "/organizer/officials", icon: ShieldCheck },
       { label: "Results", href: "/organizer/results", icon: Medal },
-    ],
-  },
-  {
-    label: "Account",
-    items: [
-      { label: "Profile", href: "/organizer/profile", icon: UserRound },
-      { label: "Organization", href: "/organizer/organization", icon: Building2 },
     ],
   },
 ];
@@ -74,7 +65,6 @@ export function OrganizerLayout() {
   const { session, logout } = useClientSession();
   const navigate = useNavigate();
   const [org, setOrg] = useState<Organization | null>(null);
-  const [search, setSearch] = useState("");
   const displayName = session?.fullName || "Organizer";
 
   useEffect(() => {
@@ -93,7 +83,7 @@ export function OrganizerLayout() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#f7f4ee] font-sans text-[#211d1a] antialiased">
+    <div className="organizer-workspace-root min-h-[100dvh] bg-[#f7f4ee] font-sans text-[#211d1a] antialiased">
       {/* ── Header ───────────────────────────────────────────── */}
       <header
         aria-label="Organizer workspace header"
@@ -117,28 +107,7 @@ export function OrganizerLayout() {
             </div>
           </Link>
 
-          <form
-            className="relative hidden md:block"
-            role="search"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const q = search.trim();
-              navigate(q ? `/organizer/tournaments?q=${encodeURIComponent(q)}` : "/organizer/tournaments");
-            }}
-          >
-            <label className="sr-only" htmlFor="organizer-search">
-              Search the workspace
-            </label>
-            <Search aria-hidden="true" className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#b3a892]" />
-            <input
-              className="h-12 w-full rounded-lg border border-[#e2d9c8] bg-white pl-12 pr-4 text-sm font-semibold text-[#3a342d] outline-none transition placeholder:text-[#b3a892] focus:border-[#bb8a3c] focus:ring-2 focus:ring-[#bb8a3c]/20"
-              id="organizer-search"
-              placeholder="Search your tournaments..."
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </form>
+
 
           <div className="absolute right-4 top-3 flex items-center gap-2 md:static md:justify-end">
             <NotificationBell />
@@ -146,10 +115,10 @@ export function OrganizerLayout() {
               to="/organizer/profile"
               className="hidden min-h-12 items-center gap-3 rounded-lg border border-[#e7e0d3] bg-white px-4 text-sm font-black text-[#3a342d] transition hover:border-[#bb8a3c] hover:bg-[#fdf8ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bb8a3c] sm:flex"
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f3ead6] text-xs text-[#8a6a1c]">
-                {getInitials(displayName)}
+              <span className="flex h-8 w-8 items-center justify-center rounded-md bg-[#f3ead6] text-[#8a6a1c]">
+                <ShieldCheck aria-hidden="true" className="h-5 w-5" />
               </span>
-              <span className="max-w-44 truncate">{displayName}</span>
+              <span className="max-w-44 truncate">Organizer</span>
             </Link>
             <button
               type="button"
@@ -209,11 +178,7 @@ export function OrganizerLayout() {
             ))}
           </nav>
 
-          <div className="mt-auto p-5">
-            <Link to="/" className="text-[11px] font-bold uppercase tracking-[0.18em] text-white/40 transition hover:text-white/70">
-              ← Back to public site
-            </Link>
-          </div>
+
         </aside>
 
         {/* ── Content ───────────────────────────────────────── */}

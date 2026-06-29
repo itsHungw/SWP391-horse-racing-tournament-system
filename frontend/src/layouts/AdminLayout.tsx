@@ -118,7 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         <div className="grid min-h-[calc(100vh-81px)] lg:grid-cols-[238px_1fr]">
-          <aside className="border-b border-[#d8d8d8] bg-[#f1f1f1] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <aside className="admin-sidebar-scrollbar border-b border-[#d8d8d8] bg-[#f1f1f1] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <nav aria-label="Admin workspace" className="flex overflow-x-auto lg:block lg:px-3 lg:py-4">
               {adminNavGroups.map((group) => (
                 <div key={group.label} className="contents lg:mb-5 lg:block">

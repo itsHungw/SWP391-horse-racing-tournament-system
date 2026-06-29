@@ -1,58 +1,77 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Plus } from "lucide-react";
+import {
+  Plus,
+  Search,
+  MapPin,
+  Calendar,
+  Users,
+  Trophy,
+  X,
+  FileText,
+  AlertTriangle,
+} from "lucide-react";
 
 import {
   getMyOrganizerTournaments,
-  lockOrganizerParticipants,
-  submitTournamentForApproval,
-  updateOrganizerTournamentStatus,
+  createOrganizerTournament,
 } from "../../api/racingApi";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import type { Tournament } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
 
-// Lifecycle steps the organizer drives directly (after admin approval).
-const LIFECYCLE: Record<string, { label: string; target: string }> = {
-  APPROVED: { label: "Open registration", target: "OPEN_REGISTRATION" },
-  OPEN_REGISTRATION: { label: "Close registration", target: "CLOSED_REGISTRATION" },
-  CLOSED_REGISTRATION: { label: "Lock participants", target: "PARTICIPANTS_LOCKED" },
-  PARTICIPANTS_LOCKED: { label: "Publish schedule", target: "SCHEDULE_PUBLISHED" },
-  SCHEDULE_PUBLISHED: { label: "Start championship", target: "ONGOING" },
-  ONGOING: { label: "Mark completed", target: "COMPLETED" },
+const statusBadgeStyle: Record<string, string> = {
+  DRAFT: "border-slate-200 bg-slate-50 text-slate-700",
+  PENDING_APPROVAL: "border-amber-250 bg-amber-50 text-amber-800",
+  APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-800",
+  OPEN_REGISTRATION: "border-emerald-250 bg-emerald-50 text-emerald-800",
+  CLOSED_REGISTRATION: "border-amber-200 bg-amber-50 text-amber-850",
+  PARTICIPANTS_LOCKED: "border-indigo-200 bg-indigo-50 text-indigo-800",
+  SCHEDULE_PUBLISHED: "border-sky-200 bg-sky-50 text-sky-850",
+  ONGOING: "border-[#bb8a3c]/35 bg-[#bb8a3c]/5 text-[#8a6a1c]",
+  COMPLETED: "border-slate-200 bg-slate-100 text-slate-650",
+  POSTPONED: "border-rose-250 bg-rose-50 text-rose-800",
 };
 
-const statusBadge: Record<string, string> = {
-  DRAFT: "bg-[#efe9dd] text-[#6f665b]",
-  PENDING_APPROVAL: "bg-amber-100 text-amber-800",
-  APPROVED: "bg-emerald-100 text-emerald-800",
-  OPEN_REGISTRATION: "bg-emerald-100 text-emerald-800",
-  CLOSED_REGISTRATION: "bg-amber-100 text-amber-800",
-  PARTICIPANTS_LOCKED: "bg-amber-100 text-amber-800",
-  SCHEDULE_PUBLISHED: "bg-sky-100 text-sky-800",
-  ONGOING: "bg-[#1c1816] text-[#cfa24f]",
-  COMPLETED: "bg-[#efe9dd] text-[#6f665b]",
-  POSTPONED: "bg-rose-100 text-rose-700",
+const emptyCreateForm = {
+  name: "",
+  code: "",
+  description: "",
+  location: "",
+  startDate: "",
+  endDate: "",
+  registrationStartAt: "",
+  registrationEndAt: "",
+  maxHorses: "",
+  maxHorsesPerOwner: "2",
 };
 
 function formatDate(value?: string) {
   if (!value) return "TBD";
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? "TBD" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return Number.isNaN(d.getTime())
+    ? "TBD"
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export function OrganizerTournamentsPage() {
-  useDocumentTitle("My Tournaments | Organizer");
+  useDocumentTitle("My Championships | Organizer");
 
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [processingId, setProcessingId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
-  const query = (searchParams.get("q") ?? "").trim().toLowerCase();
-  const visible = query
-    ? tournaments.filter((t) => `${t.name} ${t.code} ${t.location ?? ""}`.toLowerCase().includes(query))
-    : tournaments;
+
+  // Search & Filter state
+  const [searchTerm, setSearchTerm] = useState(searchParams.get("q") ?? "");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+
+  // Create Modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState(emptyCreateForm);
+  const [createError, setCreateError] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -61,7 +80,7 @@ export function OrganizerTournamentsPage() {
       setTournaments(Array.isArray(data) ? data : []);
       setError(null);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load your tournaments."));
+      setError(getApiErrorMessage(err, "Could not load your championships."));
     } finally {
       setLoading(false);
     }
@@ -71,132 +90,457 @@ export function OrganizerTournamentsPage() {
     void load();
   }, []);
 
-  const runStatus = async (id: number, action: () => Promise<unknown>) => {
-    setProcessingId(id);
-    setError(null);
+  // Filter logic
+  const filteredTournaments = useMemo(() => {
+    return tournaments.filter((t) => {
+      const query = searchTerm.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        `${t.name} ${t.code} ${t.location ?? ""}`
+          .toLowerCase()
+          .includes(query);
+      const matchesStatus =
+        statusFilter === "ALL" || t.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [tournaments, searchTerm, statusFilter]);
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateError("");
+
+    if (
+      !createForm.name ||
+      !createForm.code ||
+      !createForm.location ||
+      !createForm.startDate ||
+      !createForm.endDate ||
+      !createForm.registrationStartAt ||
+      !createForm.registrationEndAt
+    ) {
+      setCreateError("Please fill in all required fields.");
+      return;
+    }
+
+    const dateValidationError = getTournamentDateValidationError(createForm);
+    if (dateValidationError) {
+      setCreateError(dateValidationError);
+      return;
+    }
+
     try {
-      await action();
+      setCreating(true);
+      const payload = {
+        name: createForm.name,
+        code: createForm.code,
+        description: createForm.description || undefined,
+        location: createForm.location,
+        startDate: createForm.startDate,
+        endDate: createForm.endDate,
+        registrationStartAt: createForm.registrationStartAt,
+        registrationEndAt: createForm.registrationEndAt,
+        maxHorses: createForm.maxHorses ? Number(createForm.maxHorses) : undefined,
+        maxHorsesPerOwner: createForm.maxHorsesPerOwner ? Number(createForm.maxHorsesPerOwner) : 2,
+      };
+
+      const newChampionship = await createOrganizerTournament(payload);
+      setShowCreateModal(false);
+      setCreateForm(emptyCreateForm);
       await load();
-    } catch (err) {
-      setError(getApiErrorMessage(err, "Action failed."));
+      setError(null);
+    } catch (err: any) {
+      setCreateError(getApiErrorMessage(err, "Failed to create championship."));
     } finally {
-      setProcessingId(null);
+      setCreating(false);
     }
   };
 
   return (
-    <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">My Tournaments</h1>
+    <div className="space-y-6">
+      {/* Title Header Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#bb8a3c]">
+              Organizer Workspace
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+              My Championships
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+              Create and coordinate your championship seasons. Set registration timelines, manage official pairings, assign referees, and oversee race day operations.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError("");
+              setCreateForm(emptyCreateForm);
+              setShowCreateModal(true);
+            }}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#bb8a3c] px-5 text-sm font-black text-[#1c1816] hover:bg-[#cfa24f] transition focus:outline-none focus:ring-2 focus:ring-[#bb8a3c] focus:ring-offset-2"
+          >
+            <Plus className="h-4 w-4" aria-hidden="true" />
+            Create Championship
+          </button>
         </div>
-        <Link
-          to="/organizer/tournaments/new"
-          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#1c1816] px-5 text-xs font-black uppercase tracking-[0.14em] text-[#f7f4ee] transition hover:bg-[#2a241f]"
-        >
-          <Plus className="h-4 w-4" /> Create
-        </Link>
       </div>
 
       {error && (
-        <div className="rounded-lg border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-700" role="alert">
+        <div
+          className="rounded-lg border border-rose-100 bg-rose-50 px-5 py-4 text-sm font-bold text-rose-700"
+          role="alert"
+        >
           {error}
         </div>
       )}
 
-      {query && (
-        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-[#e7e0d3] bg-[#fbf8f1] px-4 py-2.5 text-sm">
-          <span className="text-[#6f665b]">
-            Showing tournaments matching <span className="font-black text-[#211d1a]">“{searchParams.get("q")}”</span>
-          </span>
-          <Link to="/organizer/tournaments" className="ml-auto text-xs font-black uppercase tracking-wide text-[#8a6a1c] transition hover:text-[#bb8a3c]">
-            Clear
-          </Link>
+      {/* Toolbar filters */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <Search
+            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search championships by name, code or location..."
+            className="w-full rounded-md border border-slate-300 py-2 pl-9 pr-3 text-sm font-semibold text-slate-900 placeholder:text-slate-450 focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+          />
         </div>
-      )}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-md border border-slate-300 py-2 pl-3 pr-8 text-sm font-semibold text-slate-900 focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20 sm:w-48 cursor-pointer"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="DRAFT">Draft</option>
+          <option value="PENDING_APPROVAL">Pending Approval</option>
+          <option value="APPROVED">Approved</option>
+          <option value="OPEN_REGISTRATION">Open Registration</option>
+          <option value="CLOSED_REGISTRATION">Closed Registration</option>
+          <option value="PARTICIPANTS_LOCKED">Participants Locked</option>
+          <option value="SCHEDULE_PUBLISHED">Schedule Published</option>
+          <option value="ONGOING">Ongoing</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="POSTPONED">Postponed</option>
+        </select>
+      </div>
 
+      {/* Championships Display Area */}
       {loading ? (
-        <div className="h-56 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
-      ) : tournaments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
-          <p className="mt-2 text-sm text-[#6f665b]">Create your first championship to get started.</p>
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((item) => (
+            <div
+              key={item}
+              className="h-64 animate-pulse rounded-xl border border-slate-200 bg-white"
+            />
+          ))}
         </div>
-      ) : visible.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">No matches</p>
-          <p className="mt-2 text-sm text-[#6f665b]">No tournaments match “{searchParams.get("q")}”.</p>
+      ) : tournaments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-350 bg-slate-50/50 px-8 py-16 text-center">
+          <Trophy className="mx-auto h-12 w-12 text-slate-400" aria-hidden="true" />
+          <h3 className="mt-4 text-lg font-black text-slate-900">No championships hosted yet</h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Get started by creating your first official horse racing championship season.
+          </p>
+        </div>
+      ) : filteredTournaments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-350 bg-slate-50/50 px-8 py-16 text-center">
+          <Search className="mx-auto h-12 w-12 text-slate-400" aria-hidden="true" />
+          <h3 className="mt-4 text-lg font-black text-slate-900">No matching results</h3>
+          <p className="mt-2 text-sm text-slate-500">
+            No championships match the chosen filters or search query.
+          </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {visible.map((t) => {
-            const next = LIFECYCLE[t.status];
-            const busy = processingId === t.id;
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredTournaments.map((t) => {
+            const statusStyle =
+              statusBadgeStyle[t.status] ??
+              "border-slate-200 bg-slate-50 text-slate-700";
+
             return (
-              <article key={t.id} className="rounded-xl border border-[#e7e0d3] bg-white p-6">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="font-display text-2xl font-light tracking-tight text-[#211d1a]">{t.name}</h2>
-                      <span className={`rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-wide ${statusBadge[t.status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
-                        {t.status.replace(/_/g, " ")}
+              <article
+                key={t.id}
+                className="flex flex-col justify-between rounded-xl border border-slate-200 bg-white shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md duration-300"
+              >
+                <div className="p-5">
+                  {/* Card Badge Header */}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="font-mono text-xs font-black tracking-wider text-slate-400">
+                      {t.code}
+                    </span>
+                    <span
+                      className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusStyle}`}
+                    >
+                      {t.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+
+                  {/* Championship Title */}
+                  <h3 className="mt-3 text-lg font-bold text-slate-950 line-clamp-2">
+                    {t.name}
+                  </h3>
+
+                  {t.description && (
+                    <p className="mt-2 text-xs font-medium text-slate-500 line-clamp-2">
+                      {t.description}
+                    </p>
+                  )}
+
+                  {/* Details Meta list */}
+                  <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                      <span className="truncate">{t.location || "TBD Location"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                      <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                      <span>
+                        {formatDate(t.startDate)} – {formatDate(t.endDate)}
                       </span>
                     </div>
-                    <p className="mt-1.5 font-mono text-xs uppercase tracking-[0.12em] text-[#8a8276]">
-                      {t.code} · {t.location ?? "—"} · {formatDate(t.startDate)} – {formatDate(t.endDate)}
-                    </p>
-                    {t.status === "PENDING_APPROVAL" && (
-                      <p className="mt-3 text-sm font-semibold text-amber-700">Awaiting admin approval (Gate 2).</p>
-                    )}
-                    {t.status === "DRAFT" && t.rejectionReason && (
-                      <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-700">
-                        <span className="font-black">Rejected:</span> {t.rejectionReason}
-                      </p>
+                    {t.maxHorses && (
+                      <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <Users className="h-3.5 w-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                        <span>Max Cap: {t.maxHorses} horses</span>
+                      </div>
                     )}
                   </div>
 
-                  <div className="flex shrink-0 flex-col gap-2">
-                    {t.status === "DRAFT" && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => runStatus(t.id, () => submitTournamentForApproval(t.id))}
-                        className="min-h-10 rounded-lg bg-[#bb8a3c] px-5 text-xs font-black uppercase tracking-[0.12em] text-[#1c1816] transition hover:bg-[#cfa24f] disabled:opacity-40"
-                      >
-                        Submit for approval
-                      </button>
-                    )}
-                    {next && (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() =>
-                          runStatus(t.id, () =>
-                            // BR-09: "Lock participants" must materialise horse+jockey contracts into
-                            // official participants (not just flip the status flag), else schedule
-                            // publication later fails for lack of participants.
-                            t.status === "CLOSED_REGISTRATION"
-                              ? lockOrganizerParticipants(t.id)
-                              : updateOrganizerTournamentStatus(t.id, next.target),
-                          )
-                        }
-                        className="min-h-10 rounded-lg bg-[#bb8a3c] px-5 text-xs font-black uppercase tracking-[0.12em] text-[#1c1816] transition hover:bg-[#cfa24f] disabled:opacity-40"
-                      >
-                        {next.label}
-                      </button>
-                    )}
-                    <Link
-                      to={`/championships/${t.id}`}
-                      className="min-h-10 rounded-lg border border-[#e2d9c8] px-5 text-center text-xs font-black uppercase tracking-[0.12em] leading-10 text-[#6f665b] transition hover:border-[#bb8a3c] hover:text-[#211d1a]"
-                    >
-                      View public page
-                    </Link>
-                  </div>
+                  {t.status === "PENDING_APPROVAL" && (
+                    <div className="mt-3 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-800">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      <span>Awaiting Admin Gate Approval</span>
+                    </div>
+                  )}
+
+                  {t.status === "DRAFT" && t.rejectionReason && (
+                    <div className="mt-3 rounded-md border border-rose-200 bg-rose-50 p-2.5 text-xs text-rose-800">
+                      <p className="font-black">Rejection Reason:</p>
+                      <p className="mt-0.5 font-medium leading-4">{t.rejectionReason}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Card Action Footer */}
+                <div className="border-t border-slate-100 bg-slate-50/50 p-4">
+                  <Link
+                    to={`/organizer/tournaments/${t.id}`}
+                    className="flex min-h-10 w-full items-center justify-center rounded-md bg-[#bb8a3c] text-xs font-black uppercase tracking-wider text-[#1c1816] hover:bg-[#cfa24f] transition duration-200 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]"
+                  >
+                    Manage Championship
+                  </Link>
                 </div>
               </article>
             );
           })}
+        </div>
+      )}
+
+      {/* CREATE CHAMPIONSHIP MODAL */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4">
+          <div
+            aria-labelledby="create-championship-title"
+            className="w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="flex items-start justify-between border-b border-slate-100 px-6 py-4 bg-slate-50">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider text-[#bb8a3c]">
+                  New Season Setup
+                </p>
+                <h2 id="create-championship-title" className="text-xl font-black text-slate-950">
+                  Create Championship
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-md p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-800"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit}>
+              <div className="grid gap-4 p-6 sm:grid-cols-2 max-h-[70vh] overflow-y-auto premium-scrollbar">
+                {createError && (
+                  <div className="sm:col-span-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">
+                    {createError}
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="create-name" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Championship Name *
+                  </label>
+                  <input
+                    id="create-name"
+                    type="text"
+                    required
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                    placeholder="Continental Crown Championship 2026"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-code" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Championship Code *
+                  </label>
+                  <input
+                    id="create-code"
+                    type="text"
+                    required
+                    value={createForm.code}
+                    onChange={(e) => setCreateForm({ ...createForm, code: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                    placeholder="CCC_2026"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-location" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Location *
+                  </label>
+                  <input
+                    id="create-location"
+                    type="text"
+                    required
+                    value={createForm.location}
+                    onChange={(e) => setCreateForm({ ...createForm, location: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                    placeholder="Saigon Racing Center, HCMC"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-start" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Start Date *
+                  </label>
+                  <input
+                    id="create-start"
+                    type="date"
+                    required
+                    value={createForm.startDate}
+                    onChange={(e) => setCreateForm({ ...createForm, startDate: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-end" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    End Date *
+                  </label>
+                  <input
+                    id="create-end"
+                    type="date"
+                    required
+                    value={createForm.endDate}
+                    onChange={(e) => setCreateForm({ ...createForm, endDate: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-reg-start" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Registration Start Time *
+                  </label>
+                  <input
+                    id="create-reg-start"
+                    type="datetime-local"
+                    required
+                    value={createForm.registrationStartAt}
+                    onChange={(e) => setCreateForm({ ...createForm, registrationStartAt: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-reg-end" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Registration End Time *
+                  </label>
+                  <input
+                    id="create-reg-end"
+                    type="datetime-local"
+                    required
+                    value={createForm.registrationEndAt}
+                    onChange={(e) => setCreateForm({ ...createForm, registrationEndAt: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-max-horses" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Max Horse Capacity
+                  </label>
+                  <input
+                    id="create-max-horses"
+                    type="number"
+                    min={1}
+                    value={createForm.maxHorses}
+                    onChange={(e) => setCreateForm({ ...createForm, maxHorses: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                    placeholder="Unlimited"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-max-horses-owner" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Max Horses Per Owner *
+                  </label>
+                  <input
+                    id="create-max-horses-owner"
+                    type="number"
+                    min={1}
+                    required
+                    value={createForm.maxHorsesPerOwner}
+                    onChange={(e) => setCreateForm({ ...createForm, maxHorsesPerOwner: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label htmlFor="create-desc" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Description / About
+                  </label>
+                  <textarea
+                    id="create-desc"
+                    rows={3}
+                    value={createForm.description}
+                    onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                    placeholder="Describe the season details, prizes, or restrictions..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-md border border-slate-300 px-4 py-2 text-sm font-bold text-slate-650 hover:bg-slate-150"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="rounded-md bg-[#bb8a3c] px-5 py-2 text-sm font-bold text-[#1c1816] hover:bg-[#cfa24f] disabled:opacity-50"
+                >
+                  {creating ? "Creating..." : "Create"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

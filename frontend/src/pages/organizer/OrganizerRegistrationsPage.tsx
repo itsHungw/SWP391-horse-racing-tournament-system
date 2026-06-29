@@ -71,7 +71,7 @@ export function OrganizerRegistrationsPage() {
         setTournaments(data);
         setSelectedId((prev) => (prev != null && data.some((t) => t.id === prev) ? prev : data[0]?.id ?? null));
       })
-      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your tournaments.")))
+      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your championships.")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -177,42 +177,20 @@ export function OrganizerRegistrationsPage() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Title Header Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Registrations</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
-            Review who wants into your tournament — horses entered by owners and jockeys applying to your pool. Open a
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#bb8a3c]">
+            Workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            Registrations
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+            Review who wants into your championship — horses entered by owners and jockeys applying to your pool. Open a
             row to see the full detail and approve or reject. When contracts are accepted, lock the field to finalise the
             official roster.
           </p>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <label className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
-            Tournament
-            <select
-              className="mt-2 block min-h-11 w-64 rounded-lg border border-[#e2d9c8] bg-white px-3 text-sm font-bold text-[#3a342d] outline-none focus:border-[#bb8a3c]"
-              value={selectedId ?? ""}
-              onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
-            >
-              {tournaments.length === 0 && <option value="">No tournaments</option>}
-              {tournaments.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedId != null && (
-            <button
-              type="button"
-              disabled={locking}
-              onClick={() => setConfirmLock(true)}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-[#1c1816] bg-[#1c1816] px-4 text-xs font-black uppercase tracking-wide text-[#f7f4ee] transition hover:bg-[#2a241f] disabled:opacity-50"
-            >
-              <Lock className="h-4 w-4" /> Lock the field
-            </button>
-          )}
         </div>
       </div>
 
@@ -231,15 +209,47 @@ export function OrganizerRegistrationsPage() {
         <div className="h-64 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
       ) : tournaments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
-          <p className="mt-2 text-sm text-[#6f665b]">Create a tournament and open registration to receive entries.</p>
+          <p className="font-display text-2xl font-light text-[#211d1a]">No championships yet</p>
+          <p className="mt-2 text-sm text-[#6f665b]">Create a championship and open registration to receive entries.</p>
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2">
-            <TabButton active={tab === "horses"} onClick={() => setTab("horses")} icon={ClipboardList} label="Horse entries" count={horsePending} />
-            <TabButton active={tab === "jockeys"} onClick={() => setTab("jockeys")} icon={Users} label="Jockey pool" count={jockeyPending} />
-            <TabButton active={tab === "participants"} onClick={() => setTab("participants")} icon={UserCheck} label="Participants" count={0} total={participants.length} />
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap gap-2">
+              <TabButton active={tab === "horses"} onClick={() => setTab("horses")} icon={ClipboardList} label="Horse entries" count={horsePending} />
+              <TabButton active={tab === "jockeys"} onClick={() => setTab("jockeys")} icon={Users} label="Jockey pool" count={jockeyPending} />
+              <TabButton active={tab === "participants"} onClick={() => setTab("participants")} icon={UserCheck} label="Participants" count={0} total={participants.length} />
+            </div>
+
+            {/* Dropdown filter & Lock button inline with tabs */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500">Championship:</span>
+                <select
+                  className="block min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-[#bb8a3c] focus:ring-2 focus:ring-[#bb8a3c]/20 cursor-pointer"
+                  value={selectedId ?? ""}
+                  onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
+                >
+                  {tournaments.length === 0 && <option value="">No championships</option>}
+                  {tournaments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedId != null && (
+                <button
+                  type="button"
+                  disabled={locking}
+                  onClick={() => setConfirmLock(true)}
+                  className="inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg border border-[#1c1816] bg-[#1c1816] px-4 text-xs font-black uppercase tracking-wide text-[#f7f4ee] transition hover:bg-[#2a241f] disabled:opacity-50"
+                >
+                  <Lock className="h-4 w-4" /> Lock the field
+                </button>
+              )}
+            </div>
           </div>
 
           <section className="overflow-hidden rounded-xl border border-[#e7e0d3] bg-white">

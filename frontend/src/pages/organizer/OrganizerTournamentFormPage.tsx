@@ -13,7 +13,7 @@ const inputClass =
 const labelClass = "text-[11px] font-black uppercase tracking-[0.14em] text-[#8a6a1c]";
 
 export function OrganizerTournamentFormPage() {
-  useDocumentTitle("Create Tournament | Organizer");
+  useDocumentTitle("Create Championship | Organizer");
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -61,7 +61,7 @@ export function OrganizerTournamentFormPage() {
       });
       navigate("/organizer/tournaments");
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not create the tournament."));
+      setError(getApiErrorMessage(err, "Could not create the championship."));
     } finally {
       setSubmitting(false);
     }
@@ -70,9 +70,9 @@ export function OrganizerTournamentFormPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <Link to="/organizer/tournaments" className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.14em] text-[#8a8276] transition hover:text-[#bb8a3c]">
-        <ArrowLeft className="h-4 w-4" /> Back to my tournaments
+        <ArrowLeft className="h-4 w-4" /> Back to my championships
       </Link>
-      <h1 className="mt-4 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Create Tournament</h1>
+      <h1 className="mt-4 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Create Championship</h1>
       <p className="mt-2 text-sm leading-relaxed text-[#6f665b]">
         Configure your championship. It starts as a draft — submit it for admin approval before opening registration.
       </p>
@@ -87,7 +87,7 @@ export function OrganizerTournamentFormPage() {
         <fieldset className="space-y-6" disabled={submitting}>
           <div className="grid gap-6 md:grid-cols-[1fr_180px]">
             <div>
-              <label className={labelClass} htmlFor="t-name">Tournament name *</label>
+              <label className={labelClass} htmlFor="t-name">Championship name *</label>
               <input id="t-name" className={inputClass} value={form.name} onChange={(e) => set("name")(e.target.value)} placeholder="e.g. Summer Derby 2026" required />
             </div>
             <div>
@@ -137,7 +137,7 @@ export function OrganizerTournamentFormPage() {
             type="submit"
             className="inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-[#bb8a3c] px-5 text-xs font-black uppercase tracking-[0.14em] text-[#1c1816] transition hover:bg-[#cfa24f] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {submitting ? "Creating..." : "Create Tournament (Draft)"}
+            {submitting ? "Creating..." : "Create Championship (Draft)"}
           </button>
         </fieldset>
       </form>

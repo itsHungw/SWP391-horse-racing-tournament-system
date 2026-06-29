@@ -125,30 +125,39 @@ export function OrganizerOfficialsPage() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Title Header Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Officials</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
-            Hire platform-licensed referees for a tournament. Open a referee to see their licence and experience, then
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#bb8a3c]">
+            Workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            Officials
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
+            Hire platform-licensed referees for a championship. Open a referee to see their licence and experience, then
             invite or terminate. Only referees with an active contract can be assigned to its races.
           </p>
         </div>
-        <label className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
-          Tournament
+      </div>
+
+      {/* Operations Filter Bar */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500">Championship:</span>
           <select
-            className="mt-2 block min-h-11 w-64 rounded-lg border border-[#e2d9c8] bg-white px-3 text-sm font-bold text-[#3a342d] outline-none focus:border-[#bb8a3c]"
+            className="block min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-[#bb8a3c] focus:ring-2 focus:ring-[#bb8a3c]/20 cursor-pointer"
             value={selectedId ?? ""}
             onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
           >
-            {tournaments.length === 0 && <option value="">No tournaments</option>}
+            {tournaments.length === 0 && <option value="">No championships</option>}
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
       {error && (
@@ -161,8 +170,8 @@ export function OrganizerOfficialsPage() {
         <div className="h-64 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
       ) : tournaments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">Create a tournament first</p>
-          <p className="mt-2 text-sm text-[#6f665b]">You can hire officials once you have a tournament to staff.</p>
+          <p className="font-display text-2xl font-light text-[#211d1a]">Create a championship first</p>
+          <p className="mt-2 text-sm text-[#6f665b]">You can hire officials once you have a championship to staff.</p>
         </div>
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -175,7 +184,7 @@ export function OrganizerOfficialsPage() {
             {loadingContracts ? (
               <div className="h-40 animate-pulse bg-[#faf7f0]" />
             ) : contracts.length === 0 ? (
-              <p className="px-6 py-12 text-center text-sm text-[#6f665b]">No officials engaged for this tournament yet.</p>
+              <p className="px-6 py-12 text-center text-sm text-[#6f665b]">No officials engaged for this championship yet.</p>
             ) : (
               <ul className="divide-y divide-[#efe9dd]">
                 {contracts.map((c) => (
