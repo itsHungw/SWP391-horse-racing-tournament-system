@@ -7,13 +7,14 @@ import {
   getOwnerHorse,
   getOwnerHorseDocuments,
   getOwnerTournamentRegistrationsPage,
+  updateOwnerHorse,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
 import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
-import type { Horse, HorseDocument, HorseDocumentPayload, HorseDocumentType, TournamentRegistration } from "../../types/racing";
+import type { Horse, HorseDocument, HorseDocumentPayload, HorseDocumentType, OwnerHorseUpdateRequest, TournamentRegistration } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 type ProfileTab = "overview" | "registrations" | "health";
@@ -58,6 +59,19 @@ export function OwnerHorseProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [editPanelOpen, setEditPanelOpen] = useState(false);
+  const [editForm, setEditForm] = useState<OwnerHorseUpdateRequest>({
+    name: "",
+    breed: "",
+    gender: "",
+    dateOfBirth: "",
+    color: "",
+    heightCm: undefined,
+    weightKg: undefined,
+    healthStatus: "",
+    medicalNote: "",
+    description: "",
+  });
 
   useDocumentTitle(horse ? `${horse.name} profile` : "Horse profile");
 
@@ -190,11 +204,35 @@ export function OwnerHorseProfilePage() {
     }
   };
 
+  const updateEditField = (field: keyof OwnerHorseUpdateRequest, value: string) => {
+    setEditForm((current) => ({
+      ...current,
+      [field]: field === "heightCm" || field === "weightKg" ? (value.trim() ? Number(value) : undefined) : value,
+    }));
+  };
+
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!horse) return;
+    setMessage(null);
+    setSaving(true);
+    try {
+      const updatedHorse = await updateOwnerHorse(horse.id, editForm);
+      setHorse(updatedHorse);
+      setEditPanelOpen(false);
+      setMessage("Horse profile updated successfully.");
+    } catch (error) {
+      setMessage(getApiErrorMessage(error, "Could not update horse details."));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <OwnerLayout>
       <section aria-labelledby="horse-profile-title" className="space-y-6">
         <Link
-          className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-black text-slate-700 hover:text-[#dc2626]"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md px-2 text-sm font-black text-slate-700 hover:text-[#006d5b]"
           to="/owner/horses"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -213,9 +251,11 @@ export function OwnerHorseProfilePage() {
           </div>
         ) : horse ? (
           <>
-            <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 xl:flex-row xl:items-start xl:justify-between">
+            <header className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8 mb-6">
+              <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-[#008670] to-[#006d5b]"></div>
+              <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div>
-                <h1 id="horse-profile-title" className="text-4xl font-black tracking-tight">
+                <h1 id="horse-profile-title" className="text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
                   {horse.name}
                 </h1>
                 <p className="mt-2 text-base leading-7 text-slate-600">
@@ -226,9 +266,32 @@ export function OwnerHorseProfilePage() {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <StatusBadge status={horse.status} />
+                <button
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] cursor-pointer"
+                  onClick={() => {
+                    if (horse) {
+                      setEditForm({
+                        name: horse.name,
+                        breed: horse.breed || "",
+                        gender: horse.gender,
+                        dateOfBirth: horse.dateOfBirth || "",
+                        color: horse.color || "",
+                        heightCm: horse.heightCm,
+                        weightKg: horse.weightKg,
+                        healthStatus: horse.healthStatus || "",
+                        medicalNote: horse.medicalNote || "",
+                        description: horse.description || "",
+                      });
+                      setEditPanelOpen(true);
+                    }
+                  }}
+                  type="button"
+                >
+                  Edit Profile
+                </button>
                 {horse.status === "APPROVED" ? (
                   <Link
-                    className="inline-flex min-h-11 items-center rounded-md bg-[#dc2626] px-5 text-sm font-black text-white hover:bg-[#b91c1c]"
+                    className="inline-flex min-h-11 items-center rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d]"
                     to="/owner/registrations"
                   >
                     Register Tournament
@@ -241,6 +304,7 @@ export function OwnerHorseProfilePage() {
                   </span>
                 )}
               </div>
+              </div>
             </header>
 
             <nav aria-label="Horse profile sections" className="flex gap-2 overflow-x-auto border-b border-slate-200">
@@ -248,7 +312,7 @@ export function OwnerHorseProfilePage() {
                 <button
                   className={`inline-flex min-h-12 min-w-max items-center gap-2 border-b-2 px-3 text-sm font-black ${
                     activeTab === tab.id
-                      ? "border-[#dc2626] text-[#dc2626]"
+                      ? "border-[#006d5b] text-[#006d5b]"
                       : "border-transparent text-slate-600 hover:text-slate-950"
                   }`}
                   key={tab.id}
@@ -286,6 +350,133 @@ export function OwnerHorseProfilePage() {
                 onFileChange={updateDocumentFile}
                 onSubmit={handleDocumentCreate}
               />
+            )}
+
+            {editPanelOpen && (
+              <div
+                aria-label="Edit horse details"
+                aria-modal="true"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 sm:p-6"
+                role="dialog"
+              >
+                <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                  {/* HEADER - Fixed */}
+                  <div className="shrink-0 flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#006d5b]">Modify profile</p>
+                      <h2 id="edit-horse-title" className="text-2xl font-black text-slate-950">
+                        Edit Horse Details
+                      </h2>
+                    </div>
+                    <button
+                      aria-label="Close edit horse panel"
+                      className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                      onClick={() => setEditPanelOpen(false)}
+                      type="button"
+                    >
+                      <X className="h-5 w-5" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {/* BODY - Split Pane */}
+                  <form className="flex-1 flex flex-col min-h-0" onSubmit={handleEditSubmit}>
+                    <div className="flex-1 flex flex-col min-h-0 lg:flex-row">
+                      {/* LEFT PANE - Basic Info */}
+                      <div className="w-full lg:w-1/2 p-6 lg:overflow-y-auto modal-scrollbar min-h-0 flex flex-col gap-4 border-b border-slate-100 lg:border-b-0">
+                        <h3 className="text-lg font-black text-slate-950 mb-2">1. Basic Details</h3>
+                        
+                        <div className="grid gap-4 md:grid-cols-2">
+                          <TextField
+                            label="Horse name"
+                            onChange={(value) => updateEditField("name", value)}
+                            required
+                            value={editForm.name}
+                          />
+                          <label className="space-y-1 text-sm font-bold text-slate-700">
+                            <span>Gender</span>
+                            <select
+                              className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
+                              onChange={(event) => updateEditField("gender", event.target.value)}
+                              required
+                              value={editForm.gender}
+                            >
+                              <option value="">Select gender</option>
+                              <option value="MALE">Male</option>
+                              <option value="FEMALE">Female</option>
+                            </select>
+                          </label>
+                          <TextField
+                            label="Breed"
+                            onChange={(value) => updateEditField("breed", value)}
+                            value={editForm.breed}
+                          />
+                          <TextField
+                            label="Color"
+                            onChange={(value) => updateEditField("color", value)}
+                            value={editForm.color}
+                          />
+                          <TextField
+                            label="Date of birth"
+                            onChange={(value) => updateEditField("dateOfBirth", value)}
+                            type="date"
+                            value={editForm.dateOfBirth}
+                          />
+                          <TextField
+                            label="Height cm"
+                            onChange={(value) => updateEditField("heightCm", value)}
+                            type="number"
+                            value={editForm.heightCm ?? ""}
+                          />
+                          <TextField
+                            label="Weight kg"
+                            onChange={(value) => updateEditField("weightKg", value)}
+                            type="number"
+                            value={editForm.weightKg ?? ""}
+                          />
+                        </div>
+                      </div>
+
+                      {/* RIGHT PANE - Detailed Notes */}
+                      <div className="w-full lg:w-1/2 border-t border-slate-200 bg-gradient-to-b from-slate-50/80 to-slate-100/50 p-6 lg:border-l lg:border-t-0 lg:overflow-y-auto modal-scrollbar flex flex-col gap-4 min-h-0">
+                        <h3 className="text-lg font-black text-slate-950 mb-2">2. Health Status & Notes</h3>
+                        <TextField
+                          label="Health status"
+                          onChange={(value) => updateEditField("healthStatus", value)}
+                          value={editForm.healthStatus}
+                        />
+                        <TextArea
+                          label="Medical note"
+                          onChange={(value) => updateEditField("medicalNote", value)}
+                          value={editForm.medicalNote}
+                        />
+                        <TextArea
+                          label="Description"
+                          onChange={(value) => updateEditField("description", value)}
+                          value={editForm.description}
+                        />
+                      </div>
+                    </div>
+
+                    {/* FOOTER - Fixed */}
+                    <div className="shrink-0 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-4">
+                      <button
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                        onClick={() => setEditPanelOpen(false)}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#006d5b] px-6 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={saving}
+                        type="submit"
+                      >
+                        {saving ? "Saving..." : "Save Changes"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
             )}
           </>
         ) : (
@@ -380,7 +571,7 @@ function RegistrationsTab({
           Tournament Registrations
         </h2>
         {horse.status === "APPROVED" ? (
-          <Link className="rounded-md bg-[#dc2626] px-4 py-3 text-sm font-black text-white hover:bg-[#b91c1c]" to="/owner/registrations">
+          <Link className="rounded-md bg-[#006d5b] px-4 py-3 text-sm font-black text-white hover:bg-[#004d3d]" to="/owner/registrations">
             Register this horse in a tournament
           </Link>
         ) : (
@@ -465,7 +656,7 @@ function MedicalDocumentsSection({
           Medical Documents Status
         </h2>
         <button
-          className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-black text-[#dc2626] hover:bg-rose-50"
+          className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-black text-[#006d5b] hover:bg-emerald-50"
           onClick={() => onAddDocument()}
           type="button"
         >
@@ -520,7 +711,7 @@ function DocumentStatusCard({
           <p>Expires {document.expiryDate}</p>
           <AuthenticatedFileLink
             aria-label={`Open ${title}`}
-            className="inline-flex min-h-11 items-center font-black text-[#dc2626] hover:text-[#991b1b]"
+            className="inline-flex min-h-11 items-center font-black text-[#006d5b] hover:text-[#004d3d]"
             href={document.fileUrl}
           >
             Open document
@@ -531,7 +722,7 @@ function DocumentStatusCard({
           <p>No structured document yet.</p>
           <AuthenticatedFileLink
             aria-label={`Open ${title}`}
-            className="inline-flex min-h-11 items-center font-black text-[#dc2626] hover:text-[#991b1b]"
+            className="inline-flex min-h-11 items-center font-black text-[#006d5b] hover:text-[#004d3d]"
             href={fallbackUrl}
           >
             Open initial evidence
@@ -541,7 +732,7 @@ function DocumentStatusCard({
         <div className="mt-4 space-y-2 text-sm text-slate-600">
           <p>No document on file</p>
           <button
-            className="inline-flex min-h-11 items-center rounded-md pr-3 text-sm font-black text-[#dc2626] hover:text-[#991b1b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b91c1c]"
+            className="inline-flex min-h-11 items-center rounded-md pr-3 text-sm font-black text-[#006d5b] hover:text-[#004d3d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
             onClick={() => onAddDocument(documentType)}
             type="button"
           >
@@ -600,7 +791,7 @@ function DocumentModal({
             <label className="space-y-1 text-sm font-bold text-slate-700">
               <span>Document Type *</span>
               <select
-                className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
+                className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
                 onChange={(event) => onChange("documentType", event.target.value)}
                 required
                 value={form.documentType}
@@ -645,7 +836,7 @@ function DocumentModal({
 
           <label className="space-y-2 text-sm font-bold text-slate-700">
             <span>Document Attachment</span>
-            <span className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-slate-600 hover:border-[#dc2626] hover:bg-rose-50">
+            <span className="flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50 px-4 text-center text-slate-600 hover:border-[#006d5b] hover:bg-emerald-50/50">
               <Upload className="h-9 w-9 text-slate-400" aria-hidden="true" />
               <span className="mt-3 font-black">
                 {form.documentFile ? form.documentFile.name : "Click to upload or drag and drop"}
@@ -664,7 +855,7 @@ function DocumentModal({
           <label className="space-y-1 text-sm font-bold text-slate-700">
             <span>Notes</span>
             <textarea
-              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
+              className="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
               onChange={(event) => onChange("notes", event.target.value)}
               placeholder="Additional notes about the document"
               value={form.notes ?? ""}
@@ -680,7 +871,7 @@ function DocumentModal({
               Cancel
             </button>
             <button
-              className="min-h-11 rounded-md bg-[#dc2626] px-5 text-sm font-black text-white hover:bg-[#b91c1c] disabled:cursor-not-allowed disabled:opacity-50"
+              className="min-h-11 rounded-md bg-[#006d5b] px-5 text-sm font-black text-white hover:bg-[#004d3d] disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               type="submit"
             >
@@ -712,7 +903,7 @@ function DocumentTextField({
     <label className="space-y-1 text-sm font-bold text-slate-700">
       <span>{label}</span>
       <input
-        className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b91c1c]"
+        className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         required={required}
@@ -775,7 +966,7 @@ function DocumentLink({ label, url }: { label: string; url?: string }) {
     <div className="rounded-md bg-slate-50 p-4">
       <p className="text-sm font-bold text-slate-500">{label}</p>
       {url ? (
-        <a className="mt-1 inline-flex font-black text-[#dc2626] hover:text-[#991b1b]" href={url}>
+        <a className="mt-1 inline-flex font-black text-[#006d5b] hover:text-[#004d3d]" href={url}>
           Open document
         </a>
       ) : (
@@ -791,4 +982,44 @@ function titleCase(value: string) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function TextField({
+  label,
+  onChange,
+  required,
+  type = "text",
+  value,
+}: {
+  label: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  type?: string;
+  value: string | number | undefined;
+}) {
+  return (
+    <label className="space-y-1 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <input
+        className="min-h-11 w-full rounded-md border border-slate-300 px-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
+        onChange={(event) => onChange(event.target.value)}
+        required={required}
+        type={type}
+        value={value ?? ""}
+      />
+    </label>
+  );
+}
+
+function TextArea({ label, onChange, value }: { label: string; onChange: (value: string) => void; value?: string }) {
+  return (
+    <label className="space-y-1 text-sm font-bold text-slate-700">
+      <span>{label}</span>
+      <textarea
+        className="min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#006d5b]"
+        onChange={(event) => onChange(event.target.value)}
+        value={value ?? ""}
+      />
+    </label>
+  );
 }

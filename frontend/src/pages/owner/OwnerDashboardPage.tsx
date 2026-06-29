@@ -99,11 +99,12 @@ export function OwnerDashboardPage() {
   return (
     <OwnerLayout>
       <section aria-labelledby="owner-dashboard-title" className="space-y-6">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-[#008670] to-[#006d5b]"></div>
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Stable command center</p>
-              <h1 id="owner-dashboard-title" className="mt-2 text-4xl font-black tracking-tight text-slate-950">
+              <h1 id="owner-dashboard-title" className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
               Owner Dashboard
               </h1>
               <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">

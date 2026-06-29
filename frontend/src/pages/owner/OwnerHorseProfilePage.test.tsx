@@ -7,6 +7,7 @@ import {
   getOwnerHorse,
   getOwnerHorseDocuments,
   getOwnerTournamentRegistrationsPage,
+  updateOwnerHorse,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
 import { OwnerHorseProfilePage } from "./OwnerHorseProfilePage";
@@ -16,6 +17,7 @@ vi.mock("../../api/racingApi", () => ({
   getOwnerHorse: vi.fn(),
   getOwnerHorseDocuments: vi.fn(),
   getOwnerTournamentRegistrationsPage: vi.fn(),
+  updateOwnerHorse: vi.fn(),
   withdrawOwnerTournamentRegistration: vi.fn(),
 }));
 
@@ -207,6 +209,63 @@ describe("OwnerHorseProfilePage", () => {
 
     expect(await screen.findByText("Horse Cup 6")).toBeInTheDocument();
     expect(screen.queryByText("Horse Cup 1")).not.toBeInTheDocument();
+  });
+
+  it("opens the edit profile panel, edits horse details, and saves changes", async () => {
+    const updatedHorse = {
+      id: 1,
+      name: "Super Nova",
+      breed: "Quarter Horse",
+      color: "Grey",
+      registrationCode: "NOVA-1",
+      gender: "FEMALE",
+      imageUrl: "/uploads/horses/images/nova.jpg",
+      evidenceUrl: "/uploads/horses/evidence/nova.pdf",
+      healthStatus: "Healthy",
+      medicalNote: "Updated medical note",
+      description: "Updated description",
+      status: "PENDING" as const,
+    };
+
+    vi.mocked(updateOwnerHorse).mockResolvedValue(updatedHorse);
+
+    renderProfile();
+
+    expect(await screen.findByRole("heading", { name: /nova/i })).toBeInTheDocument();
+
+    // Click Edit Profile button
+    const editBtn = screen.getByRole("button", { name: /edit profile/i });
+    fireEvent.click(editBtn);
+
+    // Verify modal/aside is open by checking its heading
+    const title = screen.getByRole("heading", { name: /edit horse details/i });
+    expect(title).toBeInTheDocument();
+
+    // Fill/Change name and breed
+    const nameInput = screen.getByLabelText(/horse name/i);
+    expect(nameInput).toHaveValue("Nova");
+
+    const breedInput = screen.getByLabelText(/breed/i);
+    expect(breedInput).toHaveValue("Thoroughbred");
+
+    fireEvent.change(nameInput, { target: { value: "Super Nova" } });
+    fireEvent.change(breedInput, { target: { value: "Quarter Horse" } });
+
+    // Submit
+    const saveBtn = screen.getByRole("button", { name: /save changes/i });
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      expect(updateOwnerHorse).toHaveBeenCalledWith(1, expect.objectContaining({
+        name: "Super Nova",
+        breed: "Quarter Horse",
+      }));
+    });
+
+    // Verify profile page is updated and modal is closed
+    expect(await screen.findByRole("heading", { name: /super nova/i })).toBeInTheDocument();
+    expect(screen.getByText(/horse profile updated successfully/i)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /edit horse details/i })).not.toBeInTheDocument();
   });
 });
 

@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.horse.dto.request.HorseRequest;
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseDocumentMultipartRequest;
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseMultipartRequest;
 import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseRequest;
+import com.example.horseracingtournamentsystem.horse.dto.request.OwnerHorseUpdateRequest;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseDocumentResponse;
 import com.example.horseracingtournamentsystem.horse.dto.response.HorseResponse;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
@@ -80,6 +81,31 @@ public class HorseService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Owner not found"));
 
         horse.update(req.getName(), req.getBreed(), req.getGender().toUpperCase(), req.getDateOfBirth(), req.getColor());
+        horseRepository.save(horse);
+        return mapToResponse(horse);
+    }
+
+    @Transactional
+    public HorseResponse updateOwnerHorse(String email, Long id, OwnerHorseUpdateRequest req) {
+        Horse horse = requireOwnedHorse(email, id);
+
+        horse.updateOwnerDetails(
+                req.name(),
+                req.breed(),
+                req.gender().toUpperCase(),
+                req.dateOfBirth(),
+                req.color(),
+                req.heightCm(),
+                req.weightKg(),
+                req.healthStatus(),
+                req.medicalNote(),
+                req.description()
+        );
+
+        if ("APPROVED".equals(horse.getStatus()) || "REJECTED".equals(horse.getStatus())) {
+            horse.setStatusPending();
+        }
+
         horseRepository.save(horse);
         return mapToResponse(horse);
     }

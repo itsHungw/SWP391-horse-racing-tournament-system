@@ -51,6 +51,7 @@ import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
 import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
 import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
 import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
+import { OwnerJockeyInvitationsPage } from "../pages/owner/OwnerJockeyInvitationsPage";
 import { JockeyChampionshipsPage } from "../pages/jockey/JockeyChampionshipsPage";
 import { JockeyContractsPage } from "../pages/jockey/JockeyContractsPage";
 import { JockeyDashboardPage } from "../pages/jockey/JockeyDashboardPage";
@@ -148,22 +149,22 @@ export function AppRouter() {
           <Route path="organization" element={<OrganizerOrganizationPage />} />
         </Route>
 
+        <Route path="owner" element={ownerRoute(<Navigate to="/owner/dashboard" replace />)} />
+        <Route path="owner/dashboard" element={ownerRoute(<OwnerDashboardPage />)} />
+        <Route path="owner/horses" element={ownerRoute(<OwnerHorsesPage />)} />
+        <Route path="owner/horses/:horseId" element={ownerRoute(<OwnerHorseProfilePage />)} />
+        <Route path="owner/profile" element={ownerRoute(<OwnerProfilePage />)} />
+        <Route path="owner/registrations" element={ownerRoute(<OwnerTournamentRegistrationsPage />)} />
+        <Route path="owner/invitations" element={ownerRoute(<OwnerJockeyInvitationsPage />)} />
 
-<Route path="owner" element={ownerRoute(<Navigate to="/owner/dashboard" replace />)} />
-<Route path="owner/dashboard" element={ownerRoute(<OwnerDashboardPage />)} />
-<Route path="owner/horses" element={ownerRoute(<OwnerHorsesPage />)} />
-<Route path="owner/horses/:horseId" element={ownerRoute(<OwnerHorseProfilePage />)} />
-<Route path="owner/profile" element={ownerRoute(<OwnerProfilePage />)} />
-<Route path="owner/registrations" element={ownerRoute(<OwnerTournamentRegistrationsPage />)} />
-
-<Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
-<Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />
-<Route path="jockey/championships" element={jockeyRoute(<JockeyChampionshipsPage />)} />
-<Route path="jockey/contracts" element={jockeyRoute(<JockeyContractsPage />)} />
-<Route path="jockey/schedule" element={jockeyRoute(<JockeySchedulePage />)} />
-<Route path="jockey/profile" element={jockeyRoute(<JockeyProfilePage />)} />
-<Route path="jockey/invitations" element={jockeyRoute(<Navigate to="/jockey/contracts" replace />)} />
-<Route path="jockey/races" element={jockeyRoute(<Navigate to="/jockey/schedule" replace />)} />
+        <Route path="jockey" element={jockeyRoute(<Navigate to="/jockey/dashboard" replace />)} />
+        <Route path="jockey/dashboard" element={jockeyRoute(<JockeyDashboardPage />)} />
+        <Route path="jockey/championships" element={jockeyRoute(<JockeyChampionshipsPage />)} />
+        <Route path="jockey/contracts" element={jockeyRoute(<JockeyContractsPage />)} />
+        <Route path="jockey/schedule" element={jockeyRoute(<JockeySchedulePage />)} />
+        <Route path="jockey/profile" element={jockeyRoute(<JockeyProfilePage />)} />
+        <Route path="jockey/invitations" element={jockeyRoute(<Navigate to="/jockey/contracts" replace />)} />
+        <Route path="jockey/races" element={jockeyRoute(<Navigate to="/jockey/schedule" replace />)} />
 
 <Route path="referee" element={refereeRoute(<RefereeLayout />)}>
   <Route index element={<Navigate to="/referee/dashboard" replace />} />
