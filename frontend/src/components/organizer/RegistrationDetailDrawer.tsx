@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Calendar, Check, FileText, Mail, MessageSquare, UserRound, XCircle } from "lucide-react";
 
 import type { JockeyPoolApplication, TournamentRegistration } from "../../types/racing";
+import { AuthenticatedFileLink } from "../AuthenticatedFileLink";
 import { Drawer, StatusPill } from "../office";
 
 export type RegistrationDetail =
@@ -154,14 +155,14 @@ export function RegistrationDetailDrawer({
             {entry.data.note && <Row icon={MessageSquare} label="Owner note">{entry.data.note}</Row>}
             <Row icon={FileText} label="Horse papers">
               {entry.data.horseEvidenceUrl ? (
-                <a
+                <AuthenticatedFileLink
                   href={entry.data.horseEvidenceUrl}
                   target="_blank"
                   rel="noreferrer"
                   className="text-office-gilt underline underline-offset-2 hover:text-office-brass"
                 >
                   View submitted document
-                </a>
+                </AuthenticatedFileLink>
               ) : (
                 "—"
               )}

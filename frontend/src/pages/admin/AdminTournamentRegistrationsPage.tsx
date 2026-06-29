@@ -5,6 +5,7 @@ import {
   getAdminTournamentRegistrations,
   rejectAdminTournamentRegistration,
 } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import type { TournamentRegistration, TournamentRegistrationStatus } from "../../types/racing";
@@ -164,14 +165,14 @@ export function AdminTournamentRegistrationsPage() {
                           <div>
                             <p className="font-black text-[#171717]">{registration.horseName}</p>
                             {registration.horseEvidenceUrl && (
-                              <a
+                              <AuthenticatedFileLink
                                 className="text-xs font-black text-[#b3193a] underline"
                                 href={registration.horseEvidenceUrl}
                                 rel="noreferrer"
                                 target="_blank"
                               >
                                 Evidence
-                              </a>
+                              </AuthenticatedFileLink>
                             )}
                           </div>
                         </div>

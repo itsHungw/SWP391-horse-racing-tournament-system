@@ -7,6 +7,7 @@ import {
   rejectOrganization,
   suspendOrganization,
 } from "../../api/racingApi";
+import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import type { Organization, OrganizationStatus } from "../../types/racing";
@@ -154,14 +155,14 @@ export function AdminOrganizationsPage() {
                           <p className="mt-2 max-w-md text-xs leading-5 text-slate-600">{org.applicationNote}</p>
                         )}
                         {org.evidenceUrl && (
-                          <a
+                          <AuthenticatedFileLink
                             className="mt-1 inline-block text-xs font-black text-[#b3193a] underline"
                             href={org.evidenceUrl}
                             rel="noreferrer"
                             target="_blank"
                           >
                             Credentials
-                          </a>
+                          </AuthenticatedFileLink>
                         )}
                       </td>
                       <td className="px-5 py-4">
