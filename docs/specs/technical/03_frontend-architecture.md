@@ -4,17 +4,17 @@
 
 ```text
 frontend/src
-├── api/          HTTP clients per backend domain
-├── assets/       static images
-├── components/   shared UI components
-├── hooks/        reusable React hooks
-├── layouts/      app/admin/owner/jockey/referee layout shells
-├── pages/        route-level pages by role/domain
-├── routes/       route table and protected route guards
-├── test/         shared test setup
-├── types/        shared TypeScript API/domain types
-├── utils/        validation, auth session, route helpers
-└── styles.css
+|-- api/          HTTP clients per backend domain
+|-- assets/       static images
+|-- components/   shared UI components
+|-- hooks/        reusable React hooks
+|-- layouts/      app/admin/owner/jockey/referee/organizer layout shells
+|-- pages/        route-level pages by role/domain
+|-- routes/       route table and protected route guards
+|-- test/         shared test setup
+|-- types/        shared TypeScript API/domain types
+|-- utils/        validation, auth session, route helpers
+`-- styles.css
 ```
 
 ## 2. Layering
@@ -37,16 +37,24 @@ Public and auth:
 
 - `/`
 - `/join-us`
+- `/championships`
+- `/championships/:id`
+- `/races`
+- `/races/:id`
+- `/leaderboard`
 - `/blogs`
 - `/blogs/:slug`
 - `/login`
 - `/register`
 - `/verify-email`
+- `/forgot-password`
 
 User:
 
 - `/profile`
+- `/wallet`
 - `/my-role-requests`
+- `/organizer/register`
 
 Spectator:
 
@@ -72,6 +80,7 @@ Referee:
 
 - `/referee/dashboard`
 - `/referee/assigned-races`
+- `/referee/contracts`
 - `/referee/race-control`
 - `/referee/result-history`
 - `/referee/profile`
@@ -80,10 +89,23 @@ Referee:
 - `/referee/races/:id/report`
 - `/referee/races/:id/officiate`
 
+Organizer:
+
+- `/organizer`
+- `/organizer/tournaments`
+- `/organizer/tournaments/new`
+- `/organizer/registrations`
+- `/organizer/schedule`
+- `/organizer/officials`
+- `/organizer/results`
+- `/organizer/profile`
+- `/organizer/organization`
+
 Admin:
 
 - `/admin`
 - `/admin/role-requests`
+- `/admin/organizations`
 - `/admin/users`
 - `/admin/users/:id`
 - `/admin/horses`
@@ -95,7 +117,7 @@ Admin:
 - `/admin/blog/edit/:id`
 - `/admin/predictions`
 - `/admin/predictions/races/:raceId`
-- `/admin/points`
+- `/admin/withdrawals`
 
 ## 4. API Client Pattern
 
@@ -108,15 +130,26 @@ Key clients:
 - `roleRequestApi.ts`
 - `adminRoleRequestApi.ts`
 - `adminUserApi.ts`
-- `adminRaceApi.ts`
-- `adminTournamentApi.ts`
+- `organizationApi.ts`
+- `organizerApi.ts`
+- `walletApi.ts`
+- `predictionApi.ts`
 - `adminPredictionApi.ts`
 - `blogApi.ts`
-- `pointSettingsApi.ts`
 - `ownerProfileApi.ts`
 - `racingApi.ts`
 - `refereeApi.ts`
 
-## 5. Testing Pattern
+## 5. Header And Dashboard Switching
 
-Frontend tests are colocated with pages, layouts, API clients, and utilities. They verify behavior such as protected route redirects, API request/response handling, form validation, race-day state transitions, pagination, and page rendering.
+The public/client header is the main workspace switcher:
+
+- profile pill shows user identity and wallet balance;
+- dropdown shows the current dashboard first;
+- personal dashboards are grouped separately from the organizer dashboard;
+- a user can hold multiple personal roles and choose the matching dashboard;
+- organizer appears only for accounts with the `ORGANIZER` role, while non-organizers can open the organizer registration route.
+
+## 6. Testing Pattern
+
+Frontend tests are colocated with pages, layouts, API clients, and utilities. They verify behavior such as protected route redirects, API request/response handling, form validation, wallet chart behavior, role dashboard switching, race-day state transitions, pagination, and page rendering.

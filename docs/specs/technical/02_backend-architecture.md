@@ -7,14 +7,18 @@ The backend uses a domain-first package structure under:
 `com.example.horseracingtournamentsystem`
 
 ```text
+aiinsight/
 auth/
 blog/
 championship/
 common/
 config/
+dashboard/
 filestorage/
 horse/
-point/
+leaderboard/
+notification/
+organization/
 prediction/
 race/
 referee/
@@ -23,8 +27,7 @@ security/
 tournament/
 tournamentregistration/
 user/
-aiinsight/
-notification/
+wallet/
 ```
 
 Most active domains keep the same internal shape:
@@ -42,7 +45,7 @@ sequenceDiagram
     participant API as Controller
     participant S as Service
     participant R as Repository
-    participant DB as SQL Server
+    participant DB as PostgreSQL
 
     UI->>API: HTTP request with JWT when protected
     API->>API: Validate DTO and route parameters
@@ -59,17 +62,20 @@ sequenceDiagram
 
 - `auth`: registration, verification email, login, refresh, logout, token/session services.
 - `security`: JWT service/filter, user details, CORS, rate limiting, REST auth error handlers, production cookie validator.
-- `user`: profile APIs, role request workflow, admin user management, owner/referee profile APIs.
+- `user`: profile APIs, role request workflow, admin user management, owner/referee profile APIs, role policy.
+- `organization`: organization registration, admin KYB review, organizer business-role separation.
 - `horse`: owner horse management, admin horse review, public/admin horse APIs, horse document upload.
-- `tournament`: public tournament list/detail and admin tournament management.
-- `tournamentregistration`: owner registration workflow and admin registration review.
-- `championship`: jockey pool application, owner contract, jockey contract response, admin participant lock/workspace.
-- `race`: public/admin race APIs and jockey schedule.
+- `tournament`: public tournament list/detail, admin tournament management, organizer tournament management, participation guard.
+- `tournamentregistration`: owner registration workflow and registration review.
+- `championship`: jockey pool application, owner-jockey contracts, referee contracts, participant lock/workspace.
+- `race`: public/admin/organizer race APIs, result publish/reopen/confirm, jockey schedule.
 - `referee`: assigned race operations, pre-checks, result package, incidents, violations, reports.
 - `result`: race result persistence.
-- `prediction`: spectator prediction APIs, admin audit APIs, settlement scheduler.
-- `blog`: public blog APIs, admin blog management, blog reward service.
-- `point`: point settings, point account, point transaction logic.
+- `prediction`: spectator prediction APIs, quotes, streak predictions, admin audit APIs, settlement scheduler.
+- `wallet`: wallet account, transaction ledger, VNPay top-up, withdrawals, saved bank accounts.
+- `blog`: public blog APIs and admin blog management.
+- `leaderboard`: public leaderboard.
+- `notification`: persisted user notifications.
 - `filestorage`: generic file upload/download and private file access.
 - `common`: global exception handling and upload support.
 
@@ -78,7 +84,7 @@ sequenceDiagram
 - Controllers expose DTOs, not JPA entities.
 - Services own business validation and transactional workflows.
 - Repositories encapsulate persistence queries only.
-- Cross-table workflows such as role approval, blog reward claim, point spending, prediction settlement, and referee result submission should remain service-level operations.
+- Cross-table workflows such as role approval, organization approval, tournament participation guard checks, wallet adjustment, prediction settlement, withdrawal review, and referee result submission remain service-level operations.
 - Global exception handling converts validation/auth/business failures into stable JSON responses.
 
 ## 5. Security Architecture
@@ -87,5 +93,6 @@ sequenceDiagram
 - User identity loads through `CustomUserDetailsService`.
 - Refresh sessions are persisted through auth session repositories and refreshed through `/api/v1/auth/refresh`.
 - Role access is enforced by backend security and frontend route guards.
-- Rate limiting is configurable for login, upload, and prediction submit flows.
+- Current role route guards include admin, organizer, owner, jockey, referee, and authenticated-user routes.
+- Rate limiting is configurable for login, upload, prediction submit, forgot-password, and reset-password flows.
 - Production profile requires stricter refresh cookie settings.

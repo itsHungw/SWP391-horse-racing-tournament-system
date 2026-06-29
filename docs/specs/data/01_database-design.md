@@ -2,19 +2,27 @@
 
 ## 1. Database Sources
 
-The project targets SQL Server.
+The active backend configuration uses PostgreSQL:
 
-Source files:
+- `backend/src/main/resources/application.yml`: `org.postgresql.Driver`.
+- `backend/pom.xml`: PostgreSQL driver and Flyway PostgreSQL support.
+- `backend/src/main/resources/db/migration`: Flyway migrations `V1` through `V18`.
 
-- `backend/src/main/resources/schema.sql`: authoritative legacy schema used by current source context.
-- `backend/src/main/resources/db/migration/V1__baseline_schema.sql`: Flyway baseline marker.
-- `backend/src/main/resources/db/migration/V2__blog_and_point_foundation.sql`: current idempotent migration for blog and point foundation.
-- `database/001_create_tables.sql`: full initial schema script.
-- `database/002_bootstrap_seed.sql`: role/admin seed.
-- `database/003_auth.sql`: auth session and token tables.
-- `database/004_owner_profile.sql`: owner profile extension.
-- `database/004_create_blogs_table.sql`: legacy blog table script.
-- `database/900_dev_seed.sql`: development seed data.
+Important migration milestones:
+
+- `V1__baseline.sql`: baseline schema generated from the earlier JPA model.
+- `V7__organizer_schema.sql`: organizations, referee contracts, tournament organization ownership, organizer role seed.
+- `V8__organizer_kyb_idempotency.sql`: one active organization per owner account.
+- `V9__notifications.sql`: notifications.
+- `V11__remove_gamification.sql`: removes blog reward and point setting tables.
+- `V12__wallet_core_rename.sql`: renames point-account tables to wallet tables and introduces wallet money transaction types.
+- `V13__topup_orders.sql`: VNPay top-up orders.
+- `V14__withdrawal_requests.sql` and `V16__withdrawal_cancelled_status.sql`: withdrawal workflow.
+- `V15__bank_accounts.sql`: saved payout accounts.
+- `V17__widen_prediction_money_to_bigint.sql`: money columns widened to `bigint`.
+- `V18__drop_top3_prediction_columns.sql`: removes legacy Top-3 prediction selections.
+
+Legacy scripts under `database/` are historical bootstrap/reference scripts. Use Flyway migrations as the source of truth for current runtime schema.
 
 ## 2. Table Groups
 
@@ -35,6 +43,12 @@ Source files:
 - `jockey_profiles`
 - `referee_profiles`
 
+### Organization and governance
+
+- `organizations`
+- `referee_contracts`
+- `notifications`
+
 ### Racing
 
 - `horses`
@@ -53,49 +67,53 @@ Source files:
 - `race_results`
 - `tournament_rankings`
 
-### Engagement and points
+### Wallet, prediction, and content
 
-- `blogs`
-- `user_blog_rewards`
-- `user_daily_point_limits`
-- `user_point_accounts`
-- `point_transactions`
-- `point_settings`
+- `wallets`
+- `wallet_transactions`
+- `topup_orders`
+- `withdrawal_requests`
+- `bank_accounts`
 - `race_predictions`
 - `prediction_settlement_jobs`
+- `streak_predictions`
+- `streak_prediction_legs`
+- `blogs`
 - `ai_predictions`
-- `notifications`
 
 ## 3. Key Integrity Rules
 
-- User, role, horse, tournament, race, result, point, and prediction statuses are constrained by `CHECK` constraints in SQL scripts.
-- Point balance cannot be negative.
-- Point transactions support reference type/reference id for idempotent business operations.
-- Blog reward claims are unique per user/blog.
-- Daily point limits are unique per user/date.
-- Top-3 prediction selections must be distinct.
-- Race result positions and time/penalty values must be positive/non-negative where required.
+- User, role, horse, tournament, race, result, organization, wallet, withdrawal, and prediction statuses are constrained by application enums and database checks where migrations define them.
+- Wallet balance cannot be negative at service level.
+- Wallet transactions are idempotent by `(reference_type, reference_id, transaction_type)` when a reference id is present.
+- Top-up orders are unique by VNPay transaction reference.
+- Withdrawal requests move through `REQUESTED`, `APPROVED`, `REJECTED`, `PAID`, and `CANCELLED`.
+- Organization owner idempotency is enforced by a unique active-owner index.
+- Top-3 prediction columns were dropped; live single-race markets are exact position and head-to-head.
+- Prediction money columns use `bigint`; odds use numeric precision after `V17`.
 - Tournament date and registration windows are validated by schema and service logic.
 
 ## 4. Migration Strategy
 
 Current Flyway setup:
 
-- `V1` is a baseline marker for deployments that already use the legacy schema.
-- `V2` is intentionally idempotent because development databases may already contain some blog/point structures from manual scripts.
+- `V1` creates the baseline schema.
+- `V2+` are incremental migrations.
+- Tests use H2/create-drop behavior where configured, while runtime migrations target PostgreSQL.
 
 For future work:
 
-- Prefer new incremental `V3+` migrations.
+- Add new incremental `V19+` migrations.
 - Avoid editing old migrations once shared.
-- Keep `schema.sql` and docs synchronized until the project fully moves to incremental Flyway-only DDL.
+- Keep JPA entities, migrations, and docs synchronized.
+- If renaming legacy `points` columns in prediction tables, provide a forward migration and DTO compatibility plan.
 
 ## 5. Report Summary
 
 The database design is relational and normalized around business ownership:
 
-- users own profiles, roles, role requests, point accounts, predictions, and rewards;
+- users own profiles, roles, role requests, wallets, predictions, withdrawals, saved bank accounts, and notifications;
+- organizations own tournaments and organizer workflows;
 - owners own horses and registration requests;
-- tournaments own races and participant structures;
-- referees create operational records and results;
-- point ledger records explain all balance changes.
+- tournaments own race schedules, participant structures, referee contracts, predictions, and results;
+- wallet ledger records explain all money changes.

@@ -234,8 +234,8 @@ These are cheap, independent guardrails. They bound exposure even if a formula i
 | `MAX_MARKET_LIABILITY` | total house exposure per market (fixed-odds only) | configurable |
 | overround `Σ(1/O_o) > 1` | guarantees a house edge in fixed-odds | enforce on publish |
 
-All limits live in `point_settings` (configurable, audited) — not hard-coded constants
-like today's `vPool = 100000`, `rMargin = 0.85`.
+All limits live under `app.prediction.*` runtime configuration — not hard-coded constants
+like the old `vPool = 100000`, `rMargin = 0.85` display model.
 
 ---
 
@@ -330,10 +330,10 @@ Java entities/DTOs/requests updated `Integer → Long` accordingly. Rules going 
 | Parimutuel settlement (§3, §12.1, §12.2) | **Done** — `PredictionSettlementScheduler` pays EXACT_POSITION + HEAD_TO_HEAD from pools (`payout = stake·P_net/S_win`); zero house risk; fixes B1–B4, B7. H2H is straight-up (handicap dropped); ties/DNF/no-winner → refund. |
 | Streak parlay (§12.3) | **Done** — multiplicative fair-odds with single end-margin + `max-total-odds`/`max-payout` caps; void leg ⇒ ×1; all-void ⇒ refund (fixes B5, B6). |
 | Live **provisional** odds display (§3.3, §4) | **Pending** — `OddsCalculationService` still shows the old AMM number at bet time; payout is pool-based so this is a display-only mismatch (B1 in display, B8 `double`). Should show `P_net/S_o` and "final at close". |
-| `updatePrediction` stake re-pricing (B10) | **Pending** — edit re-quotes odds but does not settle a wager delta. |
+| Prediction edit/re-price path | **Closed by policy** — `PUT /api/v1/predictions/{id}` is disabled and returns method-not-allowed behavior; users place a new wager instead of editing an existing one. |
 
 Backend money-safety is complete (pools + caps + bounded parlay). Remaining work is the
-bet-time **display** of pool-provisional odds (UX) and the `updatePrediction` stake delta.
+bet-time **display** of pool-provisional odds (UX); prediction editing is intentionally disabled.
 
 ---
 
@@ -563,8 +563,8 @@ payout     = min( wager · totalOdds , MAX_PAYOUT )
 | B6 | streak odds | additive `Σ` (and compounded margin) ⇒ unplayable | multiplicative with single end-margin |
 | B7 | all | payout `wager·lockedOdds` from house funds, odds locked at bet time, bets refundable ⇒ lock-then-refund drain | pool model removes fixed liability; streak bounded by caps |
 | B8 | `OddsCalculationService` | `double` arithmetic on money | `BigDecimal` end-to-end |
-| B9 | all | no MAX_WAGER / MAX_ODDS / MAX_PAYOUT / market-liability caps | add to `point_settings` (§6) |
-| B10 | `updatePrediction` | edits pick & re-prices odds but never re-charges/refunds wager difference | re-quote and settle stake delta on edit |
+| B9 | all | no MAX_WAGER / MAX_ODDS / MAX_PAYOUT / market-liability caps | use `app.prediction.*` config (§6) |
+| B10 | prediction edit endpoint | editing a placed wager would need a wager-delta settlement path | keep edit disabled; `PUT /api/v1/predictions/{id}` returns method-not-allowed behavior |
 
 ### 14. Implementation checklist
 
@@ -573,8 +573,8 @@ payout     = min( wager · totalOdds , MAX_PAYOUT )
 2. **HEAD_TO_HEAD** → 2-outcome parimutuel per matchup; drop the 50/50 prior; handicap
    either removed or based on a comparable speed metric; fix tie/DNF to push/refund.
 3. **STREAK** → multiplicative fair-odds parlay, single end-margin, hard caps; void leg ⇒ ×1.
-4. **Cross-cutting** → `BigDecimal` money math; caps in `point_settings`; idempotent,
-   pool-funded settlement; fix B3–B5 settlement correctness; re-price `updatePrediction`.
+4. **Cross-cutting** → `BigDecimal` money math; caps in `app.prediction.*`; idempotent,
+   pool-funded settlement; keep placed predictions immutable unless a future edit workflow settles wager deltas.
 
 ---
 

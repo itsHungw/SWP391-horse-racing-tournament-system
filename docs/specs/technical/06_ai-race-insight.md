@@ -18,8 +18,8 @@ AI must not:
 - decide official race results;
 - change referee submissions;
 - change tournament rankings;
-- allocate rewards directly;
-- introduce betting odds or cash language.
+- allocate wallet rewards directly;
+- create, settle, or override betting odds.
 
 ## 3. Future Integration Shape
 
@@ -27,4 +27,4 @@ If implemented, AI output should be persisted separately from official result ta
 
 ## 4. Report Note
 
-For the current project report, present AI insight as a future enhancement. The implemented engagement feature is the deterministic point-based prediction game.
+For the current project report, present AI insight as a future enhancement. The implemented engagement feature is the deterministic wallet-backed prediction game.
