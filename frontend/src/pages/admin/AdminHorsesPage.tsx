@@ -190,50 +190,50 @@ export function AdminHorsesPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
-              Stable review queue
-            </p>
-            <h1 id="admin-horses-title" className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">
-              Horse Approvals
-            </h1>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Review owner-submitted horse profiles, evidence files, and approval status before tournament entry.
-            </p>
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">
+            Stable review queue
+          </p>
+          <h1 id="admin-horses-title" className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">
+            Horse Approvals
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">
+            Review owner-submitted horse profiles, evidence files, and approval status before tournament entry.
+          </p>
+        </div>
+
+        {/* Operations Filter Bar */}
+        <div className="grid gap-4 md:grid-cols-[1fr_245px] bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          {/* Search box */}
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Find horse or owner by name, code, etc..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
+            />
           </div>
 
-          <div className="flex w-full max-w-[500px] flex-col gap-3 sm:flex-row sm:items-end">
-            <label className="flex-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-              Search
-              <div className="relative mt-2">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <input
-                  className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Find horse or owner..."
-                  value={searchQuery}
-                />
-              </div>
-            </label>
-            <label className="w-full sm:w-40 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-              Status
-              <select
-                className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-                onChange={(event) => setStatus(event.target.value as "ALL" | HorseStatus)}
-                value={status}
-              >
-                {statusOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option === "ALL" ? "All Statuses" : option}
-                  </option>
-                ))}
-              </select>
-            </label>
+          {/* Status Select */}
+          <div>
+            <select
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
+              onChange={(event) => setStatus(event.target.value as "ALL" | HorseStatus)}
+              value={status}
+            >
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option === "ALL" ? "All Statuses" : option}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {loading ? (
             <div className="flex h-64 flex-col items-center justify-center text-slate-400">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-[#b3193a]"></div>
@@ -249,7 +249,7 @@ export function AdminHorsesPage() {
             </div>
           ) : (
             <table className="min-w-[980px] w-full text-left text-sm">
-              <thead className="bg-[#f7f7f7] text-xs uppercase tracking-[0.14em] text-slate-500">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-[0.14em] text-slate-500 font-semibold font-sans">
                 <tr>
                   <th className="px-5 py-3">Horse</th>
                   <th className="px-5 py-3">Owner</th>

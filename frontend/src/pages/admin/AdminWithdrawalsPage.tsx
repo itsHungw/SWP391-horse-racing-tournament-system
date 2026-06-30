@@ -79,38 +79,52 @@ export function AdminWithdrawalsPage() {
 
   return (
     <AdminLayout>
-      <div className="p-6 md:p-8">
-        <h1 className="text-2xl font-black text-slate-900">Withdrawal requests</h1>
-        <p className="mt-1 text-sm text-slate-500">
-          Review and settle wallet withdrawals. Approving holds the request; mark as paid after the bank transfer.
-        </p>
+      <div className="relative space-y-6">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">Finance Operations</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">Withdrawal Requests</h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Review and settle wallet withdrawals. Approving holds the request; mark as paid after the bank transfer.
+          </p>
+        </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.label}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
-                filter === f.value
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
+        {/* Operations Filter Bar */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#b3193a]" />
+            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+              Filter by status
+            </span>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((f) => (
+              <button
+                key={f.label}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors outline-none ${
+                  filter === f.value
+                    ? "border-[#b3193a] bg-[#b3193a] text-white"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {error ? (
-          <p className="mt-6 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
+          <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
             {error}
           </p>
         ) : null}
 
-        <div className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3">User</th>
                 <th className="px-4 py-3">Amount</th>
@@ -123,32 +137,32 @@ export function AdminWithdrawalsPage() {
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400 font-bold">
                     Loading…
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400 font-bold">
                     No withdrawal requests.
                   </td>
                 </tr>
               ) : (
                 rows.map((w) => (
-                  <tr key={w.id} className="align-top">
+                  <tr key={w.id} className="align-top hover:bg-slate-50/50">
                     <td className="px-4 py-3">
                       <p className="font-semibold text-slate-900">{w.userName ?? "—"}</p>
                       <p className="text-xs text-slate-500">{w.userEmail}</p>
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-900">{vnd.format(w.amount)} VND</td>
-                    <td className="px-4 py-3 max-w-[220px] text-slate-600">{w.bankInfo}</td>
+                    <td className="px-4 py-3 max-w-[220px] text-slate-600 font-medium">{w.bankInfo}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[w.status]}`}
                       >
                         {w.status}
                       </span>
-                      {w.reviewNote ? <p className="mt-1 text-xs text-slate-400">{w.reviewNote}</p> : null}
+                      {w.reviewNote ? <p className="mt-1 text-xs text-rose-600 font-semibold">{w.reviewNote}</p> : null}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{formatDateTime(w.requestedAt)}</td>
                     <td className="px-4 py-3">
@@ -159,7 +173,7 @@ export function AdminWithdrawalsPage() {
                               type="button"
                               disabled={busyId === w.id}
                               onClick={() => act("approve", w)}
-                              className="rounded-md bg-sky-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-sky-700 disabled:opacity-50"
+                              className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-black text-white hover:bg-sky-700 shadow-sm transition disabled:opacity-50"
                             >
                               Approve
                             </button>
@@ -167,7 +181,7 @@ export function AdminWithdrawalsPage() {
                               type="button"
                               disabled={busyId === w.id}
                               onClick={() => act("reject", w)}
-                              className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
                             >
                               Reject
                             </button>
@@ -178,7 +192,7 @@ export function AdminWithdrawalsPage() {
                               type="button"
                               disabled={busyId === w.id}
                               onClick={() => act("markPaid", w)}
-                              className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-50"
+                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 shadow-sm transition disabled:opacity-50"
                             >
                               Mark paid
                             </button>
@@ -186,13 +200,13 @@ export function AdminWithdrawalsPage() {
                               type="button"
                               disabled={busyId === w.id}
                               onClick={() => act("reject", w)}
-                              className="rounded-md border border-rose-300 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
                             >
                               Reject
                             </button>
                           </>
                         ) : (
-                          <span className="text-xs text-slate-400">—</span>
+                          <span className="text-xs text-slate-400 font-bold">—</span>
                         )}
                       </div>
                     </td>

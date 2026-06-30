@@ -86,45 +86,49 @@ export function AdminPredictionsWorkspace() {
   return (
     <AdminLayout>
       <section aria-labelledby="prediction-monitor-title" className="space-y-6">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">
             Game economy controls
           </p>
-          <h1 id="prediction-monitor-title" className="mt-2 text-4xl font-black tracking-tight flex items-center gap-2">
-            <Compass className="h-9 w-9 text-[#b3193a]" />
+          <h1 id="prediction-monitor-title" className="mt-2 text-3xl font-black tracking-tight text-[#070f4f] flex items-center gap-2">
+            <Compass className="h-7 w-7 text-[#b3193a]" />
             Predictions Monitor
           </h1>
-          <p className="mt-2 max-w-3xl text-base text-slate-600">
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">
             Manage and monitor spectator predictions for each race. Audit point reward transactions and handle resolution jobs.
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Search
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-              <input
-                className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find race name..."
-                value={searchQuery}
-              />
-            </div>
-          </label>
-          <label className="w-full sm:w-64 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Championship
+        {/* Operations Filter Bar */}
+        <div className="grid gap-4 md:grid-cols-[1fr_240px_200px] bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          {/* Search box */}
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-              onChange={(e) => setFilterChampionship(e.target.value)}
+              type="text"
+              placeholder="Find race name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
+            />
+          </div>
+
+          {/* Championship Filter */}
+          <div className="relative">
+            <input
+              type="text"
               placeholder="Filter championship..."
               value={filterChampionship}
+              onChange={(e) => setFilterChampionship(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             />
-          </label>
-          <label className="w-full sm:w-56 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Status
+          </div>
+
+          {/* Status Select */}
+          <div>
             <select
-              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
               onChange={(e) => setFilterStatus(e.target.value)}
               value={filterStatus}
             >
@@ -137,11 +141,11 @@ export function AdminPredictionsWorkspace() {
               <option value="FAILED">Failed</option>
               <option value="REFUNDED">Refunded</option>
             </select>
-          </label>
+          </div>
         </div>
 
         {/* Races table */}
-        <div className="rounded-lg border border-[#d8d8d8] bg-white overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#b3193a]"></div>
