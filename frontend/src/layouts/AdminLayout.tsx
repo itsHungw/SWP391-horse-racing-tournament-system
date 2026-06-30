@@ -7,7 +7,6 @@ import {
   Trophy,
   Compass,
   FileText,
-  Settings,
   Building2,
   Wallet,
 } from "lucide-react";
@@ -47,12 +46,6 @@ const adminNavGroups = [
     label: "FINANCE",
     items: [
       { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
-    ],
-  },
-  {
-    label: "SYSTEM",
-    items: [
-      { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
 ];
@@ -101,10 +94,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
             <div className="flex items-center gap-3">
               <a
-                className="flex min-h-11 items-center rounded-full border border-slate-300 bg-white px-5 text-sm font-bold hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                className="flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] transition shadow-sm"
                 href="/profile"
               >
-                {session?.fullName || "Profile"}
+                <span className="h-2 w-2 rounded-full bg-[#b3193a]" />
+                System Admin
               </a>
               <button
                 className="min-h-11 rounded-full bg-[#070f4f] px-5 text-sm font-bold text-white hover:bg-[#101a70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"

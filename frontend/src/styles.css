@@ -444,6 +444,25 @@ html {
   scrollbar-color: #d1d1d1 #f1f1f1;
 }
 
+/* Custom scrollbar for the Organizer Sidebar */
+.organizer-sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #1c1816;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #332d29;
+  border-radius: 9999px;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #bb8a3c; /* Golden brand color on hover */
+}
+.organizer-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #332d29 #1c1816;
+}
+
 /* Hide scrollbar for elements with .no-scrollbar */
 .no-scrollbar {
   -ms-overflow-style: none;  /* IE and Edge */
