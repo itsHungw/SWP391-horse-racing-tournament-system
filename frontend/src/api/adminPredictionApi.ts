@@ -77,3 +77,20 @@ export async function getAdminRacePredictions(raceId: number): Promise<AdminAudi
 export async function retrySettlementJob(jobId: number): Promise<void> {
   await httpClient.post(`/admin/predictions/settlement-jobs/${jobId}/retry`);
 }
+
+export interface PredictionSettings {
+  displaySeed: number;
+  takeoutRate: number;
+  updatedAt?: string;
+  updatedByUserName?: string | null;
+}
+
+export async function getPredictionSettings(): Promise<PredictionSettings> {
+  const response = await httpClient.get<PredictionSettings>("/admin/predictions/settings");
+  return response.data;
+}
+
+export async function updatePredictionSettings(settings: { displaySeed: number; takeoutRate: number }): Promise<PredictionSettings> {
+  const response = await httpClient.put<PredictionSettings>("/admin/predictions/settings", settings);
+  return response.data;
+}
