@@ -496,3 +496,27 @@ html {
 .modal-scrollbar::-webkit-scrollbar-thumb:hover {
   background-color: #94a3b8; /* Darker gray on hover */
 }
+
+/* Custom scrollbar for Notifications Dropdown */
+.notification-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb, #cbd5e1) transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb, #cbd5e1);
+  border-radius: 999px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover, #94a3b8);
+}

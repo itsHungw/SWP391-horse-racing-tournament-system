@@ -432,7 +432,7 @@ describe("App", () => {
     expect(screen.getByText("OPERATIONS")).toBeInTheDocument();
     expect(screen.getByText("PEOPLE")).toBeInTheDocument();
     expect(screen.getByText("ENGAGEMENT")).toBeInTheDocument();
-    expect(screen.getByText("SYSTEM")).toBeInTheDocument();
+    expect(screen.getByText("FINANCE")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^championships$/i })).toHaveAttribute(
       "href",
       "/admin/tournaments",

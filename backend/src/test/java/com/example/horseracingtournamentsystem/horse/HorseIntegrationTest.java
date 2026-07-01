@@ -47,6 +47,9 @@ class HorseIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private com.example.horseracingtournamentsystem.notification.repository.NotificationRepository notificationRepository;
+
     private String adminToken;
     private String spectatorToken;
     private String ownerToken;
@@ -54,6 +57,7 @@ class HorseIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        notificationRepository.deleteAll();
         horseRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -123,6 +127,11 @@ class HorseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.approvedBy").exists())
                 .andExpect(jsonPath("$.approvedAt").exists());
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("owner@example.com"));
+        var notif = notificationRepository.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE_APPROVED", notif.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE", notif.getReferenceType());
     }
 
     @Test
@@ -138,6 +147,10 @@ class HorseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.rejectionReason").value("Missing health certificate"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("owner@example.com"));
+        var notif = notificationRepository.findAll().stream().filter(n -> "HORSE_REJECTED".equals(n.getType())).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE", notif.getReferenceType());
     }
 
     @Test

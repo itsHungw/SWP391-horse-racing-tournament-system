@@ -354,11 +354,12 @@ export function OwnerJockeyInvitationsPage() {
                       </label>
 
                       <div className="rounded-xl border border-slate-200 bg-white/70 p-3 shadow-sm hover:border-[#006d5b]/30 hover:bg-white transition-all">
-                        <span className="block text-xs font-black text-slate-800">
+                        <label htmlFor="agreement-file-input" className="block text-xs font-black text-slate-800 cursor-pointer">
                           Agreement file (Optional)
-                        </span>
+                        </label>
                         <div className="mt-2 flex items-center gap-3 bg-slate-50/60 p-2 rounded-lg border border-slate-100/80">
                           <input
+                            id="agreement-file-input"
                             ref={fileInputRef}
                             type="file"
                             accept="application/pdf"
