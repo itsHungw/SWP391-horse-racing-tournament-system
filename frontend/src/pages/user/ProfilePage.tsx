@@ -18,10 +18,10 @@ type ReadinessItem = {
 
 const defaultAvatar = "";
 
-/* Ledger-style fields: no boxes — a hairline rule the member writes upon. */
-const ledgerLabel = "eyebrow block text-gold-300";
+/* Premium inputs: deep backgrounds, elegant typography, inner shadows. */
+const ledgerLabel = "block font-data text-[10px] font-bold text-gold-300/80 mb-3 uppercase tracking-[0.15em]";
 const ledgerInput =
-  "mt-3 block w-full border-0 border-b border-white/15 bg-transparent pb-3 font-display text-2xl font-light tracking-tight text-ivory outline-none transition-colors [color-scheme:dark] placeholder:text-white/20 focus:border-gold-400";
+  "block w-full rounded border border-white/10 bg-black/20 px-5 py-4 font-display text-xl font-light tracking-tight text-ivory shadow-inner outline-none transition-all [color-scheme:dark] placeholder:text-white/20 hover:border-white/20 hover:bg-black/30 focus:border-gold-400 focus:bg-black/40 focus:ring-1 focus:ring-gold-400/50";
 
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -410,9 +410,11 @@ export function ProfilePage() {
               {/* 01 · Identity */}
               <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <span className="font-data text-xs text-gold-300">01</span>
-                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Identity</h3>
-                  <p className="mt-2 text-xs leading-5 text-ivory-faint">Who appears in the members&apos; book.</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-gold-400/30 bg-gold-400/10 font-data text-[10px] font-bold text-gold-300">01</span>
+                    <h3 className="font-display text-2xl font-light tracking-tight text-ivory">Identity</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-ivory-dim">Who appears in the members&apos; book.</p>
                 </div>
                 <div className="grid gap-10 sm:grid-cols-2">
                   <div className="sm:col-span-2">
@@ -433,7 +435,7 @@ export function ProfilePage() {
                       Gender
                     </label>
                     <select
-                      className={`${ledgerInput} text-xl`}
+                      className={ledgerInput}
                       id="gender"
                       onChange={(event) => setGender(event.target.value)}
                       value={gender}
@@ -450,7 +452,7 @@ export function ProfilePage() {
                       Date of birth
                     </label>
                     <input
-                      className={`${ledgerInput} text-xl`}
+                      className={ledgerInput}
                       id="dateOfBirth"
                       max={new Date().toISOString().slice(0, 10)}
                       onChange={(event) => setDateOfBirth(event.target.value)}
@@ -464,9 +466,11 @@ export function ProfilePage() {
               {/* 02 · Contact */}
               <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <span className="font-data text-xs text-gold-300">02</span>
-                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Contact</h3>
-                  <p className="mt-2 text-xs leading-5 text-ivory-faint">How operations reaches you on race day.</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-gold-400/30 bg-gold-400/10 font-data text-[10px] font-bold text-gold-300">02</span>
+                    <h3 className="font-display text-2xl font-light tracking-tight text-ivory">Contact</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-ivory-dim">How operations reaches you on race day.</p>
                 </div>
                 <div className="grid gap-10 sm:grid-cols-2">
                   <div>
@@ -474,7 +478,7 @@ export function ProfilePage() {
                       Phone number
                     </label>
                     <input
-                      className={`${ledgerInput} text-xl`}
+                      className={ledgerInput}
                       id="phone"
                       inputMode="tel"
                       onChange={(event) => setPhone(event.target.value)}
@@ -489,7 +493,7 @@ export function ProfilePage() {
                       Email address
                     </label>
                     <input
-                      className={`${ledgerInput} cursor-not-allowed text-xl text-ivory-faint`}
+                      className={`${ledgerInput} cursor-not-allowed border-white/5 bg-white/5 text-ivory-faint shadow-none`}
                       id="emailAddress"
                       readOnly
                       type="email"
@@ -502,16 +506,18 @@ export function ProfilePage() {
               {/* 03 · Residence */}
               <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <span className="font-data text-xs text-gold-300">03</span>
-                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Residence</h3>
-                  <p className="mt-2 text-xs leading-5 text-ivory-faint">Required before role requests are reviewed.</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-gold-400/30 bg-gold-400/10 font-data text-[10px] font-bold text-gold-300">03</span>
+                    <h3 className="font-display text-2xl font-light tracking-tight text-ivory">Residence</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-ivory-dim">Required before role requests are reviewed.</p>
                 </div>
                 <div>
                   <label className={ledgerLabel} htmlFor="address">
                     Address
                   </label>
                   <textarea
-                    className="mt-3 block min-h-20 w-full resize-y border-0 border-b border-white/15 bg-transparent pb-3 font-display text-2xl font-light leading-snug tracking-tight text-ivory outline-none transition-colors placeholder:text-white/20 focus:border-gold-400"
+                    className="block min-h-[140px] w-full resize-y rounded border border-white/10 bg-black/20 px-5 py-4 font-display text-xl font-light leading-relaxed tracking-tight text-ivory shadow-inner outline-none transition-all placeholder:text-white/20 hover:border-white/20 hover:bg-black/30 focus:border-gold-400 focus:bg-black/40 focus:ring-1 focus:ring-gold-400/50"
                     id="address"
                     onChange={(event) => setAddress(event.target.value)}
                     placeholder="District 1, Ho Chi Minh City"
@@ -523,14 +529,16 @@ export function ProfilePage() {
               {/* 04 · Portrait */}
               <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
-                  <span className="font-data text-xs text-gold-300">04</span>
-                  <h3 className="mt-3 font-display text-2xl font-light tracking-tight">Portrait</h3>
-                  <p className="mt-2 text-xs leading-5 text-ivory-faint">JPG or PNG, up to 2MB.</p>
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-gold-400/30 bg-gold-400/10 font-data text-[10px] font-bold text-gold-300">04</span>
+                    <h3 className="font-display text-2xl font-light tracking-tight text-ivory">Portrait</h3>
+                  </div>
+                  <p className="mt-3 text-sm leading-relaxed text-ivory-dim">JPG or PNG, up to 2MB.</p>
                 </div>
                 <div className="flex flex-wrap items-start gap-8">
-                  <div className="relative h-24 w-24 shrink-0">
+                  <div className="relative h-28 w-28 shrink-0">
                     <FrameTicks />
-                    <div className="flex h-full w-full items-center justify-center overflow-hidden bg-turf-900 font-display text-2xl font-light text-gold-200">
+                    <div className="flex h-full w-full items-center justify-center overflow-hidden rounded bg-turf-900 font-display text-3xl font-light text-gold-200">
                       {avatarPreview ? (
                         <img alt={avatarLabel} className="h-full w-full object-cover" src={avatarPreview} />
                       ) : (
@@ -542,17 +550,29 @@ export function ProfilePage() {
                     <label className={ledgerLabel} htmlFor="avatar">
                       Avatar
                     </label>
-                    <p className="mt-3 flex items-center gap-2 text-sm text-ivory-dim">
-                      <UploadCloud size={15} className="text-gold-400" aria-hidden="true" />
-                      Upload profile image
-                    </p>
-                    <input
-                      accept="image/jpeg,image/jpg,image/png"
-                      className="mt-4 block w-full text-xs text-ivory-faint file:mr-4 file:min-h-10 file:cursor-pointer file:border file:border-gold-400/50 file:bg-transparent file:px-4 file:text-xs file:font-bold file:uppercase file:tracking-[0.14em] file:text-gold-300 hover:file:bg-gold-400 hover:file:text-turf-950"
-                      id="avatar"
-                      onChange={handleFileChange}
-                      type="file"
-                    />
+                    <div className="mt-1 flex w-full justify-center rounded border border-dashed border-white/20 bg-black/10 px-6 py-8 transition-colors hover:border-gold-400/50 hover:bg-black/20">
+                      <div className="text-center">
+                        <UploadCloud className="mx-auto h-8 w-8 text-gold-400/60" aria-hidden="true" />
+                        <div className="mt-4 flex text-sm leading-6 text-ivory-dim justify-center">
+                          <label
+                            htmlFor="avatar"
+                            className="relative cursor-pointer rounded-md font-semibold text-gold-300 focus-within:outline-none hover:text-gold-200"
+                          >
+                            <span>Upload a file</span>
+                            <input
+                              id="avatar"
+                              name="avatar"
+                              type="file"
+                              className="sr-only"
+                              accept="image/jpeg,image/jpg,image/png"
+                              onChange={handleFileChange}
+                            />
+                          </label>
+                          <p className="pl-1">or drag and drop</p>
+                        </div>
+                        <p className="text-xs leading-5 text-ivory-faint mt-1">PNG, JPG up to 2MB</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -563,11 +583,12 @@ export function ProfilePage() {
                   Saving updates your application readiness immediately.
                 </p>
                 <button
-                  className="inline-flex min-h-12 items-center justify-center gap-2 bg-gold-400 px-10 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-gold-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="group inline-flex min-h-14 items-center justify-center gap-3 bg-gold-400 px-12 font-data text-xs font-bold uppercase tracking-[0.15em] text-turf-950 transition-all hover:bg-gold-300 hover:shadow-[0_0_20px_rgba(212,175,55,0.3)] disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={saving}
                   type="submit"
                 >
                   {saving ? "Saving Profile..." : "Save Profile"}
+                  {!saving && <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />}
                 </button>
               </div>
             </form>
