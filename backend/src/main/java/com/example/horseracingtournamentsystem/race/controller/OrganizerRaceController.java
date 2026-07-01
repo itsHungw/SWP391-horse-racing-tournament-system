@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.race.controller;
 
 import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.request.ReopenResultsRequest;
+import com.example.horseracingtournamentsystem.race.dto.response.PublicRaceResultResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
@@ -47,6 +48,11 @@ public class OrganizerRaceController {
     @GetMapping("/{id}/participants")
     public List<RaceParticipantResponse> participants(@PathVariable Long id, Authentication authentication) {
         return raceService.getOrganizerRaceParticipants(id, authentication.getName());
+    }
+
+    @GetMapping("/{id}/results")
+    public PublicRaceResultResponse results(@PathVariable Long id, Authentication authentication) {
+        return raceService.getOrganizerRaceResults(id, authentication.getName());
     }
 
     @PostMapping

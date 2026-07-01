@@ -252,6 +252,21 @@ public class RaceService {
                 .stream().map(this::mapParticipantToResponse).collect(Collectors.toList());
     }
 
+    public PublicRaceResultResponse getOrganizerRaceResults(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+        List<RaceResult> results = raceResultRepository.findAllByRace_IdAndStatusInOrderByPositionAscCreatedAtAsc(
+                race.getId(),
+                Set.of(ResultRecordStatus.SUBMITTED, ResultRecordStatus.CONFIRMED, ResultRecordStatus.PUBLISHED)
+        );
+        return PublicRaceResultResponse.builder()
+                .raceId(race.getId())
+                .official(Set.of(RaceStatus.RESULT_CONFIRMED, RaceStatus.PUBLISHED).contains(race.getStatus()))
+                .publishedAt(results.stream().map(RaceResult::getPublishedAt).filter(java.util.Objects::nonNull)
+                        .max(LocalDateTime::compareTo).orElse(null))
+                .entries(results.stream().map(this::mapPublicResultEntry).toList())
+                .build();
+    }
+
     @Transactional
     public RaceResponse createRaceForOrganizer(RaceRequest req, String organizerEmail) {
         requireOwnedTournament(req.getTournamentId(), organizerEmail).assertOrganizationOperational();
