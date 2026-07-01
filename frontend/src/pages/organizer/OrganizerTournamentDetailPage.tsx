@@ -25,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { RaceMediaPanel } from "../../components/race-media/RaceMediaPanel";
 import { httpClient } from "../../api/httpClient";
 import {
   approveOrganizerJockeyApplication,
@@ -2202,6 +2203,10 @@ export function OrganizerTournamentDetailPage() {
                   </button>
                 </div>
               )}
+
+              <div className="pt-1">
+                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" />
+              </div>
             </div>
           </aside>
         </div>

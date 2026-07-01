@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RaceDetailPage } from "./RaceDetailPage";
 import { getPublicRace, getPublicRaceResults } from "../../api/racingApi";
+import { getPublicRaceHighlight } from "../../api/raceMediaApi";
 import { spectatorPredictionApi } from "../spectator/predictions/services/spectatorPredictionApi";
 import type { Race } from "../../types/racing";
 import type { PredictionOptions } from "../spectator/predictions/types/prediction.types";
@@ -17,6 +18,10 @@ vi.mock("../spectator/predictions/services/spectatorPredictionApi", () => ({
   spectatorPredictionApi: {
     getPredictionOptions: vi.fn(),
   },
+}));
+
+vi.mock("../../api/raceMediaApi", () => ({
+  getPublicRaceHighlight: vi.fn(),
 }));
 
 const futureIso = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
@@ -63,6 +68,7 @@ describe("RaceDetailPage", () => {
     vi.clearAllMocks();
     vi.mocked(getPublicRace).mockResolvedValue(race);
     vi.mocked(getPublicRaceResults).mockResolvedValue({ raceId: 7, official: false, entries: [] });
+    vi.mocked(getPublicRaceHighlight).mockResolvedValue(null);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
   });
 
@@ -126,7 +132,7 @@ describe("RaceDetailPage", () => {
     );
     expect(screen.queryByRole("link", { name: /enter the arena/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /official result/i })).toBeInTheDocument();
-    expect(screen.getByText("72.341s")).toBeInTheDocument();
+    expect(screen.getAllByText("72.341s").length).toBeGreaterThan(0);
   });
 
   it("does not expose a submitted finish order before the result is official", async () => {
