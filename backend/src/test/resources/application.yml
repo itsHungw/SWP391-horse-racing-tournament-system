@@ -30,7 +30,7 @@ app:
     allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With
     allow-credentials: true
   security:
-    content-security-policy: "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    content-security-policy: "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' https://i.ytimg.com data:"
     rate-limit:
       enabled: true
       window-seconds: 60

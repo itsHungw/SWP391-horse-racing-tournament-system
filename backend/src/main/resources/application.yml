@@ -18,6 +18,8 @@ spring:
         jdbc:
           time_zone: UTC
         format_sql: false
+        # Gom lazy ToOne/collection load thành IN-query thay vì một-query-mỗi-parent (lưới đỡ N+1).
+        default_batch_fetch_size: 100
   flyway:
     enabled: ${APP_FLYWAY_ENABLED:true}
     baseline-on-migrate: ${APP_FLYWAY_BASELINE_ON_MIGRATE:true}
@@ -74,7 +76,7 @@ app:
     allowed-headers: Authorization,Content-Type,Accept,Origin,X-Requested-With
     allow-credentials: true
   security:
-    content-security-policy: "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+    content-security-policy: "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' https://i.ytimg.com data:"
     rate-limit:
       enabled: ${APP_RATE_LIMIT_ENABLED:true}
       window-seconds: ${APP_RATE_LIMIT_WINDOW_SECONDS:60}

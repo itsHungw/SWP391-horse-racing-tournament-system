@@ -21,6 +21,20 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    build: {
+      rollupOptions: {
+        output: {
+          // Split large, stable vendors into their own cacheable chunks instead of one
+          // monolithic bundle. lightweight-charts is only pulled in by the lazy WalletPage
+          // chunk, so it no longer ships to public visitors at all.
+          manualChunks: {
+            "react-vendor": ["react", "react-dom", "react-router-dom"],
+            motion: ["framer-motion"],
+            charts: ["lightweight-charts"],
+          },
+        },
+      },
+    },
     test: {
       environment: "jsdom",
       globals: true,
