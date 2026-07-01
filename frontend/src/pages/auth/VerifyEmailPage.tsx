@@ -80,6 +80,7 @@ export function VerifyEmailPage() {
     setOtpCode(value.replace(/\D/g, "").slice(0, 6));
   };
 
+  // F1: Xác thực email
   const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 

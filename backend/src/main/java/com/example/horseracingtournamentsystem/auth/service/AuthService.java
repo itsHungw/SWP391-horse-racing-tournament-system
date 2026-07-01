@@ -53,6 +53,7 @@ public class AuthService {
     @Value("${app.auth.refresh-token-ttl-days}")
     private long refreshTokenTtlDays;
 
+    // F1: Đăng nhập
     @Transactional
     public LoginResult login(LoginRequest request, String userAgent, String ipAddress) {
         String email = normalizeEmail(request.email());
@@ -114,6 +115,7 @@ public class AuthService {
                 .ifPresent(AuthSession::revokeNow);
     }
   
+    // F1: Đăng ký tài khoản
     @Transactional
     public void register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
@@ -154,6 +156,7 @@ public class AuthService {
                 });
     }
 
+    // F1: Xác thực email
     @Transactional
     public void verifyEmail(String rawToken) {
         EmailVerificationToken token = oneTimeTokenService.consumeEmailVerificationToken(rawToken);

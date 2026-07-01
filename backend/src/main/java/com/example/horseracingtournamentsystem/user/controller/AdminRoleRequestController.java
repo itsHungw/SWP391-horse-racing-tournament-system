@@ -29,6 +29,7 @@ public class AdminRoleRequestController {
         return adminRoleRequestService.list(status);
     }
 
+    // F1: Admin duyệt role
     @PostMapping("/{id}/approve")
     public AdminRoleRequestResponse approve(
             @PathVariable Long id,
@@ -39,6 +40,7 @@ public class AdminRoleRequestController {
         return adminRoleRequestService.approve(id, authentication.getName(), adminNote);
     }
 
+    // F1: Admin duyệt CV
     @PostMapping("/{id}/pass-cv")
     public AdminRoleRequestResponse passCv(
             @PathVariable Long id,

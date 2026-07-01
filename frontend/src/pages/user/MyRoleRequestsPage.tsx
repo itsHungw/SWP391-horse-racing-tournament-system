@@ -236,6 +236,7 @@ export function MyRoleRequestsPage() {
     selectedRequest?.status === "APPROVED";
   const canSubmit = profileCompleted && !selectedRoleBlocked && !submitting;
 
+  // F1: Gửi yêu cầu vai trò
   const handleApply = async (event: FormEvent) => {
     event.preventDefault();
 
