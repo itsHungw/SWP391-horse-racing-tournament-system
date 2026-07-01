@@ -2,20 +2,29 @@ package com.example.horseracingtournamentsystem.race.repository;
 
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 public interface RaceRepository extends JpaRepository<Race, Long> {
     Optional<Race> findByIdAndDeletedAtIsNull(Long id);
+
+    // EntityGraph: fetch-join các ToOne mà mapToResponse luôn chạm (tournament/referee/createdBy)
+    // -> list N race còn 1 query thay vì 1 + 3N (diệt lazy N+1). referee nullable nên dùng LEFT JOIN ngầm.
+    @EntityGraph(attributePaths = {"tournament", "referee", "createdBy"})
     List<Race> findAllByDeletedAtIsNull();
+
+    @EntityGraph(attributePaths = {"tournament", "referee", "createdBy"})
     List<Race> findAllByDeletedAtIsNullOrderByRaceAtAsc();
+
+    @EntityGraph(attributePaths = {"tournament", "referee", "createdBy"})
     List<Race> findAllByTournamentIdAndDeletedAtIsNull(Long tournamentId);
+
+    @EntityGraph(attributePaths = {"tournament", "referee", "createdBy"})
     List<Race> findAllByTournamentIdAndDeletedAtIsNullOrderByRaceAtAsc(Long tournamentId);
     List<Race> findAllByReferee_EmailAndTournament_StatusInAndDeletedAtIsNullOrderByRaceAtAsc(
             String refereeEmail,
@@ -71,89 +80,6 @@ public interface RaceRepository extends JpaRepository<Race, Long> {
     List<Race> findNextByTournamentIds(
             @Param("tournamentIds") List<Long> tournamentIds,
             @Param("now") LocalDateTime now
-    );
-
-    @Query(
-            value = """
-                    SELECT r FROM Race r
-                    JOIN FETCH r.tournament t
-                    WHERE r.deletedAt IS NULL
-                      AND ((:scope = 'UPCOMING' AND r.status IN (
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.SCHEDULED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.CHECKING,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.READY,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.ONGOING))
-                        OR (:scope = 'RESULTS' AND r.status IN (
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
-                      AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
-                      AND (:toDate IS NULL OR r.raceAt <= :toDate)
-                      AND (:tournamentId IS NULL OR t.id = :tournamentId)
-                      AND (:search = '' OR LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(t.name) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(t.location) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:horse = '' OR EXISTS (
-                           SELECT participant.id FROM RaceParticipant participant
-                           WHERE participant.race = r
-                             AND LOWER(participant.horse.name) LIKE LOWER(CONCAT('%', :horse, '%'))
-                      ))
-                      AND (:jockey = '' OR EXISTS (
-                           SELECT participant.id FROM RaceParticipant participant
-                           WHERE participant.race = r
-                             AND participant.jockey IS NOT NULL
-                             AND LOWER(participant.jockey.fullName) LIKE LOWER(CONCAT('%', :jockey, '%'))
-                      ))
-                    ORDER BY
-                      CASE WHEN :sortBy = 'NEXT_RACE' THEN r.raceAt END ASC,
-                      CASE WHEN :sortBy = 'LATEST_RESULT' THEN r.raceAt END DESC,
-                      r.id ASC
-                    """,
-            countQuery = """
-                    SELECT COUNT(r) FROM Race r
-                    WHERE r.deletedAt IS NULL
-                      AND ((:scope = 'UPCOMING' AND r.status IN (
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.SCHEDULED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.CHECKING,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.READY,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.ONGOING))
-                        OR (:scope = 'RESULTS' AND r.status IN (
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.FINISHED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_SUBMITTED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.RESULT_CONFIRMED,
-                            com.example.horseracingtournamentsystem.race.enums.RaceStatus.PUBLISHED)))
-                      AND (:fromDate IS NULL OR r.raceAt >= :fromDate)
-                      AND (:toDate IS NULL OR r.raceAt <= :toDate)
-                      AND (:tournamentId IS NULL OR r.tournament.id = :tournamentId)
-                      AND (:search = '' OR LOWER(r.name) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(r.code) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(r.tournament.name) LIKE LOWER(CONCAT('%', :search, '%'))
-                           OR LOWER(r.tournament.location) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:horse = '' OR EXISTS (
-                           SELECT participant.id FROM RaceParticipant participant
-                           WHERE participant.race = r
-                             AND LOWER(participant.horse.name) LIKE LOWER(CONCAT('%', :horse, '%'))
-                      ))
-                      AND (:jockey = '' OR EXISTS (
-                           SELECT participant.id FROM RaceParticipant participant
-                           WHERE participant.race = r
-                             AND participant.jockey IS NOT NULL
-                             AND LOWER(participant.jockey.fullName) LIKE LOWER(CONCAT('%', :jockey, '%'))
-                      ))
-                    """
-    )
-    Page<Race> searchPublic(
-            String scope,
-            LocalDateTime fromDate,
-            LocalDateTime toDate,
-            Long tournamentId,
-            String search,
-            String horse,
-            String jockey,
-            String sortBy,
-            Pageable pageable
     );
 
     long countByDeletedAtIsNull();

@@ -196,7 +196,7 @@ public class OddsCalculationService {
         long betsB = predictionRepo.sumWagersByRaceAndTypeAndParticipant(raceId, RacePrediction.TYPE_HEAD_TO_HEAD,
                 selected.getParticipantBId());
 
-        double pricingPool = 10000000.0;
+        double pricingPool = getDisplaySeed();
         double keep = 1.0 - getTakeoutRate().doubleValue();
         double sideLiquidity = pricingPool * 0.5;
         boolean selectedA = selected.getParticipantAId().equals(participantId);
@@ -287,19 +287,13 @@ public class OddsCalculationService {
             colSum.put(j, 0.0);
         }
 
-        // 1. Tính toán xác suất lịch sử của từng người tham gia cuộc đua
+        // 1. Calculate historical probabilities with one batched history load.
+        HorseHistory history = loadHorseHistory(participants);
         for (RaceParticipant p : participants) {
             Map<Integer, Double> pProbs = new HashMap<>();
             Long horseId = p.getHorse().getId();
-            long totalRaces = resultRepo.countTotalRacesByHorseId(horseId);
-            List<Object[]> posCounts = resultRepo.countPositionsByHorseId(horseId);
-
-            Map<Integer, Long> counts = new HashMap<>();
-            for (Object[] row : posCounts) {
-                if (row[0] != null) {
-                    counts.put(((Number) row[0]).intValue(), ((Number) row[1]).longValue());
-                }
-            }
+            long totalRaces = history.totalFor(horseId);
+            Map<Integer, Long> counts = history.positionsFor(horseId);
 
             for (int j = 1; j <= N; j++) {
                 double prob = (counts.getOrDefault(j, 0L) + 1.0) / (totalRaces + N); // Làm mịn Laplace (Laplace smoothing)
@@ -384,19 +378,19 @@ public class OddsCalculationService {
         if (participants.size() < 2)
             return matchups;
 
-        // Tính toán tỷ lệ thắng cuộc (win rate) cho mỗi người tham gia
+        // Win rate per participant and H2H bets are both batched.
+        HorseHistory history = loadHorseHistory(participants);
+        Map<Long, Long> h2hBets = new HashMap<>();
+        for (Object[] row : predictionRepo.sumWagersByRaceAndTypeGroupedByParticipant(raceId, RacePrediction.TYPE_HEAD_TO_HEAD)) {
+            if (row[0] != null) {
+                h2hBets.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+            }
+        }
         Map<Long, Double> winRates = new HashMap<>();
         for (RaceParticipant p : participants) {
             Long horseId = p.getHorse().getId();
-            long totalRaces = resultRepo.countTotalRacesByHorseId(horseId);
-            List<Object[]> posCounts = resultRepo.countPositionsByHorseId(horseId);
-            long wins = 0;
-            for (Object[] row : posCounts) {
-                if (row[0] != null && ((Number) row[0]).intValue() == 1) {
-                    wins = ((Number) row[1]).longValue();
-                    break;
-                }
-            }
+            long totalRaces = history.totalFor(horseId);
+            long wins = history.positionsFor(horseId).getOrDefault(1, 0L);
             double winRate = totalRaces > 0 ? (double) wins / totalRaces : 0.0;
             // Thêm một lượng rất nhỏ dựa trên ID để phân định khi tỷ lệ thắng bằng nhau, giúp sắp xếp nhất quán
             winRate += (p.getId() * 1e-9);
@@ -412,8 +406,8 @@ public class OddsCalculationService {
             RaceParticipant pA = sorted.get(i);
             RaceParticipant pB = sorted.get(i + 1);
 
-            Double avgTimeA = resultRepo.getAverageFinishTimeByHorseId(pA.getHorse().getId());
-            Double avgTimeB = resultRepo.getAverageFinishTimeByHorseId(pB.getHorse().getId());
+            Double avgTimeA = history.avgFor(pA.getHorse().getId());
+            Double avgTimeB = history.avgFor(pB.getHorse().getId());
 
             double handicap = 0.0;
             if (avgTimeA != null && avgTimeB != null) {
@@ -428,15 +422,13 @@ public class OddsCalculationService {
             }
 
             // Tính toán tỷ lệ cược (odds) theo mô hình tạo lập thị trường tự động (AMM)
-            double vPool = 10000000.0;
+            double vPool = getDisplaySeed();
             double rMargin = 1.0 - getTakeoutRate().doubleValue();
             double vA = vPool * 0.5;
             double vB = vPool * 0.5;
 
-            long betsA = predictionRepo.sumWagersByRaceAndTypeAndParticipant(raceId, RacePrediction.TYPE_HEAD_TO_HEAD,
-                    pA.getId());
-            long betsB = predictionRepo.sumWagersByRaceAndTypeAndParticipant(raceId, RacePrediction.TYPE_HEAD_TO_HEAD,
-                    pB.getId());
+            long betsA = h2hBets.getOrDefault(pA.getId(), 0L);
+            long betsB = h2hBets.getOrDefault(pB.getId(), 0L);
 
             BigDecimal oddsA = calculateOdds(vPool, betsA + betsB, rMargin, vA, betsA);
             BigDecimal oddsB = calculateOdds(vPool, betsA + betsB, rMargin, vB, betsB);
@@ -471,18 +463,12 @@ public class OddsCalculationService {
         Map<Long, Double> raw = new HashMap<>();
         double colSum = 0.0;
 
+        HorseHistory history = loadHorseHistory(participants);
         for (RaceParticipant p : participants) {
             Long horseId = p.getHorse().getId();
-            long totalRaces = resultRepo.countTotalRacesByHorseId(horseId);
-            List<Object[]> posCounts = resultRepo.countPositionsByHorseId(horseId);
-            long winCount = 0;
-            for (Object[] row : posCounts) {
-                if (row[0] != null && ((Number) row[0]).intValue() == 1) {
-                    winCount = ((Number) row[1]).longValue();
-                    break;
-                }
-            }
-            double prob = (winCount + 1.0) / (totalRaces + N); // Làm mịn cộng một Laplace (Laplace add-one smoothing)
+            long totalRaces = history.totalFor(horseId);
+            long winCount = history.positionsFor(horseId).getOrDefault(1, 0L);
+            double prob = (winCount + 1.0) / (totalRaces + N); // Laplace add-one smoothing
             raw.put(p.getId(), prob);
             colSum += prob;
         }
@@ -493,5 +479,55 @@ public class OddsCalculationService {
             out.put(e.getKey(), BigDecimal.valueOf(normalized));
         }
         return out;
+    }
+
+    // ── Batch history loading: one query per aggregate for ALL horses, replacing the per-horse
+    //    count/avg fan-out that made prediction-options issue dozens of queries (2N+ -> 3 per call). ──
+    private HorseHistory loadHorseHistory(List<RaceParticipant> participants) {
+        List<Long> horseIds = participants.stream()
+                .map(p -> p.getHorse().getId())
+                .distinct()
+                .toList();
+        Map<Long, Long> totals = new HashMap<>();
+        Map<Long, Map<Integer, Long>> positions = new HashMap<>();
+        Map<Long, Double> avg = new HashMap<>();
+        if (horseIds.isEmpty()) {
+            return new HorseHistory(totals, positions, avg);
+        }
+        for (Object[] row : resultRepo.countTotalRacesByHorseIds(horseIds)) {
+            totals.put(((Number) row[0]).longValue(), ((Number) row[1]).longValue());
+        }
+        for (Object[] row : resultRepo.countPositionsByHorseIds(horseIds)) {
+            if (row[1] == null) {
+                continue;
+            }
+            Long horseId = ((Number) row[0]).longValue();
+            positions.computeIfAbsent(horseId, k -> new HashMap<>())
+                    .put(((Number) row[1]).intValue(), ((Number) row[2]).longValue());
+        }
+        for (Object[] row : resultRepo.getAverageFinishTimeByHorseIds(horseIds)) {
+            if (row[1] != null) {
+                avg.put(((Number) row[0]).longValue(), ((Number) row[1]).doubleValue());
+            }
+        }
+        return new HorseHistory(totals, positions, avg);
+    }
+
+    private record HorseHistory(
+            Map<Long, Long> totalRaces,
+            Map<Long, Map<Integer, Long>> positionCounts,
+            Map<Long, Double> avgFinishTime
+    ) {
+        long totalFor(Long horseId) {
+            return totalRaces.getOrDefault(horseId, 0L);
+        }
+
+        Map<Integer, Long> positionsFor(Long horseId) {
+            return positionCounts.getOrDefault(horseId, Map.of());
+        }
+
+        Double avgFor(Long horseId) {
+            return avgFinishTime.get(horseId);
+        }
     }
 }

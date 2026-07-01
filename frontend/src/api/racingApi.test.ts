@@ -15,6 +15,7 @@ import {
   getJockeyPoolApplications,
   getOwnerAvailableJockeys,
   getOwnerTournamentRegistrationsPage,
+  getOrganizerRaceResults,
   rejectAdminJockeyPoolApplication,
 } from "./racingApi";
 
@@ -191,5 +192,21 @@ describe("racingApi", () => {
     expect(httpClient.post).toHaveBeenCalledWith("/jockey/championships/7/pool-applications", {
       message: "Available for all rounds.",
     });
+  });
+
+  it("loads organizer race results from the private review endpoint", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({
+      data: {
+        raceId: 55,
+        official: false,
+        entries: [{ raceParticipantId: 9, horseName: "Review Runner", points: 25, resultStatus: "FINISHED" }],
+      },
+    });
+
+    await expect(getOrganizerRaceResults(55)).resolves.toMatchObject({
+      raceId: 55,
+      entries: [{ horseName: "Review Runner" }],
+    });
+    expect(httpClient.get).toHaveBeenCalledWith("/organizer/races/55/results");
   });
 });

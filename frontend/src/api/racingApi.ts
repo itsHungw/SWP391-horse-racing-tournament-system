@@ -86,6 +86,11 @@ export async function getPublicRaceResults(id: number): Promise<PublicRaceResult
   return response.data;
 }
 
+export async function getOrganizerRaceResults(id: number): Promise<PublicRaceResult> {
+  const response = await httpClient.get<PublicRaceResult>(`/organizer/races/${id}/results`);
+  return response.data;
+}
+
 export async function getPublicRacingSummary(): Promise<PublicRacingSummary> {
   const response = await httpClient.get<PublicRacingSummary>("/racing-summary");
   return response.data;

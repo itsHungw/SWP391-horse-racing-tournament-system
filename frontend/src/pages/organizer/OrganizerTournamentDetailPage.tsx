@@ -25,6 +25,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { RaceMediaPanel } from "../../components/race-media/RaceMediaPanel";
 import { httpClient } from "../../api/httpClient";
 import {
   approveOrganizerJockeyApplication,
@@ -37,8 +38,8 @@ import {
   getOrganizerJockeyApplications,
   getOrganizerParticipants,
   getOrganizerRaces,
+  getOrganizerRaceResults,
   getOrganizerTournamentRegistrations,
-  getPublicRaceResults,
   getPublicTournament,
   getTournamentRefereeContracts,
   inviteReferee,
@@ -2202,6 +2203,11 @@ export function OrganizerTournamentDetailPage() {
                   </button>
                 </div>
               )}
+
+              <div className="space-y-4 pt-1">
+                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" kind="live" />
+                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" kind="highlight" />
+              </div>
             </div>
           </aside>
         </div>
@@ -2631,7 +2637,7 @@ function RaceResultSummary({ raceId }: { raceId: number }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getPublicRaceResults(raceId)
+    getOrganizerRaceResults(raceId)
       .then((data) => active && setResult(data))
       .catch((err) => active && setError(getApiErrorMessage(err, "Failed to load order results.")))
       .finally(() => active && setLoading(false));

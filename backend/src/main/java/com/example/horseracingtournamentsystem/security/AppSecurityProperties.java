@@ -10,7 +10,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "app.security")
 public class AppSecurityProperties {
 
-    private String contentSecurityPolicy = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'";
+    private String contentSecurityPolicy = "default-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; frame-src https://www.youtube-nocookie.com; img-src 'self' https://i.ytimg.com data:";
     private RateLimit rateLimit = new RateLimit();
 
     @Getter

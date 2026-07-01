@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
-import { ArrowLeft, ArrowRight, CalendarDays, Flag, MapPin, Trophy, Users } from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, Film, Flag, MapPin, Trophy, Users } from "lucide-react";
 
 import { getPublicRaces, getPublicTournament } from "../../api/racingApi";
+import { getPublicTournamentHighlights } from "../../api/raceMediaApi";
 import { getChampionshipStandings } from "../../api/leaderboardApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { ClientFooter } from "../../components/client/ClientFooter";
 import { CountUp } from "../../components/client/CountUp";
 import { MotionPage } from "../../components/client/MotionPage";
+import { ChampionshipHighlightsRail } from "../../components/race-media/ChampionshipHighlightsRail";
 import {
   Eyebrow,
   GoldRule,
@@ -17,7 +19,7 @@ import {
   MotionStaggerItem,
 } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import type { Race, Tournament } from "../../types/racing";
+import type { Race, RaceMediaPublicResponse, Tournament } from "../../types/racing";
 import type { ChampionshipStanding, StandingType } from "./leaderboard/leaderboardTypes";
 import heroImage from "../../assets/slide.jpg";
 import {
@@ -95,6 +97,7 @@ export function ChampionshipDetailPage() {
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
+  const [highlights, setHighlights] = useState<RaceMediaPublicResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,9 +125,10 @@ export function ChampionshipDetailPage() {
       setLoading(true);
       setError(null);
       setNotFound(false);
-      const [tRes, rRes] = await Promise.allSettled([
+      const [tRes, rRes, hRes] = await Promise.allSettled([
         getPublicTournament(idNum),
         getPublicRaces(idNum),
+        getPublicTournamentHighlights(idNum),
       ]);
       if (!mounted) return;
       if (tRes.status === "rejected") {
@@ -136,6 +140,7 @@ export function ChampionshipDetailPage() {
       }
       setTournament(tRes.value);
       setRaces(rRes.status === "fulfilled" ? rRes.value : []);
+      setHighlights(hRes.status === "fulfilled" ? hRes.value : []);
       setLoading(false);
     }
     load();
@@ -161,6 +166,7 @@ export function ChampionshipDetailPage() {
   }, [idNum, standingsType, standingsCache]);
 
   const dayGroups = useMemo(() => groupRacesByDay(races), [races]);
+  const highlightRaceIds = useMemo(() => new Set(highlights.map((highlight) => highlight.raceId)), [highlights]);
   const finishedCount = useMemo(() => races.filter((r) => isRaceConcluded(r.status)).length, [races]);
   const standings = standingsCache[standingsType];
   const podium = (standings ?? []).slice(0, 3);
@@ -353,6 +359,8 @@ export function ChampionshipDetailPage() {
         </section>
       ) : null}
 
+      {!loading ? <ChampionshipHighlightsRail highlights={highlights} races={races} /> : null}
+
       {/* Race schedule */}
       <section className="bg-turf-900 py-18 md:py-24">
         <div className="mx-auto max-w-[1400px] px-6 md:px-12">
@@ -397,6 +405,12 @@ export function ChampionshipDetailPage() {
                               <div className="min-w-0">
                                 <div className="flex flex-wrap items-center gap-3">
                                   <StatusPill tone={rs.tone} label={rs.label} />
+                                  {highlightRaceIds.has(race.id) ? (
+                                    <span className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/40 bg-gold-400/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-gold-200">
+                                      <Film size={12} aria-hidden="true" />
+                                      Highlight
+                                    </span>
+                                  ) : null}
                                   {race.code ? (
                                     <span className="font-data text-[11px] uppercase tracking-[0.2em] text-ivory-faint">
                                       {race.code}

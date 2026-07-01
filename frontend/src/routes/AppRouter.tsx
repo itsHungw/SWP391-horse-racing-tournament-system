@@ -1,7 +1,13 @@
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ReactNode } from "react";
+import { lazy, Suspense, ReactNode } from "react";
 
 import { AppLayout } from "../layouts/AppLayout";
+import { RequireAdminRoute } from "./RequireAdminRoute";
+import { RequireAuthRoute } from "./RequireAuthRoute";
+import { RequireRoleRoute } from "./RequireRoleRoute";
+
+// Public + auth pages stay eagerly imported: they are the first-paint surfaces, so
+// code-splitting them would only add a Suspense flash on the most common entry points.
 import { HomePage } from "../pages/public/HomePage";
 import { JoinUsPage } from "../pages/public/JoinUsPage";
 import { SpectatorBlogListPage } from "../pages/public/SpectatorBlogListPage";
@@ -15,61 +21,74 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
-import { ProfilePage } from "../pages/user/ProfilePage";
-import { WalletPage } from "../pages/wallet/WalletPage";
-import { AdminWithdrawalsPage } from "../pages/admin/AdminWithdrawalsPage";
-import { MyRoleRequestsPage } from "../pages/user/MyRoleRequestsPage";
-import { OrganizerLayout } from "../layouts/OrganizerLayout";
-import { OrganizerRegisterPage } from "../pages/organizer/OrganizerRegisterPage";
-import { OrganizerDashboardPage } from "../pages/organizer/OrganizerDashboardPage";
-import { OrganizerTournamentsPage } from "../pages/organizer/OrganizerTournamentsPage";
-import { OrganizerTournamentFormPage } from "../pages/organizer/OrganizerTournamentFormPage";
-import { OrganizerTournamentDetailPage } from "../pages/organizer/OrganizerTournamentDetailPage";
-import { OrganizerOfficialsPage } from "../pages/organizer/OrganizerOfficialsPage";
-import { OrganizerRegistrationsPage } from "../pages/organizer/OrganizerRegistrationsPage";
-import { OrganizerSchedulePage } from "../pages/organizer/OrganizerSchedulePage";
-import { OrganizerResultsPage } from "../pages/organizer/OrganizerResultsPage";
-import { OrganizerProfilePage } from "../pages/organizer/OrganizerProfilePage";
-import { OrganizerOrganizationPage } from "../pages/organizer/OrganizerOrganizationPage";
-import { AdminOverviewPage } from "../pages/admin/AdminOverviewPage";
-import { AdminRoleRequestsWorkspace } from "../pages/admin/AdminRoleRequestsWorkspace";
-import { AdminOrganizationsPage } from "../pages/admin/AdminOrganizationsPage";
-import { AdminPlaceholderPage } from "../pages/admin/AdminPlaceholderPage";
-import { AdminUserListPage } from "../pages/admin/AdminUserListPage";
-import { AdminUserDetailPage } from "../pages/admin/AdminUserDetailPage";
-import { AdminHorsesPage } from "../pages/admin/AdminHorsesPage";
-import { AdminTournamentRegistrationsPage } from "../pages/admin/AdminTournamentRegistrationsPage";
-import { AdminTournamentListPage } from "../pages/admin/AdminTournamentListPage";
-import { AdminTournamentDetailPage } from "../pages/admin/AdminTournamentDetailPage";
-import { AdminBlogListPage } from "../pages/admin/AdminBlogListPage";
-import { AdminBlogFormPage } from "../pages/admin/AdminBlogFormPage";
-import { AdminPredictionsWorkspace } from "../pages/admin/AdminPredictionsWorkspace";
-import { AdminRacePredictionDetailPage } from "../pages/admin/AdminRacePredictionDetailPage";
-import { OwnerDashboardPage } from "../pages/owner/OwnerDashboardPage";
-import { SpectatorPredictionsPage } from "../pages/spectator/predictions/SpectatorPredictionsPage";
-import { OwnerHorseProfilePage } from "../pages/owner/OwnerHorseProfilePage";
-import { OwnerHorsesPage } from "../pages/owner/OwnerHorsesPage";
-import { OwnerProfilePage } from "../pages/owner/OwnerProfilePage";
-import { OwnerTournamentRegistrationsPage } from "../pages/owner/OwnerTournamentRegistrationsPage";
-import { OwnerJockeyInvitationsPage } from "../pages/owner/OwnerJockeyInvitationsPage";
-import { JockeyChampionshipsPage } from "../pages/jockey/JockeyChampionshipsPage";
-import { JockeyContractsPage } from "../pages/jockey/JockeyContractsPage";
-import { JockeyDashboardPage } from "../pages/jockey/JockeyDashboardPage";
-import { JockeyProfilePage } from "../pages/jockey/JockeyProfilePage";
-import { JockeySchedulePage } from "../pages/jockey/JockeySchedulePage";
-import { RequireAdminRoute } from "./RequireAdminRoute";
-import { RequireAuthRoute } from "./RequireAuthRoute";
-import { RequireRoleRoute } from "./RequireRoleRoute";
-import { RefereeLayout } from "../layouts/RefereeLayout";
-import { RefereeOverviewPage } from "../pages/referee/RefereeOverviewPage";
-import { PreRaceCheckPage } from "../pages/referee/PreRaceCheckPage";
-import { SubmitResultsPage } from "../pages/referee/SubmitResultsPage";
-import { IncidentReportsPage } from "../pages/referee/IncidentReportsPage";
-import { RefereeOfficiatePage } from "../pages/referee/RefereeOfficiatePage";
-import { RefereeResultHistoryPage } from "../pages/referee/RefereeResultHistoryPage";
-import { RefereeDashboardPage } from "../pages/referee/RefereeDashboardPage";
-import { RefereeProfileDashboardPage } from "../pages/referee/RefereeProfileDashboardPage";
-import { RefereeContractsPage } from "../pages/referee/RefereeContractsPage";
+
+// Authenticated / role-gated workspaces are lazy-loaded so a public visitor never downloads
+// the admin / organizer / owner / jockey / referee bundles (or heavy deps like lightweight-charts).
+const ProfilePage = lazy(() => import("../pages/user/ProfilePage").then((m) => ({ default: m.ProfilePage })));
+const WalletPage = lazy(() => import("../pages/wallet/WalletPage").then((m) => ({ default: m.WalletPage })));
+const MyRoleRequestsPage = lazy(() => import("../pages/user/MyRoleRequestsPage").then((m) => ({ default: m.MyRoleRequestsPage })));
+const SpectatorPredictionsPage = lazy(() => import("../pages/spectator/predictions/SpectatorPredictionsPage").then((m) => ({ default: m.SpectatorPredictionsPage })));
+
+const OrganizerLayout = lazy(() => import("../layouts/OrganizerLayout").then((m) => ({ default: m.OrganizerLayout })));
+const OrganizerRegisterPage = lazy(() => import("../pages/organizer/OrganizerRegisterPage").then((m) => ({ default: m.OrganizerRegisterPage })));
+const OrganizerDashboardPage = lazy(() => import("../pages/organizer/OrganizerDashboardPage").then((m) => ({ default: m.OrganizerDashboardPage })));
+const OrganizerTournamentsPage = lazy(() => import("../pages/organizer/OrganizerTournamentsPage").then((m) => ({ default: m.OrganizerTournamentsPage })));
+const OrganizerTournamentFormPage = lazy(() => import("../pages/organizer/OrganizerTournamentFormPage").then((m) => ({ default: m.OrganizerTournamentFormPage })));
+const OrganizerTournamentDetailPage = lazy(() => import("../pages/organizer/OrganizerTournamentDetailPage").then((m) => ({ default: m.OrganizerTournamentDetailPage })));
+const OrganizerRegistrationsPage = lazy(() => import("../pages/organizer/OrganizerRegistrationsPage").then((m) => ({ default: m.OrganizerRegistrationsPage })));
+const OrganizerSchedulePage = lazy(() => import("../pages/organizer/OrganizerSchedulePage").then((m) => ({ default: m.OrganizerSchedulePage })));
+const OrganizerOfficialsPage = lazy(() => import("../pages/organizer/OrganizerOfficialsPage").then((m) => ({ default: m.OrganizerOfficialsPage })));
+const OrganizerResultsPage = lazy(() => import("../pages/organizer/OrganizerResultsPage").then((m) => ({ default: m.OrganizerResultsPage })));
+const OrganizerProfilePage = lazy(() => import("../pages/organizer/OrganizerProfilePage").then((m) => ({ default: m.OrganizerProfilePage })));
+const OrganizerOrganizationPage = lazy(() => import("../pages/organizer/OrganizerOrganizationPage").then((m) => ({ default: m.OrganizerOrganizationPage })));
+
+const AdminOverviewPage = lazy(() => import("../pages/admin/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
+const AdminRoleRequestsWorkspace = lazy(() => import("../pages/admin/AdminRoleRequestsWorkspace").then((m) => ({ default: m.AdminRoleRequestsWorkspace })));
+const AdminOrganizationsPage = lazy(() => import("../pages/admin/AdminOrganizationsPage").then((m) => ({ default: m.AdminOrganizationsPage })));
+const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage").then((m) => ({ default: m.AdminPlaceholderPage })));
+const AdminUserListPage = lazy(() => import("../pages/admin/AdminUserListPage").then((m) => ({ default: m.AdminUserListPage })));
+const AdminUserDetailPage = lazy(() => import("../pages/admin/AdminUserDetailPage").then((m) => ({ default: m.AdminUserDetailPage })));
+const AdminHorsesPage = lazy(() => import("../pages/admin/AdminHorsesPage").then((m) => ({ default: m.AdminHorsesPage })));
+const AdminTournamentRegistrationsPage = lazy(() => import("../pages/admin/AdminTournamentRegistrationsPage").then((m) => ({ default: m.AdminTournamentRegistrationsPage })));
+const AdminTournamentListPage = lazy(() => import("../pages/admin/AdminTournamentListPage").then((m) => ({ default: m.AdminTournamentListPage })));
+const AdminTournamentDetailPage = lazy(() => import("../pages/admin/AdminTournamentDetailPage").then((m) => ({ default: m.AdminTournamentDetailPage })));
+const AdminBlogListPage = lazy(() => import("../pages/admin/AdminBlogListPage").then((m) => ({ default: m.AdminBlogListPage })));
+const AdminBlogFormPage = lazy(() => import("../pages/admin/AdminBlogFormPage").then((m) => ({ default: m.AdminBlogFormPage })));
+const AdminPredictionsWorkspace = lazy(() => import("../pages/admin/AdminPredictionsWorkspace").then((m) => ({ default: m.AdminPredictionsWorkspace })));
+const AdminRacePredictionDetailPage = lazy(() => import("../pages/admin/AdminRacePredictionDetailPage").then((m) => ({ default: m.AdminRacePredictionDetailPage })));
+const AdminWithdrawalsPage = lazy(() => import("../pages/admin/AdminWithdrawalsPage").then((m) => ({ default: m.AdminWithdrawalsPage })));
+
+const OwnerDashboardPage = lazy(() => import("../pages/owner/OwnerDashboardPage").then((m) => ({ default: m.OwnerDashboardPage })));
+const OwnerHorseProfilePage = lazy(() => import("../pages/owner/OwnerHorseProfilePage").then((m) => ({ default: m.OwnerHorseProfilePage })));
+const OwnerHorsesPage = lazy(() => import("../pages/owner/OwnerHorsesPage").then((m) => ({ default: m.OwnerHorsesPage })));
+const OwnerProfilePage = lazy(() => import("../pages/owner/OwnerProfilePage").then((m) => ({ default: m.OwnerProfilePage })));
+const OwnerTournamentRegistrationsPage = lazy(() => import("../pages/owner/OwnerTournamentRegistrationsPage").then((m) => ({ default: m.OwnerTournamentRegistrationsPage })));
+const OwnerJockeyInvitationsPage = lazy(() => import("../pages/owner/OwnerJockeyInvitationsPage").then((m) => ({ default: m.OwnerJockeyInvitationsPage })));
+
+const JockeyChampionshipsPage = lazy(() => import("../pages/jockey/JockeyChampionshipsPage").then((m) => ({ default: m.JockeyChampionshipsPage })));
+const JockeyContractsPage = lazy(() => import("../pages/jockey/JockeyContractsPage").then((m) => ({ default: m.JockeyContractsPage })));
+const JockeyDashboardPage = lazy(() => import("../pages/jockey/JockeyDashboardPage").then((m) => ({ default: m.JockeyDashboardPage })));
+const JockeyProfilePage = lazy(() => import("../pages/jockey/JockeyProfilePage").then((m) => ({ default: m.JockeyProfilePage })));
+const JockeySchedulePage = lazy(() => import("../pages/jockey/JockeySchedulePage").then((m) => ({ default: m.JockeySchedulePage })));
+
+const RefereeLayout = lazy(() => import("../layouts/RefereeLayout").then((m) => ({ default: m.RefereeLayout })));
+const RefereeOverviewPage = lazy(() => import("../pages/referee/RefereeOverviewPage").then((m) => ({ default: m.RefereeOverviewPage })));
+const PreRaceCheckPage = lazy(() => import("../pages/referee/PreRaceCheckPage").then((m) => ({ default: m.PreRaceCheckPage })));
+const SubmitResultsPage = lazy(() => import("../pages/referee/SubmitResultsPage").then((m) => ({ default: m.SubmitResultsPage })));
+const IncidentReportsPage = lazy(() => import("../pages/referee/IncidentReportsPage").then((m) => ({ default: m.IncidentReportsPage })));
+const RefereeOfficiatePage = lazy(() => import("../pages/referee/RefereeOfficiatePage").then((m) => ({ default: m.RefereeOfficiatePage })));
+const RefereeResultHistoryPage = lazy(() => import("../pages/referee/RefereeResultHistoryPage").then((m) => ({ default: m.RefereeResultHistoryPage })));
+const RefereeDashboardPage = lazy(() => import("../pages/referee/RefereeDashboardPage").then((m) => ({ default: m.RefereeDashboardPage })));
+const RefereeProfileDashboardPage = lazy(() => import("../pages/referee/RefereeProfileDashboardPage").then((m) => ({ default: m.RefereeProfileDashboardPage })));
+const RefereeContractsPage = lazy(() => import("../pages/referee/RefereeContractsPage").then((m) => ({ default: m.RefereeContractsPage })));
+
+function RouteFallback() {
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center" role="status" aria-label="Loading">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-current border-t-transparent opacity-40" />
+    </div>
+  );
+}
 
 function adminRoute(element: ReactNode) {
   return <RequireAdminRoute>{element}</RequireAdminRoute>;
@@ -113,6 +132,7 @@ function ownerRoute(element: ReactNode) {
 
 export function AppRouter() {
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<HomePage />} />
@@ -124,13 +144,13 @@ export function AppRouter() {
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="blogs" element={<SpectatorBlogListPage />} />
         <Route path="blogs/:slug" element={<SpectatorBlogDetailPage />} />
-        
+
         {/* Authentication routes */}
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
         <Route path="verify-email" element={<VerifyEmailPage />} />
         <Route path="forgot-password" element={<ForgotPasswordPage />} />
-        
+
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
         <Route path="wallet" element={authRoute(<WalletPage />)} />
@@ -183,7 +203,7 @@ export function AppRouter() {
         <Route path="spectator" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/dashboard" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/predictions" element={authRoute(<SpectatorPredictionsPage />)} />
-       
+
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
         <Route path="admin/organizations" element={adminRoute(<AdminOrganizationsPage />)} />
@@ -228,7 +248,7 @@ export function AppRouter() {
         <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
-        
+
 
         <Route
           path="admin/settings"
@@ -242,5 +262,6 @@ export function AppRouter() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
+    </Suspense>
   );
 }
