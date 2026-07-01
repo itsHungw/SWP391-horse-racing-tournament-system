@@ -100,6 +100,7 @@ public class RaceMedia {
 
     public static RaceMedia create(
             Race race,
+            MediaType mediaType,
             MediaProviderType provider,
             String providerVideoId,
             String sourceUrl,
@@ -108,7 +109,7 @@ public class RaceMedia {
     ) {
         RaceMedia media = new RaceMedia();
         media.race = race;
-        media.mediaType = MediaType.HIGHLIGHT;
+        media.mediaType = mediaType; // loại media truyền vào (HIGHLIGHT / LIVE_STREAM) — không còn hardcode
         media.provider = provider;
         media.providerVideoId = providerVideoId;
         media.sourceUrl = sourceUrl;

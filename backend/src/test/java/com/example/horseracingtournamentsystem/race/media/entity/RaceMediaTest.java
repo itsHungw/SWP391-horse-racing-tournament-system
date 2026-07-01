@@ -7,6 +7,7 @@ import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaProviderType;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaStatus;
+import com.example.horseracingtournamentsystem.race.media.enums.MediaType;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaVerificationStatus;
 import com.example.horseracingtournamentsystem.race.media.provider.ProviderMeta;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
@@ -45,6 +46,7 @@ class RaceMediaTest {
     void newMediaStartsAsDraftAndCannotPublishBeforeVerification() {
         RaceMedia media = RaceMedia.create(
                 race,
+                MediaType.HIGHLIGHT,
                 MediaProviderType.YOUTUBE,
                 "dQw4w9WgXcQ",
                 "https://youtu.be/dQw4w9WgXcQ",
@@ -63,6 +65,7 @@ class RaceMediaTest {
     void changingPublishedSourceDemotesAndClearsPublishAudit() {
         RaceMedia media = RaceMedia.create(
                 race,
+                MediaType.HIGHLIGHT,
                 MediaProviderType.YOUTUBE,
                 "dQw4w9WgXcQ",
                 "https://youtu.be/dQw4w9WgXcQ",
@@ -85,6 +88,7 @@ class RaceMediaTest {
     void titleOnlyEditKeepsPublishedAndVerifiedState() {
         RaceMedia media = RaceMedia.create(
                 race,
+                MediaType.HIGHLIGHT,
                 MediaProviderType.YOUTUBE,
                 "dQw4w9WgXcQ",
                 "https://youtu.be/dQw4w9WgXcQ",

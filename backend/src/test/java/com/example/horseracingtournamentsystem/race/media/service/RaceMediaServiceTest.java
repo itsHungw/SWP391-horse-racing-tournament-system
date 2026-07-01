@@ -14,9 +14,13 @@ import com.example.horseracingtournamentsystem.race.media.dto.RaceMediaResponse;
 import com.example.horseracingtournamentsystem.race.media.entity.RaceMedia;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaProviderType;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaStatus;
+import com.example.horseracingtournamentsystem.race.media.enums.MediaType;
 import com.example.horseracingtournamentsystem.race.media.enums.MediaVerificationStatus;
 import com.example.horseracingtournamentsystem.race.media.exception.ProviderUnavailableException;
 import com.example.horseracingtournamentsystem.race.media.exception.VideoNotEmbeddableException;
+import com.example.horseracingtournamentsystem.race.media.policy.HighlightPolicy;
+import com.example.horseracingtournamentsystem.race.media.policy.LiveStreamPolicy;
+import com.example.horseracingtournamentsystem.race.media.policy.MediaPolicyRegistry;
 import com.example.horseracingtournamentsystem.race.media.provider.HighlightProvider;
 import com.example.horseracingtournamentsystem.race.media.provider.ProviderMeta;
 import com.example.horseracingtournamentsystem.race.media.repository.RaceMediaRepository;
@@ -26,6 +30,7 @@ import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +62,9 @@ class RaceMediaServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new RaceMediaService(raceRepository, raceMediaRepository, userRepository, highlightProvider);
+        // Policy là POJO thuần -> dùng thật trong unit test (không cần mock), đúng tinh thần Strategy testable.
+        service = new RaceMediaService(raceRepository, raceMediaRepository, userRepository, highlightProvider,
+                new MediaPolicyRegistry(List.of(new HighlightPolicy(), new LiveStreamPolicy())));
         organizer = User.pending("Organizer", "organizer@example.com", "hash");
         organizer.verifyEmail();
         Organization organization = Organization.application(
@@ -95,7 +102,7 @@ class RaceMediaServiceTest {
     void saveDraftPersistsEvenWhenProviderIsUnavailable() {
         when(raceRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(race));
         when(userRepository.findByEmail("organizer@example.com")).thenReturn(Optional.of(organizer));
-        when(raceMediaRepository.findActiveByRaceId(1L)).thenReturn(Optional.empty());
+        when(raceMediaRepository.findActiveByRaceIdAndType(1L, MediaType.HIGHLIGHT)).thenReturn(Optional.empty());
         when(raceMediaRepository.save(any(RaceMedia.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(highlightProvider.normalizeId("https://youtu.be/dQw4w9WgXcQ")).thenReturn("dQw4w9WgXcQ");
         when(highlightProvider.embedUrl("dQw4w9WgXcQ")).thenReturn("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
@@ -119,6 +126,7 @@ class RaceMediaServiceTest {
     void publishReverifiesAndRejectsNonEmbeddableVideo() {
         RaceMedia media = RaceMedia.create(
                 race,
+                MediaType.HIGHLIGHT,
                 MediaProviderType.YOUTUBE,
                 "dQw4w9WgXcQ",
                 "https://youtu.be/dQw4w9WgXcQ",
@@ -128,7 +136,7 @@ class RaceMediaServiceTest {
         media.markVerified(new ProviderMeta("Official replay", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"), LocalDateTime.now());
         when(raceRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(race));
         when(userRepository.findByEmail("organizer@example.com")).thenReturn(Optional.of(organizer));
-        when(raceMediaRepository.findActiveByRaceId(1L)).thenReturn(Optional.of(media));
+        when(raceMediaRepository.findActiveByRaceIdAndType(1L, MediaType.HIGHLIGHT)).thenReturn(Optional.of(media));
         when(highlightProvider.verify("dQw4w9WgXcQ"))
                 .thenThrow(new VideoNotEmbeddableException("NOT_EMBEDDABLE", "Video cannot be embedded"));
 
@@ -146,6 +154,7 @@ class RaceMediaServiceTest {
         race.updateStatus(RaceStatus.SCHEDULED);
         RaceMedia media = RaceMedia.create(
                 race,
+                MediaType.HIGHLIGHT,
                 MediaProviderType.YOUTUBE,
                 "dQw4w9WgXcQ",
                 "https://youtu.be/dQw4w9WgXcQ",
@@ -155,11 +164,37 @@ class RaceMediaServiceTest {
         media.markVerified(new ProviderMeta("Official replay", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"), LocalDateTime.now());
         when(raceRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(race));
         when(userRepository.findByEmail("organizer@example.com")).thenReturn(Optional.of(organizer));
-        when(raceMediaRepository.findActiveByRaceId(1L)).thenReturn(Optional.of(media));
+        when(raceMediaRepository.findActiveByRaceIdAndType(1L, MediaType.HIGHLIGHT)).thenReturn(Optional.of(media));
 
         assertThatThrownBy(() -> service.publishOrganizerHighlight(1L, "organizer@example.com"))
                 .isInstanceOf(ResponseStatusException.class)
                 .extracting(ex -> ((ResponseStatusException) ex).getStatusCode())
                 .isEqualTo(HttpStatus.CONFLICT);
+    }
+
+    @Test
+    void liveStreamPublishesOnScheduledRaceWithoutResultGate() {
+        // Điểm khác biệt cốt lõi vs highlight: live publish được DÙ race chưa official (LiveStreamPolicy).
+        race.updateStatus(RaceStatus.SCHEDULED);
+        RaceMedia media = RaceMedia.create(
+                race,
+                MediaType.LIVE_STREAM,
+                MediaProviderType.YOUTUBE,
+                "dQw4w9WgXcQ",
+                "https://youtu.be/dQw4w9WgXcQ",
+                "Live feed",
+                organizer
+        );
+        media.markVerified(new ProviderMeta("Live feed", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"), LocalDateTime.now());
+        when(raceRepository.findByIdAndDeletedAtIsNull(1L)).thenReturn(Optional.of(race));
+        when(userRepository.findByEmail("organizer@example.com")).thenReturn(Optional.of(organizer));
+        when(raceMediaRepository.findActiveByRaceIdAndType(1L, MediaType.LIVE_STREAM)).thenReturn(Optional.of(media));
+        when(highlightProvider.verify("dQw4w9WgXcQ"))
+                .thenReturn(new ProviderMeta("Live feed", "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"));
+
+        RaceMediaResponse response = service.publishOrganizerLiveStream(1L, "organizer@example.com");
+
+        assertThat(response.status()).isEqualTo(MediaStatus.PUBLISHED);
+        assertThat(response.verificationStatus()).isEqualTo(MediaVerificationStatus.VERIFIED);
     }
 }
