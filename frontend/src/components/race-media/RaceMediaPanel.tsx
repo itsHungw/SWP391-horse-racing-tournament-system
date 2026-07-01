@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
+  ChevronDown,
   CheckCircle2,
   Clock3,
   ExternalLink,
@@ -21,6 +22,7 @@ import {
   saveRaceMedia,
   unpublishRaceMedia,
   validateRaceMedia,
+  type RaceMediaKind,
   type RaceMediaManageScope,
 } from "../../api/raceMediaApi";
 import type { Race, RaceMediaResponse, RaceMediaValidateResponse, RaceMediaVerificationStatus } from "../../types/racing";
@@ -30,13 +32,73 @@ type RaceMediaPanelProps = {
   race: Race;
   scope: RaceMediaManageScope;
   accent?: "gold" | "red";
+  kind?: RaceMediaKind;
+  defaultOpen?: boolean;
 };
 
 const blockedReasonLabel: Record<string, string> = {
   RESULT_NOT_OFFICIAL: "Publish unlocks once the official result is confirmed.",
   VIDEO_NOT_VERIFIED: "Re-verify the video before publishing.",
-  ALREADY_PUBLISHED: "Highlight is already public.",
+  ALREADY_PUBLISHED: "This media is already public.",
 };
+
+const panelCopy = {
+  live: {
+    emptyLabel: "No live stream",
+    eyebrow: "Media workspace",
+    heading: "YouTube live",
+    blurb:
+      "Paste the YouTube live link, verify it, then publish it before the race. Published live streams appear on the public race page until the race is finished.",
+    previewEmpty: "No live preview yet",
+    previewHelp: "Paste a YouTube live link and validate it to preview the broadcast card.",
+    defaultTitle: "Official race live stream",
+    urlLabel: "YouTube live link",
+    titlePlaceholder: "Official race live stream",
+    verifiedHelp: "This stream can be embedded and published before the race.",
+    failedHelp: "The draft is saved, but YouTube verification must pass before publish.",
+    waitingHelp: "Save the live stream as a draft, then verify before making it public.",
+    savedMessage: "Live stream draft saved.",
+    publicMessage: "Live stream is now public.",
+    hiddenMessage: "Live stream hidden from public pages.",
+    removedMessage: "Live stream removed.",
+    loadError: "Could not load race live stream.",
+    saveError: "Could not save this live stream.",
+    publishError: "Could not publish this live stream.",
+    unpublishError: "Could not unpublish this live stream.",
+    reverifyError: "Could not re-verify this live stream.",
+    deleteError: "Could not remove this live stream.",
+    removeConfirm: "Remove this race live stream draft?",
+    footerPublished: "This live stream is visible on the public Race Detail page until the race is finished.",
+    footerDraft: "Drafts stay private until they are verified and published.",
+  },
+  highlight: {
+    emptyLabel: "No highlight",
+    eyebrow: "Media workspace",
+    heading: "Race highlight",
+    blurb: "Paste one YouTube replay, verify it, then publish after the result is official.",
+    previewEmpty: "No preview yet",
+    previewHelp: "Paste a YouTube replay link and validate it to preview the public card.",
+    defaultTitle: "Official race replay",
+    urlLabel: "YouTube replay link",
+    titlePlaceholder: "Official race replay",
+    verifiedHelp: "This replay can be embedded and published when the race state allows it.",
+    failedHelp: "The draft is saved, but YouTube verification must pass before publish.",
+    waitingHelp: "Save the replay as a draft, then verify before making it public.",
+    savedMessage: "Highlight draft saved.",
+    publicMessage: "Highlight is now public.",
+    hiddenMessage: "Highlight hidden from public pages.",
+    removedMessage: "Highlight removed.",
+    loadError: "Could not load race highlight.",
+    saveError: "Could not save this highlight.",
+    publishError: "Could not publish this highlight.",
+    unpublishError: "Could not unpublish this highlight.",
+    reverifyError: "Could not re-verify this highlight.",
+    deleteError: "Could not remove this highlight.",
+    removeConfirm: "Remove this race highlight draft?",
+    footerPublished: "This highlight is visible on Race Detail and Championship Detail public pages.",
+    footerDraft: "Drafts stay private until they are verified and published.",
+  },
+} satisfies Record<RaceMediaKind, Record<string, string>>;
 
 function statusTone(media: RaceMediaResponse | null) {
   if (!media) return "border-slate-200 bg-slate-50 text-slate-700";
@@ -53,8 +115,8 @@ function verificationTone(status: RaceMediaVerificationStatus | null | undefined
   return "border-slate-200 bg-white text-slate-500";
 }
 
-function mediaStateLabel(media: RaceMediaResponse | null) {
-  if (!media) return "No highlight";
+function mediaStateLabel(media: RaceMediaResponse | null, emptyLabel: string) {
+  if (!media) return emptyLabel;
   if (media.status === "PUBLISHED") return "Published";
   if (media.verificationStatus === "VERIFIED") return "Verified draft";
   if (media.verificationStatus === "FAILED") return "Needs re-check";
@@ -74,16 +136,20 @@ function verificationIcon(status: RaceMediaVerificationStatus | null | undefined
   return Clock3;
 }
 
-export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelProps) {
+export function RaceMediaPanel({ race, scope, accent = "gold", kind = "highlight", defaultOpen = false }: RaceMediaPanelProps) {
   const [media, setMedia] = useState<RaceMediaResponse | null>(null);
   const [validation, setValidation] = useState<RaceMediaValidateResponse | null>(null);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const copy = panelCopy[kind];
+  const panelId = `${scope}-${kind}-${race.id}`;
+  const bodyId = `race-media-body-${panelId}`;
   const accentClass = accent === "red" ? "text-[#b3193a]" : "text-[#bb8a3c]";
   const accentBorderClass = accent === "red" ? "border-[#b3193a]/25" : "border-[#bb8a3c]/30";
   const accentSurfaceClass = accent === "red" ? "bg-[#b3193a]/5" : "bg-[#bb8a3c]/10";
@@ -97,7 +163,7 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
     setLoading(true);
     setError(null);
     setMessage(null);
-    getRaceMedia(scope, race.id)
+    getRaceMedia(scope, race.id, kind)
       .then((next) => {
         if (!active) return;
         setMedia(next);
@@ -105,12 +171,20 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
         setTitle(next?.title ?? "");
         setValidation(null);
       })
-      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load race highlight.")))
+      .catch((err) => active && setError(getApiErrorMessage(err, copy.loadError)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
     };
-  }, [race.id, scope]);
+  }, [race.id, scope, kind, copy.loadError]);
+
+  useEffect(() => {
+    setOpen(defaultOpen);
+  }, [defaultOpen, race.id, scope, kind]);
+
+  useEffect(() => {
+    if (error) setOpen(true);
+  }, [error]);
 
   const publishBlocked = useMemo(() => {
     if (!media?.publishBlockedReason) return null;
@@ -122,7 +196,7 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
   const VerificationIcon = verificationIcon(previewStatus);
   const previewThumbnail = validation?.thumbnailUrl ?? media?.thumbnailUrl ?? null;
   const previewVideoId = validation?.providerVideoId ?? media?.providerVideoId ?? null;
-  const previewTitle = title.trim() || validation?.providerTitle || media?.title || media?.providerTitle || "Official race replay";
+  const previewTitle = title.trim() || validation?.providerTitle || media?.title || media?.providerTitle || copy.defaultTitle;
   const showTitleField = hasUrl || Boolean(media) || Boolean(validation);
   const savedWatchUrl = media ? `https://www.youtube.com/watch?v=${media.providerVideoId}` : null;
   const publishPrimary = Boolean(media && media.status !== "PUBLISHED" && media.canPublish);
@@ -156,7 +230,7 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
     }
     void runAction(
       "validate",
-      () => validateRaceMedia(scope, race.id, { url, title }),
+      () => validateRaceMedia(scope, race.id, { url, title }, kind),
       (result) => {
         setValidation(result);
         setMessage(result.message ?? (result.verificationStatus === "VERIFIED" ? "Video is embeddable." : "Video needs attention."));
@@ -172,104 +246,121 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
     }
     void runAction(
       "save",
-      () => saveRaceMedia(scope, race.id, { url, title }),
+      () => saveRaceMedia(scope, race.id, { url, title }, kind),
       (result) => {
         setMedia(result);
         setValidation(null);
         setUrl(result.sourceUrl);
         setTitle(result.title ?? "");
-        setMessage(result.message ?? "Highlight draft saved.");
+        setMessage(result.message ?? copy.savedMessage);
       },
-      "Could not save this highlight.",
+      copy.saveError,
     );
   };
 
   const handlePublish = () => {
     void runAction(
       "publish",
-      () => publishRaceMedia(scope, race.id),
+      () => publishRaceMedia(scope, race.id, kind),
       (result) => {
         setMedia(result);
-        setMessage(result.message ?? "Highlight is now public.");
+        setMessage(result.message ?? copy.publicMessage);
       },
-      "Could not publish this highlight.",
+      copy.publishError,
     );
   };
 
   const handleUnpublish = () => {
     void runAction(
       "unpublish",
-      () => unpublishRaceMedia(scope, race.id),
+      () => unpublishRaceMedia(scope, race.id, kind),
       (result) => {
         setMedia(result);
-        setMessage(result.message ?? "Highlight hidden from public pages.");
+        setMessage(result.message ?? copy.hiddenMessage);
       },
-      "Could not unpublish this highlight.",
+      copy.unpublishError,
     );
   };
 
   const handleReverify = () => {
     void runAction(
       "reverify",
-      () => reverifyRaceMedia(scope, race.id),
+      () => reverifyRaceMedia(scope, race.id, kind),
       (result) => {
         setMedia(result);
         setValidation(null);
         setMessage(result.message ?? "Verification updated.");
       },
-      "Could not re-verify this highlight.",
+      copy.reverifyError,
     );
   };
 
   const handleDelete = () => {
-    if (!window.confirm("Remove this race highlight draft?")) return;
+    if (!window.confirm(copy.removeConfirm)) return;
     void runAction(
       "delete",
-      () => deleteRaceMedia(scope, race.id),
+      () => deleteRaceMedia(scope, race.id, kind),
       () => {
         setMedia(null);
         setValidation(null);
         setUrl("");
         setTitle("");
-        setMessage("Highlight removed.");
+        setMessage(copy.removedMessage);
       },
-      "Could not remove this highlight.",
+      copy.deleteError,
     );
   };
 
   return (
-    <section className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${accentBorderClass}`} aria-labelledby={`race-media-title-${scope}-${race.id}`}>
+    <section
+      className={`overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${accentBorderClass}`}
+      aria-labelledby={`race-media-title-${panelId}`}
+    >
       <div className="flex flex-col gap-4 border-b border-slate-100 bg-slate-50/70 p-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-3">
           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border ${accentBorderClass} ${accentSurfaceClass}`}>
             <Film className={`h-5 w-5 ${accentClass}`} aria-hidden="true" />
           </span>
           <div>
-            <p className={`text-xs font-black uppercase tracking-wider ${accentClass}`}>Media workspace</p>
-            <h3 id={`race-media-title-${scope}-${race.id}`} className="mt-1 text-lg font-black text-slate-950">
-              Race highlight
+            <p className={`text-xs font-black uppercase tracking-wider ${accentClass}`}>{copy.eyebrow}</p>
+            <h3 id={`race-media-title-${panelId}`} className="mt-1 text-lg font-black text-slate-950">
+              {copy.heading}
             </h3>
             <p className="mt-1 max-w-xl text-sm font-medium leading-6 text-slate-500">
-              Paste one YouTube replay, verify it, then publish after the result is official.
+              {copy.blurb}
             </p>
           </div>
         </div>
-        <span className={`w-fit rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide ${statusTone(media)}`}>
-          {loading ? "Loading" : mediaStateLabel(media)}
-        </span>
+        <button
+          type="button"
+          onClick={() => setOpen((current) => !current)}
+          aria-expanded={open}
+          aria-controls={bodyId}
+          className="inline-flex min-h-11 w-fit items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-left transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2"
+        >
+          <span className={`rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-wide ${statusTone(media)}`}>
+            {loading ? "Loading" : mediaStateLabel(media, copy.emptyLabel)}
+          </span>
+          <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true" />
+          <span className="sr-only">
+            {open ? "Collapse" : "Expand"} {copy.heading}
+          </span>
+        </button>
       </div>
 
-      {loading ? (
-        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]" aria-label="Loading race highlight media">
-          <div className="aspect-video animate-pulse rounded-lg bg-slate-100" />
-          <div className="space-y-3">
-            <div className="h-11 animate-pulse rounded-md bg-slate-100" />
-            <div className="h-11 animate-pulse rounded-md bg-slate-100" />
-            <div className="h-24 animate-pulse rounded-md bg-slate-100" />
-          </div>
-        </div>
-      ) : (
-        <>
+      {open ? (
+        <div id={bodyId}>
+          {loading ? (
+            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]" aria-label={`Loading ${copy.heading.toLowerCase()} media`}>
+              <div className="aspect-video animate-pulse rounded-lg bg-slate-100" />
+              <div className="space-y-3">
+                <div className="h-11 animate-pulse rounded-md bg-slate-100" />
+                <div className="h-11 animate-pulse rounded-md bg-slate-100" />
+                <div className="h-24 animate-pulse rounded-md bg-slate-100" />
+              </div>
+            </div>
+          ) : (
+            <>
           <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
             <div className="space-y-3">
               <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-950">
@@ -282,9 +373,9 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
                         <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white">
                           <Film className="h-5 w-5" aria-hidden="true" />
                         </span>
-                        <p className="mt-4 text-sm font-black text-white">No preview yet</p>
+                        <p className="mt-4 text-sm font-black text-white">{copy.previewEmpty}</p>
                         <p className="mt-1 text-xs font-semibold leading-5 text-white/60">
-                          Paste a YouTube replay link and validate it to preview the public card.
+                          {copy.previewHelp}
                         </p>
                       </div>
                     </div>
@@ -327,23 +418,19 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
                 <div>
                   <p className="text-sm font-black">{verificationLabel(previewStatus)}</p>
                   <p className="mt-1 text-xs font-semibold leading-5 opacity-80">
-                    {previewStatus === "VERIFIED"
-                      ? "This replay can be embedded and published when the race state allows it."
-                      : previewStatus === "FAILED"
-                        ? "The draft is saved, but YouTube verification must pass before publish."
-                        : "Save the replay as a draft, then verify before making it public."}
+                    {previewStatus === "VERIFIED" ? copy.verifiedHelp : previewStatus === "FAILED" ? copy.failedHelp : copy.waitingHelp}
                   </p>
                 </div>
               </div>
 
               <div>
-                <label htmlFor={`race-media-url-${scope}-${race.id}`} className="block text-xs font-black uppercase tracking-wider text-slate-600">
-                  YouTube replay link
+                <label htmlFor={`race-media-url-${panelId}`} className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                  {copy.urlLabel}
                 </label>
                 <div className="relative mt-2">
                   <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
                   <input
-                    id={`race-media-url-${scope}-${race.id}`}
+                    id={`race-media-url-${panelId}`}
                     type="url"
                     value={url}
                     onChange={(event) => handleUrlChange(event.target.value)}
@@ -359,16 +446,16 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
 
               {showTitleField ? (
                 <div>
-                  <label htmlFor={`race-media-title-input-${scope}-${race.id}`} className="block text-xs font-black uppercase tracking-wider text-slate-600">
+                  <label htmlFor={`race-media-title-input-${panelId}`} className="block text-xs font-black uppercase tracking-wider text-slate-600">
                     Display title
                   </label>
                   <input
-                    id={`race-media-title-input-${scope}-${race.id}`}
+                    id={`race-media-title-input-${panelId}`}
                     type="text"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                     maxLength={160}
-                    placeholder={media?.providerTitle ?? validation?.providerTitle ?? "Official race replay"}
+                    placeholder={media?.providerTitle ?? validation?.providerTitle ?? copy.titlePlaceholder}
                     className="mt-2 min-h-11 w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:border-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
                   />
                   <p className="mt-1.5 text-xs font-medium text-slate-500">
@@ -406,9 +493,7 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
           <div className="border-t border-slate-100 bg-slate-50/70 p-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="text-xs font-semibold leading-5 text-slate-500">
-                {media?.status === "PUBLISHED"
-                  ? "This highlight is visible on Race Detail and Championship Detail public pages."
-                  : "Drafts stay private until they are verified and published."}
+                {media?.status === "PUBLISHED" ? copy.footerPublished : copy.footerDraft}
               </div>
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -484,8 +569,10 @@ export function RaceMediaPanel({ race, scope, accent = "gold" }: RaceMediaPanelP
               </div>
             </div>
           </div>
-        </>
-      )}
+            </>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -5,7 +5,7 @@ import {
   confirmOrganizerRaceResults,
   getMyOrganizerTournaments,
   getOrganizerRaces,
-  getPublicRaceResults,
+  getOrganizerRaceResults,
   publishOrganizerRaceResults,
   reopenOrganizerRaceResults,
 } from "../../api/racingApi";
@@ -305,7 +305,7 @@ function RaceResultModal({ race, busy, onClose, onConfirm, onPublish, onReopen }
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getPublicRaceResults(race.id)
+    getOrganizerRaceResults(race.id)
       .then((data) => active && setResult(data))
       .catch((err) => active && setLoadError(getApiErrorMessage(err, "Could not load the finishing order.")))
       .finally(() => active && setLoading(false));

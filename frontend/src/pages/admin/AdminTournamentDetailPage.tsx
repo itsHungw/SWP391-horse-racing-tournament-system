@@ -1234,8 +1234,9 @@ export function AdminTournamentDetailPage() {
                 </div>
               )}
 
-              <div className="mt-5">
-                <RaceMediaPanel race={selectedRace} scope="admin" accent="red" />
+              <div className="mt-5 space-y-4">
+                <RaceMediaPanel race={selectedRace} scope="admin" accent="red" kind="live" />
+                <RaceMediaPanel race={selectedRace} scope="admin" accent="red" kind="highlight" />
               </div>
             </section>
           )}

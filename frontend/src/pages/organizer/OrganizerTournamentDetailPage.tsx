@@ -38,8 +38,8 @@ import {
   getOrganizerJockeyApplications,
   getOrganizerParticipants,
   getOrganizerRaces,
+  getOrganizerRaceResults,
   getOrganizerTournamentRegistrations,
-  getPublicRaceResults,
   getPublicTournament,
   getTournamentRefereeContracts,
   inviteReferee,
@@ -2204,8 +2204,9 @@ export function OrganizerTournamentDetailPage() {
                 </div>
               )}
 
-              <div className="pt-1">
-                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" />
+              <div className="space-y-4 pt-1">
+                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" kind="live" />
+                <RaceMediaPanel race={selectedRace} scope="organizer" accent="gold" kind="highlight" />
               </div>
             </div>
           </aside>
@@ -2636,7 +2637,7 @@ function RaceResultSummary({ raceId }: { raceId: number }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getPublicRaceResults(raceId)
+    getOrganizerRaceResults(raceId)
       .then((data) => active && setResult(data))
       .catch((err) => active && setError(getApiErrorMessage(err, "Failed to load order results.")))
       .finally(() => active && setLoading(false));

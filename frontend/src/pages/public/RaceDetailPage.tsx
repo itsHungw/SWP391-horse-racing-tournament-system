@@ -4,7 +4,7 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 import { ArrowLeft, ArrowRight, Clock3, Film, Medal, Ruler, Trophy, Users } from "lucide-react";
 
 import { getPublicRace, getPublicRaceResults } from "../../api/racingApi";
-import { getPublicRaceHighlight } from "../../api/raceMediaApi";
+import { getPublicRaceHighlight, getPublicRaceLiveStream } from "../../api/raceMediaApi";
 import { spectatorPredictionApi } from "../spectator/predictions/services/spectatorPredictionApi";
 import type { PredictionOptions } from "../spectator/predictions/types/prediction.types";
 import { ClientHeader } from "../../components/client/ClientHeader";
@@ -12,6 +12,8 @@ import { ClientFooter } from "../../components/client/ClientFooter";
 import { Countdown } from "../../components/client/Countdown";
 import { MotionPage } from "../../components/client/MotionPage";
 import { RaceHighlightPlayer } from "../../components/race-media/RaceHighlightPlayer";
+import { RaceLivePlayer } from "../../components/race-media/RaceLivePlayer";
+import { canShowLiveStream } from "../../components/race-media/raceMediaPhase";
 import {
   Eyebrow,
   MotionReveal,
@@ -138,6 +140,7 @@ export function RaceDetailPage() {
   const [race, setRace] = useState<Race | null>(null);
   const [result, setResult] = useState<PublicRaceResult | null>(null);
   const [highlight, setHighlight] = useState<RaceMediaPublicResponse | null>(null);
+  const [liveStream, setLiveStream] = useState<RaceMediaPublicResponse | null>(null);
   const [options, setOptions] = useState<PredictionOptions | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -159,11 +162,12 @@ export function RaceDetailPage() {
       setLoading(true);
       setError(null);
       setNotFound(false);
-      const [raceRes, optRes, resultRes, highlightRes] = await Promise.allSettled([
+      const [raceRes, optRes, resultRes, highlightRes, liveRes] = await Promise.allSettled([
         getPublicRace(idNum),
         spectatorPredictionApi.getPredictionOptions(idNum),
         getPublicRaceResults(idNum),
         getPublicRaceHighlight(idNum),
+        getPublicRaceLiveStream(idNum),
       ]);
       if (!mounted) return;
       if (raceRes.status === "rejected") {
@@ -177,6 +181,7 @@ export function RaceDetailPage() {
       setOptions(optRes.status === "fulfilled" ? optRes.value : null);
       setResult(resultRes.status === "fulfilled" ? resultRes.value : null);
       setHighlight(highlightRes.status === "fulfilled" ? highlightRes.value : null);
+      setLiveStream(liveRes.status === "fulfilled" ? liveRes.value : null);
       setLoading(false);
     }
     load();
@@ -188,6 +193,8 @@ export function RaceDetailPage() {
   const status = race ? raceStatus(race.status) : null;
   const concluded = race ? isRaceConcluded(race.status) : false;
   const cancelled = (race?.status ?? "").toUpperCase() === "CANCELLED";
+  // Published live streams stay visible until the race reaches a terminal state.
+  const showLiveStream = Boolean(race && liveStream && canShowLiveStream(race.status));
   const predictionOpen = options?.predictionOpen ?? false;
   const runners = useMemo(() => options?.options ?? [], [options]);
   const sortedRunners = useMemo(() => [...runners].sort(compareRunners), [runners]);
@@ -346,6 +353,9 @@ export function RaceDetailPage() {
           </MotionPage>
         </div>
       </section>
+
+      {/* Live broadcast appears when a verified stream is published before the race has finished. */}
+      {showLiveStream && liveStream ? <RaceLivePlayer live={liveStream} /> : null}
 
       {/* The Field */}
       <section className="scroll-mt-28 bg-turf-900 py-14 md:scroll-mt-32 md:py-20">

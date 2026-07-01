@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RaceDetailPage } from "./RaceDetailPage";
 import { getPublicRace, getPublicRaceResults } from "../../api/racingApi";
-import { getPublicRaceHighlight } from "../../api/raceMediaApi";
+import { getPublicRaceHighlight, getPublicRaceLiveStream } from "../../api/raceMediaApi";
 import { spectatorPredictionApi } from "../spectator/predictions/services/spectatorPredictionApi";
 import type { Race } from "../../types/racing";
 import type { PredictionOptions } from "../spectator/predictions/types/prediction.types";
@@ -22,6 +22,7 @@ vi.mock("../spectator/predictions/services/spectatorPredictionApi", () => ({
 
 vi.mock("../../api/raceMediaApi", () => ({
   getPublicRaceHighlight: vi.fn(),
+  getPublicRaceLiveStream: vi.fn(),
 }));
 
 const futureIso = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
@@ -69,6 +70,7 @@ describe("RaceDetailPage", () => {
     vi.mocked(getPublicRace).mockResolvedValue(race);
     vi.mocked(getPublicRaceResults).mockResolvedValue({ raceId: 7, official: false, entries: [] });
     vi.mocked(getPublicRaceHighlight).mockResolvedValue(null);
+    vi.mocked(getPublicRaceLiveStream).mockResolvedValue(null);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
   });
 
@@ -91,6 +93,24 @@ describe("RaceDetailPage", () => {
       "href",
       "/spectator/predictions?raceId=7",
     );
+  });
+
+  it("shows a published live stream before the race has started", async () => {
+    vi.mocked(getPublicRaceLiveStream).mockResolvedValue({
+      raceId: 7,
+      provider: "YOUTUBE",
+      providerVideoId: "M7lc1UVf-VE",
+      embedUrl: "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE",
+      title: "Twilight Sprint live coverage",
+      providerTitle: "Twilight Sprint live coverage",
+      thumbnailUrl: null,
+      publishedAt: "2026-07-01T09:00:00",
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /live coverage is on/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch live: twilight sprint live coverage/i })).toBeInTheDocument();
   });
 
   it("shows the results band instead of a CTA once the race has run", async () => {
