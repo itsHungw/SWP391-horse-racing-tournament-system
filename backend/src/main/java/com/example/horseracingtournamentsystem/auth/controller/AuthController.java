@@ -7,6 +7,8 @@ import com.example.horseracingtournamentsystem.auth.dto.request.ResendEmailVerif
 import com.example.horseracingtournamentsystem.auth.dto.request.ResetPasswordRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.VerifyResetCodeRequest;
 import com.example.horseracingtournamentsystem.auth.dto.request.VerifyEmailRequest;
+import com.example.horseracingtournamentsystem.auth.dto.request.OAuth2LoginRequest;
+import com.example.horseracingtournamentsystem.auth.enums.AuthProvider;
 import com.example.horseracingtournamentsystem.auth.dto.response.AuthResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
 import com.example.horseracingtournamentsystem.auth.service.AuthService;
@@ -22,6 +24,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -87,6 +90,24 @@ public class AuthController {
     ) {
         AuthService.LoginResult result = authService.login(
                 request,
+                servletRequest.getHeader(HttpHeaders.USER_AGENT),
+                servletRequest.getRemoteAddr()
+        );
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, buildRefreshCookie(result.refreshToken()).toString())
+                .body(result.response());
+    }
+
+    @PostMapping("/oauth/{provider}")
+    public ResponseEntity<LoginResponse> loginWithOAuth(
+            @PathVariable AuthProvider provider,
+            @Valid @RequestBody OAuth2LoginRequest request,
+            HttpServletRequest servletRequest
+    ) {
+        AuthService.LoginResult result = authService.loginWithOAuth(
+                provider,
+                request.idToken(),
                 servletRequest.getHeader(HttpHeaders.USER_AGENT),
                 servletRequest.getRemoteAddr()
         );

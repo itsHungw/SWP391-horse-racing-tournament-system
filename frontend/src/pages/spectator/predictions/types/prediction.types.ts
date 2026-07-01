@@ -47,6 +47,7 @@ export interface PredictionOptions {
   };
   myPredictions: UserPrediction[];
   winnerDistributionVisible: boolean;
+  houseFeePercent?: number;
   options: ParticipantOption[];
   positionOddsMatrix?: Record<number, Record<number, number>>;
   h2hMatchups?: HeadToHeadMatchup[];

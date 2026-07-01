@@ -14,8 +14,15 @@ import com.example.horseracingtournamentsystem.result.repository.RaceResultRepos
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminRaceSummaryResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminRaceDetailResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminAuditPredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.request.UpdatePredictionSettingRequest;
+import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionSettingResponse;
+import com.example.horseracingtournamentsystem.prediction.entity.PredictionSetting;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
+import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import java.math.BigDecimal;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,15 +37,21 @@ public class AdminPredictionController {
     private final RacePredictionRepository predictionRepo;
     private final RaceRepository raceRepo;
     private final RaceResultRepository resultRepo;
+    private final PredictionSettingRepository predictionSettingRepo;
+    private final UserRepository userRepository;
 
     public AdminPredictionController(PredictionSettlementJobRepository jobRepo,
                                      RacePredictionRepository predictionRepo,
                                      RaceRepository raceRepo,
-                                     RaceResultRepository resultRepo) {
+                                     RaceResultRepository resultRepo,
+                                     PredictionSettingRepository predictionSettingRepo,
+                                     UserRepository userRepository) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
         this.resultRepo = resultRepo;
+        this.predictionSettingRepo = predictionSettingRepo;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/races")
@@ -224,5 +237,55 @@ public class AdminPredictionController {
             jobRepo.save(job);
         }
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<PredictionSettingResponse> getSettings() {
+        PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
+            PredictionSetting s = new PredictionSetting();
+            s.setId(1L);
+            s.setDisplaySeed(40000000.0);
+            s.setTakeoutRate(BigDecimal.valueOf(0.15));
+            s.setUpdatedAt(LocalDateTime.now());
+            return predictionSettingRepo.save(s);
+        });
+
+        PredictionSettingResponse response = new PredictionSettingResponse();
+        response.setDisplaySeed(setting.getDisplaySeed());
+        response.setTakeoutRate(setting.getTakeoutRate());
+        response.setUpdatedAt(setting.getUpdatedAt());
+        if (setting.getUpdatedBy() != null) {
+            response.setUpdatedByUserName(setting.getUpdatedBy().getFullName());
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<PredictionSettingResponse> updateSettings(
+            @jakarta.validation.Valid @RequestBody UpdatePredictionSettingRequest request,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        User user = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.UNAUTHORIZED, "User not found"));
+
+        PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
+            PredictionSetting s = new PredictionSetting();
+            s.setId(1L);
+            return s;
+        });
+
+        setting.setDisplaySeed(request.getDisplaySeed());
+        setting.setTakeoutRate(request.getTakeoutRate());
+        setting.setUpdatedAt(LocalDateTime.now());
+        setting.setUpdatedBy(user);
+        predictionSettingRepo.save(setting);
+
+        PredictionSettingResponse response = new PredictionSettingResponse();
+        response.setDisplaySeed(setting.getDisplaySeed());
+        response.setTakeoutRate(setting.getTakeoutRate());
+        response.setUpdatedAt(setting.getUpdatedAt());
+        response.setUpdatedByUserName(user.getFullName());
+        return ResponseEntity.ok(response);
     }
 }

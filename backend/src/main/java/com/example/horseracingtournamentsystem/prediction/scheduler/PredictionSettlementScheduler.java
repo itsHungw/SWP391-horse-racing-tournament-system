@@ -9,6 +9,8 @@ import com.example.horseracingtournamentsystem.prediction.repository.PredictionS
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg;
+import com.example.horseracingtournamentsystem.prediction.entity.PredictionSetting;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
@@ -37,14 +39,15 @@ public class PredictionSettlementScheduler {
     private final WalletService walletService;
     private final StreakPredictionRepository streakPredictionRepo;
     private final StreakPredictionLegRepository streakPredictionLegRepo;
+    private final PredictionSettingRepository predictionSettingRepo;
 
     @Autowired
     @Lazy
     private PredictionSettlementScheduler self;
 
-    /** House takeout (margin) for pari-mutuel single-race pools, e.g. 0.15 = keep 15%. */
+    /** House takeout (margin) fallback for pari-mutuel single-race pools, e.g. 0.15 = keep 15%. */
     @org.springframework.beans.factory.annotation.Value("${app.prediction.takeout-rate:0.15}")
-    private java.math.BigDecimal takeoutRate;
+    private java.math.BigDecimal defaultTakeoutRate;
 
     /** Single end-margin for streak parlays (applied once to the multiplied fair odds). */
     @org.springframework.beans.factory.annotation.Value("${app.prediction.streak-takeout:0.20}")
@@ -63,13 +66,21 @@ public class PredictionSettlementScheduler {
                                          RaceResultRepository resultRepo,
                                          WalletService walletService,
                                          StreakPredictionRepository streakPredictionRepo,
-                                         StreakPredictionLegRepository streakPredictionLegRepo) {
+                                         StreakPredictionLegRepository streakPredictionLegRepo,
+                                         PredictionSettingRepository predictionSettingRepo) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.resultRepo = resultRepo;
         this.walletService = walletService;
         this.streakPredictionRepo = streakPredictionRepo;
         this.streakPredictionLegRepo = streakPredictionLegRepo;
+        this.predictionSettingRepo = predictionSettingRepo;
+    }
+
+    private java.math.BigDecimal getTakeoutRate() {
+        return predictionSettingRepo.findById(1L)
+                .map(PredictionSetting::getTakeoutRate)
+                .orElse(defaultTakeoutRate);
     }
 
     @Scheduled(fixedDelay = 5000)
@@ -122,7 +133,7 @@ public class PredictionSettlementScheduler {
 
         // Pari-mutuel keep ratio (1 - takeout). Total payout of any pool == pool * keep,
         // so the house can never pay out more than it took in (zero house risk).
-        java.math.BigDecimal keep = java.math.BigDecimal.ONE.subtract(takeoutRate);
+        java.math.BigDecimal keep = java.math.BigDecimal.ONE.subtract(getTakeoutRate());
 
         // Only PENDING / LOCKED bets are settled.
         List<RacePrediction> active = predictions.stream()

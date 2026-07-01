@@ -16,6 +16,7 @@ import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictio
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg;
 import com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository;
@@ -44,6 +45,7 @@ class PredictionSettlementSchedulerTest {
     @Mock private WalletService walletService;
     @Mock private StreakPredictionRepository streakRepository;
     @Mock private StreakPredictionLegRepository streakLegRepository;
+    @Mock private PredictionSettingRepository predictionSettingRepository;
 
     private PredictionSettlementScheduler scheduler;
 
@@ -51,8 +53,9 @@ class PredictionSettlementSchedulerTest {
     void setUp() {
         scheduler = new PredictionSettlementScheduler(
                 jobRepository, predictionRepository, resultRepository,
-                walletService, streakRepository, streakLegRepository);
-        org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "takeoutRate", new BigDecimal("0.15"));
+                walletService, streakRepository, streakLegRepository,
+                predictionSettingRepository);
+        org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "defaultTakeoutRate", new BigDecimal("0.15"));
         org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "streakTakeout", new BigDecimal("0.20"));
         org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "maxTotalOdds", new BigDecimal("100"));
         org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "maxPayout", 1_000_000_000L);

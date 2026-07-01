@@ -2,6 +2,8 @@ package com.example.horseracingtournamentsystem.prediction.service;
 
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionQuoteResponse;
+import com.example.horseracingtournamentsystem.prediction.entity.PredictionSetting;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
@@ -22,33 +24,61 @@ public class OddsCalculationService {
 
     private final RaceResultRepository resultRepo;
     private final RacePredictionRepository predictionRepo;
+    private final PredictionSettingRepository predictionSettingRepo;
    
     /**
-     * House takeout — keep = 1 - takeout. Same rate the pari-mutuel settlement
-     * uses.
+     * Tỷ lệ hoa hồng mặc định của nhà cái (takeout rate) làm fallback.
      */
     @Value("${app.prediction.takeout-rate:0.15}")
-    private BigDecimal takeoutRate;
+    private BigDecimal defaultTakeoutRate;
 
     /**
-     * Virtual DISPLAY-ONLY seed liquidity for the live line (never paid out;
-     * settlement uses the real pool).
+     * Lượng thanh khoản ảo mặc định (Virtual display seed) làm fallback.
      */
     @Value("${app.prediction.display-seed:200000}")
-    private double displaySeed;
+    private double defaultDisplaySeed;
 
-    /**
-     * Clamp on displayed odds so a thin/lopsided market never shows an absurd
-     * indicative line.
-     */
-    // @Value("${app.prediction.max-display-odds:50}")
-    // private BigDecimal maxDisplayOdds;
-
-    public OddsCalculationService(RaceResultRepository resultRepo, RacePredictionRepository predictionRepo) {
+    public OddsCalculationService(RaceResultRepository resultRepo, 
+                                  RacePredictionRepository predictionRepo,
+                                  PredictionSettingRepository predictionSettingRepo) {
         this.resultRepo = resultRepo;
         this.predictionRepo = predictionRepo;
+        this.predictionSettingRepo = predictionSettingRepo;
     }
 
+    private double getDisplaySeed() {
+        return predictionSettingRepo.findById(1L)
+                .map(PredictionSetting::getDisplaySeed)
+                .orElse(defaultDisplaySeed);
+    }
+
+    public BigDecimal getTakeoutRate() {
+        return predictionSettingRepo.findById(1L)
+                .map(PredictionSetting::getTakeoutRate)
+                .orElse(defaultTakeoutRate);
+    }
+
+    /**
+     * Tính toán tỷ lệ cược (odds) dựa trên công thức Pari-mutuel kết hợp thanh khoản ảo.
+     * Công thức: odds = (vPool + totalRealBets) * rMargin / (vHorse + realBetsOnHorse)
+     *
+     * @param vPool Lượng thanh khoản ảo của tổng quỹ (ví dụ: displaySeed).
+     *              TÁC DỤNG VÀ LÝ DO SỬ DỤNG:
+     *              1. Giải quyết bài toán "khởi đầu lạnh" (Cold Start) và chia cho 0: Khi trận đấu mới mở, chưa có ai đặt cược thật 
+     *                 (totalRealBets = 0, realBetsOnHorse = 0), nếu không có vPool và vHorse thì không thể tính được tỷ lệ cược (lỗi chia cho 0). 
+     *                 vPool giúp hiển thị một tỷ lệ cược mở màn hợp lý dựa trên dữ liệu lịch sử.
+     *              2. Giảm thiểu biến động cực đoan (Price Smoothing): Tránh việc tỷ lệ cược bị nhảy vọt hoặc sụt giảm quá mức 
+     *                 khi chỉ có một vài người chơi đặt các khoản cược nhỏ ban đầu. Lượng thanh khoản ảo hoạt động như một bộ đệm (buffer) 
+     *                 giúp tỷ lệ thay đổi mượt mà hơn khi tiền cược thật được nạp thêm vào hệ thống.
+     *              3. Không gây rủi ro tài chính cho nhà cái: vPool chỉ là giá trị "ảo" dùng để tính toán tỷ lệ hiển thị (display-only). 
+     *                 Khi trận đấu kết thúc và thực hiện trả thưởng (settlement), hệ thống sẽ chỉ chia đều quỹ cược thật (Real Pool) 
+     *                 cho những người thắng cuộc. Do đó, nhà cái không phải tự bỏ tiền túi ra trả cho phần vPool này.
+     * @param totalRealBets Tổng tiền cược thực tế của người chơi cho vị trí/lựa chọn này
+     * @param rMargin Tỷ lệ giữ lại để trả thưởng cho người chơi (1 - takeoutRate)
+     * @param vHorse Lượng thanh khoản ảo được phân bổ cho ngựa/lựa chọn này
+     * @param realBetsOnHorse Tiền cược thực tế đặt cho ngựa/lựa chọn này
+     * @return Tỷ lệ cược (odds) sau khi tính toán, được làm tròn đến 2 chữ số thập phân
+     */
     public BigDecimal calculateOdds(double vPool, double totalRealBets, double rMargin, double vHorse,
             double realBetsOnHorse) {
         double numerator = (vPool + totalRealBets) * rMargin;
@@ -126,11 +156,12 @@ public class OddsCalculationService {
 
         double normalizedProb = rawProb.get(participantId).get(position) / colSum.get(position);
         double flat = (normalizedProb + 1.0 / n) / 2.0;
-        double selectedPricingLiquidity = displaySeed * flat;
-        double keep = 1.0 - takeoutRate.doubleValue();
+        double displaySeedVal = getDisplaySeed();
+        double selectedPricingLiquidity = displaySeedVal * flat;
+        double keep = 1.0 - getTakeoutRate().doubleValue();
 
-        BigDecimal currentOdds = calculateOdds(displaySeed, playerPoolBefore, keep, selectedPricingLiquidity, outcomeStakeBefore);
-        BigDecimal oddsAfterStake = calculateOdds(displaySeed, playerPoolBefore + stake, keep, selectedPricingLiquidity, outcomeStakeBefore + stake);
+        BigDecimal currentOdds = calculateOdds(displaySeedVal, playerPoolBefore, keep, selectedPricingLiquidity, outcomeStakeBefore);
+        BigDecimal oddsAfterStake = calculateOdds(displaySeedVal, playerPoolBefore + stake, keep, selectedPricingLiquidity, outcomeStakeBefore + stake);
 
         return buildQuote(
                 raceId,
@@ -142,7 +173,7 @@ public class OddsCalculationService {
                 oddsAfterStake,
                 Math.round(playerPoolBefore),
                 Math.round(playerPoolBefore + stake),
-                Math.round(displaySeed),
+                Math.round(displaySeedVal),
                 "Player pool is real VND. Pricing liquidity is virtual and only used to smooth the displayed odds."
         );
     }
@@ -166,7 +197,7 @@ public class OddsCalculationService {
                 selected.getParticipantBId());
 
         double pricingPool = 10000000.0;
-        double keep = 1.0 - takeoutRate.doubleValue();
+        double keep = 1.0 - getTakeoutRate().doubleValue();
         double sideLiquidity = pricingPool * 0.5;
         boolean selectedA = selected.getParticipantAId().equals(participantId);
         double selectedBetsBefore = selectedA ? betsA : betsB;
@@ -210,7 +241,7 @@ public class OddsCalculationService {
     ) {
         long estimatedReturn = oddsAfterStake.multiply(BigDecimal.valueOf(stake)).setScale(0, RoundingMode.DOWN).longValue();
         long houseFeeAmount = BigDecimal.valueOf(playerPoolAfter)
-                .multiply(takeoutRate)
+                .multiply(getTakeoutRate())
                 .setScale(0, RoundingMode.DOWN)
                 .longValue();
         BigDecimal impact = BigDecimal.ZERO;
@@ -238,7 +269,7 @@ public class OddsCalculationService {
         response.setHouseFeeAmount(houseFeeAmount);
         response.setNetPlayerPoolAfter(playerPoolAfter - houseFeeAmount);
         response.setPricingLiquidity(pricingLiquidity);
-        response.setHouseFeePercent(takeoutRate.multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).intValue());
+        response.setHouseFeePercent(getTakeoutRate().multiply(BigDecimal.valueOf(100)).setScale(0, RoundingMode.HALF_UP).intValue());
         response.setLiquidityNote(liquidityNote);
         return response;
     }
@@ -256,7 +287,7 @@ public class OddsCalculationService {
             colSum.put(j, 0.0);
         }
 
-        // 1. Calculate historical probabilities
+        // 1. Tính toán xác suất lịch sử của từng người tham gia cuộc đua
         for (RaceParticipant p : participants) {
             Map<Integer, Double> pProbs = new HashMap<>();
             Long horseId = p.getHorse().getId();
@@ -271,14 +302,14 @@ public class OddsCalculationService {
             }
 
             for (int j = 1; j <= N; j++) {
-                double prob = (counts.getOrDefault(j, 0L) + 1.0) / (totalRaces + N); // Laplace smoothing
+                double prob = (counts.getOrDefault(j, 0L) + 1.0) / (totalRaces + N); // Làm mịn Laplace (Laplace smoothing)
                 pProbs.put(j, prob);
                 colSum.put(j, colSum.get(j) + prob);
             }
             rawProb.put(p.getId(), pProbs);
         }
 
-        // 2. Fetch real bets
+        // 2. Lấy thông tin các khoản đặt cược thực tế
         List<RacePrediction> activePredictions = predictionRepo.findByRace_IdAndStatus(raceId,
                 com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING);
         activePredictions.addAll(predictionRepo.findByRace_IdAndStatus(raceId,
@@ -313,26 +344,24 @@ public class OddsCalculationService {
             }
         }
 
-        // 3. Pari-mutuel PROVISIONAL display line (indicative only).
-        // odds(h,j) = (seed + totalRealBets_j) * keep / (seed_h,j + realBets_h,j)
-        // - `seed` is virtual display-only liquidity; the actual payout is computed
-        // from the
-        // REAL pool at settlement (PredictionSettlementScheduler.settlePool), so this
-        // number
-        // never creates house liability — it only previews "your share of the pool".
-        // - the historical prior is flattened toward uniform (1/N) so a horse with
-        // lopsided
-        // history cannot show an absurd opening line, and the result is clamped to
-        // maxDisplayOdds.
+        // 3. Tỷ lệ cược hiển thị TẠM THỜI theo cơ chế Pari-mutuel (chỉ dùng để tham khảo).
+        // Công thức tính tỷ lệ cược cho ngựa h ở vị trí j:
+        // odds(h,j) = (seed + totalRealBets_j) * keep / (vHorse + realBets_h,j)
+        // Trong đó:
+        // - `seed` là lượng thanh khoản ảo chỉ dùng để hiển thị (displaySeed). Quỹ trả thưởng thực tế
+        //   được tính dựa trên tổng quỹ cược THẬT (REAL pool) khi kết toán (xem trong PredictionSettlementScheduler.settlePool).
+        //   Vì vậy, giá trị thanh khoản ảo này chỉ mang tính chất làm mượt tỷ lệ hiển thị, không tạo ra bất kỳ nghĩa vụ nợ nào cho nhà cái.
+        // - Xác suất lịch sử của ngựa được làm mịn (flattened) hướng về phân phối đều (1/N)
+        //   để những ngựa có lịch sử thi đấu quá chênh lệch (quá tốt hoặc quá tệ) không hiển thị tỷ lệ cược ban đầu quá phi lý.
         Map<Long, Map<Integer, BigDecimal>> matrix = new HashMap<>();
-        double seed = displaySeed;
-        double margin = 1.0 - takeoutRate.doubleValue(); // keep = 1 - takeout
+        double seed = getDisplaySeed();
+        double margin = 1.0 - getTakeoutRate().doubleValue(); // Tỷ lệ giữ lại để trả thưởng cho người chơi = 1 - hoa hồng nhà cái
 
         for (RaceParticipant p : participants) {
             Map<Integer, BigDecimal> pOdds = new HashMap<>();
             for (int j = 1; j <= N; j++) {
                 double normalizedProb = rawProb.get(p.getId()).get(j) / colSum.get(j);
-                double flat = (normalizedProb + 1.0 / N) / 2.0; // pull extremes toward uniform (still sums to 1)
+                double flat = (normalizedProb + 1.0 / N) / 2.0; // Kéo các xác suất cực đoan về phân phối đều (vẫn bảo đảm tổng bằng 1)
                 double vHorse = seed * flat;
 
                 double totalRealBets = totalRealBetsPos.get(j);
@@ -355,7 +384,7 @@ public class OddsCalculationService {
         if (participants.size() < 2)
             return matchups;
 
-        // Calculate win rate for each participant
+        // Tính toán tỷ lệ thắng cuộc (win rate) cho mỗi người tham gia
         Map<Long, Double> winRates = new HashMap<>();
         for (RaceParticipant p : participants) {
             Long horseId = p.getHorse().getId();
@@ -369,17 +398,16 @@ public class OddsCalculationService {
                 }
             }
             double winRate = totalRaces > 0 ? (double) wins / totalRaces : 0.0;
-            // Add a small tie-breaker based on ID to ensure consistent sorting when win
-            // rates are equal
+            // Thêm một lượng rất nhỏ dựa trên ID để phân định khi tỷ lệ thắng bằng nhau, giúp sắp xếp nhất quán
             winRate += (p.getId() * 1e-9);
             winRates.put(p.getId(), winRate);
         }
 
-        // Sort by win rate descending to pair closest skilled horses
+        // Sắp xếp giảm dần theo tỷ lệ thắng để ghép cặp các ngựa có trình độ gần nhau nhất
         List<RaceParticipant> sorted = new ArrayList<>(participants);
         sorted.sort((p1, p2) -> Double.compare(winRates.get(p2.getId()), winRates.get(p1.getId())));
 
-        // Group into pairs (0 vs 1, 2 vs 3, etc.)
+        // Nhóm thành từng cặp đối đầu (cặp 0 vs 1, cặp 2 vs 3, v.v.)
         for (int i = 0; i < sorted.size() - 1; i += 2) {
             RaceParticipant pA = sorted.get(i);
             RaceParticipant pB = sorted.get(i + 1);
@@ -389,9 +417,8 @@ public class OddsCalculationService {
 
             double handicap = 0.0;
             if (avgTimeA != null && avgTimeB != null) {
-                // If A is faster (smaller time), A gives handicap to B (A must finish at least
-                // X seconds before B)
-                // handicapSeconds = avgTimeB - avgTimeA
+                // Nếu A nhanh hơn (thời gian trung bình nhỏ hơn), A chấp B (A phải hoàn thành sớm hơn B ít nhất X giây)
+                // số_giây_chấp (handicapSeconds) = avgTimeB - avgTimeA
                 handicap = avgTimeB - avgTimeA;
                 // Cap handicap to avoid absurd values
                 if (handicap > 10.0)
@@ -400,9 +427,9 @@ public class OddsCalculationService {
                     handicap = -10.0;
             }
 
-            // Calculate AMM Odds
+            // Tính toán tỷ lệ cược (odds) theo mô hình tạo lập thị trường tự động (AMM)
             double vPool = 10000000.0;
-            double rMargin = 0.85;
+            double rMargin = 1.0 - getTakeoutRate().doubleValue();
             double vA = vPool * 0.5;
             double vB = vPool * 0.5;
 
@@ -417,7 +444,7 @@ public class OddsCalculationService {
             HeadToHeadMatchup matchup = new HeadToHeadMatchup();
             matchup.setParticipantAId(pA.getId());
             matchup.setParticipantBId(pB.getId());
-            // Round handicap to 1 decimal place for display
+            // Làm tròn số giây chấp đến 1 chữ số thập phân để hiển thị
             matchup.setHandicapSeconds(Math.round(handicap * 10.0) / 10.0);
             matchup.setOddsA(oddsA);
             matchup.setOddsB(oddsB);
@@ -429,11 +456,15 @@ public class OddsCalculationService {
     }
 
     /**
-     * Fair win (position-1) probability per participant, Laplace-smoothed and
-     * normalised to sum 1.
-     * Used to price streak parlay legs as fair decimal odds (1/p) with a single
-     * end-margin —
-     * never as a payout-driving odds itself. Returns participantId -> P(win).
+     * Tính toán xác suất thắng cuộc công bằng (về đích thứ 1) cho mỗi người tham gia,
+     * được làm mịn bằng phương pháp Laplace và chuẩn hóa để có tổng bằng 1.
+     * 
+     * Mục đích: Được sử dụng để định giá các chặng trong cược xiên chuỗi (streak parlay legs)
+     * dưới dạng tỷ lệ cược thập phân công bằng (1/p) với một biên độ lợi nhuận cuối cùng —
+     * tuyệt đối không dùng làm tỷ lệ cược trực tiếp để thanh toán trả thưởng.
+     * 
+     * @param participants Danh sách người tham gia cuộc đua
+     * @return Bản đồ ánh xạ từ ID người tham gia sang xác suất thắng P(win) dạng BigDecimal.
      */
     public Map<Long, BigDecimal> getWinProbabilities(List<RaceParticipant> participants) {
         int N = participants.size();
@@ -451,7 +482,7 @@ public class OddsCalculationService {
                     break;
                 }
             }
-            double prob = (winCount + 1.0) / (totalRaces + N); // Laplace add-one smoothing
+            double prob = (winCount + 1.0) / (totalRaces + N); // Làm mịn cộng một Laplace (Laplace add-one smoothing)
             raw.put(p.getId(), prob);
             colSum += prob;
         }
