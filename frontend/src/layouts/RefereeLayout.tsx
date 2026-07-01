@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useClientSession } from "../hooks/useClientSession";
+import { NotificationBell } from "../components/NotificationBell";
 
 const refereeNavSections = [
   {
@@ -119,6 +120,7 @@ export function RefereeLayout() {
           </form>
 
           <div className="absolute right-4 top-3 flex items-center gap-2 md:static md:justify-end">
+            <NotificationBell theme="referee" />
             <span className="hidden min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700 sm:inline-flex">
               <ShieldCheck className="h-4 w-4 text-[#007a68]" aria-hidden="true" />
               <span className="max-w-[180px] truncate">Referee</span>

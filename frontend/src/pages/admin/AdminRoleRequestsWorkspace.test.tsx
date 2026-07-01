@@ -60,7 +60,7 @@ describe("AdminRoleRequestsWorkspace", () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByText("No role requests match this filter.")).toBeInTheDocument();
+        expect(screen.getByText("No role requests match your search or filter.")).toBeInTheDocument();
       });
 
       expect(screen.queryByText("Nguyen Van A")).not.toBeInTheDocument();

@@ -26,6 +26,7 @@ import { getMyProfile } from "../../api/profileApi";
 import { walletApi } from "../../api/walletApi";
 import { setWalletBalance, useWalletBalance } from "../../hooks/useWalletBalance";
 import { useClientSession } from "../../hooks/useClientSession";
+import { NotificationBell } from "../NotificationBell";
 
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -287,9 +288,7 @@ export function ClientHeader() {
   const walletBalance = useWalletBalance();
   const [balanceRevealed, setBalanceRevealed] = useState(true);
   const [profile, setProfile] = useState(cachedHeaderProfile);
-  const [notifOpen, setNotifOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const notifRef = useRef<HTMLDivElement>(null);
 
   const dashboardGroups = getDashboardGroups(session?.roles ?? []);
   const currentWorkspace = currentDashboardTarget(dashboardGroups, location.pathname);
@@ -310,7 +309,6 @@ export function ClientHeader() {
     setMenuOpen(false);
     setUserMenuOpen(false);
     setWorkspaceMenuOpen(false);
-    setNotifOpen(false);
   }, [location.pathname]);
 
   useEffect(() => {
@@ -325,9 +323,6 @@ export function ClientHeader() {
       const target = event.target as Node;
       if (userMenuRef.current && !userMenuRef.current.contains(target)) {
         setUserMenuOpen(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(target)) {
-        setNotifOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -463,34 +458,7 @@ export function ClientHeader() {
             <div className="hidden items-center gap-4 xl:flex">
               {isAuthenticated ? (
                 <>
-                  <div className="relative" ref={notifRef}>
-                    <button
-                      type="button"
-                      onClick={() => setNotifOpen(!notifOpen)}
-                      aria-label="Notifications"
-                      aria-expanded={notifOpen}
-                      className="grid h-10 w-10 place-items-center rounded-lg border border-white/10 bg-white/5 text-ivory-dim transition-colors hover:bg-white/10 hover:text-ivory focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
-                    >
-                      <Bell size={18} />
-                    </button>
-                    <AnimatePresence>
-                      {notifOpen && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                          transition={{ duration: 0.2 }}
-                          className="absolute right-0 mt-3 w-72 overflow-hidden rounded-xl border border-white/10 bg-turf-900/95 p-2 shadow-[0_8px_32px_-4px_rgba(0,0,0,0.5)] backdrop-blur-xl"
-                        >
-                          <p className="px-2 py-2 text-sm font-semibold text-ivory">Notifications</p>
-                          <div className="rounded-lg border border-dashed border-white/10 px-3 py-8 text-center">
-                            <Bell size={22} className="mx-auto text-ivory-faint" aria-hidden="true" />
-                            <p className="mt-2 text-sm text-ivory-dim">You're all caught up.</p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
+                  <NotificationBell theme="client" />
                   <div className="relative" ref={userMenuRef}>
                     <button
                     onClick={() => setUserMenuOpen(!userMenuOpen)}

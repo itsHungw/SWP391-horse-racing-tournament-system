@@ -19,3 +19,12 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
   globalThis.IntersectionObserver =
     MockIntersectionObserver as unknown as typeof IntersectionObserver;
 }
+
+import { vi } from "vitest";
+
+vi.mock("../api/notificationApi", () => ({
+  getNotifications: vi.fn().mockResolvedValue([]),
+  getUnreadNotificationCount: vi.fn().mockResolvedValue(0),
+  markNotificationRead: vi.fn().mockResolvedValue(undefined),
+  markAllNotificationsRead: vi.fn().mockResolvedValue(undefined),
+}));

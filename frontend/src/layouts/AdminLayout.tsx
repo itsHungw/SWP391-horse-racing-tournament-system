@@ -13,6 +13,7 @@ import {
 
 import logo from "../assets/logo.png";
 import { useClientSession } from "../hooks/useClientSession";
+import { NotificationBell } from "../components/NotificationBell";
 
 type AdminLayoutProps = {
   children: ReactNode;
@@ -93,6 +94,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </form>
 
             <div className="flex items-center gap-3">
+              <NotificationBell theme="admin" />
               <a
                 className="flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] transition shadow-sm"
                 href="/profile"
