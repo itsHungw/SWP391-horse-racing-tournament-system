@@ -69,4 +69,52 @@ public class OrganizerRaceMediaController {
         raceMediaService.deleteOrganizerHighlight(raceId, authentication.getName());
         return ResponseEntity.noContent().build();
     }
+
+    // ---- Live stream (song song highlight; service tự áp LiveStreamPolicy) ----
+
+    @GetMapping("/{raceId}/live-stream")
+    public ResponseEntity<RaceMediaResponse> getLive(@PathVariable Long raceId, Authentication authentication) {
+        return raceMediaService.getOrganizerLiveStream(raceId, authentication.getName())
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/{raceId}/live-stream/validate")
+    public RaceMediaValidateResponse validateLive(
+            @PathVariable Long raceId,
+            @Valid @RequestBody RaceMediaRequest request,
+            Authentication authentication
+    ) {
+        return raceMediaService.validateOrganizerLiveStream(raceId, request, authentication.getName());
+    }
+
+    @PutMapping("/{raceId}/live-stream")
+    public RaceMediaResponse upsertLive(
+            @PathVariable Long raceId,
+            @Valid @RequestBody RaceMediaRequest request,
+            Authentication authentication
+    ) {
+        return raceMediaService.upsertOrganizerLiveStream(raceId, request, authentication.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/publish")
+    public RaceMediaResponse publishLive(@PathVariable Long raceId, Authentication authentication) {
+        return raceMediaService.publishOrganizerLiveStream(raceId, authentication.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/unpublish")
+    public RaceMediaResponse unpublishLive(@PathVariable Long raceId, Authentication authentication) {
+        return raceMediaService.unpublishOrganizerLiveStream(raceId, authentication.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/reverify")
+    public RaceMediaResponse reverifyLive(@PathVariable Long raceId, Authentication authentication) {
+        return raceMediaService.reverifyOrganizerLiveStream(raceId, authentication.getName());
+    }
+
+    @DeleteMapping("/{raceId}/live-stream")
+    public ResponseEntity<Void> deleteLive(@PathVariable Long raceId, Authentication authentication) {
+        raceMediaService.deleteOrganizerLiveStream(raceId, authentication.getName());
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -29,4 +29,12 @@ public class PublicRaceMediaController {
     public List<RaceMediaPublicResponse> getHighlights(@RequestParam Long tournamentId) {
         return raceMediaService.getPublicHighlightsForTournament(tournamentId);
     }
+
+    // Live stream công khai của race (chỉ published+verified). FE tự gate hiển thị theo race.status == ONGOING.
+    @GetMapping("/{raceId}/live-stream")
+    public ResponseEntity<RaceMediaPublicResponse> getRaceLiveStream(@PathVariable Long raceId) {
+        return raceMediaService.getPublicLiveStream(raceId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
 }

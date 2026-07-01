@@ -65,4 +65,48 @@ public class AdminRaceMediaController {
         raceMediaService.deleteAdminHighlight(raceId, principal.getName());
         return ResponseEntity.noContent().build();
     }
+
+    // ---- Live stream (admin override; service tự áp LiveStreamPolicy) ----
+
+    @GetMapping("/{raceId}/live-stream")
+    public ResponseEntity<RaceMediaResponse> getLive(@PathVariable Long raceId) {
+        return raceMediaService.getAdminLiveStream(raceId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/{raceId}/live-stream/validate")
+    public RaceMediaValidateResponse validateLive(@PathVariable Long raceId, @Valid @RequestBody RaceMediaRequest request) {
+        return raceMediaService.validateAdminLiveStream(raceId, request);
+    }
+
+    @PutMapping("/{raceId}/live-stream")
+    public RaceMediaResponse upsertLive(
+            @PathVariable Long raceId,
+            @Valid @RequestBody RaceMediaRequest request,
+            Principal principal
+    ) {
+        return raceMediaService.upsertAdminLiveStream(raceId, request, principal.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/publish")
+    public RaceMediaResponse publishLive(@PathVariable Long raceId, Principal principal) {
+        return raceMediaService.publishAdminLiveStream(raceId, principal.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/unpublish")
+    public RaceMediaResponse unpublishLive(@PathVariable Long raceId, Principal principal) {
+        return raceMediaService.unpublishAdminLiveStream(raceId, principal.getName());
+    }
+
+    @PostMapping("/{raceId}/live-stream/reverify")
+    public RaceMediaResponse reverifyLive(@PathVariable Long raceId) {
+        return raceMediaService.reverifyAdminLiveStream(raceId);
+    }
+
+    @DeleteMapping("/{raceId}/live-stream")
+    public ResponseEntity<Void> deleteLive(@PathVariable Long raceId, Principal principal) {
+        raceMediaService.deleteAdminLiveStream(raceId, principal.getName());
+        return ResponseEntity.noContent().build();
+    }
 }
