@@ -18,6 +18,7 @@ public class PredictionOptionsResponse {
     private List<UserPredictionResponse> myPredictions;
     private boolean winnerDistributionVisible;
     private List<Option> options;
+    private Integer houseFeePercent;
 
     // horseId -> (position -> odds)
     private Map<Long, Map<Integer, BigDecimal>> positionOddsMatrix;
