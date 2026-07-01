@@ -329,6 +329,7 @@ export function PredictionSlip({
             quote={quote}
             quoteLoading={quoteLoading}
             quoteError={quoteError}
+            feePercent={options?.houseFeePercent}
             onOpenRules={() => setRulesOpen(true)}
           />
           </div>
@@ -381,7 +382,7 @@ export function PredictionSlip({
         </section>
       )}
 
-      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} feePercent={options?.houseFeePercent} />
     </aside>
   );
 }

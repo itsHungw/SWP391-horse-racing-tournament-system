@@ -1,8 +1,8 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
-import { login, register } from "../../api/authApi";
+import { login, register, oauthLogin } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
 import logo from "../../assets/logo.png";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -85,6 +85,60 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
   const [loading, setLoading] = useState(false);
 
   const isLogin = mode === "login";
+
+  const handleGoogleLogin = async (response: any) => {
+    try {
+      setError(null);
+      setLoading(true);
+      const apiResponse = await oauthLogin("GOOGLE", response.credential);
+      setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email);
+      const roles = getRolesFromAccessToken(apiResponse.accessToken);
+      if (roles.includes("ADMIN")) {
+        navigate("/admin", { replace: true });
+      } else if (roles.includes("REFEREE")) {
+        navigate("/referee", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    } catch (err) {
+      setError(getApiErrorMessage(err, "Google Login failed."));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let interval: any;
+    if (isLogin) {
+      const initGoogle = () => {
+        if ((window as any).google?.accounts?.id) {
+          clearInterval(interval);
+          (window as any).google.accounts.id.initialize({
+            client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+            callback: handleGoogleLogin,
+          });
+          const btnParent = document.getElementById("google-login-btn");
+          if (btnParent) {
+            (window as any).google.accounts.id.renderButton(
+              btnParent,
+              { theme: "outline", size: "large", width: btnParent.clientWidth || 320 }
+            );
+          }
+          return true;
+        }
+        return false;
+      };
+
+      if (!initGoogle()) {
+        interval = setInterval(() => {
+          if (initGoogle()) {
+            clearInterval(interval);
+          }
+        }, 100);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isLogin]);
 
   const switchMode = (nextMode: AuthMode) => {
     setError(null);
@@ -234,15 +288,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
 
       <section
         aria-label="Authentication"
-        className={`flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:py-10 ${
-          isLogin ? "lg:items-center" : "lg:items-start"
-        }`}
+        className="flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:items-start lg:py-12"
       >
         <motion.div 
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="mx-auto w-full max-w-[430px]"
+          className="mx-auto w-full max-w-[430px] lg:my-auto"
         >
           <div className="relative mb-8 flex w-full overflow-hidden rounded-2xl border border-white/70 bg-white/55 p-1 shadow-[0_18px_45px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/5 backdrop-blur-xl sm:mb-10">
             <div
@@ -344,6 +396,12 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                     {loading ? "Signing in..." : "Secure Login"}
                   </motion.button>
                 </form>
+                <div className="relative flex py-5 items-center">
+                  <div className="flex-grow border-t border-gray-200"></div>
+                  <span className="flex-shrink mx-4 text-xs text-gray-400 font-bold uppercase tracking-widest">Or login with</span>
+                  <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+                <div id="google-login-btn" className="w-full flex justify-center mb-4" />
               </motion.div>
             ) : (
               <motion.div

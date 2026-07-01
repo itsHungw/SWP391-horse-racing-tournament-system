@@ -122,20 +122,37 @@ const GUIDE_SLIDES: GuideSlide[] = [
   },
 ];
 
-export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function RulesDialog({ open, onClose, feePercent = HOUSE_TAKEOUT_PCT }: { open: boolean; onClose: () => void; feePercent?: number }) {
   const [slideIndex, setSlideIndex] = useState(0);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const slide = GUIDE_SLIDES[slideIndex];
+
+  const slides = useMemo(() => {
+    return GUIDE_SLIDES.map((slide, sIdx) => {
+      if (sIdx !== 2) return slide;
+      return {
+        ...slide,
+        items: slide.items.map((item, iIdx) => {
+          if (iIdx !== 2) return item;
+          return {
+            ...item,
+            text: `${feePercent}% is already included in single-race quotes.`,
+          };
+        }),
+      };
+    });
+  }, [feePercent]);
+
+  const slide = slides[slideIndex];
   const Icon = slide.icon;
   const isFirst = slideIndex === 0;
-  const isLast = slideIndex === GUIDE_SLIDES.length - 1;
+  const isLast = slideIndex === slides.length - 1;
 
   useEffect(() => {
     if (!open) return;
     setSlideIndex(0);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setSlideIndex((current) => Math.min(current + 1, GUIDE_SLIDES.length - 1));
+      if (e.key === "ArrowRight") setSlideIndex((current) => Math.min(current + 1, slides.length - 1));
       if (e.key === "ArrowLeft") setSlideIndex((current) => Math.max(current - 1, 0));
     };
     document.addEventListener("keydown", onKey);
@@ -146,9 +163,9 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose]);
+  }, [open, onClose, slides.length]);
 
-  const progress = useMemo(() => `${slideIndex + 1} / ${GUIDE_SLIDES.length}`, [slideIndex]);
+  const progress = useMemo(() => `${slideIndex + 1} / ${slides.length}`, [slideIndex, slides.length]);
 
   if (!open) return null;
 
@@ -192,7 +209,7 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
         <div className="px-5 py-4">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex gap-1.5" aria-label={progress}>
-              {GUIDE_SLIDES.map((item, index) => (
+              {slides.map((item, index) => (
                 <button
                   key={item.eyebrow}
                   type="button"
@@ -269,7 +286,7 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
                 onClose();
                 return;
               }
-              setSlideIndex((current) => Math.min(current + 1, GUIDE_SLIDES.length - 1));
+              setSlideIndex((current) => Math.min(current + 1, slides.length - 1));
             }}
             className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 text-[13px] font-extrabold text-turf-950 transition-colors hover:bg-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-850"
           >
@@ -278,7 +295,7 @@ export function RulesDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
           <button
             type="button"
-            onClick={() => setSlideIndex((current) => Math.min(current + 1, GUIDE_SLIDES.length - 1))}
+            onClick={() => setSlideIndex((current) => Math.min(current + 1, slides.length - 1))}
             disabled={isLast}
             aria-label="Next guide slide"
             className="hidden h-11 place-items-center rounded-lg border border-turf-700 text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 disabled:cursor-not-allowed disabled:opacity-40 sm:grid"

@@ -26,6 +26,7 @@ public class WithdrawalService {
     private final WithdrawalRequestRepository repository;
     private final WalletService walletService;
     private final UserRepository userRepository;
+    private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
     @Value("${wallet.withdrawal.enabled:true}")
     private boolean withdrawalEnabled;
@@ -74,6 +75,16 @@ public class WithdrawalService {
     public WithdrawalRequest approve(Long id, String reviewerEmail) {
         WithdrawalRequest request = get(id);
         request.approve(reviewer(reviewerEmail));
+        
+        notificationService.notify(
+                request.getUser(),
+                "WITHDRAWAL_APPROVED",
+                "Withdrawal approved",
+                "Your withdrawal request #" + request.getId() + " was approved.",
+                "WITHDRAWAL",
+                request.getId()
+        );
+        
         return request;
     }
 
@@ -87,6 +98,16 @@ public class WithdrawalService {
                 WalletTransaction.REF_WITHDRAWAL, request.getId(),
                 "Withdrawal refund for rejected request #" + request.getId()
         );
+        
+        notificationService.notify(
+                request.getUser(),
+                "WITHDRAWAL_REJECTED",
+                "Withdrawal rejected",
+                "Your withdrawal request #" + request.getId() + " was rejected: " + note,
+                "WITHDRAWAL",
+                request.getId()
+        );
+        
         return request;
     }
 
@@ -94,6 +115,16 @@ public class WithdrawalService {
     public WithdrawalRequest markPaid(Long id, String reviewerEmail) {
         WithdrawalRequest request = get(id);
         request.markPaid(reviewer(reviewerEmail));
+        
+        notificationService.notify(
+                request.getUser(),
+                "WITHDRAWAL_PAID",
+                "Withdrawal processed",
+                "Your withdrawal request #" + request.getId() + " has been processed.",
+                "WITHDRAWAL",
+                request.getId()
+        );
+        
         return request;
     }
 

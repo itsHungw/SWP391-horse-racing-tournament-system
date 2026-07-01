@@ -17,6 +17,7 @@ import {
 import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
 import { useClientSession } from "../hooks/useClientSession";
+import { NotificationBell } from "../components/NotificationBell";
 
 type JockeyLayoutProps = {
   children: ReactNode;
@@ -93,6 +94,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
+            <NotificationBell theme="jockey" />
             <span className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700">
               <ShieldCheck className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
               <span className="max-w-[190px] truncate">Jockey</span>

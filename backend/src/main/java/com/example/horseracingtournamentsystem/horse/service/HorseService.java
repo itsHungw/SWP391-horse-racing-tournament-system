@@ -34,6 +34,7 @@ public class HorseService {
     private final HorseDocumentRepository horseDocumentRepository;
     private final UserRepository userRepository;
     private final HorseFileStorageService horseFileStorageService;
+    private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
     @Transactional
     public HorseResponse createHorse(HorseRequest req) {
@@ -208,6 +209,16 @@ public class HorseService {
         User reviewer = findUserByEmail(adminEmail);
         horse.approve(reviewer);
         horseRepository.save(horse);
+
+        notificationService.notify(
+                horse.getOwner(),
+                "HORSE_APPROVED",
+                "Horse profile approved",
+                "Your horse \"" + horse.getName() + "\" was approved.",
+                "HORSE",
+                horse.getId()
+        );
+
         return mapToResponse(horse);
     }
 
@@ -218,6 +229,16 @@ public class HorseService {
         findUserByEmail(adminEmail);
         horse.reject(reason);
         horseRepository.save(horse);
+
+        notificationService.notify(
+                horse.getOwner(),
+                "HORSE_REJECTED",
+                "Horse profile rejected",
+                "Your horse \"" + horse.getName() + "\" was rejected" + (reason == null || reason.isBlank() ? "." : ": " + reason.trim()),
+                "HORSE",
+                horse.getId()
+        );
+
         return mapToResponse(horse);
     }
 

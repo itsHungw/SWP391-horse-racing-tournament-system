@@ -6,6 +6,11 @@ export async function login(data: any): Promise<LoginResponse> {
   return response.data;
 }
 
+export async function oauthLogin(provider: string, idToken: string): Promise<LoginResponse> {
+  const response = await httpClient.post<LoginResponse>(`/auth/oauth/${provider}`, { idToken });
+  return response.data;
+}
+
 export async function register(data: any): Promise<void> {
   await httpClient.post("/auth/register", data);
 }
