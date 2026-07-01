@@ -55,6 +55,9 @@ class AdminRoleRequestIntegrationTest {
     @Autowired
     private RoleRequestRepository roleRequestRepository;
 
+    @Autowired
+    private com.example.horseracingtournamentsystem.notification.repository.NotificationRepository notificationRepository;
+
     private String adminToken;
     private User admin;
     private User applicant;
@@ -62,6 +65,7 @@ class AdminRoleRequestIntegrationTest {
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
+        notificationRepository.deleteAll();
         roleRequestRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -150,6 +154,11 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.adminNote").value("Approved for the next tournament."))
                 .andExpect(jsonPath("$.reviewedAt", notNullValue()))
                 .andExpect(jsonPath("$.reviewedBy.id").value(admin.getId()));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("quan@example.com"));
+        var notif = notificationRepository.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_APPROVED", notif.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_REQUEST", notif.getReferenceType());
     }
 
     @Test
@@ -230,5 +239,9 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.adminNote").value("Evidence document is missing."))
                 .andExpect(jsonPath("$.reviewedAt", notNullValue()))
                 .andExpect(jsonPath("$.reviewedBy.email").value(admin.getEmail()));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("quan@example.com"));
+        var notif = notificationRepository.findAll().stream().filter(n -> "ROLE_REJECTED".equals(n.getType())).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_REQUEST", notif.getReferenceType());
     }
 }

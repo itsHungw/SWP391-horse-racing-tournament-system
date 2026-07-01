@@ -25,6 +25,7 @@ public class AdminRoleRequestService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
+    private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
 
     @Transactional(readOnly = true)
@@ -50,6 +51,16 @@ public class AdminRoleRequestService {
 
         request.approve(reviewer, normalizeNote(adminNote, "Approved by admin."));
         assignRequestedRoleIfAvailable(request, reviewer);
+        
+        notificationService.notify(
+                request.getUser(),
+                "ROLE_APPROVED",
+                "Role request approved",
+                "Your request to become a " + request.getRequestedRole() + " was approved.",
+                "ROLE_REQUEST",
+                request.getId()
+        );
+        
         return AdminRoleRequestResponse.from(roleRequestRepository.save(request));
     }
 
@@ -70,6 +81,16 @@ public class AdminRoleRequestService {
         RoleRequest request = getRequest(requestId);
         User reviewer = getReviewer(reviewerEmail);
         request.reject(reviewer, reason.trim());
+        
+        notificationService.notify(
+                request.getUser(),
+                "ROLE_REJECTED",
+                "Role request rejected",
+                "Your request to become a " + request.getRequestedRole() + " was rejected: " + reason.trim(),
+                "ROLE_REQUEST",
+                request.getId()
+        );
+        
         return AdminRoleRequestResponse.from(roleRequestRepository.save(request));
     }
 

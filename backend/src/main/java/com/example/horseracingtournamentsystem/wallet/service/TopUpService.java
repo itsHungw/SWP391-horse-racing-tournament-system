@@ -33,6 +33,7 @@ public class TopUpService {
     private final VNPayService vnPayService;
     private final VNPayProperties props;
     private final WalletService walletService;
+    private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
     public enum TopUpResult {
         SUCCESS, ALREADY_CONFIRMED, FAILED, INVALID_SIGNATURE, ORDER_NOT_FOUND, INVALID_AMOUNT
@@ -95,6 +96,16 @@ public class TopUpService {
                 WalletTransaction.REF_TOPUP_ORDER, order.getId(),
                 "VNPay top-up #" + order.getId()
         );
+
+        notificationService.notify(
+                order.getUser(),
+                "TOPUP_SUCCESS",
+                "Top-up successful",
+                "Your wallet has been topped up with " + order.getAmount() + " VND.",
+                "TOPUP_ORDER",
+                order.getId()
+        );
+
         return TopUpResult.SUCCESS;
     }
 
