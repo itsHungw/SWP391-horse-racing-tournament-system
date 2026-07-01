@@ -288,15 +288,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
 
       <section
         aria-label="Authentication"
-        className={`flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:py-10 ${
-          isLogin ? "lg:items-center" : "lg:items-start"
-        }`}
+        className="flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:items-start lg:py-12"
       >
         <motion.div 
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="mx-auto w-full max-w-[430px]"
+          className="mx-auto w-full max-w-[430px] lg:my-auto"
         >
           <div className="relative mb-8 flex w-full overflow-hidden rounded-2xl border border-white/70 bg-white/55 p-1 shadow-[0_18px_45px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/5 backdrop-blur-xl sm:mb-10">
             <div
