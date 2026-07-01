@@ -309,6 +309,7 @@ class RaceIntegrationTest {
         mockMvc.perform(get("/api/v1/races/{id}/results", race.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.official").value(true))
+                .andExpect(jsonPath("$.entries[0].raceParticipantId").value(participant.getId()))
                 .andExpect(jsonPath("$.entries[0].position").value(1))
                 .andExpect(jsonPath("$.entries[0].horseName").value("Emerald King"))
                 .andExpect(jsonPath("$.entries[0].finishTimeSeconds").value(72.341))

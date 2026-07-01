@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.race.dto.response.PublicRacingSum
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.entity.RaceParticipant;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
+import com.example.horseracingtournamentsystem.race.repository.RacePublicSearchRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
@@ -48,6 +49,7 @@ import java.util.function.Function;
 public class RaceService {
 
     private final RaceRepository raceRepository;
+    private final RacePublicSearchRepository racePublicSearchRepository;
     private final RaceParticipantRepository raceParticipantRepository;
     private final TournamentRepository tournamentRepository;
     private final UserRepository userRepository;
@@ -408,7 +410,7 @@ public class RaceService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race discovery end date cannot be before start date");
         }
 
-        Page<Race> races = raceRepository.searchPublic(
+        Page<Race> races = racePublicSearchRepository.search(
                 normalizedScope,
                 fromDate,
                 toDate,
@@ -547,11 +549,15 @@ public class RaceService {
     }
 
     private PublicRaceResultResponse.Entry mapPublicResultEntry(RaceResult result) {
+        RaceParticipant participant = result.getParticipant();
         return PublicRaceResultResponse.Entry.builder()
+                .raceParticipantId(participant.getId())
+                .startNumber(participant.getStartNumber())
+                .laneNumber(participant.getLaneNumber())
                 .position(result.getPosition())
-                .horseName(result.getParticipant().getHorse().getName())
-                .jockeyName(result.getParticipant().getJockey() == null
-                        ? null : result.getParticipant().getJockey().getFullName())
+                .horseName(participant.getHorse().getName())
+                .jockeyName(participant.getJockey() == null
+                        ? null : participant.getJockey().getFullName())
                 .finishTimeSeconds(result.getFinishTimeSeconds())
                 .penaltySeconds(result.getPenaltySeconds())
                 .points(result.getPoints())

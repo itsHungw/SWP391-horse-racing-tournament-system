@@ -74,4 +74,39 @@ public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
               AND r.finishTimeSeconds IS NOT NULL
             """)
     Double getAverageFinishTimeByHorseId(@Param("horseId") Long horseId);
+
+    // ── Batch variants: one query for ALL horses, replacing the per-horse fan-out in odds pricing ──
+    @Query("""
+            SELECT r.participant.horse.id, COUNT(r) FROM RaceResult r
+            WHERE r.participant.horse.id IN :horseIds
+              AND r.status IN (
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.CONFIRMED,
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.PUBLISHED
+              )
+            GROUP BY r.participant.horse.id
+            """)
+    List<Object[]> countTotalRacesByHorseIds(@Param("horseIds") Collection<Long> horseIds);
+
+    @Query("""
+            SELECT r.participant.horse.id, r.position, COUNT(r) FROM RaceResult r
+            WHERE r.participant.horse.id IN :horseIds
+              AND r.status IN (
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.CONFIRMED,
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.PUBLISHED
+              )
+            GROUP BY r.participant.horse.id, r.position
+            """)
+    List<Object[]> countPositionsByHorseIds(@Param("horseIds") Collection<Long> horseIds);
+
+    @Query("""
+            SELECT r.participant.horse.id, AVG(r.finishTimeSeconds) FROM RaceResult r
+            WHERE r.participant.horse.id IN :horseIds
+              AND r.status IN (
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.CONFIRMED,
+                com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus.PUBLISHED
+              )
+              AND r.finishTimeSeconds IS NOT NULL
+            GROUP BY r.participant.horse.id
+            """)
+    List<Object[]> getAverageFinishTimeByHorseIds(@Param("horseIds") Collection<Long> horseIds);
 }
