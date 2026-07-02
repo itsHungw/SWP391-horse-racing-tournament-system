@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.filestorage.ObjectStorage;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -26,6 +27,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -55,6 +57,9 @@ class OwnerHorseIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     @MockitoBean
     private ObjectStorage objectStorage;
 
@@ -68,6 +73,10 @@ class OwnerHorseIntegrationTest {
         when(objectStorage.createPresignedGetUrl(anyString(), anyString(), anyString()))
                 .thenReturn(URI.create("https://example-bucket.s3.amazonaws.com/presigned-horse-image"));
 
+        // Wipe every table with referential integrity disabled so leftover rows
+        // committed by non-transactional tests (e.g. email_verification_tokens from
+        // the registration flow) don't block the user deletes below via FK.
+        TestDatabaseCleaner.clean(jdbcTemplate);
         horseRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
