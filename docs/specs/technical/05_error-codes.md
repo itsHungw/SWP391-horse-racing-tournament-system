@@ -11,7 +11,7 @@ Main error response DTO: `common/error/ApiErrorResponse.java`.
 - Validation failure: invalid DTO fields, invalid request parameters, invalid multipart payload.
 - Authentication failure: missing, expired, or invalid JWT.
 - Authorization failure: authenticated user lacks required role.
-- Business rule failure: invalid state transition, duplicate claim, insufficient points, unavailable race, duplicate registration, invalid owner/jockey/referee action.
+- Business rule failure: invalid state transition, insufficient wallet balance, unavailable race, duplicate registration, invalid owner/jockey/referee action, organizer/personal-role separation violation.
 - Not found: missing user, horse, tournament, race, blog, prediction, or registration.
 - Conflict: duplicate unique values or idempotency violation.
 - Internal error: unexpected service/database failure.

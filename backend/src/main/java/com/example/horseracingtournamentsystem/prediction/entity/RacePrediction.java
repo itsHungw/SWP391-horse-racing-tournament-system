@@ -22,7 +22,6 @@ public class RacePrediction {
     public static final String TYPE_WINNER = "WINNER"; // DEPRECATED
     public static final String TYPE_EXACT_POSITION = "EXACT_POSITION";
     public static final String TYPE_HEAD_TO_HEAD = "HEAD_TO_HEAD";
-    public static final String TYPE_TOP3 = "TOP3";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,12 +45,6 @@ public class RacePrediction {
     @Column(name = "predicted_position")
     private Integer predictedPosition;
 
-    @Column(name = "predicted_second_id")
-    private Long predictedSecondId;
-
-    @Column(name = "predicted_third_id")
-    private Long predictedThirdId;
-
     @Column(name = "matchup_opponent_id")
     private Long matchupOpponentId;
 
@@ -59,10 +52,10 @@ public class RacePrediction {
     private Double handicapSeconds;
 
     @Column(name = "entry_cost_points", nullable = false)
-    private Integer entryCostPoints;
+    private Long entryCostPoints;
 
     @Column(name = "reward_points", nullable = false)
-    private Integer rewardPoints = 0;
+    private long rewardPoints = 0;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
@@ -81,12 +74,12 @@ public class RacePrediction {
     private LocalDateTime updatedAt;
 
     @Column(name = "wager_amount")
-    private Integer wagerAmount;
+    private Long wagerAmount;
 
-    @Column(name = "locked_odds", precision = 10, scale = 2)
+    @Column(name = "locked_odds", precision = 18, scale = 4)
     private BigDecimal lockedOdds;
 
-    public static RacePrediction create(Race race, User spectator, String predictionType, Long predictedWinnerId, Integer predictedPosition, Long predictedSecondId, Long predictedThirdId, Long matchupOpponentId, Double handicapSeconds, int entryCostPoints) {
+    public static RacePrediction create(Race race, User spectator, String predictionType, Long predictedWinnerId, Integer predictedPosition, Long matchupOpponentId, Double handicapSeconds, long entryCostPoints) {
         if ("WINNER".equals(predictionType) || "EXACT_POSITION".equals(predictionType) || "HEAD_TO_HEAD".equals(predictionType)) {
             if (predictedWinnerId == null) {
                 throw new IllegalStateException("Predicted winner must be selected for " + predictionType);
@@ -108,8 +101,6 @@ public class RacePrediction {
         prediction.setPredictionType(predictionType);
         prediction.setPredictedWinnerId(predictedWinnerId);
         prediction.setPredictedPosition(predictedPosition);
-        prediction.setPredictedSecondId(predictedSecondId);
-        prediction.setPredictedThirdId(predictedThirdId);
         prediction.setMatchupOpponentId(matchupOpponentId);
         prediction.setHandicapSeconds(handicapSeconds);
         prediction.setEntryCostPoints(entryCostPoints);
@@ -129,6 +120,6 @@ public class RacePrediction {
         if ("WINNER".equals(predictionType) || "EXACT_POSITION".equals(predictionType)) {
             return "EXACT_POSITION_CORRECT";
         }
-        return rewardPoints == 30 ? "TOP3_EXACT" : "TOP3_ANY_ORDER";
+        return "HEAD_TO_HEAD_CORRECT";
     }
 }

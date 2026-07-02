@@ -226,26 +226,27 @@ export function AdminTournamentListPage() {
 
   return (
     <AdminLayout>
-      <div className="flex flex-col gap-8">
-        <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+      <div className="flex flex-col gap-6">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">
               Championship Operations
             </p>
-            <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-900">
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">
               Championships
             </h1>
-            <p className="mt-2 max-w-2xl text-base text-slate-600">
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">
               Manage season phase, registration windows, round progression, and
               championship readiness.
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="group flex min-h-12 items-center justify-center gap-2 self-start rounded-lg bg-[#b3193a] px-6 text-sm font-black text-white shadow-lg shadow-[#b3193a]/20 transition-all hover:-translate-y-0.5 hover:bg-[#92122d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+            className="group flex min-h-11 items-center justify-center gap-2 self-start rounded-lg bg-[#b3193a] px-5 text-sm font-black text-white shadow-md shadow-[#b3193a]/10 transition hover:bg-[#92122d] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
             type="button"
           >
-            <Plus className="h-5 w-5 transition-transform group-hover:rotate-90" />
+            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
             Create Championship
           </button>
         </div>
@@ -292,30 +293,28 @@ export function AdminTournamentListPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Search className="h-5 w-5 text-slate-400" />
-            </div>
+        {/* Operations Filter Bar */}
+        <div className="grid gap-4 md:grid-cols-[1fr_245px] bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          {/* Search box */}
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               id="search-championships"
               type="text"
               placeholder="Search championships by name or code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-12 w-full rounded-xl border-none bg-transparent pl-11 pr-4 text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             />
           </div>
-          <div className="h-px bg-slate-200 sm:h-8 sm:w-px" />
-          <div className="relative w-full sm:w-64">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-              <Filter className="h-5 w-5 text-slate-400" />
-            </div>
+
+          {/* Status Select */}
+          <div>
             <select
               id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-12 w-full appearance-none rounded-xl border-none bg-transparent pl-11 pr-10 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-0"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             >
               <option value="">All Statuses</option>
               <option value="DRAFT">Draft</option>

@@ -5,9 +5,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.horseracingtournamentsystem.horse.entity.Horse;
+import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
+import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -50,6 +54,12 @@ class JockeyPoolApplicationIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private HorseRepository horseRepository;
+
+    @Autowired
+    private TournamentRegistrationRepository registrationRepository;
+
     private String adminToken;
     private String jockeyToken;
     private String ownerToken;
@@ -60,6 +70,8 @@ class JockeyPoolApplicationIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        registrationRepository.deleteAll();
+        horseRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -118,6 +130,33 @@ class JockeyPoolApplicationIntegrationTest {
                 .andExpect(jsonPath("$[0].jockeyId").value(jockeyUser.getId()))
                 .andExpect(jsonPath("$[0].jockeyName").value("Jockey User"))
                 .andExpect(jsonPath("$[0].status").value("APPROVED_FOR_POOL"));
+    }
+
+    @Test
+    void jockeyCannotApplyWhenAlreadyParticipatingAsOwnerInSameTournament() throws Exception {
+        Role ownerRole = roleRepository.findByName("HORSE_OWNER").orElseThrow();
+        userRoleRepository.save(UserRole.active(jockeyUser, ownerRole, adminUser));
+        Horse horse = horseRepository.save(Horse.create(
+                jockeyUser,
+                "Dual Role Horse",
+                "DUAL_ROLE_HORSE",
+                "Thoroughbred",
+                "MALE",
+                LocalDate.of(2020, 1, 1),
+                "Bay"
+        ));
+        registrationRepository.save(TournamentRegistration.pending(openTournament, horse, jockeyUser, "Owner entry."));
+
+        mockMvc.perform(post("/api/v1/jockey/championships/{id}/pool-applications", openTournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"message":"Available for the full championship."}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value(
+                        "You are already participating in this tournament as HORSE_OWNER. "
+                                + "Use that dashboard or leave that participation before joining with another role."));
     }
 
     @Test

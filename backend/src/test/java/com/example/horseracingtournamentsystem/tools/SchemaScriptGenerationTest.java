@@ -11,7 +11,7 @@ import org.springframework.test.context.TestPropertySource;
 
 /**
  * Regeneration tool (not an assertion suite): boots the context with Hibernate
- * schema-script generation forced to the SQL Server dialect and writes the DDL
+ * schema-script generation forced to the PostgreSQL dialect and writes the DDL
  * for every entity to target/generated/baseline-raw.sql, which seeds
  * db/migration/V1__baseline.sql.
  *
@@ -25,7 +25,7 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
         "spring.flyway.enabled=false",
         "spring.jpa.hibernate.ddl-auto=none",
-        "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.SQLServerDialect",
+        "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
         "spring.jpa.properties.jakarta.persistence.schema-generation.scripts.action=create",
         "spring.jpa.properties.jakarta.persistence.schema-generation.scripts.create-target=target/generated/baseline-raw.sql",
         "spring.jpa.properties.hibernate.hbm2ddl.delimiter=;"
@@ -33,7 +33,7 @@ import org.springframework.test.context.TestPropertySource;
 class SchemaScriptGenerationTest {
 
     @Test
-    void generatesSqlServerBaselineScript() throws Exception {
+    void generatesPostgresBaselineScript() throws Exception {
         Path script = Path.of("target/generated/baseline-raw.sql");
         assertThat(Files.exists(script)).isTrue();
         String sql = Files.readString(script).toLowerCase();

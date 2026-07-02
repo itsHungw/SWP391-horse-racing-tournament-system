@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { Calendar, ChevronRight, Search, Compass } from "lucide-react";
-import { getAdminPredictionRaces } from "../../api/adminPredictionApi";
+import { Calendar, ChevronRight, Search, Compass, Settings, Save, Check } from "lucide-react";
+import { getAdminPredictionRaces, getPredictionSettings, updatePredictionSettings } from "../../api/adminPredictionApi";
 
 export function AdminPredictionsWorkspace() {
   useDocumentTitle("Race predictions monitor");
@@ -14,6 +14,15 @@ export function AdminPredictionsWorkspace() {
   const [filterChampionship, setFilterChampionship] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Settings states
+  const [displaySeedInput, setDisplaySeedInput] = useState<number | "">(40000000);
+  const [takeoutRateInput, setTakeoutRateInput] = useState<number | "">(15);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<boolean>(false);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [lastUpdatedBy, setLastUpdatedBy] = useState<string | null>(null);
 
   const loadRaces = () => {
     setLoading(true);
@@ -30,9 +39,65 @@ export function AdminPredictionsWorkspace() {
       });
   };
 
+  const loadSettings = () => {
+    setSettingsLoading(true);
+    setSettingsError(null);
+    getPredictionSettings()
+      .then((data) => {
+        setDisplaySeedInput(data.displaySeed);
+        setTakeoutRateInput(Math.round(data.takeoutRate * 100));
+        if (data.updatedAt) {
+          setLastUpdated(new Date(data.updatedAt).toLocaleString("en-US", {
+            dateStyle: "medium",
+            timeStyle: "short"
+          }));
+        }
+        setLastUpdatedBy(data.updatedByUserName || null);
+        setSettingsLoading(false);
+      })
+      .catch(() => {
+        setSettingsError("Unable to load prediction settings.");
+        setSettingsLoading(false);
+      });
+  };
+
   useEffect(() => {
     loadRaces();
+    loadSettings();
   }, []);
+
+  const handleSaveSettings = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSettingsLoading(true);
+    setSettingsError(null);
+    setSettingsSuccess(false);
+
+    const payload = {
+      displaySeed: displaySeedInput === "" ? 0 : displaySeedInput,
+      takeoutRate: (takeoutRateInput === "" ? 0 : takeoutRateInput) / 100
+    };
+
+    updatePredictionSettings(payload)
+      .then((data) => {
+        setDisplaySeedInput(data.displaySeed);
+        setTakeoutRateInput(Math.round(data.takeoutRate * 100));
+        if (data.updatedAt) {
+          setLastUpdated(new Date(data.updatedAt).toLocaleString("en-US", {
+            dateStyle: "medium",
+            timeStyle: "short"
+          }));
+        }
+        setLastUpdatedBy(data.updatedByUserName || null);
+        setSettingsSuccess(true);
+        setSettingsLoading(false);
+        setTimeout(() => setSettingsSuccess(false), 3000);
+        loadRaces();
+      })
+      .catch(() => {
+        setSettingsError("Failed to update prediction settings. Ensure values are valid.");
+        setSettingsLoading(false);
+      });
+  };
 
   const getStatusStyle = (status: string) => {
     switch (status) {
@@ -86,45 +151,147 @@ export function AdminPredictionsWorkspace() {
   return (
     <AdminLayout>
       <section aria-labelledby="prediction-monitor-title" className="space-y-6">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">
             Game economy controls
           </p>
-          <h1 id="prediction-monitor-title" className="mt-2 text-4xl font-black tracking-tight flex items-center gap-2">
-            <Compass className="h-9 w-9 text-[#b3193a]" />
+          <h1 id="prediction-monitor-title" className="mt-2 text-3xl font-black tracking-tight text-[#070f4f] flex items-center gap-2">
+            <Compass className="h-7 w-7 text-[#b3193a]" />
             Predictions Monitor
           </h1>
-          <p className="mt-2 max-w-3xl text-base text-slate-600">
+          <p className="mt-2 max-w-3xl text-sm text-slate-500">
             Manage and monitor spectator predictions for each race. Audit point reward transactions and handle resolution jobs.
           </p>
         </div>
 
-        <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
-          <label className="flex-1 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Search
-            <div className="relative mt-2">
-              <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
-              <input
-                className="min-h-11 w-full rounded-md border border-slate-300 bg-white pl-9 pr-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Find race name..."
-                value={searchQuery}
-              />
+        {/* Dynamic Settings Panel */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-black text-[#070f4f] flex items-center gap-2 mb-4">
+            <Settings className="h-5 w-5 text-[#b3193a]" />
+            Prediction & Odds Settings
+          </h2>
+          
+          {settingsError && (
+            <div className="mb-4 rounded-lg bg-rose-50 p-4 border border-rose-100 text-sm font-semibold text-rose-700">
+              {settingsError}
             </div>
-          </label>
-          <label className="w-full sm:w-64 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Championship
+          )}
+
+          {settingsSuccess && (
+            <div className="mb-4 rounded-lg bg-emerald-50 p-4 border border-emerald-100 text-sm font-semibold text-emerald-700 flex items-center gap-2">
+              <Check className="h-4 w-4" />
+              Prediction settings updated successfully!
+            </div>
+          )}
+
+          <form onSubmit={handleSaveSettings} className="space-y-4">
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Display Seed */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 block" htmlFor="display-seed-input">
+                  Virtual Display Seed
+                </label>
+                <div className="relative">
+                  <input
+                    id="display-seed-input"
+                    type="number"
+                    min="0"
+                    value={displaySeedInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setDisplaySeedInput(val === "" ? "" : Number(val));
+                    }}
+                    className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-3 pr-14 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10 no-spinners"
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    VND
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold">
+                  Virtual seed liquidity used to smooth initial odds display. The actual payout calculation does NOT use this virtual fund.
+                </p>
+              </div>
+
+              {/* Takeout Rate */}
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 block" htmlFor="takeout-rate-input">
+                  House Takeout Rate (%)
+                </label>
+                <div className="relative">
+                  <input
+                    id="takeout-rate-input"
+                    type="number"
+                    min="0"
+                    max="90"
+                    value={takeoutRateInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTakeoutRateInput(val === "" ? "" : Number(val));
+                    }}
+                    className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-3 pr-10 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10 no-spinners"
+                    required
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                    %
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold">
+                  Percentage of the total pool kept by the house as commission fee (e.g. 15%).
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-slate-100 gap-4">
+              <span className="text-xs text-slate-500 font-medium">
+                {lastUpdated && (
+                  <>
+                    Last updated on <strong>{lastUpdated}</strong> by <strong>{lastUpdatedBy || "System"}</strong>
+                  </>
+                )}
+              </span>
+              <button
+                type="submit"
+                disabled={settingsLoading}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#b3193a] px-6 text-sm font-bold text-white hover:bg-[#91122d] transition disabled:opacity-50"
+              >
+                <Save className="h-4 w-4" />
+                {settingsLoading ? "Saving..." : "Save Settings"}
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Operations Filter Bar */}
+        <div className="grid gap-4 md:grid-cols-[1fr_240px_200px] bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          {/* Search box */}
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
-              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
-              onChange={(e) => setFilterChampionship(e.target.value)}
+              type="text"
+              placeholder="Find race name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
+            />
+          </div>
+
+          {/* Championship Filter */}
+          <div className="relative">
+            <input
+              type="text"
               placeholder="Filter championship..."
               value={filterChampionship}
+              onChange={(e) => setFilterChampionship(e.target.value)}
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             />
-          </label>
-          <label className="w-full sm:w-56 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-            Status
+          </div>
+
+          {/* Status Select */}
+          <div>
             <select
-              className="mt-2 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-bold text-slate-800 transition-colors focus:border-[#b3193a] focus:outline-none focus:ring-1 focus:ring-[#b3193a]"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
               onChange={(e) => setFilterStatus(e.target.value)}
               value={filterStatus}
             >
@@ -137,11 +304,11 @@ export function AdminPredictionsWorkspace() {
               <option value="FAILED">Failed</option>
               <option value="REFUNDED">Refunded</option>
             </select>
-          </label>
+          </div>
         </div>
 
         {/* Races table */}
-        <div className="rounded-lg border border-[#d8d8d8] bg-white overflow-hidden shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#b3193a]"></div>
@@ -206,14 +373,14 @@ export function AdminPredictionsWorkspace() {
                         <td className="px-6 py-4 text-right font-black text-[#070f4f]">
                           <p>{race.totalPredictions}</p>
                           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            {race.winnerPickCount} Win / {race.top3PickCount} Top3
+                            {race.winnerPickCount} Win
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right font-semibold">
                           {race.predictionStatus === "COMPLETED" ? (
                             <div>
                               <p className="text-emerald-700 font-bold">
-                                +{race.correctWinnerCount + race.exactTop3Count + race.partialTop3Count} correct
+                                +{race.correctWinnerCount} correct
                               </p>
                               <p className="text-slate-400 text-xs mt-0.5">
                                 {race.incorrectCount} incorrect

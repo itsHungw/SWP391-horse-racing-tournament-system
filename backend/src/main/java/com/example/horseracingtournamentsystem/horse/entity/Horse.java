@@ -130,6 +130,28 @@ public class Horse {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void updateOwnerDetails(String name, String breed, String gender, LocalDate dateOfBirth, String color, Integer heightCm, Integer weightKg, String healthStatus, String medicalNote, String description) {
+        this.name = name;
+        this.breed = breed;
+        this.gender = gender;
+        this.dateOfBirth = dateOfBirth;
+        this.color = color;
+        this.heightCm = heightCm;
+        this.weightKg = weightKg;
+        this.healthStatus = healthStatus;
+        this.medicalNote = medicalNote;
+        this.description = description;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setStatusPending() {
+        this.status = "PENDING";
+        this.rejectionReason = null;
+        this.approvedBy = null;
+        this.approvedAt = null;
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void approve(User reviewer) {
         requirePendingReview();
         this.status = "APPROVED";

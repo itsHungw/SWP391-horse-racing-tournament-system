@@ -65,6 +65,8 @@ public class SecurityConfig {
                                 .authorizeHttpRequests(auth -> auth
                                                 .requestMatchers(
                                                                 "/error",
+                                                                "/actuator/health",
+                                                                "/actuator/health/**",
                                                                 "/uploads/**",
                                                                 "/api/v1/auth/**",
                                                                 "/api/v1/files/download/**",
@@ -76,7 +78,7 @@ public class SecurityConfig {
                                                 .requestMatchers(HttpMethod.GET, "/api/v1/horses/**",
                                                                 "/api/v1/tournaments/**", "/api/v1/races/**", "/api/v1/racing-summary", "/api/v1/blogs/**",
                                                                 "/api/v1/standings/**", "/api/v1/championships/*/standings",
-                                                                "/api/v1/leaderboard/**")
+                                                                "/api/v1/leaderboard/**", "/api/v1/wallet/vnpay/**")
                                                 .permitAll()
                                                 
                                                        

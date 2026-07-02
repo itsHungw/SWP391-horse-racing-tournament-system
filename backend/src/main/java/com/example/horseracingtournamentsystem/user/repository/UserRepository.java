@@ -54,6 +54,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countActiveAdmins();
 
     @Query("SELECT DISTINCT u FROM User u JOIN u.userRoles ur JOIN ur.role r "
-            + "WHERE u.deletedAt IS NULL AND ur.status = 'ACTIVE' AND r.name = :roleName ORDER BY u.fullName")
+            + "WHERE u.deletedAt IS NULL "
+            + "AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE "
+            + "AND r.name = :roleName ORDER BY u.fullName")
     List<User> findActiveByRoleName(String roleName);
 }

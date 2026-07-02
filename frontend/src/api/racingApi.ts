@@ -17,6 +17,7 @@ import type {
   RefereeDirectoryEntry,
   InviteRefereePayload,
   OwnerContractPayload,
+  OwnerHorseUpdateRequest,
   PageResponse,
   PublicRaceResult,
   PublicRacingSummary,
@@ -85,6 +86,11 @@ export async function getPublicRaceResults(id: number): Promise<PublicRaceResult
   return response.data;
 }
 
+export async function getOrganizerRaceResults(id: number): Promise<PublicRaceResult> {
+  const response = await httpClient.get<PublicRaceResult>(`/organizer/races/${id}/results`);
+  return response.data;
+}
+
 export async function getPublicRacingSummary(): Promise<PublicRacingSummary> {
   const response = await httpClient.get<PublicRacingSummary>("/racing-summary");
   return response.data;
@@ -108,6 +114,11 @@ export async function getOwnerHorsesPage(params: {
 
 export async function getOwnerHorse(id: number): Promise<Horse> {
   const response = await httpClient.get<Horse>(`/owner/horses/${id}`);
+  return response.data;
+}
+
+export async function updateOwnerHorse(id: number, payload: OwnerHorseUpdateRequest): Promise<Horse> {
+  const response = await httpClient.put<Horse>(`/owner/horses/${id}`, payload);
   return response.data;
 }
 

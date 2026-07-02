@@ -2,17 +2,17 @@
 
 This folder documents the current source code of the Horse Racing Tournament Management System. It is written for two audiences:
 
-- lecturers/reviewers who need to understand the product scope, business process, database design, and implementation evidence;
+- lecturers/reviewers who need the product scope, business process, database design, and implementation evidence;
 - developers who need a source-aligned reference for backend packages, frontend routes, APIs, migrations, and tests.
 
-The documentation follows the source structure in `backend/src` and `frontend/src`. When the source changes, update the matching document in this folder.
+The documentation follows the source structure in `backend/src` and `frontend/src`. When source behavior changes, update the matching document here.
 
 ## Source Snapshot
 
-- Backend: Spring Boot 4, Java 21, Spring Web, Spring Data JPA, Spring Security, Flyway, SQL Server.
+- Backend: Java 21, Spring Boot 4, Spring Web MVC, Spring Data JPA, Spring Security, Flyway, PostgreSQL.
 - Frontend: React 19, Vite 6, TypeScript, React Router 7, Axios, Tailwind CSS 4.
-- Database: schema is owned solely by the Flyway baseline in `backend/src/main/resources/db/migration/V1__baseline.sql` (SQL Server), generated from the JPA entities.
-- Tests: backend integration/unit tests under `backend/src/test`, frontend Vitest tests under `frontend/src`.
+- Database: Flyway migrations live in `backend/src/main/resources/db/migration`; the active runtime driver is PostgreSQL.
+- Tests: backend tests live under `backend/src/test`; frontend Vitest tests live under `frontend/src`.
 
 ## Reading Path For Project Report
 
@@ -20,12 +20,13 @@ The documentation follows the source structure in `backend/src` and `frontend/sr
 2. `specs/product/02_scope-and-non-goals.md`
 3. `specs/product/03_roles-and-user-stories.md`
 4. `specs/business/01_domain-model.md`
-5. `specs/business/03_workflows.md`
-6. `specs/data/01_database-design.md`
-7. `specs/technical/01_tech-stack.md`
-8. `specs/technical/02_backend-architecture.md`
-9. `specs/technical/03_frontend-architecture.md`
-10. `specs/delivery/01_implementation-checklist.md`
+5. `specs/business/02_business-rules.md`
+6. `specs/business/03_workflows.md`
+7. `specs/data/01_database-design.md`
+8. `specs/technical/01_tech-stack.md`
+9. `specs/technical/02_backend-architecture.md`
+10. `specs/technical/03_frontend-architecture.md`
+11. `specs/delivery/01_implementation-checklist.md`
 
 ## Reading Path For Developers
 
@@ -36,22 +37,25 @@ The documentation follows the source structure in `backend/src` and `frontend/sr
 5. `specs/data/01_database-design.md`
 6. `specs/data/02_erd-and-status-lifecycles.md`
 7. `specs/business/02_business-rules.md`
+8. `specs/technical/08_prediction-odds-and-payout.md`
 
 ## Documentation Structure
 
 - `specs/product/`: product overview, scope, roles, user stories.
-- `specs/business/`: business domain, rules, workflows, prediction game, blog rewards.
-- `specs/technical/`: tech stack, backend/frontend architecture, API/UI contract, errors, AI notes, file storage.
+- `specs/business/`: domain model, business rules, workflows, prediction, blog publishing.
+- `specs/technical/`: tech stack, backend/frontend architecture, API/UI contract, errors, AI notes, file storage, prediction odds.
 - `specs/data/`: schema, relationships, status lifecycles, migration notes.
 - `specs/delivery/`: implementation and verification checklist.
-- `superpowers/`: implementation design notes and task plans created during development.
+- `ba/`: business-analysis notes for organizer and wallet/payment features.
+- `superpowers/`: historical implementation design notes and task plans.
 - `reports/`: audits and task history.
 
 ## Core System Layers
 
-The product has two connected layers:
+The product has three connected layers:
 
-1. Core racing operations: account, role approval, horse management, tournament registration, championship participation, race scheduling, referee race-day operations, results.
-2. Engagement layer: public blogs, blog reward points, spectator prediction challenges, prediction settlement, admin audit.
+1. Core racing operations: account, role approval, organization onboarding, horse management, tournament registration, championship participation, race scheduling, referee race-day operations, results.
+2. Organizer marketplace layer: approved organizer accounts create and operate tournaments under platform/admin governance.
+3. Engagement and money layer: public blogs, VND wallet, VNPay top-up, withdrawal review, spectator prediction wagers, odds, payout settlement, leaderboard and admin audit.
 
-Game points are internal virtual points only. The application does not support deposits, withdrawals, cash conversion, odds, or user-to-user betting pools.
+The legacy point gamification model has been removed from the active product. A compatibility endpoint still exposes wallet balance through `/api/v1/point-accounts/me` for older frontend contracts, but the source of truth is the wallet module.

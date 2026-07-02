@@ -77,13 +77,13 @@ export function ClientFooter() {
           ))}
 
           <div className="rounded-2xl border border-gold-600/25 bg-turf-900/60 p-7 backdrop-blur-sm">
-            <Eyebrow tone="emerald">Fair Play</Eyebrow>
+            <Eyebrow tone="emerald">Responsible Play</Eyebrow>
             <p className="mt-5 font-display text-lg italic leading-snug text-ivory">
-              Virtual points only — no real-money betting.
+              VND wallet predictions with pool-based payout estimates.
             </p>
             <p className="mt-3 text-xs leading-relaxed text-ivory-faint">
-              The Prediction Arena is a free-to-play spectator experience. Points are in-system rewards and
-              cannot be deposited, withdrawn, sold, or converted into money.
+              Your stake is shown before confirmation. Projected returns move with the pool and final odds
+              lock when betting closes for the race.
             </p>
           </div>
         </div>

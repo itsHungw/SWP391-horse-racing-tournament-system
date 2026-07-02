@@ -13,6 +13,7 @@ import {
   uploadAgreementDocument,
 } from "../../api/racingApi";
 import { OwnerTournamentRegistrationsPage } from "./OwnerTournamentRegistrationsPage";
+import { OwnerJockeyInvitationsPage } from "./OwnerJockeyInvitationsPage";
 
 vi.mock("../../api/racingApi", () => ({
   createOwnerTournamentRegistration: vi.fn(),
@@ -188,7 +189,7 @@ describe("OwnerTournamentRegistrationsPage", () => {
 
     render(
       <MemoryRouter>
-        <OwnerTournamentRegistrationsPage />
+        <OwnerJockeyInvitationsPage />
       </MemoryRouter>,
     );
 
@@ -197,10 +198,12 @@ describe("OwnerTournamentRegistrationsPage", () => {
     fireEvent.click(within(contractDialog).getByRole("button", { name: /jockey/i }));
 
     const agreementFile = new File(["agreement"], "agreement.pdf", { type: "application/pdf" });
-    fireEvent.change(within(contractDialog).getByLabelText(/agreement file/i), {
+    const fileInput = contractDialog.querySelector("input[type='file']");
+    expect(fileInput).toBeInTheDocument();
+    fireEvent.change(fileInput!, {
       target: { files: [agreementFile] },
     });
-    expect(await screen.findByText(/selected: agreement.pdf/i)).toBeInTheDocument();
+    expect(await screen.findByText("agreement.pdf")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /send contract/i }));
 
     await waitFor(() => {

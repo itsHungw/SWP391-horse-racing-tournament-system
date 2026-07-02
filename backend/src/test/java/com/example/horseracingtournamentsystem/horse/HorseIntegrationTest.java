@@ -47,12 +47,17 @@ class HorseIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private com.example.horseracingtournamentsystem.notification.repository.NotificationRepository notificationRepository;
+
     private String adminToken;
     private String spectatorToken;
+    private String ownerToken;
     private User ownerUser;
 
     @BeforeEach
     void setUp() {
+        notificationRepository.deleteAll();
         horseRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -60,6 +65,7 @@ class HorseIntegrationTest {
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Admin"));
         Role specRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
+        Role ownerRole = roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
 
         User adminUser = User.pending("Admin User", "admin@example.com", "hash");
         adminUser.verifyEmail();
@@ -69,9 +75,10 @@ class HorseIntegrationTest {
         ownerUser = User.pending("Owner User", "owner@example.com", "hash");
         ownerUser.verifyEmail();
         ownerUser = userRepository.save(ownerUser);
-        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(ownerUser, specRole, adminUser));
+        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(ownerUser, ownerRole, adminUser));
 
         adminToken = jwtService.generateToken(adminUser.getEmail(), Set.of("ADMIN"));
+        ownerToken = jwtService.generateToken(ownerUser.getEmail(), Set.of("HORSE_OWNER"));
         spectatorToken = jwtService.generateToken(ownerUser.getEmail(), Set.of("SPECTATOR"));
     }
 
@@ -120,6 +127,11 @@ class HorseIntegrationTest {
                 .andExpect(jsonPath("$.status").value("APPROVED"))
                 .andExpect(jsonPath("$.approvedBy").exists())
                 .andExpect(jsonPath("$.approvedAt").exists());
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("owner@example.com"));
+        var notif = notificationRepository.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE_APPROVED", notif.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE", notif.getReferenceType());
     }
 
     @Test
@@ -135,6 +147,10 @@ class HorseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.rejectionReason").value("Missing health certificate"));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("owner@example.com"));
+        var notif = notificationRepository.findAll().stream().filter(n -> "HORSE_REJECTED".equals(n.getType())).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("HORSE", notif.getReferenceType());
     }
 
     @Test
@@ -146,5 +162,60 @@ class HorseIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("Only pending horses can be reviewed"));
+    }
+
+    @Test
+    void ownerCanUpdateOwnHorse() throws Exception {
+        Horse horse = Horse.create(ownerUser, "Old Name", "H_CODE_UPD_1", "Thoroughbred", "MALE", LocalDate.of(2018, 5, 10), "Brown");
+        horse = horseRepository.save(horse);
+
+        String updateBody = """
+                {
+                    "name": "New Name",
+                    "breed": "Quarter Horse",
+                    "gender": "FEMALE",
+                    "dateOfBirth": "2019-06-12",
+                    "color": "Grey",
+                    "heightCm": 160,
+                    "weightKg": 500,
+                    "healthStatus": "Healthy",
+                    "medicalNote": "Updated Note",
+                    "description": "Updated Description"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/owner/horses/{id}", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("New Name"))
+                .andExpect(jsonPath("$.breed").value("Quarter Horse"))
+                .andExpect(jsonPath("$.gender").value("FEMALE"))
+                .andExpect(jsonPath("$.color").value("Grey"))
+                .andExpect(jsonPath("$.status").value("PENDING"));
+    }
+
+    @Test
+    void cannotUpdateOtherOwnerHorse() throws Exception {
+        User otherOwner = User.pending("Other Owner", "other@example.com", "hash");
+        otherOwner.verifyEmail();
+        otherOwner = userRepository.save(otherOwner);
+
+        Horse horse = Horse.create(otherOwner, "Other Horse", "H_CODE_UPD_2", "Thoroughbred", "MALE", LocalDate.now(), "Brown");
+        horse = horseRepository.save(horse);
+
+        String updateBody = """
+                {
+                    "name": "Hacked Name",
+                    "gender": "MALE"
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/owner/horses/{id}", horse.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + ownerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isNotFound());
     }
 }

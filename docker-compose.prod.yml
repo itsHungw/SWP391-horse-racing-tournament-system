@@ -1,0 +1,61 @@
+# Production stack for the VPS (DigitalOcean droplet): Spring Boot backend +
+# self-hosted PostgreSQL, containerized and co-located (zero cross-region DB
+# latency). Resource limits below are sized for a 4GB droplet — retune on resize.
+# Nginx + TLS live on the HOST (see infra/nginx/api.conf), proxying to the
+# backend on 127.0.0.1:8080.
+#
+# On the VM (from the repo root):
+#   docker compose -f docker-compose.prod.yml --env-file infra/.env.prod pull
+#   docker compose -f docker-compose.prod.yml --env-file infra/.env.prod up -d
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # Only the backend (same Docker network) can reach Postgres. NOT published
+    # to the host / public internet.
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # 4GB droplet budget: postgres 1g + backend 2g leaves ~1g for OS + nginx.
+    cpus: 1.0
+    mem_limit: 1g
+
+  backend:
+    image: ${BACKEND_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - infra/.env.prod
+    environment:
+      # Container-internal DB address (compose service name).
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+    # Bind ONLY to localhost: the host's nginx proxies here, but the port is
+    # never exposed to the public internet.
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    # cpus is a ceiling, not a reservation: let the JVM burst to both cores
+    # (faster startup + request spikes); postgres still gets its share.
+    cpus: 2.0
+    mem_limit: 2g
+
+volumes:
+  postgres-data:

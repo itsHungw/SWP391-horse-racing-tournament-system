@@ -7,12 +7,13 @@ import {
   Trophy,
   Compass,
   FileText,
-  Settings,
   Building2,
+  Wallet,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
 import { useClientSession } from "../hooks/useClientSession";
+import { NotificationBell } from "../components/NotificationBell";
 
 type AdminLayoutProps = {
   children: ReactNode;
@@ -43,10 +44,9 @@ const adminNavGroups = [
     ],
   },
   {
-    label: "SYSTEM",
+    label: "FINANCE",
     items: [
-      { label: "Point Settings", href: "/admin/points", icon: Settings },
-      { label: "Settings", href: "/admin/settings", icon: Settings },
+      { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
     ],
   },
 ];
@@ -94,11 +94,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </form>
 
             <div className="flex items-center gap-3">
+              <NotificationBell theme="admin" />
               <a
-                className="flex min-h-11 items-center rounded-full border border-slate-300 bg-white px-5 text-sm font-bold hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+                className="flex min-h-11 items-center gap-2 rounded-full border border-slate-300 bg-white px-5 text-sm font-bold text-slate-700 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] transition shadow-sm"
                 href="/profile"
               >
-                {session?.fullName || "Profile"}
+                <span className="h-2 w-2 rounded-full bg-[#b3193a]" />
+                System Admin
               </a>
               <button
                 className="min-h-11 rounded-full bg-[#070f4f] px-5 text-sm font-bold text-white hover:bg-[#101a70] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
@@ -112,7 +114,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         </header>
 
         <div className="grid min-h-[calc(100vh-81px)] lg:grid-cols-[238px_1fr]">
-          <aside className="border-b border-[#d8d8d8] bg-[#f1f1f1] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <aside className="admin-sidebar-scrollbar border-b border-[#d8d8d8] bg-[#f1f1f1] lg:sticky lg:top-20 lg:h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r">
             <nav aria-label="Admin workspace" className="flex overflow-x-auto lg:block lg:px-3 lg:py-4">
               {adminNavGroups.map((group) => (
                 <div key={group.label} className="contents lg:mb-5 lg:block">

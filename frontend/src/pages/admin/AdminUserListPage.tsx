@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Search } from "lucide-react";
 import { getAdminUsers, createAdminUser } from "../../api/adminUserApi";
 import { AdminUserDetail } from "../../types/adminUser";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -105,26 +106,29 @@ export function AdminUserListPage() {
           </div>
         )}
 
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-3xl font-black tracking-tight text-[#070f4f]">User Management</h1>
-            <p className="text-sm text-slate-600">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">Gate 2 · Identity controls</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">User Management</h1>
+            <p className="mt-2 text-sm text-slate-500">
               Manage accounts, verify profiles, edit active roles, and review audit logs.
             </p>
           </div>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex min-h-11 items-center justify-center rounded-md bg-[#a6ff3f] px-5 text-sm font-black text-[#07110d] hover:bg-[#c4ff72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+            className="flex min-h-11 items-center justify-center rounded-lg bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a] transition"
             type="button"
           >
             Create User
           </button>
         </div>
 
-        {/* Filters and Search */}
-        <div className="grid gap-4 rounded-lg border border-[#d8d8d8] bg-white p-5 md:grid-cols-3">
-          <div>
-            <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500">Search</label>
+        {/* Operations Filter Bar */}
+        <div className="grid gap-4 md:grid-cols-[1fr_200px_200px] bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+          {/* Search box */}
+          <div className="relative">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search by name, email, or phone..."
@@ -133,19 +137,19 @@ export function AdminUserListPage() {
                 setSearchQuery(e.target.value);
                 setPage(0);
               }}
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             />
           </div>
 
+          {/* Role Filter */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500">Filter by Role</label>
             <select
               value={selectedRole}
               onChange={(e) => {
                 setSelectedRole(e.target.value);
                 setPage(0);
               }}
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             >
               <option value="">All Roles</option>
               <option value="ADMIN">Admin</option>
@@ -155,15 +159,15 @@ export function AdminUserListPage() {
             </select>
           </div>
 
+          {/* Status Filter */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500">Filter by Status</label>
             <select
               value={selectedStatus}
               onChange={(e) => {
                 setSelectedStatus(e.target.value);
                 setPage(0);
               }}
-              className="mt-2 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none"
+              className="min-h-11 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition focus:border-[#b3193a] focus:ring-2 focus:ring-[#b3193a]/10"
             >
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
@@ -174,7 +178,7 @@ export function AdminUserListPage() {
         </div>
 
         {/* User Table */}
-        <div className="overflow-x-auto rounded-lg border border-[#d8d8d8] bg-white">
+        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {loading ? (
             <div className="flex h-64 items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#b3193a] border-t-transparent" />
@@ -187,7 +191,7 @@ export function AdminUserListPage() {
           ) : (
             <>
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[#f7f7f7] text-xs uppercase tracking-[0.14em] text-slate-500">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-[0.14em] text-slate-500 font-semibold">
                   <tr>
                     <th className="px-5 py-3">User</th>
                     <th className="px-5 py-3">Phone</th>

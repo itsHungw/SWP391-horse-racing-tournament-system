@@ -16,11 +16,12 @@ import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRe
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
-import com.example.horseracingtournamentsystem.point.entity.PointTransaction;
-import com.example.horseracingtournamentsystem.point.entity.PointTransactionType;
-import com.example.horseracingtournamentsystem.point.service.PointAccountService;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,10 +40,15 @@ public class StreakPredictionService {
     private final RaceRepository raceRepository;
     private final RaceParticipantRepository raceParticipantRepository;
     private final OddsCalculationService oddsCalculationService;
-    private final PointAccountService pointsService;
+    private final WalletService walletService;
 
-    // Maximum total odds allowed to limit house risk
-    private static final BigDecimal MAX_TOTAL_ODDS = BigDecimal.valueOf(1000.00);
+    /** Single parlay end-margin (e.g. 0.20 = 20% hold), applied once to the multiplied fair odds. */
+    @Value("${app.prediction.streak-takeout:0.20}")
+    private BigDecimal parlayTakeout;
+
+    /** Hard cap on a ticket's total multiplier (bounds house risk for this fixed-odds market). */
+    @Value("${app.prediction.max-total-odds:100}")
+    private BigDecimal maxTotalOdds;
 
     public StreakPredictionService(
         StreakPredictionRepository streakPredictionRepository,
@@ -51,7 +57,7 @@ public class StreakPredictionService {
         RaceRepository raceRepository,
         RaceParticipantRepository raceParticipantRepository,
         OddsCalculationService oddsCalculationService,
-        PointAccountService pointsService
+        WalletService walletService
     ) {
         this.streakPredictionRepository = streakPredictionRepository;
         this.spectatorRepository = spectatorRepository;
@@ -59,7 +65,7 @@ public class StreakPredictionService {
         this.raceRepository = raceRepository;
         this.raceParticipantRepository = raceParticipantRepository;
         this.oddsCalculationService = oddsCalculationService;
-        this.pointsService = pointsService;
+        this.walletService = walletService;
     }
 
     @Transactional
@@ -78,8 +84,8 @@ public class StreakPredictionService {
             throw new IllegalArgumentException("Invalid wager amount");
         }
 
-        if (pointsService.getBalance(spectator.getId()) < request.getWagerAmount()) {
-            throw new IllegalArgumentException("Insufficient points");
+        if (walletService.getBalance(spectator.getId()) < request.getWagerAmount()) {
+            throw new IllegalArgumentException("Insufficient balance");
         }
 
         StreakPrediction streakPrediction = StreakPrediction.builder()
@@ -89,7 +95,9 @@ public class StreakPredictionService {
             .status(StreakPredictionStatus.PENDING)
             .build();
 
-        BigDecimal totalOdds = BigDecimal.ZERO;
+        // True parlay: each leg priced as fair decimal odds (1/p), multiplied together, with a
+        // SINGLE end-margin applied once (not compounded per leg) and a hard cap on the total.
+        BigDecimal product = BigDecimal.ONE;
 
         for (StreakPredictionLegRequest legReq : request.getLegs()) {
             Race race = raceRepository.findById(legReq.getRaceId())
@@ -106,30 +114,21 @@ public class StreakPredictionService {
                 throw new IllegalArgumentException("Participant is withdrawn: " + participant.getHorse().getName());
             }
 
-            // Calculate odds for WINNER (Position 1)
+            // Fair win probability for this leg's pick (position 1), then fair odds = 1 / p.
             List<RaceParticipant> allParticipants = raceParticipantRepository
                     .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
                             race.getId(),
                             ParticipantStatus.WITHDRAWN
                     );
-            Map<Long, Map<Integer, BigDecimal>> matrix = oddsCalculationService.calculatePositionOddsMatrix(race.getId(), allParticipants);
-            
-            BigDecimal legOdds = BigDecimal.ZERO;
-            if (matrix.containsKey(participant.getId()) && matrix.get(participant.getId()).containsKey(1)) {
-                legOdds = matrix.get(participant.getId()).get(1);
-            }
-
-            if (legOdds.compareTo(BigDecimal.ZERO) <= 0) {
-                boolean containsParticipant = matrix.containsKey(participant.getId());
-                boolean containsPos = containsParticipant ? matrix.get(participant.getId()).containsKey(1) : false;
+            Map<Long, BigDecimal> winProbs = oddsCalculationService.getWinProbabilities(allParticipants);
+            BigDecimal p = winProbs.get(participant.getId());
+            if (p == null || p.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalStateException(
-                    String.format("Failed to calculate odds for participant %d. Race %d. " +
-                        "Participant in matrix: %s, Pos1 in matrix: %s",
-                        participant.getId(), race.getId(), containsParticipant, containsPos)
-                );
+                    "Cannot price streak leg for participant " + participant.getId() + " in race " + race.getId());
             }
 
-            totalOdds = totalOdds.add(legOdds);
+            BigDecimal legOdds = BigDecimal.ONE.divide(p, 4, RoundingMode.HALF_UP);
+            product = product.multiply(legOdds);
 
             StreakPredictionLeg leg = StreakPredictionLeg.builder()
                 .race(race)
@@ -141,19 +140,18 @@ public class StreakPredictionService {
             streakPrediction.addLeg(leg);
         }
 
-        // Cap total odds
-        if (totalOdds.compareTo(MAX_TOTAL_ODDS) > 0) {
-            totalOdds = MAX_TOTAL_ODDS;
+        BigDecimal totalOdds = product.multiply(BigDecimal.ONE.subtract(parlayTakeout));
+        if (totalOdds.compareTo(maxTotalOdds) > 0) {
+            totalOdds = maxTotalOdds;
         }
-
         streakPrediction.setTotalOdds(totalOdds.setScale(2, RoundingMode.HALF_UP));
 
         StreakPrediction saved = streakPredictionRepository.saveAndFlush(streakPrediction);
 
-        pointsService.adjustPoints(
-            spectator, -request.getWagerAmount(), PointTransactionType.PREDICTION_ENTRY,
-            PointTransaction.REF_STREAK_PREDICTION, saved.getId(),
-            "Deducted " + request.getWagerAmount() + " points for streak prediction #" + saved.getId()
+        walletService.adjust(
+            spectator, -request.getWagerAmount(), WalletTransactionType.BET_PLACED,
+            WalletTransaction.REF_STREAK_PREDICTION, saved.getId(),
+            "Placed streak bet of " + request.getWagerAmount() + " VND #" + saved.getId()
         );
 
         return mapToResponse(saved);

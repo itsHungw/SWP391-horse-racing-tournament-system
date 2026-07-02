@@ -14,8 +14,15 @@ import com.example.horseracingtournamentsystem.result.repository.RaceResultRepos
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminRaceSummaryResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminRaceDetailResponse;
 import com.example.horseracingtournamentsystem.prediction.dto.response.AdminAuditPredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.request.UpdatePredictionSettingRequest;
+import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionSettingResponse;
+import com.example.horseracingtournamentsystem.prediction.entity.PredictionSetting;
+import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
+import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import java.math.BigDecimal;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -30,15 +37,21 @@ public class AdminPredictionController {
     private final RacePredictionRepository predictionRepo;
     private final RaceRepository raceRepo;
     private final RaceResultRepository resultRepo;
+    private final PredictionSettingRepository predictionSettingRepo;
+    private final UserRepository userRepository;
 
     public AdminPredictionController(PredictionSettlementJobRepository jobRepo,
                                      RacePredictionRepository predictionRepo,
                                      RaceRepository raceRepo,
-                                     RaceResultRepository resultRepo) {
+                                     RaceResultRepository resultRepo,
+                                     PredictionSettingRepository predictionSettingRepo,
+                                     UserRepository userRepository) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
         this.resultRepo = resultRepo;
+        this.predictionSettingRepo = predictionSettingRepo;
+        this.userRepository = userRepository;
     }
 
     @GetMapping("/races")
@@ -60,7 +73,6 @@ public class AdminPredictionController {
             List<RacePrediction> preds = predictionRepo.findByRace_Id(r.getId());
             s.setTotalPredictions(preds.size());
             s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
-            s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
             // Settlement Job Status
             PredictionSettlementJob job = jobRepo.findByRace_Id(r.getId()).orElse(null);
@@ -82,8 +94,6 @@ public class AdminPredictionController {
 
             // Correct/Incorrect totals
             s.setCorrectWinnerCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
-            s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
-            s.setPartialTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
             s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
 
             return s;
@@ -125,11 +135,8 @@ public class AdminPredictionController {
         AdminRaceDetailResponse.SummaryInfo s = new AdminRaceDetailResponse.SummaryInfo();
         s.setTotalPredictions(preds.size());
         s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
-        s.setTop3PickCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType())).count());
 
         s.setWinnerCorrectCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
-        s.setExactTop3Count(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 30).count());
-        s.setTop3AnyOrderCount(preds.stream().filter(p -> RacePrediction.TYPE_TOP3.equals(p.getPredictionType()) && p.getRewardPoints() == 15).count());
         s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
         s.setRefundedCount(preds.stream().filter(p -> PredictionStatus.REFUNDED == p.getStatus()).count());
         s.setRewardedPoints(preds.stream().mapToLong(RacePrediction::getRewardPoints).sum());
@@ -177,14 +184,6 @@ public class AdminPredictionController {
             // Build selected horse names list
             List<String> selections = new ArrayList<>();
             selections.add(participantHorseNames.getOrDefault(p.getPredictedWinnerId(), "Unknown (#" + p.getPredictedWinnerId() + ")"));
-            if (RacePrediction.TYPE_TOP3.equals(p.getPredictionType())) {
-                if (p.getPredictedSecondId() != null) {
-                    selections.add(participantHorseNames.getOrDefault(p.getPredictedSecondId(), "Unknown (#" + p.getPredictedSecondId() + ")"));
-                }
-                if (p.getPredictedThirdId() != null) {
-                    selections.add(participantHorseNames.getOrDefault(p.getPredictedThirdId(), "Unknown (#" + p.getPredictedThirdId() + ")"));
-                }
-            }
             r.setSelections(selections);
             r.setEntryCostPoints(p.getEntryCostPoints());
             r.setStatus(p.getStatus());
@@ -238,5 +237,55 @@ public class AdminPredictionController {
             jobRepo.save(job);
         }
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/settings")
+    public ResponseEntity<PredictionSettingResponse> getSettings() {
+        PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
+            PredictionSetting s = new PredictionSetting();
+            s.setId(1L);
+            s.setDisplaySeed(40000000.0);
+            s.setTakeoutRate(BigDecimal.valueOf(0.15));
+            s.setUpdatedAt(LocalDateTime.now());
+            return predictionSettingRepo.save(s);
+        });
+
+        PredictionSettingResponse response = new PredictionSettingResponse();
+        response.setDisplaySeed(setting.getDisplaySeed());
+        response.setTakeoutRate(setting.getTakeoutRate());
+        response.setUpdatedAt(setting.getUpdatedAt());
+        if (setting.getUpdatedBy() != null) {
+            response.setUpdatedByUserName(setting.getUpdatedBy().getFullName());
+        }
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<PredictionSettingResponse> updateSettings(
+            @jakarta.validation.Valid @RequestBody UpdatePredictionSettingRequest request,
+            org.springframework.security.core.Authentication authentication
+    ) {
+        User user = userRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.UNAUTHORIZED, "User not found"));
+
+        PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
+            PredictionSetting s = new PredictionSetting();
+            s.setId(1L);
+            return s;
+        });
+
+        setting.setDisplaySeed(request.getDisplaySeed());
+        setting.setTakeoutRate(request.getTakeoutRate());
+        setting.setUpdatedAt(LocalDateTime.now());
+        setting.setUpdatedBy(user);
+        predictionSettingRepo.save(setting);
+
+        PredictionSettingResponse response = new PredictionSettingResponse();
+        response.setDisplaySeed(setting.getDisplaySeed());
+        response.setTakeoutRate(setting.getTakeoutRate());
+        response.setUpdatedAt(setting.getUpdatedAt());
+        response.setUpdatedByUserName(user.getFullName());
+        return ResponseEntity.ok(response);
     }
 }

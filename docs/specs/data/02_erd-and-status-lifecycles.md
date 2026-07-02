@@ -10,6 +10,11 @@ erDiagram
     users ||--o| horse_owner_profiles : owns
     users ||--o| jockey_profiles : has
     users ||--o| referee_profiles : has
+    users ||--o| wallets : owns
+    wallets ||--o{ wallet_transactions : records
+    users ||--o{ organizations : owns
+    organizations ||--o{ tournaments : operates
+    organizations ||--o{ referee_contracts : invites
     horse_owner_profiles ||--o{ horses : manages
     horses ||--o{ horse_documents : has
     tournaments ||--o{ tournament_registrations : receives
@@ -25,12 +30,10 @@ erDiagram
     races ||--o{ referee_reports : reports
     races ||--o{ race_results : produces
     tournaments ||--o{ tournament_rankings : ranks
-    users ||--|| user_point_accounts : owns
-    users ||--o{ point_transactions : records
-    blogs ||--o{ user_blog_rewards : rewards
-    users ||--o{ user_blog_rewards : claims
     races ||--o{ race_predictions : predicted
     users ||--o{ race_predictions : submits
+    users ||--o{ streak_predictions : submits
+    streak_predictions ||--o{ streak_prediction_legs : contains
 ```
 
 ## 2. Main Status Lifecycles
@@ -39,7 +42,7 @@ erDiagram
 
 `PENDING_EMAIL_VERIFY -> ACTIVE`
 
-Admin/security states can also include `LOCKED` and `DISABLED`.
+Schema also supports administrative states such as `SUSPENDED`, `INACTIVE`, and `BANNED` after organizer migrations.
 
 ### Role request
 
@@ -49,7 +52,23 @@ PENDING -> REJECTED
 PENDING -> CANCELLED
 ```
 
-CV review state: `NOT_REVIEWED -> PASSED`.
+CV review state includes `NOT_REVIEWED` and `PASSED`.
+
+### Organization
+
+```text
+PENDING -> ACTIVE
+PENDING -> REJECTED
+ACTIVE -> SUSPENDED
+SUSPENDED -> ACTIVE
+REJECTED -> PENDING
+```
+
+Rejected applications are reused for resubmission instead of duplicating organization rows.
+
+### Tournament launch
+
+Organizer-created tournaments are drafted and submitted for platform approval. Current code includes organizer submit and admin approve/reject endpoints; statuses are represented by the `TournamentStatus` enum and status transitions in tournament services.
 
 ### Horse
 
@@ -68,6 +87,8 @@ PENDING -> REJECTED
 PENDING -> WITHDRAWN
 ```
 
+`PENDING` and `APPROVED` count as active owner participation for the one-role-per-tournament guard.
+
 ### Jockey pool application
 
 ```text
@@ -75,6 +96,8 @@ PENDING -> APPROVED_FOR_POOL
 PENDING -> REJECTED
 PENDING -> WITHDRAWN
 ```
+
+`PENDING` and `APPROVED_FOR_POOL` count as active jockey participation for the one-role-per-tournament guard.
 
 ### Jockey contract/invitation
 
@@ -85,6 +108,16 @@ PENDING -> EXPIRED
 ```
 
 Legacy schema also includes `CANCELLED`.
+
+### Referee contract
+
+```text
+PENDING -> ACTIVE
+PENDING -> DECLINED
+ACTIVE -> TERMINATED
+```
+
+`ACTIVE` counts as active referee participation for the one-role-per-tournament guard.
 
 ### Race participant checks
 
@@ -99,6 +132,7 @@ Result workflow status:
 ```text
 DRAFT -> SUBMITTED -> CONFIRMED -> PUBLISHED
 SUBMITTED -> REJECTED
+CONFIRMED -> DRAFT
 ```
 
 Result entry status:
@@ -116,7 +150,45 @@ Current backend enum:
 DRAFT -> PUBLISHED
 ```
 
-Legacy database script may include `HIDDEN`.
+### Wallet
+
+Wallet status:
+
+```text
+ACTIVE -> LOCKED
+LOCKED -> ACTIVE
+```
+
+Wallet transaction types:
+
+- `TOPUP`
+- `BET_PLACED`
+- `BET_PAYOUT`
+- `BET_REFUND`
+- `WITHDRAWAL_HOLD`
+- `WITHDRAWAL_REFUND`
+- `ADMIN_ADJUSTMENT`
+
+### Top-up
+
+```text
+PENDING -> SUCCESS
+PENDING -> FAILED
+PENDING -> EXPIRED
+```
+
+The enum also contains `INITIATED`; current order creation starts at `PENDING`.
+
+### Withdrawal
+
+```text
+REQUESTED -> APPROVED -> PAID
+REQUESTED -> REJECTED
+REQUESTED -> CANCELLED
+APPROVED -> REJECTED
+```
+
+Rejection/cancellation refunds the held wallet amount.
 
 ### Prediction
 
@@ -124,7 +196,17 @@ Legacy database script may include `HIDDEN`.
 PENDING -> LOCKED -> CORRECT
 PENDING -> LOCKED -> INCORRECT
 PENDING -> CANCELLED
+PENDING -> REFUNDED
 LOCKED -> REFUNDED
+```
+
+### Streak prediction
+
+```text
+PENDING -> IN_PROGRESS -> WON
+PENDING -> IN_PROGRESS -> LOST
+PENDING -> REFUNDED
+IN_PROGRESS -> REFUNDED
 ```
 
 ### Prediction settlement job
@@ -136,24 +218,3 @@ FAILED -> PENDING
 ```
 
 Retry moves a failed job back into a processable state.
-
-## 3. Point Ledger Lifecycle
-
-`user_point_accounts` stores the current balance. `point_transactions` stores each balance-changing event.
-
-Transaction types:
-
-- `FIRST_LOGIN_BONUS`
-- `PREDICTION_ENTRY`
-- `PREDICTION_REWARD`
-- `BLOG_REWARD`
-- `RACE_CANCEL_REFUND`
-- `ADMIN_ADJUSTMENT`
-
-Reference types:
-
-- `RACE_PREDICTION`
-- `RACE_RESULT`
-- `BLOG`
-- `ADMIN`
-- `RACE`

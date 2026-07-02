@@ -1,10 +1,23 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { CalendarDays, CheckCircle2, FileCheck2, Gauge, LogOut, Search, ShieldCheck, Trophy, UserRound } from "lucide-react";
+import { 
+  CalendarDays, 
+  CheckCircle2, 
+  FileCheck2, 
+  Gauge, 
+  LogOut, 
+  Search, 
+  ShieldCheck, 
+  Trophy, 
+  UserRound,
+  ChevronLeft,
+  ChevronRight
+} from "lucide-react";
 
 import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
 import { useClientSession } from "../hooks/useClientSession";
+import { NotificationBell } from "../components/NotificationBell";
 
 type JockeyLayoutProps = {
   children: ReactNode;
@@ -22,6 +35,19 @@ const jockeyNavItems = [
 export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
   const navigate = useNavigate();
   const { logout, session } = useClientSession();
+  
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    return localStorage.getItem("jockeySidebarCollapsed") === "true";
+  });
+
+  const toggleSidebar = () => {
+    setIsCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem("jockeySidebarCollapsed", String(next));
+      return next;
+    });
+  };
+
   const displayName = session?.fullName || "Jockey";
   const initials = displayName
     .split(" ")
@@ -48,7 +74,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             href="/jockey/dashboard"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50">
               <img alt="" className="h-12 w-12 object-contain brightness-0" src={logo} />
             </span>
             <div>
@@ -68,9 +94,10 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
           </label>
 
           <div className="flex flex-wrap items-center gap-3">
+            <NotificationBell theme="jockey" />
             <span className="inline-flex min-h-11 items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 text-sm font-bold text-slate-700">
               <ShieldCheck className="h-4 w-4 text-[#006d5b]" aria-hidden="true" />
-              <span className="max-w-[190px] truncate">{displayName}</span>
+              <span className="max-w-[190px] truncate">Jockey</span>
             </span>
             <button
               className="inline-flex min-h-11 items-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-black text-white hover:bg-[#006d5b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
@@ -84,69 +111,126 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-[calc(100dvh-81px)] max-w-[1720px] lg:grid-cols-[292px_1fr]">
-        <aside className="relative overflow-hidden border-b border-emerald-950/20 bg-[#002d25] text-white lg:sticky lg:top-[81px] lg:h-[calc(100dvh-81px)] lg:border-b-0 lg:border-r">
-          <img alt="" className="absolute inset-0 h-full w-full object-cover opacity-[0.12]" src={racingImage} />
-          <div className="absolute inset-0 bg-[#002d25]/90" />
-          <div className="relative p-4">
-            <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Racing Cockpit</p>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-emerald-100 text-xl font-black text-[#004d3d]">
-                  {initials}
-                </div>
-                <div>
-                  <p className="font-black">{displayName}</p>
-                  <p className="text-sm font-bold text-emerald-100">Professional Jockey</p>
-                  <span className="mt-2 inline-flex rounded-md bg-emerald-400/15 px-2 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-emerald-100">
-                    Active
-                  </span>
-                </div>
-              </div>
+      <div className={`mx-auto grid min-h-[calc(100dvh-81px)] max-w-[1720px] transition-[grid-template-columns] duration-300 ${isCollapsed ? 'lg:grid-cols-[80px_1fr]' : 'lg:grid-cols-[292px_1fr]'}`}>
+        <aside className="relative border-b border-emerald-950/20 bg-[#002d25] text-white lg:sticky lg:top-[81px] lg:h-[calc(100dvh-81px)] lg:border-b-0 lg:border-r z-20 transition-all duration-300">
+          
+          <div className="relative h-full w-full overflow-hidden">
+            {/* Background Image Container */}
+            <div className="absolute inset-0 pointer-events-none">
+              <img alt="" className="absolute inset-0 h-full w-full object-cover opacity-[0.12]" src={racingImage} />
+              <div className="absolute inset-0 bg-[#002d25]/90" />
             </div>
 
-            <nav aria-label="Jockey workspace" className="mt-4 flex gap-2 overflow-x-auto lg:block lg:space-y-1.5">
-              {jockeyNavItems.map((item) => (
-                <NavLink
-                  className={({ isActive }) =>
-                    [
-                      "flex min-h-11 min-w-max items-center gap-3 rounded-md px-4 text-sm font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200",
-                      isActive
-                        ? "bg-[#006d5b] text-white shadow-sm shadow-emerald-950/20"
-                        : "text-emerald-50/85 hover:bg-white/10 hover:text-white",
-                    ].join(" ")
-                  }
-                  key={item.href}
-                  to={item.href}
-                >
-                  <item.icon className="h-5 w-5" aria-hidden="true" />
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
-
-            {sidebarPanel ?? (
-              <section className="mt-8 hidden rounded-lg border border-white/10 bg-white/5 p-4 lg:block" aria-label="Pool workflow">
-                <div className="flex items-center justify-between">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100">Pool Workflow</p>
-                  <Trophy className="h-4 w-4 text-emerald-100" aria-hidden="true" />
+            {/* Inner Content Wrapper */}
+            <div className="relative flex h-full flex-col p-4">
+              {/* Profile Block */}
+              <div className={`rounded-xl border border-white/10 bg-white/5 transition-all duration-300 ${isCollapsed ? 'p-2 flex justify-center' : 'p-4'}`}>
+                {!isCollapsed && <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100 whitespace-nowrap">Racing Cockpit</p>}
+                <div className={`flex items-center gap-3 ${!isCollapsed ? 'mt-4' : ''}`}>
+                  <div className={`flex shrink-0 items-center justify-center rounded-lg bg-emerald-100 font-black text-[#004d3d] transition-all duration-300 ${isCollapsed ? 'h-10 w-10 text-sm' : 'h-12 w-12 text-xl'}`}>
+                    {initials}
+                  </div>
+                  {!isCollapsed && (
+                    <div className="min-w-0">
+                      <p className="truncate font-black whitespace-nowrap">{displayName}</p>
+                      <p className="truncate text-sm font-bold text-emerald-100 whitespace-nowrap">Professional Jockey</p>
+                    </div>
+                  )}
                 </div>
-                <ol className="mt-4 grid gap-3 text-sm">
-                  {["Apply to pool", "Admin review", "Owner contract", "Participant lock"].map((step, index) => (
-                    <li className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-b-0 last:pb-0" key={step}>
-                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-emerald-100">
-                        {index < 2 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
-                      </span>
-                      <span className="font-black leading-5 text-emerald-50">{step}</span>
-                    </li>
-                  ))}
-                </ol>
-                <p className="mt-4 text-xs font-bold leading-5 text-emerald-100/80">
-                  Horse, rank, and points appear after an official participant and standings exist.
-                </p>
-              </section>
-            )}
+              </div>
+
+              {/* Navigation */}
+              <nav aria-label="Jockey workspace" className={`mt-5 flex gap-2 overflow-x-auto lg:overflow-visible transition-all duration-300 ${isCollapsed ? 'lg:flex lg:flex-col lg:items-center' : 'lg:block lg:space-y-1.5'}`}>
+                {jockeyNavItems.map((item) => (
+                  <NavLink
+                    className={({ isActive }) =>
+                      [
+                        "flex min-h-11 items-center gap-3 rounded-lg text-sm font-black transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-200",
+                        isActive
+                          ? "bg-[#006d5b] text-white shadow-sm shadow-emerald-950/20"
+                          : "text-emerald-50/85 hover:bg-white/10 hover:text-white",
+                        isCollapsed ? "w-11 justify-center px-0" : "min-w-max px-4",
+                      ].join(" ")
+                    }
+                    key={item.href}
+                    to={item.href}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
+                  </NavLink>
+                ))}
+              </nav>
+
+              {/* Pool Workflow */}
+              {!isCollapsed && (sidebarPanel ?? (
+                <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-4 hidden lg:block" aria-label="Pool workflow">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-100 whitespace-nowrap">Pool Workflow</p>
+                    <Trophy className="h-4 w-4 shrink-0 text-emerald-100" aria-hidden="true" />
+                  </div>
+                  <ol className="mt-4 grid gap-3 text-sm">
+                    {["Apply to pool", "Admin review", "Owner contract", "Participant lock"].map((step, index) => (
+                      <li className="flex items-center gap-3 border-b border-white/10 pb-3 last:border-b-0 last:pb-0" key={step}>
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-black text-emerald-100">
+                          {index < 2 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> : index + 1}
+                        </span>
+                        <span className="font-black leading-5 text-emerald-50 whitespace-nowrap">{step}</span>
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-4 text-xs font-bold leading-5 text-emerald-100/80">
+                    Horse, rank, and points appear after an official participant and standings exist.
+                  </p>
+                </section>
+              ))}
+            </div>
           </div>
+
+          {/* Toggle Button (Desktop only) */}
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="absolute -right-[24px] top-16 z-30 hidden h-20 w-6 outline-none focus-visible:outline-none lg:block group"
+            aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {/* Custom Trapezoid Tab SVG */}
+            <svg 
+              viewBox="0 0 24 80" 
+              xmlns="http://www.w3.org/2000/svg"
+              className="absolute inset-0 h-full w-full text-[#002d25] drop-shadow-[4px_0_6px_rgba(0,0,0,0.2)] transition-all duration-300 group-hover:text-[#003b30]"
+            >
+              {/* Main Background */}
+              <path 
+                d="M0 0 L16 10 Q24 12 24 22 L24 58 Q24 68 16 70 L0 80 Z" 
+                fill="currentColor" 
+              />
+              {/* Outer Dark Border (Top, Right, Bottom) */}
+              <path 
+                d="M0 0 L16 10 Q24 12 24 22 L24 58 Q24 68 16 70 L0 80" 
+                fill="none" 
+                stroke="#064e3b" 
+                strokeWidth="1.5"
+              />
+              {/* Inner Bright Highlight (Top, Right, Bottom) */}
+              <path 
+                d="M0 2.5 L14 11.5 Q21 14 21 22 L21 58 Q21 66 14 68.5 L0 77.5" 
+                fill="none" 
+                stroke="#34d399" 
+                strokeWidth="1.5"
+                className="opacity-80 transition-opacity group-hover:opacity-100"
+              />
+            </svg>
+            
+            {/* Arrow Icon */}
+            <div className="absolute inset-0 flex items-center justify-center pl-0.5 transition-transform duration-300 group-hover:scale-110">
+              {isCollapsed ? (
+                <ChevronRight className="h-4 w-4 text-emerald-100 drop-shadow-md" strokeWidth={3} />
+              ) : (
+                <ChevronLeft className="h-4 w-4 text-emerald-100 drop-shadow-md" strokeWidth={3} />
+              )}
+            </div>
+          </button>
         </aside>
 
         <main className="min-w-0 px-5 py-6 sm:px-7 lg:px-8">{children}</main>

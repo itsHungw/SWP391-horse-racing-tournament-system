@@ -20,9 +20,14 @@ vi.mock("../../api/adminTournamentApi", () => ({
 }));
 
 vi.mock("../../api/adminRaceApi", () => ({
+  assignAdminRaceReferee: vi.fn(),
   createAdminRace: vi.fn(),
   getAdminRaces: vi.fn(),
   updateAdminRaceStatus: vi.fn(),
+}));
+
+vi.mock("../../api/adminUserApi", () => ({
+  getAdminUsers: vi.fn().mockResolvedValue({ content: [] }),
 }));
 
 vi.mock("../../api/racingApi", () => ({
@@ -39,6 +44,7 @@ vi.mock("../../api/racingApi", () => ({
 describe("AdminTournamentDetailPage championship lifecycle UX", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(getTournamentDetail).mockResolvedValue({
       id: 7,
       name: "Summer Championship 2026",
@@ -179,6 +185,11 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     );
   }
 
+  function enableAdminOverride() {
+    fireEvent.click(screen.getByRole("button", { name: /enable admin override/i }));
+    expect(screen.getByText(/admin override is on/i)).toBeInTheDocument();
+  }
+
   it("answers current state and opens round control center from the command header", async () => {
     renderPage();
 
@@ -203,6 +214,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(screen.getAllByText(/next action/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/start operational checks/i).length).toBeGreaterThan(0);
 
+    enableAdminOverride();
     fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
 
     expect(await screen.findByRole("heading", { name: /round control center/i })).toBeInTheDocument();
@@ -261,6 +273,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
     expect(screen.getAllByText(/review applications/i).length).toBeGreaterThan(0);
 
+    enableAdminOverride();
     fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
 
     expect(await screen.findByRole("heading", { name: /championship applications/i })).toBeInTheDocument();
@@ -296,6 +309,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
     expect(screen.getAllByText(/lock participants/i).length).toBeGreaterThan(0);
 
+    enableAdminOverride();
     fireEvent.click(screen.getAllByRole("button", { name: /continue operations/i })[0]);
 
     await waitFor(() => {
@@ -308,6 +322,7 @@ describe("AdminTournamentDetailPage championship lifecycle UX", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: /summer championship 2026/i })).toBeInTheDocument();
+    enableAdminOverride();
 
     fireEvent.click(screen.getByRole("button", { name: /^rounds$/i }));
     expect(await screen.findByRole("heading", { name: /championship rounds/i })).toBeInTheDocument();

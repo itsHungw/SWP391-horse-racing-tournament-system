@@ -17,10 +17,7 @@ public class AdminRaceSummaryResponse {
     private String predictionStatus; // OPEN, LOCKED, SETTLEMENT_PENDING, PROCESSING, COMPLETED, FAILED, REFUNDED
     private long totalPredictions;
     private long winnerPickCount;
-    private long top3PickCount;
     private long correctWinnerCount;
-    private long exactTop3Count;
-    private long partialTop3Count;
     private long incorrectCount;
     private String settlementJobStatus;
 }

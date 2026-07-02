@@ -182,6 +182,20 @@
   font-optical-sizing: auto;
 }
 
+/* Override typography for organizer workspace pages to match sans-serif bold style */
+.organizer-workspace-root .font-display {
+  font-family: inherit !important;
+  font-weight: 800 !important;
+}
+
+.organizer-workspace-root .font-light {
+  font-weight: 800 !important;
+}
+
+.organizer-workspace-root .font-medium {
+  font-weight: 700 !important;
+}
+
 .font-grotesk {
   font-family: var(--font-grotesk);
 }
@@ -365,4 +379,154 @@ html {
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--color-gold-400);
+}
+
+/* Accordion transition styles */
+.accordion-wrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.accordion-wrapper.expanded {
+  grid-template-rows: 1fr;
+}
+.accordion-content {
+  min-height: 0;
+}
+
+/* Rules dialog: backdrop fade + panel rise (honors reduced-motion via motion-safe: prefix). */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Premium scrollbar for forms/modals */
+.premium-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.premium-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.premium-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #bb8a3c;
+  border-radius: 9999px;
+  border: none;
+}
+.premium-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #cfa24f;
+}
+.premium-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #bb8a3c transparent;
+}
+
+/* Custom scrollbar for the Admin Sidebar */
+.admin-sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.admin-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.admin-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #d1d1d1;
+  border-radius: 9999px;
+}
+.admin-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #b3193a; /* Crimson matching active hover admin color */
+}
+.admin-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #d1d1d1 #f1f1f1;
+}
+
+/* Custom scrollbar for the Organizer Sidebar */
+.organizer-sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-track {
+  background: #1c1816;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #332d29;
+  border-radius: 9999px;
+}
+.organizer-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #bb8a3c; /* Golden brand color on hover */
+}
+.organizer-sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #332d29 #1c1816;
+}
+
+/* Hide scrollbar for elements with .no-scrollbar */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Modal Scrollbar - Highly visible and native-feeling */
+.modal-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.modal-scrollbar::-webkit-scrollbar {
+  width: 12px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1; /* Gray thumb */
+  border-radius: 999px;
+  border: 3px solid transparent; /* Creates padding around the thumb */
+  background-clip: padding-box;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8; /* Darker gray on hover */
+}
+
+/* Custom scrollbar for Notifications Dropdown */
+.notification-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb, #cbd5e1) transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb {
+  background-color: var(--scrollbar-thumb, #cbd5e1);
+  border-radius: 999px;
+}
+
+.notification-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: var(--scrollbar-thumb-hover, #94a3b8);
+}
+
+/* Utility to hide browser-native spinner controls on number inputs */
+.no-spinners::-webkit-outer-spin-button,
+.no-spinners::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinners {
+  -moz-appearance: textfield;
 }

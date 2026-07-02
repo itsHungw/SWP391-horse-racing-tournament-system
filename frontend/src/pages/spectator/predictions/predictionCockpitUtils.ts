@@ -1,12 +1,10 @@
 import type { OpenRacePrediction, PredictionOptions, PredictionType, UserPrediction } from "./types/prediction.types";
 
-export type PickSlot = "winnerId" | "secondId" | "thirdId";
+export type PickSlot = "winnerId";
 
 export interface Picks {
   winnerId: number | null; // Used as horseId for EXACT_POSITION
   predictedPosition?: number | null; // Used for EXACT_POSITION
-  secondId: number | null;
-  thirdId: number | null;
 }
 
 export interface PredictionValidation {
@@ -22,8 +20,6 @@ export interface RaceTimelineStatus {
 export const EMPTY_PICKS: Picks = {
   winnerId: null,
   predictedPosition: null,
-  secondId: null,
-  thirdId: null,
 };
 
 export const bibClasses = [
@@ -46,11 +42,45 @@ export function getBibClass(value: string): string {
   return bibClasses[index] ?? "bg-turf-800 text-ivory";
 }
 
-const slotLabels: Record<PickSlot, string> = {
-  winnerId: "First",
-  secondId: "Second",
-  thirdId: "Third",
-};
+// --- Money math (shared by the bet slip, streak slip, and prediction cards) ---
+// House takeout baked into the displayed odds — mirrors backend `app.prediction.*` defaults.
+// Display-only: single-race payouts are settled from the real pari-mutuel pool at close.
+export const HOUSE_TAKEOUT_PCT = 15;
+export const STREAK_TAKEOUT = 0.2;
+export const STREAK_MAX_ODDS = 100;
+
+export function formatVnd(amount: number): string {
+  return Math.round(amount || 0).toLocaleString("en-US");
+}
+
+export interface PayoutMath {
+  stake: number;
+  odds: number; // decimal multiplier
+  payout: number; // gross return if the bet wins = floor(stake * odds)
+  profit: number; // net = payout - stake
+  returnPct: number; // profit / stake * 100
+}
+
+export function computePayout(stake: number, odds: number | null | undefined): PayoutMath {
+  const safeStake = Math.max(0, Math.round(stake || 0));
+  const safeOdds = typeof odds === "number" && Number.isFinite(odds) && odds > 0 ? odds : 0;
+  const payout = Math.floor(safeStake * safeOdds);
+  const profit = payout - safeStake;
+  return {
+    stake: safeStake,
+    odds: safeOdds,
+    payout,
+    profit,
+    returnPct: safeStake > 0 ? (profit / safeStake) * 100 : 0,
+  };
+}
+
+// Streak parlay multiplier from per-leg fair odds: product(legOdds) * (1 - takeout), capped.
+export function computeStreakOdds(legOdds: number[]): number {
+  if (legOdds.length === 0) return 0;
+  const product = legOdds.reduce((acc, o) => acc * (o > 0 ? o : 1), 1);
+  return Math.min(product * (1 - STREAK_TAKEOUT), STREAK_MAX_ODDS);
+}
 
 export function getEntryCost(options: PredictionOptions | null | undefined, predType: PredictionType): number {
   if (!options) {
@@ -66,7 +96,7 @@ export function getRewardLabel(options: PredictionOptions | null | undefined, pr
   }
 
   if (predType === "HEAD_TO_HEAD") {
-    return "AMM Dynamic Odds";
+    return "Matchup estimate";
   }
 
   return "-";
@@ -86,57 +116,22 @@ export function formatRunnerName(options: PredictionOptions | null | undefined, 
 }
 
 export function getPickedSlot(picks: Picks, participantId: number): PickSlot | null {
-  if (picks.winnerId === participantId) {
-    return "winnerId";
-  }
-  if (picks.secondId === participantId) {
-    return "secondId";
-  }
-  if (picks.thirdId === participantId) {
-    return "thirdId";
-  }
-
-  return null;
-}
-
-export function setPickSlot(picks: Picks, slot: PickSlot, participantId: number | null): Picks {
-  return {
-    ...picks,
-    [slot]: participantId,
-  };
+  return picks.winnerId === participantId ? "winnerId" : null;
 }
 
 export function pickRunnerForMode({
   picks,
-  predType,
   participantId,
-  activeSlot,
 }: {
   picks: Picks;
-  predType: PredictionType;
   participantId: number;
-  activeSlot: PickSlot | null;
 }): Picks {
-  if (predType === "WINNER") {
-    return { ...EMPTY_PICKS, winnerId: participantId };
+  // Single-winner pick (toggle). EXACT_POSITION is handled separately by its own UI
+  // because it needs both a horse and a position.
+  if (picks.winnerId === participantId) {
+    return { ...EMPTY_PICKS };
   }
-
-  // EXACT_POSITION is handled separately by a custom UI component because it needs both horse and position.
-  // We won't use pickRunnerForMode for EXACT_POSITION.
-
-  if (activeSlot) {
-    const pickedSlot = getPickedSlot(picks, participantId);
-    const dedupedPicks = pickedSlot && pickedSlot !== activeSlot ? setPickSlot(picks, pickedSlot, null) : picks;
-    return setPickSlot(dedupedPicks, activeSlot, participantId);
-  }
-
-  const pickedSlot = getPickedSlot(picks, participantId);
-  if (pickedSlot) {
-    return setPickSlot(picks, pickedSlot, null);
-  }
-
-  const nextOpenSlot = (["winnerId", "secondId", "thirdId"] as const).find((slot) => picks[slot] == null);
-  return nextOpenSlot ? setPickSlot(picks, nextOpenSlot, participantId) : picks;
+  return { ...EMPTY_PICKS, winnerId: participantId };
 }
 
 export function derivePredictionValidation({
@@ -166,18 +161,6 @@ export function derivePredictionValidation({
     if (picks.winnerId == null || picks.predictedPosition == null) {
       return { canConfirm: false, message: "Choose a horse and position." };
     }
-    if (!isUpdate) {
-      const hasDuplicate = options.myPredictions.some(
-        (p) =>
-          p.predictionType === "EXACT_POSITION" &&
-          p.status === "PENDING" &&
-          p.predictedWinnerId === picks.winnerId &&
-          p.predictedPosition === picks.predictedPosition
-      );
-      if (hasDuplicate) {
-        return { canConfirm: false, message: "You already placed this exact prediction. Edit to update wager." };
-      }
-    }
   }
 
   if (predType === "WINNER" && picks.winnerId == null) {
@@ -187,24 +170,6 @@ export function derivePredictionValidation({
   if (predType === "HEAD_TO_HEAD") {
     if (picks.winnerId == null) {
       return { canConfirm: false, message: "Choose a horse for the Head-to-Head matchup." };
-    }
-    if (!isUpdate) {
-      const selectedMatchup = options.h2hMatchups?.find(
-        (m) => m.participantAId === picks.winnerId || m.participantBId === picks.winnerId
-      );
-      if (selectedMatchup) {
-        const pA = selectedMatchup.participantAId;
-        const pB = selectedMatchup.participantBId;
-        const hasDuplicate = options.myPredictions.some(
-          (p) =>
-            p.predictionType === "HEAD_TO_HEAD" &&
-            p.status === "PENDING" &&
-            (p.predictedWinnerId === pA || p.predictedWinnerId === pB)
-        );
-        if (hasDuplicate) {
-          return { canConfirm: false, message: "You already have a prediction for this matchup. Click 'Edit'." };
-        }
-      }
     }
   }
 

@@ -20,6 +20,9 @@ public class PublicRaceResultResponse {
     @Builder
     @AllArgsConstructor
     public static class Entry {
+        private Long raceParticipantId;
+        private Integer startNumber;
+        private Integer laneNumber;
         private Integer position;
         private String horseName;
         private String jockeyName;

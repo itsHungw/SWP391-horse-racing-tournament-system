@@ -1,4 +1,4 @@
-# Local development stack: SQL Server + MinIO (S3-compatible).
+# Local development stack: PostgreSQL + MinIO (S3-compatible).
 # Pairs a local database with a local object store so developers never touch the
 # shared cloud bucket. Usage:
 #   cp .env.example .env   (adjust if needed)
@@ -6,48 +6,33 @@
 # Then run the backend with SPRING_PROFILES_ACTIVE=dev.
 
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: hrts-sqlserver
+  postgres:
+    image: postgres:17
+    container_name: hrts-postgres
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${DB_SA_PASSWORD:-Local_Dev_Password123}"
-      MSSQL_PID: "Developer"
+      # The official image auto-creates POSTGRES_DB on first start with this
+      # user as owner, so no separate db-init step is needed.
+      POSTGRES_DB: "${DB_NAME:-horseracing}"
+      POSTGRES_USER: "${DB_USERNAME:-horseracing}"
+      POSTGRES_PASSWORD: "${DB_PASSWORD:-local123}"
     ports:
-      # Host port 14330 (not 1433) to avoid clashing with a locally installed
-      # SQL Server (e.g. SQL Server Express). Point the backend's DB_URL at
-      # localhost:14330. The container still listens on 1433 internally, so
-      # db-init connects to sqlserver:1433 on the compose network.
-      - "14330:1433"
+      # Postgres default port. Point the backend's DB_URL at localhost:5432.
+      - "5432:5432"
     volumes:
-      - sqlserver-data:/var/opt/mssql
-
-  # Creates the application database once SQL Server is accepting connections.
-  # Reuses the SQL Server image so sqlcmd (mssql-tools18) and bash are present.
-  db-init:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    depends_on:
-      - sqlserver
-    environment:
-      DB_SA_PASSWORD: "${DB_SA_PASSWORD:-Local_Dev_Password123}"
-      DB_NAME: "${DB_NAME:-horseracing}"
-    entrypoint:
-      - /bin/bash
-      - -c
-      - |
-        for i in $$(seq 1 30); do
-          /opt/mssql-tools18/bin/sqlcmd -S sqlserver -U sa -P "$$DB_SA_PASSWORD" -C -Q "IF DB_ID('$$DB_NAME') IS NULL CREATE DATABASE [$$DB_NAME]" && break
-          echo "waiting for sql server ($$i)..."
-          sleep 2
-        done
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-horseracing} -d ${DB_NAME:-horseracing}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   minio:
     image: minio/minio
     container_name: hrts-minio
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: "${AWS_S3_ACCESS_KEY:-minioadmin}"
-      MINIO_ROOT_PASSWORD: "${AWS_S3_SECRET_KEY:-minioadmin}"
+      MINIO_ROOT_USER: "${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}"
+      MINIO_ROOT_PASSWORD: "${OBJECT_STORAGE_SECRET_KEY:-minioadmin}"
     ports:
       - "9000:9000"   # S3 API
       - "9001:9001"   # web console
@@ -60,19 +45,19 @@ services:
     depends_on:
       - minio
     environment:
-      AWS_S3_BUCKET: "${AWS_S3_BUCKET:-horseracing-dev}"
-      AWS_S3_ACCESS_KEY: "${AWS_S3_ACCESS_KEY:-minioadmin}"
-      AWS_S3_SECRET_KEY: "${AWS_S3_SECRET_KEY:-minioadmin}"
+      OBJECT_STORAGE_BUCKET: "${OBJECT_STORAGE_BUCKET:-horseracing-dev}"
+      OBJECT_STORAGE_ACCESS_KEY: "${OBJECT_STORAGE_ACCESS_KEY:-minioadmin}"
+      OBJECT_STORAGE_SECRET_KEY: "${OBJECT_STORAGE_SECRET_KEY:-minioadmin}"
     entrypoint:
       - /bin/sh
       - -c
       - >
-        until mc alias set local http://minio:9000 "$$AWS_S3_ACCESS_KEY" "$$AWS_S3_SECRET_KEY"; do
+        until mc alias set local http://minio:9000 "$$OBJECT_STORAGE_ACCESS_KEY" "$$OBJECT_STORAGE_SECRET_KEY"; do
           echo "waiting for minio..."; sleep 2;
         done;
-        mc mb --ignore-existing local/"$$AWS_S3_BUCKET";
-        echo "minio bucket $$AWS_S3_BUCKET ready"
+        mc mb --ignore-existing local/"$$OBJECT_STORAGE_BUCKET";
+        echo "minio bucket $$OBJECT_STORAGE_BUCKET ready"
 
 volumes:
-  sqlserver-data:
+  postgres-data:
   minio-data:

@@ -1,6 +1,9 @@
 import { useState } from "react";
-import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History } from "lucide-react";
+import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History, HelpCircle } from "lucide-react";
 import type { StreakPredictionLeg, StreakPredictionResponse } from "../types/prediction.types";
+import { computeStreakOdds } from "../predictionCockpitUtils";
+import { PayoutReceipt } from "./PayoutReceipt";
+import { RulesDialog } from "./RulesDialog";
 
 interface StreakSlipProps {
   legs: StreakPredictionLeg[];
@@ -29,10 +32,11 @@ export function StreakSlip({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
 
-  const totalOdds = legs.reduce((acc, leg) => acc + leg.lockedOdds, 0);
-  const displayOdds = legs.length > 0 ? Math.min(totalOdds, 1000).toFixed(2) : "0.00";
-  const potentialWin = Math.floor(wagerAmount * parseFloat(displayOdds));
+  // True parlay: multiply fair leg odds with a single end-margin (matches backend settlement).
+  const streakOdds = computeStreakOdds(legs.map((leg) => leg.lockedOdds));
+  const displayOdds = legs.length > 0 ? streakOdds.toFixed(2) : "0.00";
 
   let validationMessage = "";
   let canSubmit = true;
@@ -71,7 +75,17 @@ export function StreakSlip({
     <div className="flex h-full flex-col bg-turf-900 border-l border-turf-800 shadow-2xl">
       <div className="flex flex-col border-b border-turf-800 bg-turf-850">
         <div className="flex items-center justify-between p-4 pb-2">
-          <h2 className="font-display text-lg font-bold text-gold-400">Winning Streak</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-lg font-bold text-gold-400">Winning Streak</h2>
+            <button
+              type="button"
+              onClick={() => setRulesOpen(true)}
+              aria-label="How to play"
+              className="grid h-6 w-6 place-items-center rounded-md border border-turf-700 text-ivory-dim transition-colors hover:border-gold-500/50 hover:text-gold-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+            </button>
+          </div>
           {activeTab === "NEW" && (
             <button
               onClick={onClearAll}
@@ -127,7 +141,7 @@ export function StreakSlip({
               </p>
               <div className="mt-1 flex items-center justify-between">
                 <p className="text-sm font-extrabold text-ivory">{leg.horseName}</p>
-                <p className="font-data text-sm font-bold text-gold-300">x{leg.lockedOdds.toFixed(2)}</p>
+                <p className="font-data text-sm font-bold text-gold-300">{leg.lockedOdds.toFixed(2)}</p>
               </div>
             </div>
           ))
@@ -138,7 +152,7 @@ export function StreakSlip({
         <div className="space-y-4">
           <div className="flex items-center justify-between border-b border-turf-800 pb-3">
             <span className="text-sm font-semibold text-ivory-dim">Total Multiplier</span>
-            <span className="font-data text-lg font-extrabold text-gold-400">x{displayOdds}</span>
+            <span className="font-data text-lg font-extrabold text-gold-400">{displayOdds}</span>
           </div>
 
           <div>
@@ -169,26 +183,18 @@ export function StreakSlip({
             </div>
           </div>
 
-          <div className="mt-3 space-y-2 rounded-lg border border-turf-800 bg-turf-900/50 p-3 text-[12px] font-semibold text-ivory-dim">
-            <div className="flex justify-between gap-3">
-              <span>To Win</span>
-              <span className="font-data text-lg font-black text-green-400">
-                {potentialWin.toLocaleString()} VND
-              </span>
-            </div>
-            <div className="flex justify-between gap-3 border-t border-turf-800 pt-2">
-              <span>Balance</span>
-              <span className="font-data text-ivory">
-                {(pointBalance ?? 0).toLocaleString()} VND
-              </span>
-            </div>
-            <div className="flex justify-between gap-3 text-emerald-soft">
-              <span>Balance After</span>
-              <span className={`font-data ${pointBalance - wagerAmount < 0 ? 'text-red-400' : 'text-emerald-soft'}`}>
-                {Math.max(0, pointBalance - wagerAmount).toLocaleString()} VND
-              </span>
-            </div>
-          </div>
+          <PayoutReceipt
+            stake={wagerAmount}
+            odds={legs.length >= 2 ? streakOdds : null}
+            balance={pointBalance}
+            variant="streak"
+            oddsLabel="Current multiplier"
+            feePercent={20}
+            lockLabel="At confirmation"
+            oddsNote={legs.length < 2 ? "Add 2+ legs" : undefined}
+            footerCopy="Multiplier is confirmed when the streak is placed; 20% house fee is already included."
+            onOpenRules={() => setRulesOpen(true)}
+          />
 
           {!canSubmit && (
             <div className="rounded-md bg-turf-800/50 p-2 text-center text-xs font-semibold text-turf-400">
@@ -260,7 +266,7 @@ export function StreakSlip({
                             <div key={leg.id} className="flex items-center justify-between text-sm">
                               <span className="text-[10px] uppercase font-bold text-ivory-dim">Leg {idx + 1}</span>
                               <span className="font-semibold text-ivory">{leg.predictedWinnerName}</span>
-                              <span className="font-data text-gold-300">x{leg.lockedOdds.toFixed(2)}</span>
+                              <span className="font-data text-gold-300">{leg.lockedOdds.toFixed(2)}</span>
                             </div>
                           ))}
                         </div>
@@ -271,7 +277,7 @@ export function StreakSlip({
                           </div>
                           <div className="flex flex-col text-right">
                             <span className="text-[10px] uppercase text-ivory-dim font-bold">Total Odds</span>
-                            <span className="font-data font-bold text-gold-400">x{streak.totalOdds.toFixed(2)}</span>
+                            <span className="font-data font-bold text-gold-400">{streak.totalOdds.toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -291,6 +297,8 @@ export function StreakSlip({
           )}
         </div>
       )}
+
+      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </div>
   );
 }

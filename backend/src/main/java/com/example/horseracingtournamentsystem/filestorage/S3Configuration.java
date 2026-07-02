@@ -41,9 +41,14 @@ public class S3Configuration {
         return builder.build();
     }
 
+    // Applied only for custom endpoints (MinIO, Cloudflare R2). Path-style is
+    // required by MinIO; chunked encoding is disabled because R2's S3 API does
+    // not support aws-chunked streaming signatures (per Cloudflare's
+    // aws-sdk-java guidance) — harmless for MinIO, which accepts plain PUTs.
     private software.amazon.awssdk.services.s3.S3Configuration pathStyleConfiguration() {
         return software.amazon.awssdk.services.s3.S3Configuration.builder()
                 .pathStyleAccessEnabled(true)
+                .chunkedEncodingEnabled(false)
                 .build();
     }
 

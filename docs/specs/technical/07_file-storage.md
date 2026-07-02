@@ -6,24 +6,23 @@ File storage supports uploaded evidence such as avatars, stable logos, blog
 images, horse images, horse evidence and documents, role-request resumes, owner
 and referee evidence, and championship agreement files.
 
-Files are stored in Amazon S3 (or an S3-compatible endpoint). The application
-keeps only metadata in its database and serves every download through a
-short-lived presigned URL. Private files are released only after an authorization
-check. Implementation lives in
+Files are stored in S3-compatible object storage: Cloudflare R2 in production
+and MinIO locally. The application keeps only metadata in its database and
+serves every download through a short-lived presigned URL. Private files are
+released only after an authorization check. Implementation lives in
 `backend/src/main/java/com/example/horseracingtournamentsystem/filestorage`.
 
 ## 2. Backend Configuration
 
-S3 settings live under `aws.s3` in `application.yml`:
+S3 settings live under `storage.s3` in `application.yml`:
 
-- `bucket-name`: target bucket (`AWS_S3_BUCKET`).
-- `region`: AWS region (`AWS_REGION`, default `ap-southeast-1`).
-- `presigned-url-ttl`: presigned URL lifetime (`AWS_S3_PRESIGNED_URL_TTL`,
+- `bucket-name`: target bucket (`OBJECT_STORAGE_BUCKET`).
+- `region`: storage region (`OBJECT_STORAGE_REGION`, `auto` for R2).
+- `presigned-url-ttl`: presigned URL lifetime (`OBJECT_STORAGE_PRESIGNED_URL_TTL`,
   default 5 minutes).
 
-Credentials resolve through the AWS default provider chain
-(`DefaultCredentialsProvider`), so production uses the instance IAM role and no
-static keys are stored in config.
+Cloudflare R2 and local MinIO use an S3-compatible endpoint plus static access
+keys from environment variables. The current production target is R2.
 
 Spring multipart limits:
 

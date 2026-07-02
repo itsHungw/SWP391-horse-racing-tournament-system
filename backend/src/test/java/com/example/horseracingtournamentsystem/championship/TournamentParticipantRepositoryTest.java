@@ -13,6 +13,7 @@ import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
 import com.example.horseracingtournamentsystem.tournamentregistration.entity.TournamentRegistration;
 import com.example.horseracingtournamentsystem.tournamentregistration.repository.TournamentRegistrationRepository;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import java.time.LocalDate;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -44,6 +46,9 @@ class TournamentParticipantRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private User owner;
     private User jockey;
     private User admin;
@@ -53,11 +58,7 @@ class TournamentParticipantRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        participantRepository.deleteAll();
-        registrationRepository.deleteAll();
-        horseRepository.deleteAll();
-        tournamentRepository.deleteAll();
-        userRepository.deleteAll();
+        TestDatabaseCleaner.clean(jdbcTemplate);
 
         admin = verifiedUser("Admin User", "admin@example.com");
         owner = verifiedUser("Stable Owner", "owner@example.com");

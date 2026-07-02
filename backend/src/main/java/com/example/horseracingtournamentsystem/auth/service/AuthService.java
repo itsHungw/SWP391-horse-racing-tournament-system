@@ -6,12 +6,13 @@ import com.example.horseracingtournamentsystem.auth.dto.request.ResetPasswordReq
 import com.example.horseracingtournamentsystem.auth.dto.request.VerifyResetCodeRequest;
 import com.example.horseracingtournamentsystem.auth.dto.response.AuthResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
+import com.example.horseracingtournamentsystem.auth.dto.response.OAuth2UserInfo;
+import com.example.horseracingtournamentsystem.auth.enums.AuthProvider;
 import com.example.horseracingtournamentsystem.auth.email.EmailSender;
 import com.example.horseracingtournamentsystem.auth.entity.AuthSession;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
 import com.example.horseracingtournamentsystem.auth.exception.PasswordResetRejectedException;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
-import com.example.horseracingtournamentsystem.point.service.FirstLoginBonusService;
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -44,12 +45,12 @@ public class AuthService {
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final AuthSessionRepository authSessionRepository;
+    private final OAuth2ProviderRegistry oauth2ProviderRegistry;
     
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenService oneTimeTokenService;
     private final EmailSender emailSender;
     private final JwtService jwtService;
-    private final FirstLoginBonusService firstLoginBonusService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Value("${app.auth.refresh-token-ttl-days}")
@@ -69,12 +70,60 @@ public class AuthService {
             throw new IllegalArgumentException("INVALID_CREDENTIALS");
         }
 
-        firstLoginBonusService.awardIfEligible(user);
         user.recordLogin();
 
         String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
         String refreshToken = createRefreshSession(user, userAgent, ipAddress);
         return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail()), refreshToken);
+    }
+
+    @Transactional
+    public LoginResult loginWithOAuth(AuthProvider provider, String idToken, String userAgent, String ipAddress) {
+        OAuth2ProviderService providerService = oauth2ProviderRegistry.getService(provider);
+        OAuth2UserInfo userInfo = providerService.verifyToken(idToken);
+        
+        String email = normalizeEmail(userInfo.email());
+        User user = userRepository.findByEmailForUpdate(email).orElse(null);
+        
+        if (user != null) {
+            if (UserStatus.ACTIVE != user.getStatus()) {
+                throw new IllegalArgumentException("USER_ACCOUNT_DISABLED");
+            }
+            if (user.getAuthProvider() == AuthProvider.LOCAL) {
+                user.linkOAuthProvider(provider, userInfo.providerId());
+            }
+        } else {
+            String randomPassword = generateSecureRandomPassword();
+            user = User.pending(
+                userInfo.fullName().trim(),
+                email,
+                passwordEncoder.encode(randomPassword),
+                null
+            );
+            user.verifyEmail();
+            user.linkOAuthProvider(provider, userInfo.providerId());
+            user.updateAvatar(userInfo.avatarUrl());
+            
+            user = userRepository.save(user);
+            
+            Role spectator = roleRepository.findByName("SPECTATOR")
+                    .orElseThrow(() -> new IllegalStateException("SPECTATOR_ROLE_NOT_CONFIGURED"));
+            userRoleRepository.save(UserRole.active(user, spectator, null));
+        }
+        
+        user.recordLogin();
+        userRepository.save(user);
+
+        String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
+        String refreshToken = createRefreshSession(user, userAgent, ipAddress);
+        
+        return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail()), refreshToken);
+    }
+
+    private String generateSecureRandomPassword() {
+        byte[] randomBytes = new byte[24];
+        secureRandom.nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     }
 
     @Transactional

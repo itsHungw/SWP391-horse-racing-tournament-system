@@ -8,10 +8,10 @@ class RacePredictionTest {
     @Test
     void testVariableWagerAndLockedOdds() {
         RacePrediction prediction = new RacePrediction();
-        prediction.setWagerAmount(50000);
+        prediction.setWagerAmount(50000L);
         prediction.setLockedOdds(new BigDecimal("1.85"));
-        
-        assertEquals(50000, prediction.getWagerAmount());
+
+        assertEquals(50000L, prediction.getWagerAmount());
         assertEquals(new BigDecimal("1.85"), prediction.getLockedOdds());
     }
 }

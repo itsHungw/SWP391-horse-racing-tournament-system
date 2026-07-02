@@ -11,9 +11,10 @@ vi.mock("./services/spectatorPredictionApi", () => ({
     getOpenRaces: vi.fn(),
     getPredictionOptions: vi.fn(),
     submitPrediction: vi.fn(),
-    updatePrediction: vi.fn(),
+    quotePrediction: vi.fn(),
     getMyPredictions: vi.fn(),
     getPointAccount: vi.fn(),
+    getSpectatorStreaks: vi.fn(),
   },
 }));
 
@@ -36,16 +37,20 @@ const options: PredictionOptions = {
   raceName: "Twilight Sprint",
   raceStatus: "SCHEDULED",
   predictionOpen: true,
-  entryCost: { winner: 10, top3: 20 },
-  rewardConfig: { winnerReward: 30, top3ExactReward: 90, top3AnyOrderReward: 45 },
+  entryCost: { winner: 10 },
+  rewardConfig: { winnerReward: 30 },
   myPredictions: [],
   winnerDistributionVisible: false,
-  top3DistributionVisible: false,
   options: [
-    { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider" },
+    { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider", winOdds: 7.77 },
     { raceParticipantId: 2, startNumber: 2, laneNumber: 5, horseName: "Silver Reef", jockeyName: "M. Swift" },
     { raceParticipantId: 3, startNumber: 3, laneNumber: 7, horseName: "Golden Arrow", jockeyName: "A. Cruz" },
   ],
+  positionOddsMatrix: {
+    1: { 1: 2.5, 2: 4.1, 3: 8.2 },
+    2: { 1: 3.2, 2: 2.8, 3: 5.4 },
+    3: { 1: 6.5, 2: 3.7, 3: 2.2 },
+  },
 };
 
 function renderArena() {
@@ -65,63 +70,65 @@ async function clickFirstButton(name: RegExp) {
 describe("SpectatorPredictionsPage cockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50 });
+    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50000 });
     vi.mocked(spectatorPredictionApi.getOpenRaces).mockResolvedValue([openRace]);
     vi.mocked(spectatorPredictionApi.getMyPredictions).mockResolvedValue([]);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
     vi.mocked(spectatorPredictionApi.submitPrediction).mockResolvedValue({} as never);
-    vi.mocked(spectatorPredictionApi.updatePrediction).mockResolvedValue({} as never);
+    vi.mocked(spectatorPredictionApi.quotePrediction).mockResolvedValue({
+      accepted: true,
+      raceId: 7,
+      predictionType: "EXACT_POSITION",
+      predictedWinnerId: 1,
+      predictedPosition: 1,
+      wagerAmount: 10000,
+      currentOdds: 2.5,
+      oddsAfterStake: 2.1,
+      priceImpactPercent: -16,
+      estimatedReturn: 21000,
+      estimatedProfit: 11000,
+      potentialLoss: 10000,
+      playerPoolBefore: 0,
+      playerPoolAfter: 10000,
+      houseFeeAmount: 1500,
+      netPlayerPoolAfter: 8500,
+      pricingLiquidity: 200000,
+      houseFeePercent: 15,
+    } as never);
+    vi.mocked(spectatorPredictionApi.getSpectatorStreaks).mockResolvedValue([]);
   });
 
   it("selects a race, mirrors the winner pick in the right slip, and submits the prediction", async () => {
     renderArena();
 
     fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
-    await clickFirstButton(/choose thunder bay/i);
+    await clickFirstButton(/2\.50/i);
 
-    expect(screen.getByText(/prediction slip/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/#1 thunder bay/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/prediction slip/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/thunder bay/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/ready to confirm/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /confirm prediction/i }));
 
-    expect(await screen.findByText(/prediction is confirmed/i)).toBeInTheDocument();
+    expect(await screen.findByText(/prediction confirmed/i)).toBeInTheDocument();
     expect(spectatorPredictionApi.submitPrediction).toHaveBeenCalledWith({
       raceId: 7,
-      predictionType: "WINNER",
+      predictionType: "EXACT_POSITION",
       predictedWinnerId: 1,
-      predictedSecondId: null,
-      predictedThirdId: null,
+      predictedPosition: 1,
+      wagerAmount: 10000,
     });
   });
 
-  it("keeps confirm disabled until Top 3 has three distinct runners", async () => {
-    renderArena();
-
-    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
-    fireEvent.click(screen.getByRole("button", { name: /top 3 pick/i }));
-    await clickFirstButton(/choose thunder bay/i);
-
-    expect(screen.getByText(/choose second and third/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
-
-    await clickFirstButton(/choose silver reef/i);
-    expect(screen.getByText(/choose third/i)).toBeInTheDocument();
-
-    await clickFirstButton(/choose golden arrow/i);
-    expect(screen.getByText(/ready to confirm/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /confirm prediction/i })).not.toBeDisabled();
-  });
-
   it("disables confirmation when a new prediction needs more points", async () => {
-    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 5 });
+    vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 5000 });
 
     renderArena();
 
     fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
-    await clickFirstButton(/choose thunder bay/i);
+    await clickFirstButton(/2\.50/i);
 
-    expect(screen.getByText(/you need 5 more points/i)).toBeInTheDocument();
+    expect(screen.getByText(/you need 5,000 more VND/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
     expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();
   });
@@ -139,5 +146,16 @@ describe("SpectatorPredictionsPage cockpit", () => {
     expect(await screen.findByText(/prediction locked/i)).toBeInTheDocument();
     expect(screen.getByText(/predictions are locked for this race/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /confirm prediction/i })).toBeDisabled();
+  });
+
+  it("uses fair win odds for winning streak legs instead of exact-position odds", async () => {
+    renderArena();
+
+    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
+    fireEvent.click(await screen.findByRole("button", { name: /winning streak pick/i }));
+
+    expect(await screen.findByText(/leg odds/i)).toBeInTheDocument();
+    expect(screen.getAllByText("x7.77").length).toBeGreaterThan(0);
+    expect(screen.queryByText("x2.50")).not.toBeInTheDocument();
   });
 });

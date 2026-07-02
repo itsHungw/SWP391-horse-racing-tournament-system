@@ -108,7 +108,7 @@ export function RefereeDetailDrawer({
           onClick={onInvite}
           className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-office-brass px-4 text-sm font-black uppercase tracking-wide text-office-charcoal transition hover:bg-office-brass-bright disabled:opacity-50"
         >
-          <UserPlus className="h-4 w-4" /> {busy ? "Inviting…" : "Invite to tournament"}
+          <UserPlus className="h-4 w-4" /> {busy ? "Inviting…" : "Invite to championship"}
         </button>
       )}
     </div>
@@ -139,7 +139,7 @@ export function RefereeDetailDrawer({
 
         <div className="rounded-xl border border-office-line bg-office-bg-soft px-4 py-3">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-office-faint">Contract · this tournament</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-office-faint">Contract · this championship</p>
             {contract ? (
               <StatusPill status={contract.status} />
             ) : (

@@ -1,5 +1,6 @@
 import { Circle, Trophy, UsersRound, TrendingUp, Layers } from "lucide-react";
 import type { PredictionOptions, PredictionType } from "../types/prediction.types";
+import { HowToPlayButton } from "./RulesDialog";
 
 interface PredictionModeSelectorProps {
   options: PredictionOptions | null;
@@ -47,13 +48,13 @@ function rewardForMode(options: PredictionOptions | null, visualKey: VisualMode)
   if (!options) return "Loading";
 
   if (visualKey === "EXACT_POSITION") {
-    return "Dynamic Odds";
+    return "Pool estimate";
   }
   if (visualKey === "HEAD_TO_HEAD") {
-    return "AMM Dynamic Odds";
+    return "Matchup estimate";
   }
   if (visualKey === "WINNING_STREAK") {
-    return "Multiplied Odds";
+    return "Parlay estimate";
   }
 
   return "TBD";
@@ -62,7 +63,10 @@ function rewardForMode(options: PredictionOptions | null, visualKey: VisualMode)
 export function PredictionModeSelector({ options, predType, onChange }: PredictionModeSelectorProps) {
   return (
     <div>
-      <p className="mb-3 text-xs font-bold uppercase tracking-wider text-turf-400">Choose Prediction Type</p>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-wider text-turf-400">Choose Prediction Type</p>
+        <HowToPlayButton />
+      </div>
       <div className="grid gap-3 grid-cols-1 sm:grid-cols-3" role="group" aria-label="Prediction mode">
         {modes.map((mode) => {
           const active = predType === mode.value;
@@ -96,7 +100,7 @@ export function PredictionModeSelector({ options, predType, onChange }: Predicti
               </div>
               
               <div className="mt-3 flex items-center justify-between text-[11px] font-bold border-t border-turf-800/60 pt-2.5">
-                <span className="text-turf-500">Reward: <span className={`font-data ${active ? "text-gold-300" : "text-ivory-dim group-hover:text-ivory"}`}>{rewardForMode(options, mode.visualKey)}</span></span>
+                <span className="text-turf-500">Payout: <span className={`font-data ${active ? "text-gold-300" : "text-ivory-dim group-hover:text-ivory"}`}>{rewardForMode(options, mode.visualKey)}</span></span>
                 {active ? (
                   <div className="relative grid h-3.5 w-3.5 place-items-center rounded-full bg-gold-400 text-turf-900 shadow-[0_0_8px_rgba(212,175,55,0.5)]">
                     <div className="absolute inset-0 rounded-full bg-gold-400 animate-ping opacity-60" />

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Flag, Pencil, Plus, Send, ShieldCheck, Trash2, X } from "lucide-react";
+import { Calendar, CalendarClock, Flag, Pencil, Plus, Send, ShieldCheck, Trash2, Users, X } from "lucide-react";
 
 import {
   assignOrganizerRaceReferee,
@@ -70,7 +70,7 @@ export function OrganizerSchedulePage() {
         setTournaments(data);
         setSelectedId((prev) => (prev != null && data.some((t) => t.id === prev) ? prev : data[0]?.id ?? null));
       })
-      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your tournaments.")))
+      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your championships.")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -229,30 +229,39 @@ export function OrganizerSchedulePage() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Title Header Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Schedule</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#bb8a3c]">
+            Workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            Schedule
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
             Build the race card — create each round and assign a contracted referee. Every round needs a referee before
             you can publish the schedule; the field is filled from your locked participants at publish time.
           </p>
         </div>
-        <label className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
-          Tournament
+      </div>
+
+      {/* Operations Filter Bar */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500">Championship:</span>
           <select
-            className="mt-2 block min-h-11 w-64 rounded-lg border border-[#e2d9c8] bg-white px-3 text-sm font-bold text-[#3a342d] outline-none focus:border-[#bb8a3c]"
+            className="block min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-[#bb8a3c] focus:ring-2 focus:ring-[#bb8a3c]/20 cursor-pointer"
             value={selectedId ?? ""}
             onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
           >
-            {tournaments.length === 0 && <option value="">No tournaments</option>}
+            {tournaments.length === 0 && <option value="">No championships</option>}
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
       {error && (
@@ -265,8 +274,8 @@ export function OrganizerSchedulePage() {
         <div className="h-64 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
       ) : tournaments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
-          <p className="mt-2 text-sm text-[#6f665b]">Create a tournament before building its race card.</p>
+          <p className="font-display text-2xl font-light text-[#211d1a]">No championships yet</p>
+          <p className="mt-2 text-sm text-[#6f665b]">Create a championship before building its race card.</p>
         </div>
       ) : (
         <>
@@ -302,105 +311,160 @@ export function OrganizerSchedulePage() {
             )}
           </div>
 
-          <section className="overflow-hidden rounded-xl border border-[#e7e0d3] bg-white">
-          <div className="flex items-center justify-between gap-3 border-b border-[#efe9dd] px-6 py-5">
+          {/* Header of Rounds */}
+          <div className="flex items-center justify-between gap-3 mt-8">
             <div className="flex items-center gap-2">
               <CalendarClock className="h-5 w-5 text-[#bb8a3c]" />
-              <h2 className="font-display text-xl font-light tracking-tight text-[#211d1a]">Rounds</h2>
+              <h2 className="text-xl font-bold tracking-tight text-slate-950">Rounds Schedule</h2>
             </div>
             <button
               type="button"
               onClick={openCreate}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-lg bg-[#bb8a3c] px-4 text-sm font-black uppercase tracking-wide text-[#1c1816] transition hover:bg-[#cfa24f]"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#bb8a3c] px-4 text-sm font-black text-[#1c1816] hover:bg-[#cfa24f] transition focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/30"
             >
               <Plus className="h-4 w-4" /> Add round
             </button>
           </div>
 
           {activeReferees.length === 0 && (
-            <p className="border-b border-[#efe9dd] bg-[#faf7f0] px-6 py-3 text-xs font-semibold text-[#8a6a1c]">
-              No contracted referees yet — hire referees in <span className="font-black">Officials</span> before assigning
-              them to rounds.
-            </p>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs font-semibold text-[#8a6a1c]">
+              No contracted referees yet — hire referees in <span className="font-black">Officials</span> before assigning them to rounds.
+            </div>
           )}
 
           {loadingRaces ? (
-            <div className="h-40 animate-pulse bg-[#faf7f0]" />
+            <div className="grid gap-4 mt-5">
+              <div className="h-28 animate-pulse rounded-xl bg-white border border-slate-200" />
+              <div className="h-28 animate-pulse rounded-xl bg-white border border-slate-200" />
+            </div>
           ) : sortedRaces.length === 0 ? (
-            <p className="px-6 py-12 text-center text-sm text-[#6f665b]">No rounds yet. Add the first round to start the card.</p>
+            <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-12 text-center mt-5">
+              <CalendarClock className="mx-auto h-12 w-12 text-slate-400" />
+              <h3 className="mt-4 text-lg font-black text-slate-900">No rounds scheduled yet</h3>
+              <p className="mt-2 text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+                Start building the race card schedule by adding your first round of races.
+              </p>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="mt-5 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-[#bb8a3c] px-5 text-sm font-black text-[#1c1816] hover:bg-[#cfa24f] transition"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add Your First Round
+              </button>
+            </div>
           ) : (
-            <ul className="divide-y divide-[#efe9dd]">
-              {sortedRaces.map((race) => {
+            <div className="grid gap-4 mt-5">
+              {sortedRaces.map((race, index) => {
                 const editable = race.status === "SCHEDULED";
                 return (
-                  <li key={race.id} className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
-                    <button
-                      type="button"
-                      onClick={() => setDetailRace(race)}
-                      className="min-w-0 rounded-lg text-left transition hover:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#bb8a3c]"
-                    >
-                      <div className="flex items-center gap-2">
-                        <p className="truncate font-semibold text-[#211d1a]">{race.name}</p>
-                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${raceBadge[race.status] ?? "bg-[#efe9dd] text-[#6f665b]"}`}>
-                          {String(race.status).replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-[#8a8276]">
-                        <span className="font-mono">{race.code}</span>
-                        <span>· {formatDateTime(race.raceDateTime)}</span>
-                        <span>· {race.distanceMeters} m</span>
-                        <span>· max {race.maxParticipants}</span>
-                      </p>
-                    </button>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <ShieldCheck className={`h-4 w-4 ${race.refereeId ? "text-[#0d4a37]" : "text-[#c4b79b]"}`} />
-                        {editable ? (
-                          <select
-                            disabled={busyId === race.id || activeReferees.length === 0}
-                            value={race.refereeId ?? ""}
-                            onChange={(e) => assignReferee(race, Number(e.target.value))}
-                            className="min-h-9 rounded-lg border border-[#e2d9c8] bg-white px-2 text-xs font-bold text-[#3a342d] outline-none focus:border-[#bb8a3c] disabled:opacity-50"
+                  <article
+                    key={race.id}
+                    className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md hover:-translate-y-0.5 duration-200"
+                  >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      {/* Left: Info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#bb8a3c]/10 text-[11px] font-black text-[#bb8a3c]">
+                            #{index + 1}
+                          </span>
+                          <h3
+                            onClick={() => setDetailRace(race)}
+                            className="truncate text-lg font-black text-slate-950 hover:text-[#bb8a3c] cursor-pointer transition"
                           >
-                            <option value="">Assign referee…</option>
-                            {activeReferees.map((ref) => (
-                              <option key={ref.refereeId} value={ref.refereeId}>
-                                {ref.refereeName}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="text-xs font-bold text-[#3a342d]">{race.refereeName ?? "Unassigned"}</span>
+                            {race.name}
+                          </h3>
+                          <span
+                            className={`rounded-md border px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider ${
+                              race.status === "COMPLETED"
+                                ? "border-slate-200 bg-slate-50 text-slate-500"
+                                : race.status === "ONGOING"
+                                ? "border-amber-200 bg-amber-50 text-amber-700"
+                                : race.status === "SCHEDULED"
+                                ? "border-[#bb8a3c]/30 bg-[#bb8a3c]/5 text-[#bb8a3c]"
+                                : "border-sky-200 bg-sky-50 text-sky-700"
+                            }`}
+                          >
+                            {String(race.status).replace(/_/g, " ")}
+                          </span>
+                        </div>
+                        
+                        {/* Meta grid */}
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <Calendar className="h-4 w-4 text-slate-400" />
+                            <span>{formatDateTime(race.raceDateTime)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <Flag className="h-4 w-4 text-slate-400" />
+                            <span>{race.distanceMeters.toLocaleString()} meters</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <Users className="h-4 w-4 text-slate-400" />
+                            <span>Max {race.maxParticipants} starters</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <span className="font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-200 text-slate-600 uppercase tracking-wide text-[10px]">
+                              {race.code}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Controls & Referee */}
+                      <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-4 lg:border-t-0 lg:pt-0">
+                        {/* Referee select */}
+                        <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50/50 px-3 py-1.5">
+                          <ShieldCheck className={`h-4 w-4 ${race.refereeId ? "text-emerald-600" : "text-slate-400"}`} />
+                          {editable ? (
+                            <select
+                              disabled={busyId === race.id || activeReferees.length === 0}
+                              value={race.refereeId ?? ""}
+                              onChange={(e) => assignReferee(race, Number(e.target.value))}
+                              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-0"
+                            >
+                              <option value="">Assign referee…</option>
+                              {activeReferees.map((ref) => (
+                                <option key={ref.refereeId} value={ref.refereeId}>
+                                  {ref.refereeName}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-700">{race.refereeName ?? "Unassigned"}</span>
+                          )}
+                        </div>
+
+                        {/* Edit / Delete Actions */}
+                        {editable && (
+                          <div className="flex items-center gap-1.5 ml-auto lg:ml-0">
+                            <button
+                              type="button"
+                              onClick={() => openEdit(race)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:border-[#bb8a3c] hover:text-[#bb8a3c] transition shadow-sm"
+                              title="Edit round"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={busyId === race.id}
+                              onClick={() => setConfirmDelete(race)}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-white text-rose-600 hover:bg-rose-50 hover:border-rose-300 transition shadow-sm disabled:opacity-50"
+                              title="Delete round"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
-
-                      {editable && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(race)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#e2d9c8] px-3 text-xs font-black uppercase tracking-wide text-[#6f665b] transition hover:border-[#cfa24f] hover:text-[#211d1a]"
-                          >
-                            <Pencil className="h-3.5 w-3.5" /> Edit
-                          </button>
-                          <button
-                            type="button"
-                            disabled={busyId === race.id}
-                            onClick={() => setConfirmDelete(race)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-rose-200 px-3 text-xs font-black uppercase tracking-wide text-rose-700 transition hover:bg-rose-50 disabled:opacity-50"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
-                          </button>
-                        </>
-                      )}
                     </div>
-                  </li>
+                  </article>
                 );
               })}
-            </ul>
+            </div>
           )}
-        </section>
         </>
       )}
 

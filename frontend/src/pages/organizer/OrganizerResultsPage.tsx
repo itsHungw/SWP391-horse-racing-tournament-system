@@ -5,7 +5,7 @@ import {
   confirmOrganizerRaceResults,
   getMyOrganizerTournaments,
   getOrganizerRaces,
-  getPublicRaceResults,
+  getOrganizerRaceResults,
   publishOrganizerRaceResults,
   reopenOrganizerRaceResults,
 } from "../../api/racingApi";
@@ -79,7 +79,7 @@ export function OrganizerResultsPage() {
         setTournaments(data);
         setSelectedId((prev) => (prev != null && data.some((t) => t.id === prev) ? prev : data[0]?.id ?? null));
       })
-      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your tournaments.")))
+      .catch((err) => active && setError(getApiErrorMessage(err, "Could not load your championships.")))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -160,31 +160,40 @@ export function OrganizerResultsPage() {
 
   return (
     <div className="space-y-7">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      {/* Title Header Card */}
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#a8801f]">Workspace</p>
-          <h1 className="mt-2 font-display text-3xl font-light tracking-tight text-[#211d1a] md:text-4xl">Results</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-[#6f665b]">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[#bb8a3c]">
+            Workspace
+          </p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            Results
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-500">
             Referees submit each round&apos;s result; you ratify it. Open a round to review the finishing order, then{" "}
-            <span className="font-bold text-[#3a342d]">Confirm</span> to settle predictions and{" "}
-            <span className="font-bold text-[#3a342d]">Publish</span> to award championship points.
+            <span className="font-bold text-slate-700">Confirm</span> to settle predictions and{" "}
+            <span className="font-bold text-slate-700">Publish</span> to award championship points.
           </p>
         </div>
-        <label className="text-[11px] font-black uppercase tracking-[0.14em] text-[#8a8276]">
-          Tournament
+      </div>
+
+      {/* Operations Filter Bar */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-500">Championship:</span>
           <select
-            className="mt-2 block min-h-11 w-64 rounded-lg border border-[#e2d9c8] bg-white px-3 text-sm font-bold text-[#3a342d] outline-none focus:border-[#bb8a3c]"
+            className="block min-h-10 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-[#bb8a3c] focus:ring-2 focus:ring-[#bb8a3c]/20 cursor-pointer"
             value={selectedId ?? ""}
             onChange={(e) => setSelectedId(e.target.value ? Number(e.target.value) : null)}
           >
-            {tournaments.length === 0 && <option value="">No tournaments</option>}
+            {tournaments.length === 0 && <option value="">No championships</option>}
             {tournaments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
               </option>
             ))}
           </select>
-        </label>
+        </div>
       </div>
 
       {error && (
@@ -197,7 +206,7 @@ export function OrganizerResultsPage() {
         <div className="h-64 animate-pulse rounded-xl border border-[#e7e0d3] bg-white" />
       ) : tournaments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-[#d8cfbd] bg-white/60 px-8 py-16 text-center">
-          <p className="font-display text-2xl font-light text-[#211d1a]">No tournaments yet</p>
+          <p className="font-display text-2xl font-light text-[#211d1a]">No championships yet</p>
           <p className="mt-2 text-sm text-[#6f665b]">Results appear here once your races have run.</p>
         </div>
       ) : (
@@ -217,7 +226,7 @@ export function OrganizerResultsPage() {
           {loadingRaces ? (
             <div className="h-40 animate-pulse bg-[#faf7f0]" />
           ) : sortedRaces.length === 0 ? (
-            <p className="px-6 py-12 text-center text-sm text-[#6f665b]">No races scheduled for this tournament yet.</p>
+            <p className="px-6 py-12 text-center text-sm text-[#6f665b]">No races scheduled for this championship yet.</p>
           ) : (
             <ul className="divide-y divide-[#efe9dd]">
               {sortedRaces.map((race) => {
@@ -296,7 +305,7 @@ function RaceResultModal({ race, busy, onClose, onConfirm, onPublish, onReopen }
   useEffect(() => {
     let active = true;
     setLoading(true);
-    getPublicRaceResults(race.id)
+    getOrganizerRaceResults(race.id)
       .then((data) => active && setResult(data))
       .catch((err) => active && setLoadError(getApiErrorMessage(err, "Could not load the finishing order.")))
       .finally(() => active && setLoading(false));
@@ -325,23 +334,25 @@ function RaceResultModal({ race, busy, onClose, onConfirm, onPublish, onReopen }
         className="flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-[#e7e0d3] bg-[#fdfbf6] shadow-2xl sm:rounded-2xl"
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 border-b border-[#efe9dd] bg-[#1c1816] px-6 py-5 text-[#f7f4ee]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#efe9dd] bg-white px-6 py-5">
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#cfa24f]">Race result</p>
-            <h2 id="race-result-title" className="mt-1.5 truncate font-display text-2xl font-light">
+            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#bb8a3c]">Race result</p>
+            <h2 id="race-result-title" className="mt-1.5 truncate font-black text-slate-950 text-xl">
               {race.name}
             </h2>
-            <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-white/55">
-              <span className="font-mono">{race.code}</span>
-              <span>· {formatDateTime(race.raceDateTime)}</span>
-              <span>· {race.refereeName ?? "No referee"}</span>
+            <p className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500 font-semibold">
+              <span className="font-mono text-[#bb8a3c]">{race.code}</span>
+              <span className="text-slate-300">•</span>
+              <span>{formatDateTime(race.raceDateTime)}</span>
+              <span className="text-slate-300">•</span>
+              <span>{race.refereeName ?? "No referee"}</span>
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#cfa24f]"
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#bb8a3c]"
           >
             <X className="h-5 w-5" />
           </button>

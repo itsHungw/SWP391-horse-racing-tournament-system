@@ -30,6 +30,6 @@ public class OpenRacePredictionResponse {
     @Setter
     public static class UserPredictionStatus {
         private boolean hasPredicted;
-        private List<String> types; // "WINNER", "TOP3"
+        private List<String> types; // e.g. "EXACT_POSITION", "HEAD_TO_HEAD"
     }
 }

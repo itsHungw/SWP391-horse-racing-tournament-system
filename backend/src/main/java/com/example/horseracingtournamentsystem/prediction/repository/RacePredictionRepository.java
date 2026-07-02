@@ -71,4 +71,30 @@ public interface RacePredictionRepository extends JpaRepository<RacePrediction, 
               )
             """)
     long sumWagersByRaceAndTypeAndParticipant(@org.springframework.data.repository.query.Param("raceId") Long raceId, @org.springframework.data.repository.query.Param("type") String type, @org.springframework.data.repository.query.Param("participantId") Long participantId);
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT COALESCE(SUM(p.wagerAmount), 0)
+            FROM RacePrediction p
+            WHERE p.spectator.id = :userId
+              AND p.status IN (
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING,
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED
+              )
+            """)
+    long sumOpenStakeBySpectator(@org.springframework.data.repository.query.Param("userId") Long userId);
+
+    // Batch variant of sumWagersByRaceAndTypeAndParticipant: one grouped query for all participants.
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT p.predictedWinnerId, COALESCE(SUM(p.wagerAmount), 0)
+            FROM RacePrediction p
+            WHERE p.race.id = :raceId
+              AND p.predictionType = :type
+              AND p.predictedWinnerId IS NOT NULL
+              AND p.status IN (
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING,
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED
+              )
+            GROUP BY p.predictedWinnerId
+            """)
+    List<Object[]> sumWagersByRaceAndTypeGroupedByParticipant(@org.springframework.data.repository.query.Param("raceId") Long raceId, @org.springframework.data.repository.query.Param("type") String type);
 }

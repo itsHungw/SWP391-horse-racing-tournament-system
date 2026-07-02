@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.user.entity;
 
 import com.example.horseracingtournamentsystem.user.enums.UserStatus;
+import com.example.horseracingtournamentsystem.auth.enums.AuthProvider;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,6 +16,7 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 import java.time.Period;
 import java.util.Collections;
 import java.util.HashSet;
@@ -96,6 +98,13 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private RefereeProfile refereeProfile;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider", nullable = false, length = 30)
+    private AuthProvider authProvider = AuthProvider.LOCAL;
+
+    @Column(name = "provider_id", length = 255)
+    private String providerId;
+
     public static User pending(String fullName, String email, String passwordHash) {
         return pending(fullName, email, passwordHash, null);
     }
@@ -145,6 +154,16 @@ public class User {
         this.updatedAt = LocalDateTime.now();
     }
 
+    public void changeStatus(UserStatus status) {
+        // Keep admin-driven status changes inside the aggregate instead of using reflection.
+        this.status = Objects.requireNonNull(status, "status");
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void ban() {
+        changeStatus(UserStatus.BANNED);
+    }
+
     public Set<String> getActiveRoleNames() {
         return userRoles.stream()
                 .filter(UserRole::isActive)
@@ -177,5 +196,18 @@ public class User {
 
     private boolean isAtLeast18(LocalDate dateOfBirth) {
         return dateOfBirth != null && Period.between(dateOfBirth, LocalDate.now()).getYears() >= 18;
+    }
+
+    public void linkOAuthProvider(AuthProvider provider, String providerId) {
+        this.authProvider = provider;
+        this.providerId = providerId;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void updateAvatar(String avatarUrl) {
+        if (avatarUrl != null && !avatarUrl.isBlank()) {
+            this.avatarUrl = avatarUrl;
+            this.updatedAt = LocalDateTime.now();
+        }
     }
 }

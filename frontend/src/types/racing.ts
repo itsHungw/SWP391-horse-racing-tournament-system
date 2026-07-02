@@ -238,6 +238,9 @@ export type PublicRaceResult = {
   official: boolean;
   publishedAt?: string | null;
   entries: Array<{
+    raceParticipantId?: number | null;
+    startNumber?: number | null;
+    laneNumber?: number | null;
     position?: number | null;
     horseName: string;
     jockeyName?: string | null;
@@ -246,6 +249,62 @@ export type PublicRaceResult = {
     points: number;
     resultStatus: string;
   }>;
+};
+
+export type RaceMediaStatus = "DRAFT" | "PUBLISHED";
+
+export type RaceMediaVerificationStatus = "UNVERIFIED" | "VERIFIED" | "FAILED";
+
+export type RaceMediaProvider = "YOUTUBE";
+
+export type RaceMediaPayload = {
+  url: string;
+  title?: string | null;
+};
+
+export type RaceMediaResponse = {
+  id: number;
+  raceId: number;
+  provider: RaceMediaProvider;
+  providerVideoId: string;
+  sourceUrl: string;
+  embedUrl: string;
+  title?: string | null;
+  providerTitle?: string | null;
+  thumbnailUrl?: string | null;
+  status: RaceMediaStatus;
+  verificationStatus: RaceMediaVerificationStatus;
+  providerErrorCode?: string | null;
+  message?: string | null;
+  canPublish: boolean;
+  publishBlockedReason?: string | null;
+  lastVerifiedAt?: string | null;
+  publishedAt?: string | null;
+  publishedByName?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type RaceMediaValidateResponse = {
+  provider: RaceMediaProvider;
+  providerVideoId: string;
+  embedUrl: string;
+  providerTitle?: string | null;
+  thumbnailUrl?: string | null;
+  verificationStatus: RaceMediaVerificationStatus;
+  providerErrorCode?: string | null;
+  message?: string | null;
+};
+
+export type RaceMediaPublicResponse = {
+  raceId: number;
+  provider: RaceMediaProvider;
+  providerVideoId: string;
+  embedUrl: string;
+  title?: string | null;
+  providerTitle?: string | null;
+  thumbnailUrl?: string | null;
+  publishedAt?: string | null;
 };
 
 export type PublicRacingSummary = {
@@ -436,4 +495,17 @@ export type PageResponse<T> = {
   size: number;
   totalElements: number;
   totalPages: number;
+};
+
+export type OwnerHorseUpdateRequest = {
+  name: string;
+  breed?: string;
+  gender: "MALE" | "FEMALE" | string;
+  dateOfBirth?: string;
+  color?: string;
+  heightCm?: number;
+  weightKg?: number;
+  healthStatus?: string;
+  medicalNote?: string;
+  description?: string;
 };

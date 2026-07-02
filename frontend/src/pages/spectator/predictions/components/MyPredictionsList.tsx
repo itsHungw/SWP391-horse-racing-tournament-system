@@ -1,16 +1,30 @@
 import { useState } from "react";
-import { Calendar, Tag } from "lucide-react";
-import { UserPrediction, predictionStatusLabel, PredictionStatus } from "../types/prediction.types";
+import { Calendar, Tag, TrendingUp } from "lucide-react";
+import { UserPrediction, predictionStatusLabel, PredictionStatus, PredictionType } from "../types/prediction.types";
 import { PredictionResultCard } from "./PredictionResultCard";
+import { computePayout, formatVnd } from "../predictionCockpitUtils";
+
+const TYPE_LABEL: Record<PredictionType, string> = {
+  WINNER: "Winner",
+  EXACT_POSITION: "Exact Position",
+  HEAD_TO_HEAD: "Head-to-Head",
+  WINNING_STREAK: "Winning Streak",
+};
+
+function selectionLabel(p: UserPrediction): string {
+  if (p.predictionType === "EXACT_POSITION") {
+    return `${p.predictedWinnerName ?? "-"}${p.predictedPosition ? ` - Pos ${p.predictedPosition}` : ""}`;
+  }
+  return p.predictedWinnerName ?? "-";
+}
 
 interface MyPredictionsListProps {
   predictions: UserPrediction[];
-  onEditPrediction: (prediction: UserPrediction) => void;
 }
 
 type FilterStatus = "ALL" | "PENDING" | "LOCKED" | "CORRECT" | "INCORRECT" | "REFUNDED";
 
-export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictionsListProps) {
+export function MyPredictionsList({ predictions }: MyPredictionsListProps) {
   const [filter, setFilter] = useState<FilterStatus>("ALL");
 
   const filtered = predictions.filter((p) => {
@@ -30,8 +44,6 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
       case "LOCKED":
         return "border-gold-600/40 bg-gold-400/10 text-gold-300";
       case "CORRECT":
-      case "CORRECT_EXACT":
-      case "CORRECT_ANY_ORDER":
         return "border-emerald-glow/40 bg-emerald-glow/10 text-emerald-soft";
       case "INCORRECT":
         return "border-white/10 bg-white/5 text-ivory-faint";
@@ -79,7 +91,6 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
       ) : (
         <div className="space-y-4">
           {filtered.map((pred) => {
-            const isPending = pred.status === "PENDING";
             return (
               <div key={pred.id} className="rounded-2xl border border-white/8 bg-turf-900 p-5">
                 <div className="mb-3 flex items-start justify-between">
@@ -91,7 +102,7 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                       <span>{pred.roundName || `Round ${pred.roundNumber ?? 1}`}</span>
                       {pred.roundCode && (
                         <>
-                          <span className="text-ivory-faint/50">•</span>
+                          <span className="text-ivory-faint/50">-</span>
                           <span>{pred.roundCode}</span>
                         </>
                       )}
@@ -111,45 +122,46 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                   </span>
                 </div>
 
-                <div className="my-4 space-y-2 rounded-xl border border-white/8 bg-turf-950 p-4 text-xs font-semibold text-ivory-dim">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5">
-                      <Tag className="h-3.5 w-3.5 text-emerald-soft" />
-                      Type
-                    </span>
-                    <span className="font-data uppercase text-ivory">{pred.predictionType}</span>
-                    {pred.predictionType === "HEAD_TO_HEAD" && (
-                      <div className="mt-3 flex items-center justify-between gap-4 border-t border-white/5 pt-3">
-                        <div className="flex flex-col gap-1.5 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="w-12 shrink-0 text-[10px] font-semibold uppercase tracking-wider text-ivory-dim">
-                              Matchup
-                            </span>
-                            <span className="truncate text-xs font-semibold text-ivory">
-                              {pred.predictedWinnerName || "—"}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <span className="block text-[10px] font-semibold uppercase tracking-wider text-ivory-dim">
-                            Odds
-                          </span>
-                          <span className="font-data text-sm font-bold text-emerald-soft">
-                            {pred.lockedOdds ? pred.lockedOdds.toFixed(2) : "—"}
-                          </span>
-                        </div>
+                {(() => {
+                  const stake = pred.wagerAmount ?? pred.entryCostPoints ?? 0;
+                  const odds = pred.lockedOdds ?? null;
+                  const showPotential = (pred.status === "PENDING" || pred.status === "LOCKED") && !!odds;
+                  const { payout, profit, returnPct } = computePayout(stake, odds);
+                  return (
+                    <div className="my-4 space-y-2 rounded-xl border border-white/8 bg-turf-950 p-4 text-xs font-semibold text-ivory-dim">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-1.5">
+                          <Tag className="h-3.5 w-3.5 text-emerald-soft" />
+                          {TYPE_LABEL[pred.predictionType] ?? pred.predictionType}
+                        </span>
+                        <span className="min-w-0 truncate text-right font-semibold text-ivory">{selectionLabel(pred)}</span>
                       </div>
-                    )}
-                  </div>
-                  <div className="flex justify-between border-t border-white/8 pt-2">
-                    <span>Entry Cost</span>
-                    <span className="font-data text-ivory">{pred.wagerAmount ?? pred.entryCostPoints} VND</span>
-                  </div>
-                </div>
+                      <div className="flex justify-between border-t border-white/8 pt-2">
+                        <span>Stake</span>
+                        <span className="font-data text-ivory">{formatVnd(stake)} VND</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Odds{showPotential ? " (provisional)" : ""}</span>
+                        <span className="font-data font-bold text-gold-300">{odds ? odds.toFixed(2) : "-"}</span>
+                      </div>
+                      {showPotential && (
+                        <div className="mt-1 flex items-center justify-between gap-3 rounded-lg border border-emerald-glow/25 bg-emerald-glow/[0.07] px-3 py-2">
+                          <span className="flex items-center gap-1.5 text-emerald-soft">
+                            <TrendingUp className="h-3.5 w-3.5" /> If it wins
+                          </span>
+                          <span className="text-right leading-tight">
+                            <span className="font-data text-sm font-black text-emerald-soft">{formatVnd(payout)} VND</span>
+                            <span className="ml-1.5 font-data text-[11px] font-bold text-emerald-soft/80">
+                              +{formatVnd(profit)} ({Math.round(returnPct)}%)
+                            </span>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {(pred.status === "CORRECT" ||
-                  pred.status === "CORRECT_EXACT" ||
-                  pred.status === "CORRECT_ANY_ORDER" ||
                   pred.status === "INCORRECT" ||
                   pred.status === "REFUNDED" ||
                   pred.status === "CANCELLED") && (
@@ -162,7 +174,7 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                   />
                 )}
 
-                {isPending && (
+                {pred.status === "PENDING" && (
                   <div className="mt-4 flex items-center justify-between text-xs font-semibold">
                     <p className="flex items-center gap-1.5 text-ivory-faint">
                       <Calendar className="h-4 w-4" />
@@ -170,15 +182,8 @@ export function MyPredictionsList({ predictions, onEditPrediction }: MyPredictio
                         hour: "2-digit",
                         minute: "2-digit",
                       })}{" "}
-                      · {new Date(pred.createdAt).toLocaleDateString("en-US")}
+                      - {new Date(pred.createdAt).toLocaleDateString("en-US")}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => onEditPrediction(pred)}
-                      className="cursor-pointer rounded-md border border-emerald-glow/50 px-3.5 py-2 font-bold uppercase tracking-[0.14em] text-emerald-soft transition-colors hover:bg-emerald-glow/10"
-                    >
-                      Edit
-                    </button>
                   </div>
                 )}
               </div>

@@ -3,6 +3,8 @@ package com.example.horseracingtournamentsystem.user.entity;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -37,7 +39,7 @@ public class UserRoleHistory {
     @Column(name = "changed_at", nullable = false)
     private LocalDateTime changedAt;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "reason")
     private String reason;
 

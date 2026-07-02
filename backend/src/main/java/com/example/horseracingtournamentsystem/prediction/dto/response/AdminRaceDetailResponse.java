@@ -22,11 +22,8 @@ public class AdminRaceDetailResponse {
     public static class SummaryInfo {
         private long totalPredictions;
         private long winnerPickCount;
-        private long top3PickCount;
-        
+
         private long winnerCorrectCount;
-        private long exactTop3Count;
-        private long top3AnyOrderCount;
         private long incorrectCount;
         private long refundedCount;
 

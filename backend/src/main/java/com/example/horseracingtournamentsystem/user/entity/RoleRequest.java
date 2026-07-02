@@ -10,10 +10,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,7 +44,7 @@ public class RoleRequest {
     @Column(name = "status", nullable = false, length = 30)
     private RoleRequestStatus status;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "reason")
     private String reason;
 
@@ -53,7 +54,7 @@ public class RoleRequest {
     @Column(name = "cv_review_status", nullable = false, length = 30)
     private String cvReviewStatus;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "cv_review_note")
     private String cvReviewNote;
 
@@ -64,7 +65,7 @@ public class RoleRequest {
     @Column(name = "cv_reviewed_at")
     private LocalDateTime cvReviewedAt;
 
-    @Lob
+    @JdbcTypeCode(SqlTypes.LONGVARCHAR)
     @Column(name = "admin_note")
     private String adminNote;
 

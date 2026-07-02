@@ -206,25 +206,34 @@ export function MyRoleRequestsPage() {
   ];
 
   const selectedRequest = latestByRole[selectedRole];
-  const activeSpecialistRole = useMemo(() => {
-    const roleFromProfile = profile?.roles?.map(normalizeRoleName).find(Boolean);
-    if (roleFromProfile) {
-      return roleFromProfile;
-    }
+  const activePersonalRoles = useMemo(() => {
+    const active = new Set<RequestedRole>();
+    profile?.roles?.forEach((role) => {
+      const normalized = normalizeRoleName(role);
+      if (normalized) {
+        active.add(normalized);
+      }
+    });
 
-    return requests.find((request) => request.status === "APPROVED" && normalizeRoleName(request.requestedRole))
-      ?.requestedRole;
+    requests.forEach((request) => {
+      const normalized = normalizeRoleName(request.requestedRole);
+      if (normalized && request.status === "APPROVED") {
+        active.add(normalized);
+      }
+    });
+
+    return active;
   }, [profile?.roles, requests]);
-  const pendingSpecialistRequest = useMemo(() => {
-    if (activeSpecialistRole) {
-      return undefined;
-    }
-
-    return requests.find((request) => request.status === "PENDING" && normalizeRoleName(request.requestedRole));
-  }, [activeSpecialistRole, requests]);
-  const specialistApplicationsLocked = Boolean(activeSpecialistRole || pendingSpecialistRequest);
+  const activePersonalRoleLabels = roleOptions
+    .filter((option) => activePersonalRoles.has(option.role))
+    .map((option) => option.title);
+  const pendingPersonalRequests = requests.filter(
+    (request) => request.status === "PENDING" && normalizeRoleName(request.requestedRole),
+  );
   const selectedRoleBlocked =
-    specialistApplicationsLocked || selectedRequest?.status === "PENDING" || selectedRequest?.status === "APPROVED";
+    activePersonalRoles.has(selectedRole) ||
+    selectedRequest?.status === "PENDING" ||
+    selectedRequest?.status === "APPROVED";
   const canSubmit = profileCompleted && !selectedRoleBlocked && !submitting;
 
   const handleApply = async (event: FormEvent) => {
@@ -361,7 +370,7 @@ export function MyRoleRequestsPage() {
                     </h2>
                     <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ivory-dim">
                       Admin needs your name, phone number, date of birth, gender, and address before reviewing a
-                      specialist role request. Finish that first, then return here to choose your track.
+                      personal role request. Finish that first, then return here to choose your track.
                     </p>
                   </section>
                 </MotionReveal>
@@ -381,22 +390,23 @@ export function MyRoleRequestsPage() {
                     </p>
                   </div>
 
-                  {activeSpecialistRole && (
+                  {activePersonalRoleLabels.length > 0 && (
                     <div className="border-l-2 border-emerald-glow bg-turf-900 px-6 py-5">
-                      <p className="eyebrow text-emerald-soft">Active specialist role</p>
+                      <p className="eyebrow text-emerald-soft">Active personal role</p>
                       <p className="mt-2 text-sm leading-relaxed text-ivory-dim">
-                        You currently hold {roleTitle(activeSpecialistRole)} access. Contact admin if you need to
-                        change your specialist track.
+                        You currently hold {activePersonalRoleLabels.join(", ")} access. You can still apply for
+                        another personal track and choose the dashboard you want to use later.
                       </p>
                     </div>
                   )}
 
-                  {!activeSpecialistRole && pendingSpecialistRequest && (
+                  {pendingPersonalRequests.length > 0 && (
                     <div className="border-l-2 border-gold-400 bg-turf-900 px-6 py-5">
-                      <p className="eyebrow text-gold-300">Specialist application pending</p>
+                      <p className="eyebrow text-gold-300">Personal application pending</p>
                       <p className="mt-2 text-sm leading-relaxed text-ivory-dim">
-                        Your {roleTitle(pendingSpecialistRequest.requestedRole)} application is under review. Wait for
-                        admin decision before applying for another specialist track.
+                        {pendingPersonalRequests
+                          .map((request) => roleTitle(request.requestedRole))
+                          .join(", ")} application is under review. You can still request a different personal role.
                       </p>
                     </div>
                   )}
@@ -407,20 +417,14 @@ export function MyRoleRequestsPage() {
                       const request = latestByRole[option.role];
                       const pending = request?.status === "PENDING";
                       const approved = request?.status === "APPROVED";
-                      const lockedByPendingSpecialist = Boolean(
-                        pendingSpecialistRequest && pendingSpecialistRequest.requestedRole !== option.role,
-                      );
-                      const blocked = specialistApplicationsLocked || pending || approved;
+                      const active = activePersonalRoles.has(option.role);
+                      const blocked = active || pending || approved;
                       const selected = selectedRole === option.role;
                       let buttonLabel = `Select ${option.title} role`;
-                      if (activeSpecialistRole) {
-                        buttonLabel = "Locked by active specialist role";
-                      } else if (lockedByPendingSpecialist) {
-                        buttonLabel = "Locked while another specialist application is pending";
+                      if (active || approved) {
+                        buttonLabel = `${option.title} role already granted`;
                       } else if (pending) {
                         buttonLabel = `${option.title} application under review`;
-                      } else if (approved) {
-                        buttonLabel = `${option.title} role already granted`;
                       }
 
                       return (

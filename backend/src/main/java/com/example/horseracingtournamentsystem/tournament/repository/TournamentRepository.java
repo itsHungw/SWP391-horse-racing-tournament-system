@@ -43,7 +43,7 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
                       AND (:status IS NULL OR t.status = :status)
                       AND (:year IS NULL OR YEAR(t.startDate) = :year)
                     ORDER BY
-                      CASE WHEN :sortBy = 'ONGOING_FIRST' AND t.status = 'ONGOING' THEN 0 ELSE 1 END,
+                      CASE WHEN :sortBy = 'ONGOING_FIRST' AND t.status = com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.ONGOING THEN 0 ELSE 1 END,
                       CASE WHEN :sortBy = 'REGISTRATION_CLOSING_SOON' THEN t.registrationEndAt END ASC,
                       CASE WHEN :sortBy = 'LATEST' THEN t.startDate END DESC,
                       t.id DESC

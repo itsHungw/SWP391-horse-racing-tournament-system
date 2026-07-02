@@ -192,11 +192,12 @@ export function OwnerProfilePage() {
   return (
     <OwnerLayout>
       <section aria-labelledby="stable-profile-title" className="space-y-6">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
+          <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-[#008670] to-[#006d5b]"></div>
           <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Owner operations</p>
-              <h1 id="stable-profile-title" className="mt-2 text-4xl font-black tracking-tight text-slate-950">
+              <h1 id="stable-profile-title" className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
                 Stable Profile
               </h1>
               <p className="mt-2 max-w-3xl text-base font-bold leading-7 text-slate-600">
@@ -237,19 +238,27 @@ export function OwnerProfilePage() {
 
               <div className="mt-5 grid gap-5 lg:grid-cols-[180px_1fr]">
                 <div>
-                  <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600" htmlFor="stableLogo">
+                  <span className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600">
                     Logo
-                  </label>
+                  </span>
                   <div className="mt-2 flex h-32 w-32 items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-emerald-50 text-[#006d5b]">
                     {logoUrl ? <img alt="" className="h-full w-full object-cover" src={logoUrl} /> : <Building2 className="h-12 w-12" aria-hidden="true" />}
                   </div>
-                  <input
-                    accept="image/jpeg,image/jpg,image/png"
-                    className="mt-4 block w-full text-sm font-bold text-slate-600 file:mr-3 file:min-h-10 file:cursor-pointer file:rounded-md file:border-0 file:bg-slate-950 file:px-4 file:text-xs file:font-black file:text-white hover:file:bg-[#006d5b]"
-                    id="stableLogo"
-                    onChange={(event) => uploadLogo(event.target.files?.[0])}
-                    type="file"
-                  />
+                  <label className="mt-4 flex items-center gap-3 bg-slate-50/60 p-2 rounded-lg border border-slate-200 hover:border-[#006d5b] hover:bg-emerald-50/20 transition cursor-pointer max-w-sm">
+                    <span className="inline-flex min-h-8 items-center justify-center rounded-md bg-slate-950 px-3.5 text-xs font-black text-white hover:bg-[#006d5b] transition shadow-sm">
+                      Choose File
+                    </span>
+                    <span className="text-xs font-semibold text-slate-500 truncate flex-1 min-w-0 pr-2">
+                      Upload stable logo
+                    </span>
+                    <input
+                      accept="image/jpeg,image/jpg,image/png"
+                      className="sr-only"
+                      id="stableLogo"
+                      onChange={(event) => uploadLogo(event.target.files?.[0])}
+                      type="file"
+                    />
+                  </label>
                 </div>
 
                 <div className="grid gap-5">

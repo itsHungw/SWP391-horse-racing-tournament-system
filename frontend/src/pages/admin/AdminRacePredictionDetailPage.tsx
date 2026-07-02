@@ -234,7 +234,7 @@ export function AdminRacePredictionDetailPage() {
             <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Predictions</p>
             <p className="mt-2 text-3xl font-black text-[#070f4f]">{raceDetail.summary.totalPredictions}</p>
             <p className="mt-1 text-xs text-slate-500 font-bold">
-              {raceDetail.summary.winnerPickCount} Winner / {raceDetail.summary.top3PickCount} Top3
+              {raceDetail.summary.winnerPickCount} Winner
             </p>
           </div>
 
@@ -246,14 +246,9 @@ export function AdminRacePredictionDetailPage() {
                 <p className="mt-1 text-xs text-slate-500 font-bold">Cost: 5 pts / entry</p>
               </div>
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Top 3 Predictions</p>
-                <p className="mt-2 text-3xl font-black text-slate-800">{raceDetail.summary.top3PickCount}</p>
-                <p className="mt-1 text-xs text-slate-500 font-bold">Cost: 10 pts / entry</p>
-              </div>
-              <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Participation Points</p>
                 <p className="mt-2 text-3xl font-black text-[#b3193a]">
-                  {raceDetail.summary.winnerPickCount * 5 + raceDetail.summary.top3PickCount * 10} pts
+                  {raceDetail.summary.winnerPickCount * 5} pts
                 </p>
                 <p className="mt-1 text-xs text-slate-500 font-bold">Participation fees deducted</p>
               </div>
@@ -265,10 +260,10 @@ export function AdminRacePredictionDetailPage() {
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
                 <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Correct Predictions</p>
                 <p className="mt-2 text-3xl font-black text-emerald-700">
-                  {raceDetail.summary.winnerCorrectCount + raceDetail.summary.exactTop3Count + raceDetail.summary.top3AnyOrderCount}
+                  {raceDetail.summary.winnerCorrectCount}
                 </p>
                 <p className="mt-1 text-xs text-slate-500 font-bold">
-                  {raceDetail.summary.winnerCorrectCount} Winner / {raceDetail.summary.exactTop3Count + raceDetail.summary.top3AnyOrderCount} Top3
+                  {raceDetail.summary.winnerCorrectCount} Winner
                 </p>
               </div>
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
@@ -321,8 +316,9 @@ export function AdminRacePredictionDetailPage() {
                 onChange={(e) => setFilterType(e.target.value)}
               >
                 <option value="">All Prediction Types</option>
-                <option value="WINNER">Winner</option>
-                <option value="TOP3">Top 3</option>
+                <option value="EXACT_POSITION">Exact Position</option>
+                <option value="HEAD_TO_HEAD">Head-to-Head</option>
+                <option value="WINNER">Winner (legacy)</option>
               </select>
 
               <div className="relative flex-1 md:w-60">
@@ -378,7 +374,6 @@ export function AdminRacePredictionDetailPage() {
                               className="inline-flex items-center rounded bg-slate-100 border border-slate-200 px-2 py-0.5 font-bold text-slate-800 text-[10px]"
                               key={index}
                             >
-                              {p.predictionType === "TOP3" && `${index + 1}. `}
                               {hName}
                             </span>
                           ))}
@@ -387,11 +382,11 @@ export function AdminRacePredictionDetailPage() {
                       {isCompleted && (
                         <td className="px-6 py-4">
                           <span className={`inline-flex items-center gap-1 font-bold text-[10px] uppercase ${
-                            p.resultCategory.includes("Correct") || p.resultCategory.includes("Top 3")
+                            p.resultCategory.includes("Correct")
                               ? "text-emerald-700"
                               : "text-rose-700"
                           }`}>
-                            {p.resultCategory.includes("Correct") || p.resultCategory.includes("Top 3") ? (
+                            {p.resultCategory.includes("Correct") ? (
                               <CheckCircle2 className="h-3.5 w-3.5" />
                             ) : (
                               <XCircle className="h-3.5 w-3.5" />

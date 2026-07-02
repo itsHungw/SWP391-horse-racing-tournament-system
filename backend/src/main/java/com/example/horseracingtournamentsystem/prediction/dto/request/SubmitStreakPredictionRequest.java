@@ -6,6 +6,6 @@ import java.util.List;
 @Data
 public class SubmitStreakPredictionRequest {
     private Long tournamentId;
-    private Integer wagerAmount;
+    private Long wagerAmount;
     private List<StreakPredictionLegRequest> legs;
 }

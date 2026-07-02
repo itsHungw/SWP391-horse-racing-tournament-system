@@ -55,6 +55,9 @@ class AdminRoleRequestIntegrationTest {
     @Autowired
     private RoleRequestRepository roleRequestRepository;
 
+    @Autowired
+    private com.example.horseracingtournamentsystem.notification.repository.NotificationRepository notificationRepository;
+
     private String adminToken;
     private User admin;
     private User applicant;
@@ -62,6 +65,7 @@ class AdminRoleRequestIntegrationTest {
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
+        notificationRepository.deleteAll();
         roleRequestRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
@@ -71,6 +75,7 @@ class AdminRoleRequestIntegrationTest {
         Role spectatorRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
         roleRepository.save(Role.of("HORSE_OWNER", "Horse Owner"));
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
+        roleRepository.save(Role.of("ORGANIZER", "Organizer"));
 
         admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
         admin.verifyEmail();
@@ -149,10 +154,15 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.adminNote").value("Approved for the next tournament."))
                 .andExpect(jsonPath("$.reviewedAt", notNullValue()))
                 .andExpect(jsonPath("$.reviewedBy.id").value(admin.getId()));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("quan@example.com"));
+        var notif = notificationRepository.findAll().get(0);
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_APPROVED", notif.getType());
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_REQUEST", notif.getReferenceType());
     }
 
     @Test
-    void adminCannotApproveSpecialistRequestWhenApplicantAlreadyHasActiveSpecialistRole() throws Exception {
+    void adminCanApproveAnotherPersonalRoleWhenApplicantAlreadyHasActivePersonalRole() throws Exception {
         Role jockeyRole = roleRepository.findByName("JOCKEY").orElseThrow();
         userRoleRepository.save(UserRole.active(applicant, jockeyRole, admin));
         RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
@@ -166,8 +176,28 @@ class AdminRoleRequestIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"adminNote\":\"Approved after interview.\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("APPROVED"))
+                .andExpect(jsonPath("$.requestedRole").value("HORSE_OWNER"));
+    }
+
+    @Test
+    void adminCannotApprovePersonalRoleForOrganizerAccount() throws Exception {
+        Role organizerRole = roleRepository.findByName("ORGANIZER").orElseThrow();
+        userRoleRepository.save(UserRole.active(applicant, organizerRole, admin));
+        RoleRequest request = roleRequestRepository.save(RoleRequest.pending(
+                applicant,
+                "JOCKEY",
+                "Please approve me as jockey.",
+                null
+        ));
+
+        mockMvc.perform(post("/api/v1/admin/role-requests/{id}/approve", request.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"adminNote\":\"Approved after interview.\"}"))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message").value("User already has an active specialist role"));
+                .andExpect(jsonPath("$.message").value("Organizer accounts cannot request personal participation roles"));
     }
 
     @Test
@@ -209,5 +239,9 @@ class AdminRoleRequestIntegrationTest {
                 .andExpect(jsonPath("$.adminNote").value("Evidence document is missing."))
                 .andExpect(jsonPath("$.reviewedAt", notNullValue()))
                 .andExpect(jsonPath("$.reviewedBy.email").value(admin.getEmail()));
+
+        org.junit.jupiter.api.Assertions.assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("quan@example.com"));
+        var notif = notificationRepository.findAll().stream().filter(n -> "ROLE_REJECTED".equals(n.getType())).findFirst().orElseThrow();
+        org.junit.jupiter.api.Assertions.assertEquals("ROLE_REQUEST", notif.getReferenceType());
     }
 }

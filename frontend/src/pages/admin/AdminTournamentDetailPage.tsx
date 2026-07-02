@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { RaceMediaPanel } from "../../components/race-media/RaceMediaPanel";
 import { assignAdminRaceReferee, createAdminRace, getAdminRaces, updateAdminRaceStatus } from "../../api/adminRaceApi";
 import { getAdminUsers } from "../../api/adminUserApi";
 import {
@@ -1232,6 +1233,11 @@ export function AdminTournamentDetailPage() {
                   </div>
                 </div>
               )}
+
+              <div className="mt-5 space-y-4">
+                <RaceMediaPanel race={selectedRace} scope="admin" accent="red" kind="live" />
+                <RaceMediaPanel race={selectedRace} scope="admin" accent="red" kind="highlight" />
+              </div>
             </section>
           )}
         </div>

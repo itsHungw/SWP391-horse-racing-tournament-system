@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RaceDetailPage } from "./RaceDetailPage";
 import { getPublicRace, getPublicRaceResults } from "../../api/racingApi";
+import { getPublicRaceHighlight, getPublicRaceLiveStream } from "../../api/raceMediaApi";
 import { spectatorPredictionApi } from "../spectator/predictions/services/spectatorPredictionApi";
 import type { Race } from "../../types/racing";
 import type { PredictionOptions } from "../spectator/predictions/types/prediction.types";
@@ -17,6 +18,11 @@ vi.mock("../spectator/predictions/services/spectatorPredictionApi", () => ({
   spectatorPredictionApi: {
     getPredictionOptions: vi.fn(),
   },
+}));
+
+vi.mock("../../api/raceMediaApi", () => ({
+  getPublicRaceHighlight: vi.fn(),
+  getPublicRaceLiveStream: vi.fn(),
 }));
 
 const futureIso = new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString();
@@ -38,11 +44,10 @@ const options: PredictionOptions = {
   raceName: "Twilight Sprint",
   raceStatus: "SCHEDULED",
   predictionOpen: true,
-  entryCost: { winner: 10, top3: 20 },
-  rewardConfig: { winnerReward: 30, top3ExactReward: 90, top3AnyOrderReward: 45 },
+  entryCost: { winner: 10 },
+  rewardConfig: { winnerReward: 30 },
   myPredictions: [],
   winnerDistributionVisible: false,
-  top3DistributionVisible: false,
   options: [
     { raceParticipantId: 1, startNumber: 1, laneNumber: 2, horseName: "Thunder Bay", jockeyName: "J. Rider" },
     { raceParticipantId: 2, startNumber: 2, laneNumber: 5, horseName: "Silver Reef", jockeyName: "M. Swift" },
@@ -64,6 +69,8 @@ describe("RaceDetailPage", () => {
     vi.clearAllMocks();
     vi.mocked(getPublicRace).mockResolvedValue(race);
     vi.mocked(getPublicRaceResults).mockResolvedValue({ raceId: 7, official: false, entries: [] });
+    vi.mocked(getPublicRaceHighlight).mockResolvedValue(null);
+    vi.mocked(getPublicRaceLiveStream).mockResolvedValue(null);
     vi.mocked(spectatorPredictionApi.getPredictionOptions).mockResolvedValue(options);
   });
 
@@ -86,6 +93,24 @@ describe("RaceDetailPage", () => {
       "href",
       "/spectator/predictions?raceId=7",
     );
+  });
+
+  it("shows a published live stream before the race has started", async () => {
+    vi.mocked(getPublicRaceLiveStream).mockResolvedValue({
+      raceId: 7,
+      provider: "YOUTUBE",
+      providerVideoId: "M7lc1UVf-VE",
+      embedUrl: "https://www.youtube-nocookie.com/embed/M7lc1UVf-VE",
+      title: "Twilight Sprint live coverage",
+      providerTitle: "Twilight Sprint live coverage",
+      thumbnailUrl: null,
+      publishedAt: "2026-07-01T09:00:00",
+    });
+
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: /live coverage is on/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch live: twilight sprint live coverage/i })).toBeInTheDocument();
   });
 
   it("shows the results band instead of a CTA once the race has run", async () => {
@@ -127,7 +152,7 @@ describe("RaceDetailPage", () => {
     );
     expect(screen.queryByRole("link", { name: /enter the arena/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /official result/i })).toBeInTheDocument();
-    expect(screen.getByText("72.341s")).toBeInTheDocument();
+    expect(screen.getAllByText("72.341s").length).toBeGreaterThan(0);
   });
 
   it("does not expose a submitted finish order before the result is official", async () => {

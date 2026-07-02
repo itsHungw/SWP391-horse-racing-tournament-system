@@ -21,6 +21,7 @@ pptx/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.local.yml
 *.local.yaml
 
@@ -30,3 +31,7 @@ pptx/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+frontend/.vite
+
+run-backend.ps1

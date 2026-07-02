@@ -3,8 +3,6 @@ package com.example.horseracingtournamentsystem.leaderboard.service;
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.leaderboard.dto.response.ChampionshipStandingResponse;
 import com.example.horseracingtournamentsystem.leaderboard.dto.response.SpectatorStandingResponse;
-import com.example.horseracingtournamentsystem.point.entity.UserPointAccount;
-import com.example.horseracingtournamentsystem.point.repository.UserPointAccountRepository;
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
@@ -37,14 +35,11 @@ public class LeaderboardService {
 
     private final RaceResultRepository raceResultRepo;
     private final RacePredictionRepository predictionRepo;
-    private final UserPointAccountRepository pointAccountRepo;
 
     public LeaderboardService(RaceResultRepository raceResultRepo,
-                              RacePredictionRepository predictionRepo,
-                              UserPointAccountRepository pointAccountRepo) {
+                              RacePredictionRepository predictionRepo) {
         this.raceResultRepo = raceResultRepo;
         this.predictionRepo = predictionRepo;
-        this.pointAccountRepo = pointAccountRepo;
     }
 
     /**
@@ -116,12 +111,13 @@ public class LeaderboardService {
     }
 
     /**
-     * Spectator points leaderboard. {@code championshipId == null} counts predictions across all seasons.
-     * Excludes staff (admin/referee), inactive and soft-deleted accounts, and empty accounts.
+     * Spectator winnings leaderboard. {@code championshipId == null} counts predictions across all
+     * seasons. Xếp hạng theo TỔNG TIỀN THẮNG CƯỢC (payout) thay vì số dư ví — số dư = tiền nạp nên
+     * không phản ánh kỹ năng. Loại staff (admin/referee), tài khoản inactive/đã xóa.
      */
     @Transactional(readOnly = true)
     public List<SpectatorStandingResponse> getSpectatorLeaderboard(Long championshipId, int limit) {
-        Map<Long, long[]> counts = new LinkedHashMap<>(); // userId -> [correct, total]
+        Map<Long, Row> byUser = new LinkedHashMap<>();
         for (RacePrediction prediction : predictionRepo.findByStatusIn(SETTLED_PREDICTION_STATUSES)) {
             if (championshipId != null) {
                 Race race = prediction.getRace();
@@ -131,36 +127,24 @@ public class LeaderboardService {
                 }
             }
             User spectator = prediction.getSpectator();
-            if (spectator == null) {
+            if (spectator == null || spectator.getDeletedAt() != null || UserStatus.ACTIVE != spectator.getStatus()) {
                 continue;
             }
-            long[] tally = counts.computeIfAbsent(spectator.getId(), k -> new long[2]);
-            tally[1]++;
+            if (spectator.getActiveRoleNames().stream().anyMatch(EXCLUDED_ROLES::contains)) {
+                continue;
+            }
+
+            Row row = byUser.computeIfAbsent(spectator.getId(), k -> new Row(spectator.getFullName()));
+            row.total++;
             if (PredictionStatus.CORRECT == prediction.getStatus()) {
-                tally[0]++;
+                row.correct++;
+                row.winnings += prediction.getRewardPoints();
             }
         }
 
-        List<Row> rows = new ArrayList<>();
-        for (UserPointAccount account : pointAccountRepo.findAll()) {
-            User user = account.getUser();
-            if (user == null || user.getDeletedAt() != null || UserStatus.ACTIVE != user.getStatus()) {
-                continue;
-            }
-            Set<String> roles = user.getActiveRoleNames();
-            if (roles.stream().anyMatch(EXCLUDED_ROLES::contains)) {
-                continue;
-            }
-            long[] tally = counts.getOrDefault(user.getId(), new long[2]);
-            long points = account.getPointBalance();
-            if (points <= 0 && tally[1] == 0) {
-                continue; // nothing to show for this account
-            }
-            rows.add(new Row(user.getFullName(), points, tally[0], tally[1]));
-        }
-
+        List<Row> rows = new ArrayList<>(byUser.values());
         rows.sort(Comparator
-                .comparingLong((Row r) -> r.points).reversed()
+                .comparingLong((Row r) -> r.winnings).reversed()
                 .thenComparing(Comparator.comparingLong((Row r) -> r.correct).reversed()));
 
         int safeLimit = limit <= 0 ? 50 : Math.min(limit, 200);
@@ -170,7 +154,7 @@ public class LeaderboardService {
             if (response.size() >= safeLimit) {
                 break;
             }
-            response.add(new SpectatorStandingResponse(rank++, row.name, row.points, row.correct, row.total));
+            response.add(new SpectatorStandingResponse(rank++, row.name, row.winnings, row.correct, row.total));
         }
         return response;
     }
@@ -228,15 +212,12 @@ public class LeaderboardService {
 
     private static final class Row {
         private final String name;
-        private final long points;
-        private final long correct;
-        private final long total;
+        private long winnings;
+        private long correct;
+        private long total;
 
-        Row(String name, long points, long correct, long total) {
+        Row(String name) {
             this.name = name;
-            this.points = points;
-            this.correct = correct;
-            this.total = total;
         }
     }
 }

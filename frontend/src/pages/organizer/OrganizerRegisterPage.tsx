@@ -50,22 +50,37 @@ const reviewSteps = [
 const inputClass =
   "mt-2 block w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-ivory outline-none transition-all placeholder:text-ivory-faint focus:border-gold-400/50 focus:bg-white/10 focus:ring-1 focus:ring-gold-400/50 disabled:cursor-not-allowed disabled:opacity-50";
 
+const emptyOrganizationForm = {
+  name: "",
+  licenseNumber: "",
+  contactEmail: "",
+  contactPhone: "",
+  description: "",
+  evidenceUrl: "",
+  logoUrl: "",
+  applicationNote: "",
+};
+
+function organizationToForm(organization: Organization) {
+  return {
+    name: organization.name || "",
+    licenseNumber: organization.licenseNumber || "",
+    contactEmail: organization.contactEmail || "",
+    contactPhone: organization.contactPhone || "",
+    description: organization.description || "",
+    evidenceUrl: organization.evidenceUrl || "",
+    logoUrl: organization.logoUrl || "",
+    applicationNote: organization.applicationNote || "",
+  };
+}
+
 export function OrganizerRegisterPage() {
   useDocumentTitle("Become an Organizer | Night at the Races");
 
   const [org, setOrg] = useState<Organization | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({
-    name: "",
-    licenseNumber: "",
-    contactEmail: "",
-    contactPhone: "",
-    description: "",
-    evidenceUrl: "",
-    logoUrl: "",
-    applicationNote: "",
-  });
+  const [form, setForm] = useState(emptyOrganizationForm);
   const [licenseName, setLicenseName] = useState<string | null>(null);
   const [logoName, setLogoName] = useState<string | null>(null);
   const [uploading, setUploading] = useState({ license: false, logo: false });
@@ -84,7 +99,13 @@ export function OrganizerRegisterPage() {
         setProfile(profileResult.value);
       }
       if (orgResult.status === "fulfilled") {
-        setOrg(orgResult.value);
+        const organization = orgResult.value;
+        setOrg(organization);
+        if (organization.status === "REJECTED") {
+          setForm(organizationToForm(organization));
+          setLicenseName(organization.evidenceUrl ? "Previously uploaded license" : null);
+          setLogoName(organization.logoUrl ? "Previously uploaded logo" : null);
+        }
       }
       setLoading(false);
     })();
@@ -98,6 +119,11 @@ export function OrganizerRegisterPage() {
   const showForm = !org || canResubmit;
   const busyUploading = uploading.license || uploading.logo;
   const formDisabled = submitting || busyUploading || !profileCompleted;
+  const pageEyebrow = canResubmit ? "Corrections Requested" : "Join The Elite";
+  const pageTitle = canResubmit ? "Resubmission Workspace" : "Organizer Application";
+  const pageDescription = canResubmit
+    ? "Your application is still in play. Review the admin note, update the fields below, and send a cleaner submission back through Gate 1."
+    : "Apply for platform clearance to host professional tournaments. We run a secure KYB review — once verified, your account receives full ORGANIZER access to our suite of tools.";
 
   const update =
     (key: keyof typeof form) => (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -287,6 +313,56 @@ export function OrganizerRegisterPage() {
     </div>
   );
 
+  const resubmissionPanel = canResubmit && org && (
+    <MotionReveal delay={0.05}>
+      <section
+        aria-labelledby="resubmission-summary-title"
+        className="mb-10 overflow-hidden rounded-2xl border border-rose-400/20 bg-[linear-gradient(135deg,rgba(127,29,29,0.34),rgba(4,47,36,0.62))] shadow-2xl"
+      >
+        <div className="grid gap-6 p-6 md:grid-cols-[minmax(0,1fr)_280px] md:p-8">
+          <div>
+            <Eyebrow tone="gold">Admin review returned</Eyebrow>
+            <h2 id="resubmission-summary-title" className="mt-3 font-display text-3xl font-light text-white">
+              Fix the flagged details and resubmit.
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-ivory-dim">
+              We kept your previous application loaded into the form below so you only need to correct what changed.
+              Upload a replacement license scan if the review note asks for clearer evidence.
+            </p>
+            <div className="mt-6 rounded-xl border border-rose-300/25 bg-rose-950/35 p-4" role="note">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 shrink-0 text-rose-300" size={18} aria-hidden="true" />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-200">Reason from admin</p>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-rose-50">
+                    {org.rejectionReason || "No rejection note was provided. Review your details before resubmitting."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <dl className="grid content-start gap-3 rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
+            <div>
+              <dt className="text-[10px] font-black uppercase tracking-[0.18em] text-ivory-faint">Application</dt>
+              <dd className="mt-1 font-semibold text-white">{org.name}</dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-black uppercase tracking-[0.18em] text-ivory-faint">Status</dt>
+              <dd className="mt-1 inline-flex rounded-full border border-rose-300/30 bg-rose-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.12em] text-rose-200">
+                Rejected
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[10px] font-black uppercase tracking-[0.18em] text-ivory-faint">Next step</dt>
+              <dd className="mt-1 text-ivory-dim">Update the form and resubmit for Gate 1 review.</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+    </MotionReveal>
+  );
+
   return (
     <div className="client-theme min-h-screen bg-turf-950 text-ivory selection:bg-gold-400/30 selection:text-gold-200">
       <ClientHeader />
@@ -300,18 +376,20 @@ export function OrganizerRegisterPage() {
       <main className="relative z-10 mx-auto max-w-6xl px-6 py-16 md:px-12 md:py-24">
         <MotionReveal>
           <div className="max-w-3xl text-center mx-auto mb-16">
-            <Eyebrow tone="gold" className="justify-center">Join The Elite</Eyebrow>
+            <Eyebrow tone="gold" className="justify-center">{pageEyebrow}</Eyebrow>
             <h1 className="mt-5 font-display text-5xl md:text-6xl font-light tracking-tight text-white">
-              Organizer Application<span className="text-gold-400">.</span>
+              {pageTitle}<span className="text-gold-400">.</span>
             </h1>
             <div className="mt-6 flex justify-center">
               <div className="h-px w-24 bg-gradient-to-r from-transparent via-gold-400/50 to-transparent"></div>
             </div>
             <p className="mt-6 text-lg leading-relaxed text-ivory-dim max-w-2xl mx-auto">
-              Apply for platform clearance to host professional tournaments. We run a secure KYB review — once verified, your account receives full ORGANIZER access to our suite of tools.
+              {pageDescription}
             </p>
           </div>
         </MotionReveal>
+
+        {!loading && resubmissionPanel}
 
         {loading ? (
           <div className="mx-auto max-w-3xl h-96 animate-pulse rounded-2xl border border-white/5 bg-white/5" />
@@ -326,11 +404,6 @@ export function OrganizerRegisterPage() {
             <MotionReveal delay={0.1}>
               <aside>
                 {requirementsPanel}
-                {canResubmit && (
-                  <div className="mt-8">
-                    {statusBanner}
-                  </div>
-                )}
               </aside>
             </MotionReveal>
 

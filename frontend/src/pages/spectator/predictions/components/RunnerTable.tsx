@@ -11,23 +11,21 @@ interface RunnerTableProps {
 
 const slotLabels: Record<NonNullable<ReturnType<typeof getPickedSlot>>, string> = {
   winnerId: "First",
-  secondId: "Second",
-  thirdId: "Third",
 };
 
 function formatCommunityRate(options: PredictionOptions, predType: PredictionType, runnerId: number): string {
-  if (predType === "WINNING_STREAK") {
-    const odds = options.positionOddsMatrix?.[runnerId]?.[1];
-    return odds ? `x${odds.toFixed(2)}` : "-";
-  }
-
   const runner = options.options.find((option) => option.raceParticipantId === runnerId);
   if (!runner) return "-";
 
-  const visible = predType === "WINNER" ? options.winnerDistributionVisible : options.top3DistributionVisible;
+  if (predType === "WINNING_STREAK") {
+    const odds = runner.winOdds;
+    return odds ? `x${odds.toFixed(2)}` : "-";
+  }
+
+  const visible = predType === "WINNER" && options.winnerDistributionVisible;
   if (!visible) return "-";
 
-  const rate = predType === "WINNER" ? runner.communityWinnerRate : runner.communityTop3Rate;
+  const rate = runner.communityWinnerRate;
   if (rate == null) return "-";
 
   return `${Math.round(rate * 100)}%`;
@@ -65,7 +63,8 @@ export function RunnerTable({ options, predType, picks, disabled, onSelectRunner
               <th scope="col" className="w-[120px] px-2 py-2 font-semibold">Horse</th>
               {Array.from({ length: N }).map((_, i) => (
                 <th key={i} scope="col" className="px-2 py-2 text-center font-semibold">
-                  Pos {i + 1}
+                  <span className="block">Pos {i + 1}</span>
+                  {/* <span className="block text-[8px] uppercase tracking-[0.12em] text-ivory-faint">Pool est.</span> */}
                 </th>
               ))}
             </tr>
@@ -97,14 +96,20 @@ export function RunnerTable({ options, predType, picks, disabled, onSelectRunner
                           type="button"
                           disabled={disabled || !odds}
                           aria-pressed={isPicked}
+                          aria-label={
+                            odds
+                              ? `Current pool estimate ${odds.toFixed(2)} for ${runner.horseName} position ${pos}`
+                              : `No pool estimate for ${runner.horseName} position ${pos}`
+                          }
+                          title="Current pool estimate. Your payout is quoted after your stake and may change until betting locks."
                           onClick={() => onSelectRunner(runner.raceParticipantId, pos)}
-                          className={`min-h-9 w-full min-w-[50px] rounded-[5px] border text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 disabled:cursor-not-allowed disabled:opacity-50 ${
+                          className={`min-h-10 w-full min-w-[30px] rounded-[5px] border px-1 py-1 text-[11px] font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 disabled:cursor-not-allowed disabled:opacity-50 ${
                             isPicked
                               ? "border-gold-400 bg-gold-400 text-turf-900"
                               : "border-turf-800 text-gold-300 hover:border-gold-400 hover:bg-turf-800"
                           }`}
                         >
-                          {odds ? `${odds.toFixed(2)}` : "-"}
+                          <span className="block font-data leading-none">{odds ? odds.toFixed(2) : "-"}</span>
                         </button>
                       </td>
                     );
@@ -134,7 +139,7 @@ export function RunnerTable({ options, predType, picks, disabled, onSelectRunner
                 Jockey
               </th>
               <th scope="col" className="w-[132px] px-3 py-2 text-center font-semibold">
-                {predType === "WINNING_STREAK" ? "Odds" : "Community Picks"}
+                {predType === "WINNING_STREAK" ? "Leg Odds" : "Community Picks"}
               </th>
               <th scope="col" className="w-[120px] px-3 py-2 text-center font-semibold">
                 Select

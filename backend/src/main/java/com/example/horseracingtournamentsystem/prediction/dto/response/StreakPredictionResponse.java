@@ -15,10 +15,10 @@ public class StreakPredictionResponse {
     private Long id;
     private Long tournamentId;
     private String tournamentName;
-    private Integer wagerAmount;
+    private Long wagerAmount;
     private BigDecimal totalOdds;
     private StreakPredictionStatus status;
-    private Integer rewardPoints;
+    private Long rewardPoints;
     private LocalDateTime createdAt;
     private LocalDateTime evaluatedAt;
     private List<StreakPredictionLegResponse> legs;

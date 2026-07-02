@@ -40,28 +40,29 @@ export function AdminOverviewPage() {
   return (
     <AdminLayout>
       <section aria-labelledby="admin-overview-title" className="space-y-6">
-        <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        {/* Title Header Card */}
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.16em] text-[#b3193a]">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">
               Tournament operations
             </p>
-            <h1 id="admin-overview-title" className="mt-2 text-4xl font-black tracking-tight">
+            <h1 id="admin-overview-title" className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">
               Admin Operations
             </h1>
-            <p className="mt-2 max-w-3xl text-base text-slate-600">
+            <p className="mt-2 max-w-3xl text-sm text-slate-500">
               Monitor role approvals, tournament readiness, race content, and user activity from one compact workspace.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <a
-              className="flex min-h-11 items-center rounded-md border-2 border-[#070f4f] px-5 text-sm font-black text-[#070f4f] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+              className="flex min-h-11 items-center rounded-lg border border-slate-200 bg-white px-5 text-sm font-black text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
               href="/admin/role-requests"
             >
               Review Requests
             </a>
             <a
-              className="flex min-h-11 items-center rounded-md bg-[#a6ff3f] px-5 text-sm font-black text-[#07110d] hover:bg-[#c4ff72] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+              className="flex min-h-11 items-center rounded-lg bg-emerald-600 px-5 text-sm font-black text-white hover:bg-emerald-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
               href="/admin/tournaments"
             >
               New Tournament
@@ -69,39 +70,37 @@ export function AdminOverviewPage() {
           </div>
         </div>
 
-
-
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {dynamicMetrics.map((metric) => (
-            <article className="rounded-lg border border-[#d8d8d8] bg-white p-5" key={metric.label}>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+            <article className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:shadow-md transition duration-300" key={metric.label}>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                 {metric.label}
               </p>
-              <p className={`mt-3 text-4xl font-black ${metric.tone}`}>{metric.value}</p>
-              <p className="mt-2 text-sm font-medium text-slate-600">{metric.detail}</p>
+              <p className={`mt-2 text-4xl font-black ${metric.tone}`}>{metric.value}</p>
+              <p className="mt-2 text-xs font-semibold text-slate-500">{metric.detail}</p>
             </article>
           ))}
         </div>
 
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-          <section className="rounded-lg border border-[#d8d8d8] bg-white" aria-labelledby="review-queue-title">
-            <div className="flex flex-col gap-3 border-b border-[#d8d8d8] p-5 sm:flex-row sm:items-center sm:justify-between">
+          <section className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" aria-labelledby="review-queue-title">
+            <div className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 id="review-queue-title" className="text-xl font-black">
+                <h2 id="review-queue-title" className="text-lg font-black text-slate-900">
                   Role Request Review Queue
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-0.5 text-xs text-slate-500">
                   Fast scan of requests that need admin attention.
                 </p>
               </div>
-              <a className="text-sm font-black text-[#b3193a] underline" href="/admin/role-requests">
+              <a className="text-xs font-black text-[#b3193a] underline hover:text-[#8f1430]" href="/admin/role-requests">
                 View all
               </a>
             </div>
 
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[#f7f7f7] text-xs uppercase tracking-[0.14em] text-slate-500">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   <tr>
                     <th className="px-5 py-3">Applicant</th>
                     <th className="px-5 py-3">Role</th>
@@ -124,7 +123,7 @@ export function AdminOverviewPage() {
                           <p className="text-xs text-slate-500">{row.email}</p>
                         </td>
                         <td className="px-5 py-4 font-black text-[#006d5b]">{row.role}</td>
-                        <td className="px-5 py-4 text-slate-600">{row.submitted}</td>
+                        <td className="px-5 py-4 text-slate-650 font-medium">{row.submitted}</td>
                         <td className="px-5 py-4">
                           <span className="rounded-full bg-[#f1f1f1] px-3 py-1 text-xs font-bold text-slate-700">
                             {row.status}
@@ -138,20 +137,20 @@ export function AdminOverviewPage() {
             </div>
           </section>
 
-          <aside className="rounded-lg border border-[#d8d8d8] bg-white p-5" aria-labelledby="admin-alerts-title">
-            <h2 id="admin-alerts-title" className="text-xl font-black">
+          <aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="admin-alerts-title">
+            <h2 id="admin-alerts-title" className="text-lg font-black text-slate-900">
               Operations Alerts
             </h2>
             <div className="mt-5 space-y-4">
               {dashboard.alerts.length === 0 ? (
-                <div className="text-sm text-slate-500">No active alerts.</div>
+                <div className="text-xs text-slate-400 font-semibold">No active alerts.</div>
               ) : (
                 dashboard.alerts.map((alert, index) => (
-                  <div className="border-l-4 border-[#b3193a] bg-[#fafafa] p-4" key={index}>
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">
+                  <div className="border-l-4 border-[#b3193a] bg-slate-50 p-4 rounded-r-lg" key={index}>
+                    <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
                       Alert {index + 1}
                     </p>
-                    <p className="mt-2 text-sm font-medium leading-6 text-slate-700">{alert}</p>
+                    <p className="mt-2 text-xs font-semibold leading-5 text-slate-650">{alert}</p>
                   </div>
                 ))
               )}

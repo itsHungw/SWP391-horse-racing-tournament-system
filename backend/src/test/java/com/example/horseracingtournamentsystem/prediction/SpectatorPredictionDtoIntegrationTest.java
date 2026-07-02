@@ -68,7 +68,7 @@ class SpectatorPredictionDtoIntegrationTest {
                 8,
                 admin
         ));
-        predictionRepository.save(RacePrediction.create(race, spectator, RacePrediction.TYPE_WINNER, 10L, 1, null, null, null, null, 5));
+        predictionRepository.save(RacePrediction.create(race, spectator, RacePrediction.TYPE_WINNER, 10L, 1, null, null, 5));
     }
 
     @Test
