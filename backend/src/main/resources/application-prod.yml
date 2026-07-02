@@ -3,12 +3,12 @@ app:
     refresh-cookie-secure: ${APP_AUTH_COOKIE_SECURE:true}
     refresh-cookie-same-site: Strict
 
-# Production uses the real AWS S3 endpoint and the instance IAM role:
-# - AWS_S3_BUCKET is required (no default in application.yml -> fail fast).
-# - endpoint / access-key / secret-key stay blank so the AWS SDK resolves the
-#   real endpoint and DefaultCredentialsProvider (IAM role) is used.
-aws:
-  s3:
-    endpoint:
-    access-key:
-    secret-key:
+# Behind the host nginx: trust X-Forwarded-* so the app sees the real client IP
+# and the https scheme (used by rate-limiting, VNPay vnp_IpAddr, and cookies).
+server:
+  forward-headers-strategy: native
+
+# Object storage is driven entirely by env vars (see application.yml):
+#   OBJECT_STORAGE_ENDPOINT / OBJECT_STORAGE_ACCESS_KEY / OBJECT_STORAGE_SECRET_KEY / OBJECT_STORAGE_BUCKET / OBJECT_STORAGE_REGION
+# - Cloudflare R2 / MinIO / any S3-compatible store: set endpoint + static keys.
+# - The current VPS target uses Cloudflare R2.

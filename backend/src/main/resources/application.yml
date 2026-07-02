@@ -40,20 +40,19 @@ spring:
           starttls:
             enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
 
-aws:
+storage:
   s3:
-    # bucket-name has no default on purpose: a missing AWS_S3_BUCKET must fail
+    # bucket-name has no default on purpose: a missing OBJECT_STORAGE_BUCKET must fail
     # fast instead of silently writing to a shared/wrong bucket. Each environment
     # supplies its own bucket (see application-dev.yml / application-prod.yml).
-    bucket-name: ${AWS_S3_BUCKET}
-    region: ${AWS_REGION:ap-southeast-1}
-    presigned-url-ttl: ${AWS_S3_PRESIGNED_URL_TTL:5m}
-    # endpoint + static credentials are only set for S3-compatible local storage
-    # (MinIO). Left blank in prod so the AWS SDK uses the real AWS endpoint and
-    # the instance IAM role.
-    endpoint: ${AWS_S3_ENDPOINT:}
-    access-key: ${AWS_S3_ACCESS_KEY:}
-    secret-key: ${AWS_S3_SECRET_KEY:}
+    bucket-name: ${OBJECT_STORAGE_BUCKET}
+    region: ${OBJECT_STORAGE_REGION:ap-southeast-1}
+    presigned-url-ttl: ${OBJECT_STORAGE_PRESIGNED_URL_TTL:5m}
+    # endpoint + static credentials are set for S3-compatible storage
+    # (MinIO locally, Cloudflare R2 in production).
+    endpoint: ${OBJECT_STORAGE_ENDPOINT:}
+    access-key: ${OBJECT_STORAGE_ACCESS_KEY:}
+    secret-key: ${OBJECT_STORAGE_SECRET_KEY:}
 
 vnpay:
   tmn-code: ${VNPAY_TMN_CODE:}
@@ -121,6 +120,19 @@ app:
   mail:
     enabled: ${APP_MAIL_ENABLED:true}
     from: ${MAIL_FROM:no-reply@equinepro.local}
+
+# Actuator: expose only the health endpoint (with liveness/readiness probes) so
+# nginx/uptime checks and the docker-compose healthcheck can hit /actuator/health.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
 
 # Swagger UI tuned for the end-to-end business-flow demo: numbered tags sort in
 # flow order, the JWT "Authorize" token survives page reloads, groups start collapsed.

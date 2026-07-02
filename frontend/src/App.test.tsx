@@ -412,8 +412,10 @@ describe("App", () => {
 
     render(<App />);
 
+    // First query is async: the admin workspace is lazy-loaded, so the whole
+    // route tree shows the Suspense fallback until the chunk resolves.
     expect(
-      screen.getByRole("banner", { name: /admin operations header/i }),
+      await screen.findByRole("banner", { name: /admin operations header/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("navigation", { name: /admin workspace/i }),
@@ -454,7 +456,7 @@ describe("App", () => {
     render(<App />);
 
     expect(
-      screen.getByRole("banner", { name: /admin operations header/i }),
+      await screen.findByRole("banner", { name: /admin operations header/i }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /user management/i })).toBeInTheDocument();
     expect(screen.getByText(/manage accounts/i)).toBeInTheDocument();
@@ -467,7 +469,7 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /horse approvals/i })).toBeInTheDocument();
     expect(await screen.findByText(/no horses matching the current filter/i)).toBeInTheDocument();
   });
@@ -478,19 +480,19 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner", { name: /admin operations header/i })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /tournament registrations/i })).toBeInTheDocument();
     expect(await screen.findByText(/no registrations match this filter/i)).toBeInTheDocument();
   });
 
 
-  it("renders referee result packages as a read-only confirmed results archive", () => {
+  it("renders referee result packages as a read-only confirmed results archive", async () => {
     window.history.pushState({}, "", "/referee/result-history");
     setClientSession(createTokenWithRoles(["REFEREE"]), "Julian Sterling", "referee@equine.com");
 
     render(<App />);
 
-    expect(screen.getByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
+    expect(await screen.findByRole("banner", { name: /referee workspace header/i })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /race reports/i })).toHaveAttribute(
       "href",
       "/referee/result-history",

@@ -21,6 +21,7 @@ pptx/
 .env
 .env.*
 !.env.example
+!.env.prod.example
 *.local.yml
 *.local.yaml
 

@@ -13,7 +13,10 @@ import java.util.Collections;
 @Service
 public class GoogleOAuth2ProviderService implements OAuth2ProviderService {
 
-    @Value("${app.auth.google-client-id}")
+    // Optional: empty when Google login isn't configured (e.g. tests, or a deploy
+    // without GOOGLE_CLIENT_ID). Empty means the app still boots; only Google
+    // token verification is unavailable. Matches ${GOOGLE_CLIENT_ID:} in application.yml.
+    @Value("${app.auth.google-client-id:}")
     private String googleClientId;
 
     @Override

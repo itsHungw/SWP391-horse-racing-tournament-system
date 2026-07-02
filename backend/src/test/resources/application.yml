@@ -17,7 +17,7 @@ spring:
   flyway:
     enabled: false
 
-aws:
+storage:
   s3:
     bucket-name: test-private-bucket
     region: ap-southeast-1

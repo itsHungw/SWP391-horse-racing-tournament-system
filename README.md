@@ -11,12 +11,12 @@ holds its metadata row).
 
 | | Database | Object store | Spring profile |
 | --- | --- | --- | --- |
-| **Local** | SQL Server (Docker) | MinIO (Docker, S3-compatible) | `dev` |
-| **Cloud** | managed SQL Server | AWS S3 bucket | `prod` |
+| **Local** | PostgreSQL (Docker) | MinIO (Docker, S3-compatible) | `dev` |
+| **Cloud** | PostgreSQL on the VPS | Cloudflare R2 bucket | `prod` |
 
 Config is selected by `SPRING_PROFILES_ACTIVE` and environment variables; see
 `backend/src/main/resources/application.yml` and the `application-dev.yml` /
-`application-prod.yml` overlays. `AWS_S3_BUCKET` has no default on purpose, so a
+`application-prod.yml` overlays. `OBJECT_STORAGE_BUCKET` has no default on purpose, so a
 misconfigured deploy fails fast instead of writing to the wrong bucket.
 
 ## Local development
@@ -24,7 +24,7 @@ misconfigured deploy fails fast instead of writing to the wrong bucket.
 Prerequisites: Docker, JDK 21, Node 20+.
 
 ```bash
-# 1. Start local SQL Server + MinIO (creates the dev database and bucket)
+# 1. Start local PostgreSQL + MinIO (creates the dev database and bucket)
 cp .env.example .env
 docker compose up -d
 
@@ -38,12 +38,11 @@ npm install
 npm run dev
 ```
 
-- MinIO S3 API: `http://localhost:9000` — console: `http://localhost:9001`
+- MinIO S3 API: `http://localhost:9000` - console: `http://localhost:9001`
   (user/pass from `.env`, default `minioadmin` / `minioadmin`).
-- SQL Server: `localhost:14330` (sa / `DB_SA_PASSWORD` from `.env`). Host port
-  14330 is used so the container does not clash with a locally installed SQL
-  Server on 1433.
-- `.env` is gitignored — never commit real secrets. Keep `.env.example` current.
+- PostgreSQL: `localhost:5432` (database/user/password from `.env`, defaults
+  `horseracing` / `horseracing` / `local123`).
+- `.env` is gitignored - never commit real secrets. Keep `.env.example` current.
 - Dev admin (dev profile only, seeded on first boot): `admin@gmail.com` /
   `123456789`.
 - Client demo accounts (dev profile only, all use `Demo@12345`):
@@ -60,7 +59,7 @@ duplicating existing ones.
 
 The schema is owned solely by the Flyway baseline
 `backend/src/main/resources/db/migration/V1__baseline.sql` (generated from the
-JPA entities). There is no `schema.sql` or `database/` script anymore — Flyway
+JPA entities). There is no `schema.sql` or `database/` script anymore - Flyway
 builds the database on first boot.
 
 > **One-time wipe after pulling the schema consolidation:** the migration history
@@ -77,7 +76,9 @@ cd frontend && npm test        # frontend (Vitest)
 
 ## Production notes
 
-Set `SPRING_PROFILES_ACTIVE=prod`. Provide `DB_URL`/`DB_USERNAME`/`DB_PASSWORD`
-and `AWS_S3_BUCKET` (real bucket) via the environment. Leave `AWS_S3_ENDPOINT`,
-`AWS_S3_ACCESS_KEY`, and `AWS_S3_SECRET_KEY` unset so the AWS SDK uses the real
-endpoint and the instance IAM role.
+Set `SPRING_PROFILES_ACTIVE=prod`. In the current DigitalOcean deployment, the
+backend receives `DB_URL=jdbc:postgresql://postgres:5432/${DB_NAME}` from
+`docker-compose.prod.yml`, while `infra/.env.prod` supplies `DB_NAME`,
+`DB_USERNAME`, `DB_PASSWORD`, and the Cloudflare R2 variables:
+`OBJECT_STORAGE_BUCKET`, `OBJECT_STORAGE_REGION=auto`, `OBJECT_STORAGE_ENDPOINT`,
+`OBJECT_STORAGE_ACCESS_KEY`, and `OBJECT_STORAGE_SECRET_KEY`.
