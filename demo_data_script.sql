@@ -74,9 +74,9 @@ BEGIN
         status, email, full_name, avatar_url, address, password_hash
     )
     VALUES
-    (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@horseracing.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
-    (true, '1985-04-20', true, true, true, v_now, v_now, 'MALE',   '0901000002', 'ACTIVE', 'referee@horseracing.com',   'Jonathan Whitmore',  NULL, 'London, United Kingdom', v_pw),
-    (true, '2000-09-12', true, true, true, v_now, v_now, 'FEMALE', '0901000003', 'ACTIVE', 'spectator@horseracing.com', 'Sophia Bennett',     NULL, 'London, United Kingdom', v_pw),
+    (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@gmail.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
+    (true, '1985-04-20', true, true, true, v_now, v_now, 'MALE',   '0901000002', 'ACTIVE', 'referee@gmail.com',   'Jonathan Whitmore',  NULL, 'London, United Kingdom', v_pw),
+    (true, '2000-09-12', true, true, true, v_now, v_now, 'FEMALE', '0901000003', 'ACTIVE', 'spectator@gmail.com', 'Sophia Bennett',     NULL, 'London, United Kingdom', v_pw),
 
     (true, '1982-02-01', true, true, true, v_now, v_now, 'MALE',   '0912000001', 'ACTIVE', 'owner1@gmail.com', 'Oliver Kensington',  NULL, 'Mayfair, London', v_pw),
     (true, '1984-03-02', true, true, true, v_now, v_now, 'FEMALE', '0912000002', 'ACTIVE', 'owner2@gmail.com', 'Charlotte Beaumont', NULL, 'Nice, France', v_pw),
@@ -96,12 +96,12 @@ BEGIN
     (true, '1993-07-17', true, true, true, v_now, v_now, 'MALE',   '0923000007', 'ACTIVE', 'jockey7@gmail.com', 'Lucas Morgan',    NULL, 'Newmarket, United Kingdom', v_pw),
     (true, '1996-08-18', true, true, true, v_now, v_now, 'FEMALE', '0923000008', 'ACTIVE', 'jockey8@gmail.com', 'Mia Thompson',    NULL, 'Newmarket, United Kingdom', v_pw),
 
-    (true, '1979-03-10', true, true, true, v_now, v_now, 'MALE',   '0934000001', 'ACTIVE',               'organizer1@horseracing.com', 'Reginald Pembroke', NULL, 'Ascot, United Kingdom',   v_pw),
-    (true, '1983-06-22', true, true, true, v_now, v_now, 'FEMALE', '0934000002', 'ACTIVE',               'organizer2@horseracing.com', 'Beatrice Langford', NULL, 'Chantilly, France',       v_pw),
-    (true, '1975-11-05', true, true, true, v_now, v_now, 'MALE',   '0934000003', 'ACTIVE',               'organizer3@horseracing.com', 'Cornelius Vane',    NULL, 'Dublin, Ireland',         v_pw),
-    (true, '1981-08-19', true, true, true, v_now, v_now, 'FEMALE', '0934000004', 'ACTIVE',               'organizer4@horseracing.com', 'Lavinia Cross',     NULL, 'Milan, Italy',            v_pw),
-    (true, '1992-02-02', true, true, true, v_now, v_now, 'MALE',   '0945000001', 'SUSPENDED',            'suspended@horseracing.com',  'Marcus Doyle',      NULL, 'Leeds, United Kingdom',   v_pw),
-    (true, '1990-07-07', true, true, true, v_now, v_now, 'FEMALE', '0945000002', 'BANNED',               'banned@horseracing.com',     'Frances Webb',      NULL, 'Cardiff, Wales',          v_pw),
+    (true, '1979-03-10', true, true, true, v_now, v_now, 'MALE',   '0934000001', 'ACTIVE',               'organizer1@gmail.com', 'Reginald Pembroke', NULL, 'Ascot, United Kingdom',   v_pw),
+    (true, '1983-06-22', true, true, true, v_now, v_now, 'FEMALE', '0934000002', 'ACTIVE',               'organizer2@gmail.com', 'Beatrice Langford', NULL, 'Chantilly, France',       v_pw),
+    (true, '1975-11-05', true, true, true, v_now, v_now, 'MALE',   '0934000003', 'ACTIVE',               'organizer3@gmail.com', 'Cornelius Vane',    NULL, 'Dublin, Ireland',         v_pw),
+    (true, '1981-08-19', true, true, true, v_now, v_now, 'FEMALE', '0934000004', 'ACTIVE',               'organizer4@gmail.com', 'Lavinia Cross',     NULL, 'Milan, Italy',            v_pw),
+    (true, '1992-02-02', true, true, true, v_now, v_now, 'MALE',   '0945000001', 'SUSPENDED',            'suspended@gmail.com',  'Marcus Doyle',      NULL, 'Leeds, United Kingdom',   v_pw),
+    (true, '1990-07-07', true, true, true, v_now, v_now, 'FEMALE', '0945000002', 'BANNED',               'banned@gmail.com',     'Frances Webb',      NULL, 'Cardiff, Wales',          v_pw),
     (false,'2001-12-01', false,false,false, v_now, v_now, 'MALE',  '0945000003', 'PENDING_EMAIL_VERIFY', 'pending@horseracing.com',    'Toby Fenwick',      NULL, 'Bristol, United Kingdom', v_pw);
 
     SELECT id INTO v_admin_id     FROM users WHERE email = 'admin@horseracing.com';

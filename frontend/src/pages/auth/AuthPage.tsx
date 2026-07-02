@@ -14,20 +14,9 @@ import {
   validateVietnamesePhone,
 } from "../../utils/validation";
 import { setClientSession } from "../../utils/authSession";
+import { getApiErrorMessage } from "../../utils/apiError";
 
 type AuthMode = "login" | "register";
-
-type ApiError = {
-  response?: {
-    data?: {
-      error?: string;
-    };
-  };
-};
-
-function getApiErrorMessage(error: unknown, fallback: string) {
-  return (error as ApiError).response?.data?.error || fallback;
-}
 
 function Field({
   autoComplete,
