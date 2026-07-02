@@ -74,7 +74,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd ~/SWP391-horse-racing-tournament-system
+            cd /opt/hrts
             git pull --ff-only
             docker compose -f docker-compose.prod.yml --env-file infra/.env.prod pull
             docker compose -f docker-compose.prod.yml --env-file infra/.env.prod up -d
