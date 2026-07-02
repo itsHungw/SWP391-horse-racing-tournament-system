@@ -104,14 +104,14 @@ BEGIN
     (true, '1990-07-07', true, true, true, v_now, v_now, 'FEMALE', '0945000002', 'BANNED',               'banned@gmail.com',     'Frances Webb',      NULL, 'Cardiff, Wales',          v_pw),
     (false,'2001-12-01', false,false,false, v_now, v_now, 'MALE',  '0945000003', 'PENDING_EMAIL_VERIFY', 'pending@horseracing.com',    'Toby Fenwick',      NULL, 'Bristol, United Kingdom', v_pw);
 
-    SELECT id INTO v_admin_id     FROM users WHERE email = 'admin@horseracing.com';
-    SELECT id INTO v_referee_id   FROM users WHERE email = 'referee@horseracing.com';
-    SELECT id INTO v_spectator_id FROM users WHERE email = 'spectator@horseracing.com';
+    SELECT id INTO v_admin_id     FROM users WHERE email = 'admin@gmail.com';
+    SELECT id INTO v_referee_id   FROM users WHERE email = 'referee@gmail.com';
+    SELECT id INTO v_spectator_id FROM users WHERE email = 'spectator@gmail.com';
 
     IF v_admin_id IS NULL OR v_referee_id IS NULL OR v_spectator_id IS NULL THEN
         RAISE EXCEPTION 'Seed lookup failed: admin_id=%, referee_id=%, spectator_id=%. Emails found in users table: %',
             v_admin_id, v_referee_id, v_spectator_id,
-            (SELECT string_agg(email, ', ') FROM users WHERE email IN ('admin@horseracing.com', 'referee@horseracing.com', 'spectator@horseracing.com'));
+            (SELECT string_agg(email, ', ') FROM users WHERE email IN ('admin@gmail.com', 'referee@gmail.com', 'spectator@gmail.com'));
     END IF;
 
     /* ================================================================
@@ -121,9 +121,9 @@ BEGIN
     SELECT u.id, r.id, 'ACTIVE', v_now, v_admin_id
     FROM users u
     JOIN roles r ON
-        (u.email = 'admin@horseracing.com'     AND r.name = 'ADMIN') OR
-        (u.email = 'referee@horseracing.com'   AND r.name = 'REFEREE') OR
-        (u.email = 'spectator@horseracing.com' AND r.name = 'SPECTATOR') OR
+        (u.email = 'admin@gmail.com'     AND r.name = 'ADMIN') OR
+        (u.email = 'referee@gmail.com'   AND r.name = 'REFEREE') OR
+        (u.email = 'spectator@gmail.com' AND r.name = 'SPECTATOR') OR
         (u.email LIKE 'owner%@gmail.com'        AND r.name = 'HORSE_OWNER') OR
         (u.email LIKE 'jockey%@gmail.com'       AND r.name = 'JOCKEY');
 
@@ -252,7 +252,7 @@ BEGIN
            'ACTIVE',
            v_now
     FROM users u
-    WHERE u.email LIKE '%@horseracing.com'
+    WHERE u.email IN ('admin@gmail.com', 'referee@gmail.com', 'spectator@gmail.com')
        OR u.email LIKE 'owner%@gmail.com'
        OR u.email LIKE 'jockey%@gmail.com';
 
@@ -270,7 +270,7 @@ BEGIN
         CASE WHEN u.id = v_spectator_id THEN 1000000 ELSE 100000 END,
         'Initial demo balance'
     FROM users u
-    WHERE u.email LIKE '%@horseracing.com'
+    WHERE u.email IN ('admin@gmail.com', 'referee@gmail.com', 'spectator@gmail.com')
        OR u.email LIKE 'owner%@gmail.com'
        OR u.email LIKE 'jockey%@gmail.com';
 
@@ -585,22 +585,22 @@ BEGIN
     /* ================================================================
        15. ORGANIZER LAYER — user_roles, organizations, gắn giải vào tổ chức
        ================================================================ */
-    SELECT id INTO v_org1_owner FROM users WHERE email = 'organizer1@horseracing.com';
-    SELECT id INTO v_org2_owner FROM users WHERE email = 'organizer2@horseracing.com';
-    SELECT id INTO v_org3_owner FROM users WHERE email = 'organizer3@horseracing.com';
-    SELECT id INTO v_org4_owner FROM users WHERE email = 'organizer4@horseracing.com';
+    SELECT id INTO v_org1_owner FROM users WHERE email = 'organizer1@gmail.com';
+    SELECT id INTO v_org2_owner FROM users WHERE email = 'organizer2@gmail.com';
+    SELECT id INTO v_org3_owner FROM users WHERE email = 'organizer3@gmail.com';
+    SELECT id INTO v_org4_owner FROM users WHERE email = 'organizer4@gmail.com';
 
     INSERT INTO user_roles(user_id, role_id, status, assigned_at, assigned_by)
     SELECT u.id, r.id, 'ACTIVE', v_now, v_admin_id
     FROM users u
     JOIN roles r ON r.name = 'ORGANIZER'
-    WHERE u.email LIKE 'organizer%@horseracing.com';
+    WHERE u.email LIKE 'organizer%@gmail.com';
 
     INSERT INTO user_roles(user_id, role_id, status, assigned_at, assigned_by)
     SELECT u.id, r.id, 'ACTIVE', v_now, v_admin_id
     FROM users u
     JOIN roles r ON r.name = 'SPECTATOR'
-    WHERE u.email IN ('suspended@horseracing.com', 'banned@horseracing.com', 'pending@horseracing.com');
+    WHERE u.email IN ('suspended@gmail.com', 'banned@gmail.com', 'pending@horseracing.com');
 
     INSERT INTO organizations(
         owner_user_id, approved_by, created_at, updated_at, approved_at, deleted_at,
@@ -665,8 +665,8 @@ BEGIN
     )
     VALUES
     (v_now, NULL,  NULL,       NULL,  NULL,       v_now, v_spectator_id,                                                       'NOT_REVIEWED', 'PENDING',   'JOCKEY',      '/uploads/cv/spectator-jockey.pdf', NULL,                                     NULL,            'I would like to compete as a jockey.'),
-    (v_now, v_now, v_admin_id, v_now, v_admin_id, v_now, (SELECT id FROM users WHERE email = 'suspended@horseracing.com'),     'PASSED',       'APPROVED',  'HORSE_OWNER', '/uploads/cv/owner-request.pdf',    'Approved by admin.',                     'CV verified.', 'Requesting horse owner privileges.'),
-    (v_now, NULL,  NULL,       v_now, v_admin_id, v_now, (SELECT id FROM users WHERE email = 'banned@horseracing.com'),        'NOT_REVIEWED', 'REJECTED',  'REFEREE',     '/uploads/cv/referee-request.pdf',  'Rejected: insufficient certification.',  NULL,            'Requesting referee licensing.'),
+    (v_now, v_now, v_admin_id, v_now, v_admin_id, v_now, (SELECT id FROM users WHERE email = 'suspended@gmail.com'),     'PASSED',       'APPROVED',  'HORSE_OWNER', '/uploads/cv/owner-request.pdf',    'Approved by admin.',                     'CV verified.', 'Requesting horse owner privileges.'),
+    (v_now, NULL,  NULL,       v_now, v_admin_id, v_now, (SELECT id FROM users WHERE email = 'banned@gmail.com'),        'NOT_REVIEWED', 'REJECTED',  'REFEREE',     '/uploads/cv/referee-request.pdf',  'Rejected: insufficient certification.',  NULL,            'Requesting referee licensing.'),
     (v_now, NULL,  NULL,       NULL,  NULL,       v_now, (SELECT id FROM users WHERE email = 'pending@horseracing.com'),       'NOT_REVIEWED', 'CANCELLED', 'JOCKEY',      NULL,                               NULL,                                     NULL,            'Withdrew the application.');
 
     /* ================================================================
