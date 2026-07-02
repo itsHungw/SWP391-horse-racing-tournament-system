@@ -108,6 +108,12 @@ BEGIN
     SELECT id INTO v_referee_id   FROM users WHERE email = 'referee@horseracing.com';
     SELECT id INTO v_spectator_id FROM users WHERE email = 'spectator@horseracing.com';
 
+    IF v_admin_id IS NULL OR v_referee_id IS NULL OR v_spectator_id IS NULL THEN
+        RAISE EXCEPTION 'Seed lookup failed: admin_id=%, referee_id=%, spectator_id=%. Emails found in users table: %',
+            v_admin_id, v_referee_id, v_spectator_id,
+            (SELECT string_agg(email, ', ') FROM users WHERE email IN ('admin@horseracing.com', 'referee@horseracing.com', 'spectator@horseracing.com'));
+    END IF;
+
     /* ================================================================
        3. USER ROLES
        ================================================================ */
