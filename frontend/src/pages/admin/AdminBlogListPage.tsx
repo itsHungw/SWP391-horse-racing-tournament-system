@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 
@@ -210,7 +211,7 @@ export function AdminBlogListPage() {
                             <img
                               alt=""
                               className="h-14 w-20 rounded-md border border-[#ececec] object-cover"
-                              src={blog.thumbnail}
+                              src={resolveFileUrl(blog.thumbnail)}
                             />
                           ) : (
                             <div className="flex h-14 w-20 items-center justify-center rounded-md border border-dashed border-[#bdbdbd] bg-[#fafafa] text-[10px] font-black uppercase tracking-[0.12em] text-slate-400">

@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { ArrowLeft, FileText, HeartPulse, Image as ImageIcon, ListChecks, Plus, Trophy, Upload, X } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 
@@ -531,7 +532,7 @@ function OverviewTab({
             Photo
           </h2>
           {horse.imageUrl ? (
-            <img alt={horse.name} className="mt-6 aspect-square w-full rounded-lg object-cover" src={horse.imageUrl} />
+            <img alt={horse.name} className="mt-6 aspect-square w-full rounded-lg object-cover" src={resolveFileUrl(horse.imageUrl)} />
           ) : (
             <div className="mt-6 flex aspect-square w-full items-center justify-center rounded-lg bg-slate-100 text-slate-500">
               <ImageIcon className="h-10 w-10" aria-hidden="true" />

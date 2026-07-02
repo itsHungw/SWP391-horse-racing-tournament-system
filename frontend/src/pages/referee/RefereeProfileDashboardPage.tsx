@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -412,7 +413,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
               <div className="flex flex-col gap-5 border-b border-slate-100 pb-5 sm:flex-row sm:items-center">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#007a68] text-3xl font-black uppercase text-white shadow-sm">
                   {avatarPreview || profile?.avatarUrl ? (
-                    <img alt="Referee avatar" className="h-full w-full object-cover" src={avatarPreview || profile?.avatarUrl} />
+                    <img alt="Referee avatar" className="h-full w-full object-cover" src={avatarPreview || resolveFileUrl(profile?.avatarUrl)} />
                   ) : (
                     <span>{getInitials(displayName)}</span>
                   )}
@@ -639,7 +640,7 @@ export function RefereeProfileDashboardPage({ now }: RefereeProfileDashboardPage
                         <img
                           alt="Referee profile photo preview"
                           className="h-full w-full object-cover"
-                          src={avatarPreview || profile?.avatarUrl}
+                          src={avatarPreview || resolveFileUrl(profile?.avatarUrl)}
                         />
                       ) : (
                         <span>{getInitials(identityForm.fullName || displayName)}</span>

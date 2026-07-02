@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   getAdminUserDetail,
@@ -198,7 +199,7 @@ export function AdminUserDetailPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             <img
-              src={user.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80"}
+              src={resolveFileUrl(user.avatarUrl) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80"}
               alt={user.fullName}
               className="h-16 w-16 rounded-full border border-slate-200 object-cover shadow-sm"
             />

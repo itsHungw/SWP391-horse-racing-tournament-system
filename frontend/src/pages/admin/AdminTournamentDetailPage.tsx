@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -1714,7 +1715,7 @@ export function AdminTournamentDetailPage() {
                         {application.jockeyAvatarUrl ? (
                           <img
                             alt=""
-                            src={application.jockeyAvatarUrl}
+                            src={resolveFileUrl(application.jockeyAvatarUrl)}
                             className="h-11 w-11 rounded-md border border-slate-200 object-cover"
                           />
                         ) : (

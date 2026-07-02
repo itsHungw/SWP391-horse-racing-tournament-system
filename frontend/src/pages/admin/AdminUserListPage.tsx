@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import { getAdminUsers, createAdminUser } from "../../api/adminUserApi";
@@ -206,7 +207,7 @@ export function AdminUserListPage() {
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={user.avatarUrl || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80"}
+                            src={resolveFileUrl(user.avatarUrl) || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&h=80"}
                             alt={user.fullName}
                             className="h-10 w-10 rounded-full border border-slate-200 object-cover"
                           />

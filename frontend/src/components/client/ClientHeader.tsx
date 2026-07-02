@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
@@ -48,7 +49,7 @@ function HeaderAvatar({ url, initials, size }: { url: string | null; initials: s
   if (url && !failed) {
     return (
       <img
-        src={url}
+        src={resolveFileUrl(url)}
         alt=""
         onError={() => setFailed(true)}
         className="shrink-0 rounded-full border border-gold-400/60 bg-turf-900 object-cover"

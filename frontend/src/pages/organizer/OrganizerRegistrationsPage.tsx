@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { ChevronRight, ClipboardList, Lock, UserCheck, Users } from "lucide-react";
 
 import {
@@ -264,7 +265,7 @@ export function OrganizerRegistrationsPage() {
                     <li key={r.id}>
                       <RowButton onClick={() => setDetail({ kind: "horses", data: r })} status={r.status}>
                         {r.horseImageUrl ? (
-                          <img src={r.horseImageUrl} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
+                          <img src={resolveFileUrl(r.horseImageUrl)} alt="" className="h-11 w-11 shrink-0 rounded-lg object-cover" />
                         ) : (
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#f3ead6] text-sm font-black text-[#8a6a1c]">
                             {r.horseName?.[0] ?? "?"}
@@ -290,7 +291,7 @@ export function OrganizerRegistrationsPage() {
                     <li key={j.id}>
                       <RowButton onClick={() => setDetail({ kind: "jockeys", data: j })} status={j.status}>
                         {j.jockeyAvatarUrl ? (
-                          <img src={j.jockeyAvatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
+                          <img src={resolveFileUrl(j.jockeyAvatarUrl)} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" />
                         ) : (
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f3ead6] text-sm font-black text-[#8a6a1c]">
                             {j.jockeyName?.[0] ?? "?"}

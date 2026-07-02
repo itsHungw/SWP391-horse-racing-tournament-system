@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { FileText, Image as ImageIcon, Plus, Search, X } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -442,7 +443,7 @@ export function OwnerHorsesPage() {
 
 function HorseThumbnail({ horse }: { horse: Horse }) {
   if (horse.imageUrl) {
-    return <img alt="" className="h-12 w-12 rounded-md object-cover" src={horse.imageUrl} />;
+    return <img alt="" className="h-12 w-12 rounded-md object-cover" src={resolveFileUrl(horse.imageUrl)} />;
   }
   return (
     <span className="inline-flex h-12 w-12 items-center justify-center rounded-md bg-slate-100 text-slate-500">

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, ArrowUpRight, Play, Trophy, MapPin, BarChart3 } from "lucide-react";
@@ -478,7 +479,7 @@ export function HomePage() {
                   >
                     <div className="aspect-video overflow-hidden">
                       <img
-                        src={article.thumbnail || fallbackNews}
+                        src={resolveFileUrl(article.thumbnail) || fallbackNews}
                         alt={article.title}
                         loading="lazy"
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"

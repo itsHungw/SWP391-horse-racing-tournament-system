@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { blogApi } from "../../api/blogApi";
@@ -221,7 +222,7 @@ export function AdminBlogFormPage() {
                     <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Current thumbnail</p>
                     <div className="mt-2 overflow-hidden rounded-md border border-[#ececec] bg-[#fafafa]">
                       {thumbnail ? (
-                        <img alt="Thumbnail preview" className="h-40 w-full object-cover" src={thumbnail} />
+                        <img alt="Thumbnail preview" className="h-40 w-full object-cover" src={resolveFileUrl(thumbnail)} />
                       ) : (
                         <div className="flex h-40 items-center justify-center px-4 text-center text-sm font-bold text-slate-500">
                           {emptyMessage}
