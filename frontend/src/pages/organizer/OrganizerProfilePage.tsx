@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import { ArrowRight, BadgeCheck, Building2, Camera, Check, Loader2 } from "lucide-react";
 
@@ -158,7 +159,7 @@ export function OrganizerProfilePage() {
                 <span className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#bb8a3c] font-display text-3xl font-semibold text-[#1c1816]">
                   {showAvatar ? (
                     <img
-                      src={form.avatarUrl}
+                      src={resolveFileUrl(form.avatarUrl)}
                       alt={displayName}
                       className="h-full w-full object-cover"
                       onError={() => setImgError(true)}

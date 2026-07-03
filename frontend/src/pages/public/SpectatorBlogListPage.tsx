@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 import { ArrowRight, Search } from "lucide-react";
@@ -152,7 +153,7 @@ export function SpectatorBlogListPage() {
                   >
                     <div className="relative aspect-[16/11] overflow-hidden lg:aspect-auto">
                       <img
-                        src={featured.thumbnail || fallbackImage}
+                        src={resolveFileUrl(featured.thumbnail) || fallbackImage}
                         alt={featured.title}
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
                       />
@@ -200,7 +201,7 @@ export function SpectatorBlogListPage() {
                     >
                       <div className="aspect-[16/10] overflow-hidden">
                         <img
-                          src={blog.thumbnail || fallbackImage}
+                          src={resolveFileUrl(blog.thumbnail) || fallbackImage}
                           alt={blog.title}
                           loading="lazy"
                           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"

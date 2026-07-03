@@ -8,6 +8,8 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.checksums.RequestChecksumCalculation;
+import software.amazon.awssdk.core.checksums.ResponseChecksumValidation;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
@@ -24,7 +26,15 @@ public class S3Configuration {
                 .credentialsProvider(credentialsProvider(properties));
         if (properties.hasCustomEndpoint()) {
             builder.endpointOverride(URI.create(properties.endpoint()))
-                    .serviceConfiguration(pathStyleConfiguration());
+                    .serviceConfiguration(pathStyleConfiguration())
+                    // Since AWS SDK v2 2.30, the SDK adds a CRC32 integrity checksum to
+                    // every PutObject by default. Cloudflare R2 (and some MinIO setups)
+                    // reject that flow and the upload fails with a 500. Only send a
+                    // checksum when the operation actually requires one, so uploads to
+                    // S3-compatible stores succeed. Real AWS keeps the default (no custom
+                    // endpoint), so its integrity protection is untouched.
+                    .requestChecksumCalculation(RequestChecksumCalculation.WHEN_REQUIRED)
+                    .responseChecksumValidation(ResponseChecksumValidation.WHEN_REQUIRED);
         }
         return builder.build();
     }

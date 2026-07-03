@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.horseracingtournamentsystem.horse.entity.Horse;
 import com.example.horseracingtournamentsystem.horse.repository.HorseRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
@@ -18,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,9 @@ class HorseIntegrationTest {
     @Autowired
     private com.example.horseracingtournamentsystem.notification.repository.NotificationRepository notificationRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private String adminToken;
     private String spectatorToken;
     private String ownerToken;
@@ -57,6 +62,10 @@ class HorseIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        // Wipe every table with referential integrity disabled so leftover rows
+        // committed by non-transactional tests (e.g. email_verification_tokens from
+        // the registration flow) don't block the user deletes below via FK.
+        TestDatabaseCleaner.clean(jdbcTemplate);
         notificationRepository.deleteAll();
         horseRepository.deleteAll();
         userRoleRepository.deleteAll();

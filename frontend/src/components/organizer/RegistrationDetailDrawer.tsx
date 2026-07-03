@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Calendar, Check, FileText, Mail, MessageSquare, UserRound, XCircle } from "lucide-react";
 
 import type { JockeyPoolApplication, TournamentRegistration } from "../../types/racing";
@@ -62,7 +63,7 @@ export function RegistrationDetailDrawer({
   const imageUrl = entry.kind === "horses" ? entry.data.horseImageUrl : entry.data.jockeyAvatarUrl;
 
   const visual = imageUrl ? (
-    <img src={imageUrl} alt="" className={`h-14 w-14 shrink-0 object-cover ${isHorse ? "rounded-lg" : "rounded-full"}`} />
+    <img src={resolveFileUrl(imageUrl)} alt="" className={`h-14 w-14 shrink-0 object-cover ${isHorse ? "rounded-lg" : "rounded-full"}`} />
   ) : (
     <span
       className={`flex h-14 w-14 shrink-0 items-center justify-center bg-office-brass text-lg font-black text-office-charcoal ${

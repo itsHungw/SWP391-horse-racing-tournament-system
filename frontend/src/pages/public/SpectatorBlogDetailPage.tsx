@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { Link, useParams } from "react-router-dom";
 import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion";
 
@@ -109,7 +110,7 @@ export function SpectatorBlogDetailPage() {
         <header className="grain relative isolate min-h-[60vh] overflow-hidden">
           <motion.div style={reduce ? undefined : { y: heroY }} className="absolute inset-0 -z-10">
             <img
-              src={blog.thumbnail || fallbackImage}
+              src={resolveFileUrl(blog.thumbnail) || fallbackImage}
               alt=""
               className="h-full w-full object-cover object-center opacity-55"
             />

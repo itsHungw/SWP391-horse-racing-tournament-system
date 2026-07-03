@@ -9,6 +9,7 @@ import { Eyebrow, MotionReveal } from "../../components/client/primitives";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Profile } from "../../types/profile";
+import { resolveFileUrl } from "../../utils/fileUrl";
 
 type ReadinessItem = {
   label: string;
@@ -102,7 +103,7 @@ export function ProfilePage() {
         setGender(data.gender || "");
         setDateOfBirth(data.dateOfBirth || "");
         setAddress(data.address || "");
-        setAvatarPreview(data.avatarUrl || defaultAvatar);
+        setAvatarPreview(resolveFileUrl(data.avatarUrl) || defaultAvatar);
         setError(null);
       } catch {
         if (active) {

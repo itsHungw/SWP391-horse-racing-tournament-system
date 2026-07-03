@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 
 import {
   approveAdminTournamentRegistration,
@@ -159,7 +160,7 @@ export function AdminTournamentRegistrationsPage() {
                             <img
                               alt=""
                               className="h-12 w-12 rounded-md border border-slate-200 object-cover"
-                              src={registration.horseImageUrl}
+                              src={resolveFileUrl(registration.horseImageUrl)}
                             />
                           )}
                           <div>

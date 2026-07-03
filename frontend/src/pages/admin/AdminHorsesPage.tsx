@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { resolveFileUrl } from "../../utils/fileUrl";
 import { X, Check, Eye, Inbox, FileText, Search } from "lucide-react";
 
 import { approveAdminHorse, getAdminHorses, rejectAdminHorse } from "../../api/racingApi";
@@ -29,7 +30,7 @@ function HorseDetailsModal({ horse, onClose }: { horse: Horse; onClose: () => vo
                 <img
                   alt={horse.name}
                   className="h-48 w-full rounded-lg border border-slate-200 object-cover shadow-sm"
-                  src={horse.imageUrl}
+                  src={resolveFileUrl(horse.imageUrl)}
                 />
               ) : (
                 <div className="flex h-48 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-sm font-medium text-slate-400">
@@ -269,7 +270,7 @@ export function AdminHorsesPage() {
                             <img
                               alt=""
                               className="h-12 w-12 rounded-md border border-slate-200 object-cover"
-                              src={horse.imageUrl}
+                              src={resolveFileUrl(horse.imageUrl)}
                             />
                           )}
                           <div>

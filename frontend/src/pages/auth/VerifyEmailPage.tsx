@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { resendVerificationEmail, verifyEmail } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { getApiErrorMessage } from "../../utils/apiError";
 
 type NoticeTone = "success" | "error";
 
@@ -99,7 +100,7 @@ export function VerifyEmailPage() {
       setMessage("Email verified successfully. You can now log in.");
     } catch (err: any) {
       setVerified(false);
-      setError(err.response?.data?.error || "Verification code expired or invalid.");
+      setError(getApiErrorMessage(err, "Verification code expired or invalid."));
     } finally {
       setVerifying(false);
     }
@@ -120,7 +121,7 @@ export function VerifyEmailPage() {
       setResendCooldown(60);
       setMessage("A new verification code has been sent to your inbox.");
     } catch (err: any) {
-      setError(err.response?.data?.error || "Could not resend the verification code. Please try again later.");
+      setError(getApiErrorMessage(err, "Could not resend the verification code. Please try again later."));
     } finally {
       setSending(false);
     }
