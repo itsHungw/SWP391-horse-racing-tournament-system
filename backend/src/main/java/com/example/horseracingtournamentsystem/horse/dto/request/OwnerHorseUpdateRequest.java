@@ -38,6 +38,12 @@ public record OwnerHorseUpdateRequest(
 
         String medicalNote,
 
-        String description
+        String description,
+
+        @Size(max = 500)
+        String imageUrl,
+
+        @Size(max = 500)
+        String evidenceUrl
 ) {
 }

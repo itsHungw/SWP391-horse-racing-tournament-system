@@ -122,6 +122,20 @@ export async function updateOwnerHorse(id: number, payload: OwnerHorseUpdateRequ
   return response.data;
 }
 
+export async function uploadHorseImage(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=HORSE_IMAGE", formData);
+  return response.data;
+}
+
+export async function uploadHorseEvidence(file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await httpClient.post<{ url: string }>("/files/upload?category=HORSE_EVIDENCE", formData);
+  return response.data;
+}
+
 export async function createOwnerHorse(payload: HorseMultipartPayload): Promise<Horse> {
   const formData = new FormData();
   appendFormValue(formData, "name", payload.name);
