@@ -72,7 +72,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
           <a
             aria-label="EquinePro jockey dashboard"
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/jockey/dashboard"
+            href="/"
           >
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50">
               <img alt="" className="h-12 w-12 object-contain brightness-0" src={logo} />
