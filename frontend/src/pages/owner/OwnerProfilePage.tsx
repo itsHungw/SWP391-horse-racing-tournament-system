@@ -4,6 +4,7 @@ import { Building2, CheckCircle2, Clock3, Mail, MapPin, Phone, UploadCloud, User
 import { getMyOwnerProfile, updateMyOwnerProfile, uploadStableLogo } from "../../api/ownerProfileApi";
 import { getMyProfile } from "../../api/profileApi";
 import { getOwnerHorses, getOwnerTournamentRegistrations } from "../../api/racingApi";
+import { ClientToast, useClientToast } from "../../components/client/ClientToast";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
@@ -47,8 +48,7 @@ export function OwnerProfilePage() {
   const [registrations, setRegistrations] = useState<TournamentRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { toast, show: showToast, dismiss: dismissToast } = useClientToast();
 
   const [stableName, setStableName] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -86,10 +86,9 @@ export function OwnerProfilePage() {
         setContactEmail(nextProfile.contactEmail || coreProfile.email || session?.email || "");
         setContactAddress(nextProfile.contactAddress || coreProfile.address || "");
         setLogoUrl(nextProfile.logoUrl || "");
-        setMessage(null);
       } catch (error) {
         if (active) {
-          setMessage(getApiErrorMessage(error, "Unable to load stable profile."));
+          showToast(getApiErrorMessage(error, "Unable to load stable profile."), "error");
         }
       } finally {
         if (active) {
@@ -126,16 +125,16 @@ export function OwnerProfilePage() {
     }
 
     if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
-      setMessage("Stable logo must be a JPG or PNG file.");
+      showToast("Stable logo must be a JPG or PNG file.", "error");
       return;
     }
 
     try {
-      setMessage(null);
       const result = await uploadStableLogo(file);
       setLogoUrl(result.url);
+      showToast("Stable logo uploaded.", "success");
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Unable to upload stable logo."));
+      showToast(getApiErrorMessage(error, "Unable to upload stable logo."), "error");
     }
   };
 
@@ -143,15 +142,12 @@ export function OwnerProfilePage() {
     event.preventDefault();
 
     if (!ready) {
-      setMessage("Stable name, phone, email, and address are required before tournament registration.");
-      setSuccess(null);
+      showToast("Stable name, phone, email, and address are required before tournament registration.", "error");
       return;
     }
 
     try {
       setSaving(true);
-      setMessage(null);
-      setSuccess(null);
 
       const updated = await updateMyOwnerProfile({
         stableName: stableName.trim(),
@@ -164,9 +160,9 @@ export function OwnerProfilePage() {
       });
 
       setOwnerProfile(updated);
-      setSuccess("Stable profile saved.");
+      showToast("Stable profile saved.", "success");
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Unable to save stable profile."));
+      showToast(getApiErrorMessage(error, "Unable to save stable profile."), "error");
     } finally {
       setSaving(false);
     }
@@ -214,17 +210,6 @@ export function OwnerProfilePage() {
             </div>
           </div>
         </div>
-
-        {message && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800" role="alert">
-            {message}
-          </div>
-        )}
-        {success && (
-          <div className="rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800" role="status">
-            {success}
-          </div>
-        )}
 
         <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
           <form className="space-y-6" onSubmit={handleSubmit}>
@@ -450,6 +435,7 @@ export function OwnerProfilePage() {
           </aside>
         </div>
       </section>
+      <ClientToast toast={toast} onDismiss={dismissToast} variant="workspace" />
     </OwnerLayout>
   );
 }

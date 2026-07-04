@@ -24,10 +24,10 @@ public interface HorseRepository extends JpaRepository<Horse, Long> {
               and (:gender is null or horse.gender = :gender)
               and (
                 :query is null
-                or lower(horse.name) like lower(concat('%', :query, '%'))
-                or lower(coalesce(horse.breed, '')) like lower(concat('%', :query, '%'))
-                or lower(coalesce(horse.registrationCode, '')) like lower(concat('%', :query, '%'))
-                or lower(coalesce(horse.color, '')) like lower(concat('%', :query, '%'))
+                or lower(horse.name) like lower(concat('%', cast(:query as string), '%'))
+                or lower(coalesce(horse.breed, '')) like lower(concat('%', cast(:query as string), '%'))
+                or lower(coalesce(horse.registrationCode, '')) like lower(concat('%', cast(:query as string), '%'))
+                or lower(coalesce(horse.color, '')) like lower(concat('%', cast(:query as string), '%'))
               )
             """)
     Page<Horse> searchOwnerHorses(

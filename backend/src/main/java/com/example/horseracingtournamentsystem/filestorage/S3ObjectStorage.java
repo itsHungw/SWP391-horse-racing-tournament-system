@@ -1,6 +1,8 @@
 package com.example.horseracingtournamentsystem.filestorage;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import org.springframework.stereotype.Component;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -31,7 +33,20 @@ public class S3ObjectStorage implements ObjectStorage {
                 .key(objectKey)
                 .contentType(contentType)
                 .build();
-        s3Client.putObject(request, RequestBody.fromInputStream(inputStream, contentLength));
+        // Buffer to a byte[] so the request body is re-readable. Chunked encoding
+        // is disabled (required for Cloudflare R2), so the SDK signs the payload by
+        // reading the stream once to hash it, then reads it again to transmit — a raw
+        // multipart InputStream has no mark/reset, so that second read fails with
+        // "stream does not support mark/reset, and was already read once". fromBytes
+        // hands the SDK a fresh ByteArrayInputStream on each read. Upload sizes are
+        // capped per category (≤10MB), so buffering in memory is safe.
+        byte[] content;
+        try {
+            content = inputStream.readAllBytes();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Failed to read upload stream for " + objectKey, exception);
+        }
+        s3Client.putObject(request, RequestBody.fromBytes(content));
     }
 
     @Override

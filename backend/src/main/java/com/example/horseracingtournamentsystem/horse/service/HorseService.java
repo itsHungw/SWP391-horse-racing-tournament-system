@@ -103,6 +103,8 @@ public class HorseService {
                 req.description()
         );
 
+        horse.updateMedia(req.imageUrl(), req.evidenceUrl());
+
         if ("APPROVED".equals(horse.getStatus()) || "REJECTED".equals(horse.getStatus())) {
             horse.setStatusPending();
         }
