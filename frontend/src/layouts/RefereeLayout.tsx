@@ -64,7 +64,7 @@ function getInitials(name: string) {
 }
 
 export function RefereeLayout() {
-  const { session } = useClientSession();
+  const { session, logout } = useClientSession();
   const displayName = session?.fullName || "Assigned official";
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
@@ -87,7 +87,7 @@ export function RefereeLayout() {
       >
         <div className="mx-auto grid max-w-[1560px] gap-3 md:grid-cols-[minmax(240px,300px)_minmax(320px,760px)_auto] md:items-center">
           <Link
-            to="/referee/dashboard"
+            to="/"
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007a68]"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-black text-[#005f51] shrink-0 sm:h-12 sm:w-12">
@@ -125,13 +125,16 @@ export function RefereeLayout() {
               <ShieldCheck className="h-4 w-4 text-[#007a68]" aria-hidden="true" />
               <span className="max-w-[180px] truncate">Referee</span>
             </span>
-            <Link
-              to="/"
+            <button
+              onClick={() => {
+                logout();
+              }}
+              type="button"
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#06145f] px-3 text-sm font-black text-white shadow-sm transition hover:bg-[#091b7c] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68] sm:min-h-12 sm:px-5"
             >
               <LogOut aria-hidden="true" className="h-5 w-5" />
               <span className="hidden sm:inline">Logout</span>
-            </Link>
+            </button>
           </div>
         </div>
       </header>
