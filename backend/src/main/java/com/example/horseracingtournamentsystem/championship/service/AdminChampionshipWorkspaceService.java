@@ -126,6 +126,7 @@ public class AdminChampionshipWorkspaceService {
             case DRAFT -> rounds.isEmpty()
                     ? action("CREATE_ROUND", "Create Round", "ROUNDS", null)
                     : action("OPEN_REGISTRATION", "Open Registration", "CONTROLS", null);
+            case APPROVED -> action("OPEN_REGISTRATION", "Open Registration", "CONTROLS", null);
             case OPEN_REGISTRATION -> pendingRegistrations > 0 || pendingJockeyApplications > 0
                     ? action("REVIEW_APPLICATIONS", "Review Applications", "APPLICATIONS", null)
                     : action("CLOSE_REGISTRATION", "Close Registration", "CONTROLS", null);
