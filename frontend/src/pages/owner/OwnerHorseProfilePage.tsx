@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { resolveFileUrl } from "../../utils/fileUrl";
 import { ArrowLeft, FileText, HeartPulse, Image as ImageIcon, ListChecks, Plus, Trophy, Upload, X } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
@@ -9,9 +9,12 @@ import {
   getOwnerHorseDocuments,
   getOwnerTournamentRegistrationsPage,
   updateOwnerHorse,
+  uploadHorseEvidence,
+  uploadHorseImage,
   withdrawOwnerTournamentRegistration,
 } from "../../api/racingApi";
 import { AuthenticatedFileLink } from "../../components/AuthenticatedFileLink";
+import { ClientToast, useClientToast } from "../../components/client/ClientToast";
 import { PaginationControls } from "../../components/common/PaginationControls";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
@@ -59,7 +62,7 @@ export function OwnerHorseProfilePage() {
   const [documentForm, setDocumentForm] = useState<DocumentFormState>(emptyDocumentForm);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const { toast, show: showToast, dismiss: dismissToast } = useClientToast();
   const [editPanelOpen, setEditPanelOpen] = useState(false);
   const [editForm, setEditForm] = useState<OwnerHorseUpdateRequest>({
     name: "",
@@ -73,6 +76,12 @@ export function OwnerHorseProfilePage() {
     medicalNote: "",
     description: "",
   });
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editEvidenceFile, setEditEvidenceFile] = useState<File | null>(null);
+  const editImagePreview = useMemo(
+    () => (editImageFile ? URL.createObjectURL(editImageFile) : null),
+    [editImageFile],
+  );
 
   useDocumentTitle(horse ? `${horse.name} profile` : "Horse profile");
 
@@ -107,11 +116,10 @@ export function OwnerHorseProfilePage() {
             totalPages: registrationData.totalPages,
           });
           setDocuments(Array.isArray(documentData) ? documentData : []);
-          setMessage(null);
         }
       } catch (error) {
         if (active) {
-          setMessage(getApiErrorMessage(error, "Could not load this horse profile."));
+          showToast(getApiErrorMessage(error, "Could not load this horse profile."), "error");
         }
       } finally {
         if (active) {
@@ -124,7 +132,6 @@ export function OwnerHorseProfilePage() {
       void load();
     } else {
       setLoading(false);
-      setMessage("Horse profile not found.");
     }
 
     return () => {
@@ -154,13 +161,12 @@ export function OwnerHorseProfilePage() {
 
   const handleWithdraw = async (registration: TournamentRegistration) => {
     setSaving(true);
-    setMessage(null);
     try {
       await withdrawOwnerTournamentRegistration(registration.id);
-      setMessage(`${registration.horseName} withdrawn from ${registration.tournamentName}.`);
+      showToast(`${registration.horseName} withdrawn from ${registration.tournamentName}.`, "success");
       await reloadRegistrations();
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not withdraw this registration."));
+      showToast(getApiErrorMessage(error, "Could not withdraw this registration."), "error");
     } finally {
       setSaving(false);
     }
@@ -181,10 +187,9 @@ export function OwnerHorseProfilePage() {
 
   const handleDocumentCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setMessage(null);
 
     if (!horse || !documentForm.documentFile) {
-      setMessage("Document attachment is required.");
+      showToast("Document attachment is required.", "error");
       return;
     }
 
@@ -196,10 +201,10 @@ export function OwnerHorseProfilePage() {
       });
       setDocumentForm(emptyDocumentForm);
       setDocumentPanelOpen(false);
-      setMessage("Horse document uploaded.");
+      showToast("Horse document uploaded.", "success");
       await reloadDocuments();
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not upload this document."));
+      showToast(getApiErrorMessage(error, "Could not upload this document."), "error");
     } finally {
       setSaving(false);
     }
@@ -215,15 +220,24 @@ export function OwnerHorseProfilePage() {
   const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!horse) return;
-    setMessage(null);
     setSaving(true);
     try {
-      const updatedHorse = await updateOwnerHorse(horse.id, editForm);
+      const [uploadedImage, uploadedEvidence] = await Promise.all([
+        editImageFile ? uploadHorseImage(editImageFile) : Promise.resolve(null),
+        editEvidenceFile ? uploadHorseEvidence(editEvidenceFile) : Promise.resolve(null),
+      ]);
+      const updatedHorse = await updateOwnerHorse(horse.id, {
+        ...editForm,
+        imageUrl: uploadedImage?.url,
+        evidenceUrl: uploadedEvidence?.url,
+      });
       setHorse(updatedHorse);
       setEditPanelOpen(false);
-      setMessage("Horse profile updated successfully.");
+      setEditImageFile(null);
+      setEditEvidenceFile(null);
+      showToast("Horse profile updated successfully.", "success");
     } catch (error) {
-      setMessage(getApiErrorMessage(error, "Could not update horse details."));
+      showToast(getApiErrorMessage(error, "Could not update horse details."), "error");
     } finally {
       setSaving(false);
     }
@@ -239,12 +253,6 @@ export function OwnerHorseProfilePage() {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           Back to Roster
         </Link>
-
-        {message && (
-          <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-700" role="status">
-            {message}
-          </p>
-        )}
 
         {loading ? (
           <div className="rounded-lg border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-500">
@@ -283,6 +291,8 @@ export function OwnerHorseProfilePage() {
                         medicalNote: horse.medicalNote || "",
                         description: horse.description || "",
                       });
+                      setEditImageFile(null);
+                      setEditEvidenceFile(null);
                       setEditPanelOpen(true);
                     }
                   }}
@@ -435,6 +445,35 @@ export function OwnerHorseProfilePage() {
                             value={editForm.weightKg ?? ""}
                           />
                         </div>
+
+                        <div className="mt-2">
+                          <span className="mb-1.5 block text-sm font-bold text-slate-700">Horse photo</span>
+                          <div className="flex items-center gap-4">
+                            <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-50">
+                              {editImagePreview ? (
+                                <img alt="" className="h-full w-full object-cover" src={editImagePreview} />
+                              ) : horse.imageUrl ? (
+                                <img alt="" className="h-full w-full object-cover" src={resolveFileUrl(horse.imageUrl)} />
+                              ) : (
+                                <ImageIcon className="h-6 w-6 text-slate-400" aria-hidden="true" />
+                              )}
+                            </div>
+                            <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/60 p-2 transition hover:border-[#006d5b] hover:bg-emerald-50/20">
+                              <span className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md bg-slate-950 px-3.5 text-xs font-black text-white transition hover:bg-[#006d5b]">
+                                Choose photo
+                              </span>
+                              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-500">
+                                {editImageFile ? editImageFile.name : "JPG, PNG, WebP up to 5MB"}
+                              </span>
+                              <input
+                                accept="image/jpeg,image/png,image/webp"
+                                className="sr-only"
+                                onChange={(event) => setEditImageFile(event.target.files?.[0] ?? null)}
+                                type="file"
+                              />
+                            </label>
+                          </div>
+                        </div>
                       </div>
 
                       {/* RIGHT PANE - Detailed Notes */}
@@ -455,6 +494,25 @@ export function OwnerHorseProfilePage() {
                           onChange={(value) => updateEditField("description", value)}
                           value={editForm.description}
                         />
+
+                        <div className="mt-2">
+                          <span className="mb-1.5 block text-sm font-bold text-slate-700">Ownership evidence (PDF)</span>
+                          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 bg-white/70 p-2 transition hover:border-[#006d5b] hover:bg-emerald-50/20">
+                            <span className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md bg-slate-950 px-3.5 text-xs font-black text-white transition hover:bg-[#006d5b]">
+                              Choose file
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-500">
+                              {editEvidenceFile ? editEvidenceFile.name : horse.evidenceUrl ? "Replace current evidence" : "PDF or image up to 10MB"}
+                            </span>
+                            <input
+                              accept="application/pdf,image/jpeg,image/png,image/webp"
+                              className="sr-only"
+                              onChange={(event) => setEditEvidenceFile(event.target.files?.[0] ?? null)}
+                              type="file"
+                            />
+                          </label>
+                          <p className="mt-1.5 text-xs font-semibold text-slate-400">Updating evidence sends the horse for admin re-review.</p>
+                        </div>
                       </div>
                     </div>
 
@@ -486,6 +544,7 @@ export function OwnerHorseProfilePage() {
           </div>
         )}
       </section>
+      <ClientToast toast={toast} onDismiss={dismissToast} variant="workspace" />
     </OwnerLayout>
   );
 }
