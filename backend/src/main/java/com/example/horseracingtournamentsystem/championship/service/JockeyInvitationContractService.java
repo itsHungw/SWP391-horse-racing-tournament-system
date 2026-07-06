@@ -144,11 +144,42 @@ public class JockeyInvitationContractService {
             syncParticipantToExistingRounds(participant, contract);
             createdParticipants++;
         }
-        tournament.lockParticipants();
+        if (com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.CLOSED_REGISTRATION == tournament.getStatus()) {
+            tournament.lockParticipants();
+        }
         return new LockParticipantsResponse(championshipId, createdParticipants);
     }
 
     // ---- Organizer chốt danh sách thi đấu giải của mình (BR-09) ----
+
+    @Transactional
+    public void unlockParticipants(Long championshipId) {
+        Tournament tournament = ensureTournamentExists(championshipId);
+        if (List.of(com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.SCHEDULE_PUBLISHED,
+                com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.ONGOING,
+                com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.COMPLETED)
+                .contains(tournament.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Cannot unlock participants. The schedule is already published or ongoing.");
+        }
+
+        List<TournamentParticipant> participants = participantRepository.findAllByTournament_IdOrderByCreatedAtDesc(championshipId);
+        for (TournamentParticipant p : participants) {
+            raceParticipantRepository.deleteAllByRace_Tournament_IdAndHorse_Id(championshipId, p.getHorse().getId());
+        }
+        participantRepository.deleteAll(participants);
+
+        if (com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus.PARTICIPANTS_LOCKED == tournament.getStatus()) {
+            tournament.closeRegistration();
+        }
+        tournamentRepository.save(tournament);
+    }
+
+    @Transactional
+    public void unlockParticipantsForOrganizer(Long championshipId, String organizerEmail) {
+        requireOwnedTournament(championshipId, organizerEmail).assertOrganizationOperational();
+        unlockParticipants(championshipId);
+    }
 
     @Transactional
     public LockParticipantsResponse lockParticipantsForOrganizer(Long championshipId, String organizerEmail) {

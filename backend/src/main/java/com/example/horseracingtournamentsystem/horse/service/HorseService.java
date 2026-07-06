@@ -148,9 +148,10 @@ public class HorseService {
     }
 
     public Page<HorseResponse> getOwnerHorses(String email, String query, String status, String gender, Pageable pageable) {
+        String searchPattern = query == null ? "" : query.trim();
         return horseRepository.searchOwnerHorses(
                         email.trim().toLowerCase(),
-                        normalizeOptional(query),
+                        searchPattern,
                         normalizeEnumFilter(status),
                         normalizeEnumFilter(gender),
                         pageable
