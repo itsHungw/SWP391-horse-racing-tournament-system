@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { RaceMediaPanel } from "../../components/race-media/RaceMediaPanel";
-import { httpClient } from "../../api/httpClient";
 import {
   approveOrganizerJockeyApplication,
   approveOrganizerTournamentRegistration,
@@ -35,13 +34,13 @@ import {
   createOrganizerRace,
   deleteOrganizerRace,
   getLicensedReferees,
+  getOrganizerTournament,
   getMyOrganizerTournaments,
   getOrganizerJockeyApplications,
   getOrganizerParticipants,
   getOrganizerRaces,
   getOrganizerRaceResults,
   getOrganizerTournamentRegistrations,
-  getPublicTournament,
   getTournamentRefereeContracts,
   inviteReferee,
   lockOrganizerParticipants,
@@ -53,6 +52,7 @@ import {
   submitTournamentForApproval,
   terminateRefereeContract,
   updateOrganizerRace,
+  updateOrganizerTournament,
   updateOrganizerTournamentStatus,
   confirmOrganizerRaceResults,
 } from "../../api/racingApi";
@@ -303,7 +303,7 @@ export function OrganizerTournamentDetailPage() {
     try {
       setLoading(true);
       setErrorMsg("");
-      const data = await getPublicTournament(championshipId);
+      const data = await getOrganizerTournament(championshipId);
       setTournament(data);
       setForm({
         name: data.name ?? "",
@@ -452,7 +452,7 @@ export function OrganizerTournamentDetailPage() {
 
     try {
       setSaving(true);
-      await httpClient.put(`/organizer/tournaments/${championshipId}`, {
+      await updateOrganizerTournament(championshipId, {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
         maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,

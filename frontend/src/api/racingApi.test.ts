@@ -4,6 +4,7 @@ import { httpClient } from "./httpClient";
 import {
   createOwnerHorse,
   createOwnerHorseDocument,
+  getOrganizerTournament,
   createOwnerTournamentRegistration,
   applyToJockeyChampionship,
   approveAdminJockeyPoolApplication,
@@ -16,6 +17,7 @@ import {
   getOwnerAvailableJockeys,
   getOwnerTournamentRegistrationsPage,
   getOrganizerRaceResults,
+  updateOrganizerTournament,
   rejectAdminJockeyPoolApplication,
 } from "./racingApi";
 
@@ -23,6 +25,7 @@ vi.mock("./httpClient", () => ({
   httpClient: {
     get: vi.fn(),
     post: vi.fn(),
+    put: vi.fn(),
   },
 }));
 
@@ -208,5 +211,36 @@ describe("racingApi", () => {
       entries: [{ horseName: "Review Runner" }],
     });
     expect(httpClient.get).toHaveBeenCalledWith("/organizer/races/55/results");
+  });
+
+  it("loads and updates organizer tournament details through organizer-owned endpoints", async () => {
+    vi.mocked(httpClient.get).mockResolvedValueOnce({ data: { id: 9, name: "Postponed Prize Cup" } });
+    vi.mocked(httpClient.put).mockResolvedValueOnce({ data: { id: 9, totalPrizePool: 88000000 } });
+
+    await expect(getOrganizerTournament(9)).resolves.toEqual({ id: 9, name: "Postponed Prize Cup" });
+    await expect(
+      updateOrganizerTournament(9, {
+        name: "Postponed Prize Cup",
+        code: "POST_PRIZE",
+        location: "Loc",
+        startDate: "2099-07-01",
+        endDate: "2099-07-15",
+        registrationStartAt: "2099-06-01T00:00:00",
+        registrationEndAt: "2099-06-25T00:00:00",
+        totalPrizePool: 88000000,
+      }),
+    ).resolves.toEqual({ id: 9, totalPrizePool: 88000000 });
+
+    expect(httpClient.get).toHaveBeenCalledWith("/organizer/tournaments/9");
+    expect(httpClient.put).toHaveBeenCalledWith("/organizer/tournaments/9", {
+      name: "Postponed Prize Cup",
+      code: "POST_PRIZE",
+      location: "Loc",
+      startDate: "2099-07-01",
+      endDate: "2099-07-15",
+      registrationStartAt: "2099-06-01T00:00:00",
+      registrationEndAt: "2099-06-25T00:00:00",
+      totalPrizePool: 88000000,
+    });
   });
 });

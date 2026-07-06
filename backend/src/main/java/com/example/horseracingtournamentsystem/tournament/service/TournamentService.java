@@ -113,6 +113,11 @@ public class TournamentService {
                 .stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
+    public TournamentResponse getOrganizerTournamentDetail(Long id, String organizerEmail) {
+        Tournament tournament = requireOwnedTournament(id, organizerEmail);
+        return mapToResponse(tournament);
+    }
+
     @Transactional
     public TournamentResponse submitForApproval(Long id, String organizerEmail) {
         Tournament tournament = requireOwnedTournament(id, organizerEmail);
@@ -198,6 +203,21 @@ public class TournamentService {
         Tournament tournament = tournamentRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tournament not found"));
 
+        applyTournamentUpdate(tournament, id, req);
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    @Transactional
+    public TournamentResponse updateTournamentForOrganizer(Long id, TournamentRequest req, String organizerEmail) {
+        Tournament tournament = requireOwnedTournament(id, organizerEmail);
+        tournament.assertOrganizationOperational();
+        applyTournamentUpdate(tournament, id, req);
+        tournamentRepository.save(tournament);
+        return mapToResponse(tournament);
+    }
+
+    private void applyTournamentUpdate(Tournament tournament, Long id, TournamentRequest req) {
         if (!java.util.List.of(TournamentStatus.DRAFT, TournamentStatus.POSTPONED).contains(tournament.getStatus())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tournament settings can only be modified when in DRAFT or POSTPONED status");
         }
@@ -212,9 +232,6 @@ public class TournamentService {
                 req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(),
                 req.getTotalPrizePool()
         );
-
-        tournamentRepository.save(tournament);
-        return mapToResponse(tournament);
     }
 
     private void validateTournamentDates(TournamentRequest req) {

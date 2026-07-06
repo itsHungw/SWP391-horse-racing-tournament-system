@@ -37,6 +37,11 @@ public class OrganizerTournamentController {
         return tournamentService.getMyTournaments(authentication.getName());
     }
 
+    @GetMapping("/{id}")
+    public TournamentResponse detail(@PathVariable Long id, Authentication authentication) {
+        return tournamentService.getOrganizerTournamentDetail(id, authentication.getName());
+    }
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TournamentResponse create(
@@ -44,6 +49,15 @@ public class OrganizerTournamentController {
             Authentication authentication
     ) {
         return tournamentService.createForOrganizer(req, authentication.getName());
+    }
+
+    @PutMapping("/{id}")
+    public TournamentResponse update(
+            @PathVariable Long id,
+            @Valid @RequestBody TournamentRequest req,
+            Authentication authentication
+    ) {
+        return tournamentService.updateTournamentForOrganizer(id, req, authentication.getName());
     }
 
     @PostMapping("/{id}/submit")

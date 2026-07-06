@@ -435,6 +435,11 @@ export async function getMyOrganizerTournaments(): Promise<Tournament[]> {
   return response.data;
 }
 
+export async function getOrganizerTournament(id: number): Promise<Tournament> {
+  const response = await httpClient.get<Tournament>(`/organizer/tournaments/${id}`);
+  return response.data;
+}
+
 export async function createOrganizerTournament(payload: {
   name: string;
   code: string;
@@ -449,6 +454,26 @@ export async function createOrganizerTournament(payload: {
   totalPrizePool?: number;
 }): Promise<Tournament> {
   const response = await httpClient.post<Tournament>("/organizer/tournaments", payload);
+  return response.data;
+}
+
+export async function updateOrganizerTournament(
+  id: number,
+  payload: {
+    name: string;
+    code: string;
+    description?: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    registrationStartAt: string;
+    registrationEndAt: string;
+    maxHorses?: number;
+    maxHorsesPerOwner?: number;
+    totalPrizePool?: number;
+  },
+): Promise<Tournament> {
+  const response = await httpClient.put<Tournament>(`/organizer/tournaments/${id}`, payload);
   return response.data;
 }
 
