@@ -121,6 +121,16 @@ export function OwnerHorsesPage() {
     event.preventDefault();
     setMessage(null);
 
+    if (form.dateOfBirth) {
+      const dobDate = new Date(form.dateOfBirth);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (dobDate > today) {
+        setMessage("Date of birth cannot be in the future. Please enter a valid date.");
+        return;
+      }
+    }
+
     if (!form.imageFile || !form.evidenceFile) {
       setMessage("Horse image and evidence document are required.");
       return;
@@ -169,7 +179,10 @@ export function OwnerHorsesPage() {
           <h2 className="text-xl font-black text-slate-800">My Stable</h2>
           <button
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#008670] to-[#006d5b] px-5 py-2.5 text-sm font-black text-white shadow-[0_2px_4px_rgba(0,109,91,0.15),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all hover:from-[#009b82] hover:to-[#007a66] hover:shadow-md hover:shadow-[#006d5b]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b] cursor-pointer"
-            onClick={() => setPanelOpen(true)}
+            onClick={() => {
+              setMessage(null);
+              setPanelOpen(true);
+            }}
             type="button"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
@@ -321,7 +334,10 @@ export function OwnerHorsesPage() {
                 <button
                   aria-label="Close add horse panel"
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                  onClick={() => setPanelOpen(false)}
+                  onClick={() => {
+                    setPanelOpen(false);
+                    setMessage(null);
+                  }}
                   type="button"
                 >
                   <X className="h-5 w-5" aria-hidden="true" />
@@ -330,6 +346,13 @@ export function OwnerHorsesPage() {
 
               {/* BODY - Split Pane */}
               <form className="flex-1 flex flex-col min-h-0" onSubmit={handleCreate}>
+                {message && (
+                  <div className="bg-rose-50 border-b border-rose-200 px-6 py-3">
+                    <p className="text-sm font-bold text-rose-700" role="alert">
+                      {message}
+                    </p>
+                  </div>
+                )}
                 <div className="flex-1 flex flex-col min-h-0 lg:flex-row">
                   {/* LEFT PANE - Basic Info & Files */}
                   <div className="w-full lg:w-1/2 p-6 lg:overflow-y-auto modal-scrollbar min-h-0 flex flex-col gap-4 border-b border-slate-100 lg:border-b-0">
@@ -419,7 +442,10 @@ export function OwnerHorsesPage() {
                 <div className="shrink-0 flex items-center justify-end gap-3 border-t border-slate-200 bg-white px-6 py-4">
                   <button
                     className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                    onClick={() => setPanelOpen(false)}
+                    onClick={() => {
+                      setPanelOpen(false);
+                      setMessage(null);
+                    }}
                     type="button"
                   >
                     Cancel
