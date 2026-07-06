@@ -600,13 +600,17 @@ export function JockeyChampionshipsPage() {
                               {championship.location || "Track TBD"} - {formatDate(championship.startDate)} to{" "}
                               {formatDate(championship.endDate)}
                             </p>
-                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                               <InfoBlock label="Approved Pool" value={`${championship.approvedPoolCount}`} />
                               <InfoBlock
                                 label="Pool Capacity"
                                 value={championship.maxHorses ? `${championship.maxHorses} riders` : "Open"}
                               />
                               <InfoBlock label="Apply By" value={formatDate(championship.registrationEndAt)} />
+                              <InfoBlock
+                                label="Prize Pool"
+                                value={championship.totalPrizePool !== undefined && championship.totalPrizePool !== null ? `${championship.totalPrizePool.toLocaleString()} VND` : "TBD"}
+                              />
                             </div>
                             <p className="mt-4 max-w-3xl text-sm font-bold leading-6 text-slate-500">
                               {cardHelp(championship)}
@@ -685,13 +689,17 @@ export function JockeyChampionshipsPage() {
                     </div>
                   )}
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <InfoBlock
                       label="Season"
                       value={`${formatDate(applicationTarget.startDate)} - ${formatDate(applicationTarget.endDate)}`}
                     />
                     <InfoBlock label="Approved Pool" value={`${applicationTarget.approvedPoolCount} riders`} />
                     <InfoBlock label="Apply By" value={formatDate(applicationTarget.registrationEndAt)} />
+                    <InfoBlock
+                      label="Prize Pool"
+                      value={applicationTarget.totalPrizePool !== undefined && applicationTarget.totalPrizePool !== null ? `${applicationTarget.totalPrizePool.toLocaleString()} VND` : "TBD"}
+                    />
                   </div>
 
                   <section aria-labelledby="eligibility-title" className="rounded-lg border border-slate-200 p-4">

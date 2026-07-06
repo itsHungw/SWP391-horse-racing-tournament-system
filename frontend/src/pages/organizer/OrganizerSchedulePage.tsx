@@ -176,6 +176,20 @@ export function OrganizerSchedulePage() {
       setFormError("A round needs at least 2 starters.");
       return;
     }
+
+    if (selectedTournament) {
+      const raceDate = form.raceDateTime.slice(0, 10);
+      const start = selectedTournament.startDate ? selectedTournament.startDate.slice(0, 10) : "";
+      const end = selectedTournament.endDate ? selectedTournament.endDate.slice(0, 10) : "";
+      if (start && raceDate < start) {
+        setFormError(`Race date must not be before tournament start date (${start}).`);
+        return;
+      }
+      if (end && raceDate > end) {
+        setFormError(`Race date must not be after tournament end date (${end}).`);
+        return;
+      }
+    }
     const payload: RacePayload = {
       tournamentId: selectedId,
       name: form.name.trim(),
@@ -527,6 +541,8 @@ export function OrganizerSchedulePage() {
                   type="datetime-local"
                   value={form.raceDateTime}
                   onChange={(e) => setForm((f) => ({ ...f, raceDateTime: e.target.value }))}
+                  min={selectedTournament?.startDate ? `${selectedTournament.startDate.slice(0, 10)}T00:00` : undefined}
+                  max={selectedTournament?.endDate ? `${selectedTournament.endDate.slice(0, 10)}T23:59` : undefined}
                   className="mt-2 block w-full rounded-lg border border-[#e2d9c8] bg-white px-3 py-2 text-sm font-medium text-[#3a342d] outline-none focus:border-[#bb8a3c]"
                 />
               </label>

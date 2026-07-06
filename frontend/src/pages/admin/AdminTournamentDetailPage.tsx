@@ -38,6 +38,7 @@ import {
   getAdminJockeyPoolApplications,
   getAdminTournamentRegistrations,
   lockAdminChampionshipParticipants,
+  unlockAdminChampionshipParticipants,
   rejectAdminJockeyPoolApplication,
   rejectAdminTournamentRegistration,
 } from "../../api/racingApi";
@@ -257,6 +258,7 @@ export function AdminTournamentDetailPage() {
     registrationEndAt: "",
     maxHorses: undefined,
     maxHorsesPerOwner: 2,
+    totalPrizePool: 0,
   });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -302,6 +304,7 @@ export function AdminTournamentDetailPage() {
         registrationEndAt: data.registrationEndAt || "",
         maxHorses: data.maxHorses || undefined,
         maxHorsesPerOwner: data.maxHorsesPerOwner ?? 2,
+        totalPrizePool: data.totalPrizePool ?? 0,
       });
     } catch (err: any) {
       setErrorMsg(err.response?.data?.message || "Failed to load championship detail.");
@@ -442,6 +445,7 @@ export function AdminTournamentDetailPage() {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
         maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
+        totalPrizePool: Number(form.totalPrizePool || 0),
       });
       setSuccessMsg("Championship setup updated successfully.");
       loadDetail();
@@ -638,6 +642,20 @@ export function AdminTournamentDetailPage() {
       return;
     }
 
+    if (tournament) {
+      const raceDate = roundForm.raceDateTime.slice(0, 10);
+      const start = tournament.startDate ? tournament.startDate.slice(0, 10) : "";
+      const end = tournament.endDate ? tournament.endDate.slice(0, 10) : "";
+      if (start && raceDate < start) {
+        setRoundFormError(`Race date must not be before tournament start date (${start}).`);
+        return;
+      }
+      if (end && raceDate > end) {
+        setRoundFormError(`Race date must not be after tournament end date (${end}).`);
+        return;
+      }
+    }
+
     try {
       setCreatingRound(true);
       const createdRound = await createAdminRace({
@@ -677,6 +695,24 @@ export function AdminTournamentDetailPage() {
       await loadDetail();
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, "Failed to lock championship participants."));
+    } finally {
+      setLockingParticipants(false);
+    }
+  };
+
+  const handleUnlockParticipants = async () => {
+    if (!ensureOverride()) return;
+    try {
+      setLockingParticipants(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+      await unlockAdminChampionshipParticipants(tournamentId);
+      setSuccessMsg("Participants unlocked successfully.");
+      setActiveTab("participants");
+      await loadParticipants();
+      await loadDetail();
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, "Failed to unlock championship participants."));
     } finally {
       setLockingParticipants(false);
     }
@@ -722,6 +758,8 @@ export function AdminTournamentDetailPage() {
   const allRoundsCreated = races.length > 0;
   const participantsLockedForSchedule = ["PARTICIPANTS_LOCKED", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
   const lockedParticipantsCount = participants.filter((p) => p.status !== "PENDING_LOCK").length;
+  const isCurrentlyLocked = participantsLockedForSchedule || (participants.length > 0 && participants.every((p) => p.status === "ACTIVE"));
+  const canUnlock = !["SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
   const officialParticipantsReady = lockedParticipantsCount > 0 || participantsLockedForSchedule;
   const schedulePublicationReady = allRoundsCreated && officialParticipantsReady && missingRefereeRounds.length === 0;
   const scheduleBlockReason = !allRoundsCreated
@@ -816,6 +854,26 @@ export function AdminTournamentDetailPage() {
         </button>
       )}
 
+      {["OPEN_REGISTRATION", "CLOSED_REGISTRATION"].includes(tournament.status) && (
+        isCurrentlyLocked ? (
+          <button
+            onClick={() => void handleUnlockParticipants()}
+            disabled={!canUnlock || lockingParticipants}
+            className="rounded-md bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {lockingParticipants ? "Unlocking..." : "Unlock Participants"}
+          </button>
+        ) : (
+          <button
+            onClick={() => void handleLockParticipants()}
+            disabled={lockingParticipants}
+            className="rounded-md bg-[#b3193a] px-4 py-2 text-xs font-bold text-white hover:bg-[#92122d] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {lockingParticipants ? "Locking..." : "Lock Participants"}
+          </button>
+        )
+      )}
+
       {tournament.status === "OPEN_REGISTRATION" && (
         <>
           <button
@@ -834,21 +892,12 @@ export function AdminTournamentDetailPage() {
       )}
 
       {tournament.status === "CLOSED_REGISTRATION" && (
-        <>
-          <button
-            onClick={() => void handleLockParticipants()}
-            disabled={lockingParticipants}
-            className="rounded-md bg-[#b3193a] px-4 py-2 text-xs font-bold text-white hover:bg-[#92122d] disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {lockingParticipants ? "Locking..." : "Lock Participants"}
-          </button>
-          <button
-            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-          >
-            Postpone
-          </button>
-        </>
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+        >
+          Postpone
+        </button>
       )}
 
       {tournament.status === "PARTICIPANTS_LOCKED" && (
@@ -1043,6 +1092,24 @@ export function AdminTournamentDetailPage() {
           <p className="mt-1 text-xs font-semibold text-slate-500">
             Counts active pending and approved horse applications from the same owner.
           </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Total Prize Pool (VND) *</label>
+          <input
+            type="number"
+            min={0}
+            required
+            disabled={isLocked}
+            value={form.totalPrizePool || 0}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                totalPrizePool: e.target.value ? Number(e.target.value) : 0,
+              })
+            }
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
+          />
         </div>
 
         <div className="sm:col-span-2">
@@ -2502,6 +2569,8 @@ export function AdminTournamentDetailPage() {
                     required
                     value={roundForm.raceDateTime}
                     onChange={(e) => setRoundForm({ ...roundForm, raceDateTime: e.target.value })}
+                    min={tournament?.startDate ? `${tournament.startDate.slice(0, 10)}T00:00` : undefined}
+                    max={tournament?.endDate ? `${tournament.endDate.slice(0, 10)}T23:59` : undefined}
                     className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#b3193a] focus:outline-none focus:ring-2 focus:ring-[#b3193a]/20"
                   />
                 </div>

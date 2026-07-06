@@ -10,6 +10,7 @@ import {
   X,
   FileText,
   AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -45,6 +46,7 @@ const emptyCreateForm = {
   registrationEndAt: "",
   maxHorses: "",
   maxHorsesPerOwner: "2",
+  totalPrizePool: "0",
 };
 
 function formatDate(value?: string) {
@@ -141,6 +143,7 @@ export function OrganizerTournamentsPage() {
         registrationEndAt: createForm.registrationEndAt,
         maxHorses: createForm.maxHorses ? Number(createForm.maxHorses) : undefined,
         maxHorsesPerOwner: createForm.maxHorsesPerOwner ? Number(createForm.maxHorsesPerOwner) : 2,
+        totalPrizePool: Number(createForm.totalPrizePool || 0),
       };
 
       const newChampionship = await createOrganizerTournament(payload);
@@ -309,12 +312,25 @@ export function OrganizerTournamentsPage() {
                         <span>Max Cap: {t.maxHorses} horses</span>
                       </div>
                     )}
+                    {t.totalPrizePool !== undefined && t.totalPrizePool !== null && (
+                      <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                        <Trophy className="h-3.5 w-3.5 text-[#bb8a3c] shrink-0" aria-hidden="true" />
+                        <span>Prize Pool: <strong className="text-[#bb8a3c]">{t.totalPrizePool.toLocaleString()} VND</strong></span>
+                      </div>
+                    )}
                   </div>
 
                   {t.status === "PENDING_APPROVAL" && (
                     <div className="mt-3 flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-800">
                       <AlertTriangle className="h-3.5 w-3.5" />
                       <span>Awaiting Admin Gate Approval</span>
+                    </div>
+                  )}
+
+                  {t.status === "APPROVED" && (
+                    <div className="mt-3 flex items-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 p-2 text-xs font-bold text-emerald-800">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Ready to Open Registration</span>
                     </div>
                   )}
 
@@ -504,6 +520,21 @@ export function OrganizerTournamentsPage() {
                     required
                     value={createForm.maxHorsesPerOwner}
                     onChange={(e) => setCreateForm({ ...createForm, maxHorsesPerOwner: e.target.value })}
+                    className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-prizepool" className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Total Prize Pool (VND) *
+                  </label>
+                  <input
+                    id="create-prizepool"
+                    type="number"
+                    min={0}
+                    required
+                    value={createForm.totalPrizePool}
+                    onChange={(e) => setCreateForm({ ...createForm, totalPrizePool: e.target.value })}
                     className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
                   />
                 </div>
