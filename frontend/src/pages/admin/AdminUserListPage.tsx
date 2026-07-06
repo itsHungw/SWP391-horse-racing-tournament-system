@@ -173,7 +173,7 @@ export function AdminUserListPage() {
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
               <option value="PENDING_EMAIL_VERIFY">Pending Verification</option>
-              <option value="LOCKED">Banned</option>
+              <option value="BANNED">Banned</option>
             </select>
           </div>
         </div>
@@ -247,12 +247,12 @@ export function AdminUserListPage() {
                           className={`rounded-full px-3 py-1 text-xs font-bold ${
                             user.status === "ACTIVE"
                               ? "bg-emerald-100 text-emerald-800"
-                              : user.status === "LOCKED"
+                              : user.status === "BANNED"
                               ? "bg-rose-100 text-rose-800"
                               : "bg-amber-100 text-amber-800"
                           }`}
                         >
-                          {user.status === "ACTIVE" ? "Active" : user.status === "LOCKED" ? "Banned" : "Unverified"}
+                          {user.status === "ACTIVE" ? "Active" : user.status === "BANNED" ? "Banned" : "Unverified"}
                         </span>
                       </td>
                       <td className="px-5 py-4">

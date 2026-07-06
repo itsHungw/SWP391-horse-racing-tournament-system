@@ -314,7 +314,7 @@ export function AdminUserDetailPage() {
                 >
                   <option value="ACTIVE">Active</option>
                   <option value="PENDING_EMAIL_VERIFY">Pending Email Verification</option>
-                  <option value="LOCKED">Banned</option>
+                  <option value="BANNED">Banned</option>
                 </select>
                 {isSelf && (
                   <p className="mt-1 text-xs text-rose-500">You cannot modify your own account status.</p>
