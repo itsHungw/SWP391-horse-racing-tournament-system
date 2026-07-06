@@ -287,6 +287,7 @@ export function AdminUserDetailPage() {
                   <label className="block text-xs font-bold text-slate-700">Date of Birth</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     value={profileForm.dateOfBirth}
                     onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })}
                     className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
