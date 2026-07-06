@@ -13,6 +13,8 @@ public interface RefereeContractRepository extends JpaRepository<RefereeContract
     /** Chặn mời trùng (đã có lời mời/hợp đồng còn hiệu lực). */
     boolean existsByTournament_IdAndReferee_IdAndStatusIn(Long tournamentId, Long refereeId, List<String> statuses);
 
+    Optional<RefereeContract> findByTournament_IdAndReferee_Id(Long tournamentId, Long refereeId);
+
     Optional<RefereeContract> findByIdAndReferee_Email(Long id, String refereeEmail);
 
     List<RefereeContract> findAllByReferee_EmailOrderByCreatedAtDesc(String refereeEmail);
