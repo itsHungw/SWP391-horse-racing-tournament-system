@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CalendarDays,
@@ -231,12 +231,20 @@ function getChampionshipNextActionLabel(tournament: Tournament, race: Race | nul
 export function OrganizerTournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const championshipId = Number(id);
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ChampionshipTab>("overview");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["overview", "applications", "participants", "rounds", "standings", "controls"].includes(tabParam)) {
+      setActiveTab(tabParam as ChampionshipTab);
+    }
+  }, [searchParams]);
   const [races, setRaces] = useState<Race[]>([]);
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState("");
