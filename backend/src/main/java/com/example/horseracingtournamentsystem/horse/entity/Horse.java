@@ -144,6 +144,17 @@ public class Horse {
         this.updatedAt = LocalDateTime.now();
     }
 
+    /** Replace media only when a new URL is supplied; blank/null keeps the current file. */
+    public void updateMedia(String imageUrl, String evidenceUrl) {
+        if (imageUrl != null && !imageUrl.isBlank()) {
+            this.imageUrl = imageUrl;
+        }
+        if (evidenceUrl != null && !evidenceUrl.isBlank()) {
+            this.evidenceUrl = evidenceUrl;
+        }
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void setStatusPending() {
         this.status = "PENDING";
         this.rejectionReason = null;

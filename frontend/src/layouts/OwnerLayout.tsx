@@ -55,7 +55,7 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
         <div className="mx-auto flex min-h-20 max-w-[1680px] items-center justify-between px-5">
           <a
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/owner/dashboard"
+            href="/"
             aria-label="EquinePro owner dashboard"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50 shrink-0">

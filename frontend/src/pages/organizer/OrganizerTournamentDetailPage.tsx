@@ -205,6 +205,8 @@ function getChampionshipNextActionLabel(tournament: Tournament, race: Race | nul
       return "Submit for Approval";
     case "PENDING_APPROVAL":
       return "Awaiting Admin Approval";
+    case "APPROVED":
+      return "Open Registration";
     case "OPEN_REGISTRATION":
       return "Review Applications";
     case "CLOSED_REGISTRATION":
@@ -824,6 +826,11 @@ export function OrganizerTournamentDetailPage() {
       return;
     }
 
+    if (tournament.status === "APPROVED") {
+      setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" });
+      return;
+    }
+
     if (tournament.status === "OPEN_REGISTRATION") {
       setActiveTab("applications");
       return;
@@ -867,6 +874,15 @@ export function OrganizerTournamentDetailPage() {
           className="rounded-md bg-[#bb8a3c] px-4 py-2 text-xs font-bold text-[#1c1816] hover:bg-[#cfa24f]"
         >
           Submit for Approval
+        </button>
+      )}
+
+      {tournament.status === "APPROVED" && (
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "OPEN_REGISTRATION" })}
+          className="rounded-md bg-[#bb8a3c] px-4 py-2 text-xs font-bold text-[#1c1816] hover:bg-[#cfa24f]"
+        >
+          Open Registration
         </button>
       )}
 

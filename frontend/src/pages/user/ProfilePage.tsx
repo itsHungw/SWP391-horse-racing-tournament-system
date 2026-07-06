@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { getMyProfile, updateMyProfile, uploadAvatar } from "../../api/profileApi";
 import { ClientFooter } from "../../components/client/ClientFooter";
 import { ClientHeader } from "../../components/client/ClientHeader";
+import { ClientToast, useClientToast } from "../../components/client/ClientToast";
 import { Eyebrow, MotionReveal } from "../../components/client/primitives";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
@@ -74,8 +75,7 @@ export function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const { toast, show: showToast, dismiss: dismissToast } = useClientToast();
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -104,10 +104,9 @@ export function ProfilePage() {
         setDateOfBirth(data.dateOfBirth || "");
         setAddress(data.address || "");
         setAvatarPreview(resolveFileUrl(data.avatarUrl) || defaultAvatar);
-        setError(null);
       } catch {
         if (active) {
-          setError("Unable to load your profile. Please try again.");
+          showToast("Unable to load your profile. Please try again.", "error");
         }
       } finally {
         if (active) {
@@ -174,16 +173,15 @@ export function ProfilePage() {
     }
 
     if (!["image/jpeg", "image/jpg", "image/png"].includes(file.type)) {
-      setError("Only JPG, JPEG, or PNG avatar files are supported.");
+      showToast("Only JPG, JPEG, or PNG avatar files are supported.", "error");
       return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
-      setError("Avatar image must be 2MB or smaller.");
+      showToast("Avatar image must be 2MB or smaller.", "error");
       return;
     }
 
-    setError(null);
     setPendingAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
   };
@@ -192,15 +190,12 @@ export function ProfilePage() {
     event.preventDefault();
 
     if (!fullName.trim() || !phone.trim() || !gender.trim() || !dateOfBirth.trim() || !address.trim()) {
-      setError("Full name, phone number, gender, date of birth, and address are required.");
-      setSuccess(null);
+      showToast("Full name, phone number, gender, date of birth, and address are required.", "error");
       return;
     }
 
     try {
       setSaving(true);
-      setError(null);
-      setSuccess(null);
 
       let finalAvatarUrl = profile?.avatarUrl || "";
 
@@ -220,9 +215,9 @@ export function ProfilePage() {
 
       setProfile(updatedProfile);
       setPendingAvatarFile(null);
-      setSuccess("Profile updated successfully.");
+      showToast("Profile updated successfully.", "success");
     } catch (err: any) {
-      setError(err?.message || "Unable to update your profile. Please try again.");
+      showToast(err?.message || "Unable to update your profile. Please try again.", "error");
     } finally {
       setSaving(false);
     }
@@ -393,21 +388,7 @@ export function ProfilePage() {
               </p>
             </div>
 
-            {error && (
-              <div className="mt-9 border-l-2 border-nyraRed bg-turf-900 px-5 py-4 text-sm text-rose-300" role="alert">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div
-                className="mt-9 border-l-2 border-emerald-glow bg-turf-900 px-5 py-4 text-sm text-emerald-soft"
-                role="status"
-              >
-                {success}
-              </div>
-            )}
-
-            <form className="mt-6" onSubmit={handleSubmit}>
+            <form className="mt-10" onSubmit={handleSubmit}>
               {/* 01 · Identity */}
               <div className="grid gap-8 border-t border-white/10 py-12 lg:grid-cols-[200px_1fr] lg:gap-14">
                 <div>
@@ -597,6 +578,7 @@ export function ProfilePage() {
         </MotionReveal>
       </main>
       <ClientFooter />
+      <ClientToast toast={toast} onDismiss={dismissToast} />
     </div>
   );
 }

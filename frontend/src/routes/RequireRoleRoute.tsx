@@ -17,7 +17,7 @@ export function RequireRoleRoute({ children, role, workspaceName }: RequireRoleR
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   const roles = new Set((session?.roles ?? []).map((item) => item.toUpperCase()));

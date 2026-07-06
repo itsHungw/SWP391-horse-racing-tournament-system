@@ -508,4 +508,6 @@ export type OwnerHorseUpdateRequest = {
   healthStatus?: string;
   medicalNote?: string;
   description?: string;
+  imageUrl?: string;
+  evidenceUrl?: string;
 };
