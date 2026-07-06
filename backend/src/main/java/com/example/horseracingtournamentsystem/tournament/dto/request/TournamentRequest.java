@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Min;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.*;
@@ -44,4 +45,8 @@ public class TournamentRequest {
 
     @Positive(message = "Max horses per owner must be greater than 0")
     private Integer maxHorsesPerOwner;
+
+    @NotNull(message = "Total prize pool is required")
+    @Min(value = 0, message = "Total prize pool must be greater than or equal to 0")
+    private Long totalPrizePool;
 }

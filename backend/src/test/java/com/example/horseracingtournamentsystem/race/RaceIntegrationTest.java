@@ -144,16 +144,17 @@ class RaceIntegrationTest {
 
     @Test
     void adminCanCreateRace() throws Exception {
+        String raceDateTimeStr = LocalDateTime.now().plusDays(2).toString().substring(0, 19);
         String body = String.format("""
                 {
                     "tournamentId": %d,
                     "name": "Grand Sprint",
                     "code": "SPRINT_01",
-                    "raceDateTime": "2026-06-15T14:30:00",
+                    "raceDateTime": "%s",
                     "distanceMeters": 1200,
                     "maxParticipants": 12
                 }
-                """, tournament.getId());
+                """, tournament.getId(), raceDateTimeStr);
 
         mockMvc.perform(post("/api/v1/admin/races")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)

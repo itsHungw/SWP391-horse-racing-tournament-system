@@ -71,7 +71,8 @@ public class TournamentService {
         Tournament tournament = Tournament.create(
                 req.getName(), req.getCode(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(), creator
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(),
+                req.getTotalPrizePool(), creator
         );
 
         tournamentRepository.save(tournament);
@@ -98,7 +99,8 @@ public class TournamentService {
         Tournament tournament = Tournament.create(
                 req.getName(), req.getCode(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(), creator
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(),
+                req.getTotalPrizePool(), creator
         );
         tournament.assignOrganization(organization);
         tournamentRepository.save(tournament);
@@ -207,7 +209,8 @@ public class TournamentService {
         tournament.update(
                 req.getName(), req.getDescription(), req.getLocation(),
                 req.getStartDate(), req.getEndDate(), req.getRegistrationStartAt(),
-                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner()
+                req.getRegistrationEndAt(), req.getMaxHorses(), req.getMaxHorsesPerOwner(),
+                req.getTotalPrizePool()
         );
 
         tournamentRepository.save(tournament);
@@ -427,6 +430,7 @@ public class TournamentService {
                 .maxHorses(t.getMaxHorses())
                 .maxHorsesPerOwner(t.getMaxHorsesPerOwner())
                 .status(t.getStatus())
+                .totalPrizePool(t.getTotalPrizePool())
                 .creatorName(t.getCreatedBy().getFullName())
                 .organizationId(t.getOrganization() == null ? null : t.getOrganization().getId())
                 .organizationName(t.getOrganization() == null ? null : t.getOrganization().getName())
@@ -462,6 +466,7 @@ public class TournamentService {
                 .registrationEndAt(tournament.getRegistrationEndAt())
                 .maxHorses(tournament.getMaxHorses())
                 .status(tournament.getStatus())
+                .totalPrizePool(tournament.getTotalPrizePool())
                 .raceCount(raceCount)
                 .participantCount(participantCount)
                 .nextRace(nextRace == null ? null : TournamentSummaryResponse.NextRaceSummary.builder()
