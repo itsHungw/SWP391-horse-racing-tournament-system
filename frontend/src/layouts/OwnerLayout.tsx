@@ -56,7 +56,7 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
           <a
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             href="/"
-            aria-label="EquinePro owner dashboard"
+            aria-label="Aqueduct owner dashboard"
           >
             <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50 shrink-0">
               <img

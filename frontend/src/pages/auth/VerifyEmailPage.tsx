@@ -184,7 +184,7 @@ export function VerifyEmailPage() {
             to="/"
             className="inline-flex w-fit items-center border-l-4 border-nyraGold pl-3 text-xs font-black uppercase tracking-[0.22em] text-nyraGold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
           >
-            EquinePro Elite
+            Aqueduct
           </Link>
           <div className="mt-auto max-w-2xl pt-10">
             <p className="mb-3 border-l-4 border-nyraGold pl-4 text-xs font-black uppercase tracking-[0.22em] text-nyraGold">

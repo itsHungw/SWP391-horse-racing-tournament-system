@@ -58,7 +58,7 @@ function Field({
 }
 
 export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
-  useDocumentTitle(initialMode === "login" ? "Login | EquinePro Elite" : "Create Account | EquinePro Elite");
+  useDocumentTitle(initialMode === "login" ? "Login | Aqueduct" : "Create Account | Aqueduct");
 
   const navigate = useNavigate();
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -497,7 +497,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
             </div>
             <div className="flex items-center justify-between">
               <img alt="" className="h-8 opacity-40 grayscale transition-all hover:opacity-100 hover:grayscale-0" src={logo} />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 EquinePro Elite</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 Aqueduct</span>
             </div>
           </footer>
         </motion.div>

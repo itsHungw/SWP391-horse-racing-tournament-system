@@ -26,7 +26,7 @@ export function AdminForbiddenPage() {
               <img alt="" className="h-11 w-11 object-contain" src={logo} />
               <div>
                 <p className="text-2xl font-black lowercase italic tracking-tight text-[#b3193a]">
-                  equinepro
+                  aqueduct
                 </p>
                 <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">
                   restricted control room

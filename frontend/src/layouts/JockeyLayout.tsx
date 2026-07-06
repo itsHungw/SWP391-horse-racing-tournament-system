@@ -70,7 +70,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
       >
         <div className="mx-auto flex min-h-20 max-w-[1720px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <a
-            aria-label="EquinePro jockey dashboard"
+            aria-label="Aqueduct jockey dashboard"
             className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             href="/"
           >
