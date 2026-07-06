@@ -28,6 +28,7 @@ public class TournamentResponse {
     private String organizationName;
     private LocalDateTime approvedAt;
     private String rejectionReason;
+    private long totalPrizePool;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

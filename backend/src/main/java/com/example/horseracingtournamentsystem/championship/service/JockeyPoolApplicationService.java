@@ -308,6 +308,7 @@ public class JockeyPoolApplicationService {
                 ))
                 .applicationWindowOpen(applicationWindowOpen)
                 .canApply(canApply)
+                .totalPrizePool(tournament.getTotalPrizePool())
                 .build();
     }
 

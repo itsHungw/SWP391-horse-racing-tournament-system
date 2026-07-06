@@ -115,6 +115,7 @@ const emptyForm: CreateTournamentPayload = {
   registrationEndAt: "",
   maxHorses: undefined,
   maxHorsesPerOwner: 2,
+  totalPrizePool: 0,
 };
 
 export function AdminTournamentListPage() {
@@ -175,6 +176,7 @@ export function AdminTournamentListPage() {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
         maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
+        totalPrizePool: Number(form.totalPrizePool || 0),
       });
       setShowCreateModal(false);
       setForm(emptyForm);
@@ -422,7 +424,7 @@ export function AdminTournamentListPage() {
                           </div>
                         </div>
 
-                        <div className="flex w-full flex-row gap-4 sm:w-32 sm:flex-col">
+                        <div className="flex w-full flex-row gap-4 sm:w-48 sm:flex-col">
                           <div className="flex-1 rounded-xl bg-slate-50 p-4">
                             <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
                               <Users className="h-3.5 w-3.5" />
@@ -437,6 +439,15 @@ export function AdminTournamentListPage() {
                             </p>
                             <p className="mt-1 text-xl font-black text-slate-900">{t.maxHorses ? t.maxHorses : "∞"}</p>
                           </div>
+                          {t.totalPrizePool !== undefined && t.totalPrizePool !== null && (
+                            <div className="flex-1 rounded-xl bg-slate-50 p-4">
+                              <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                <Trophy className="h-3.5 w-3.5 text-[#b3193a]" />
+                                Prize Pool
+                              </p>
+                              <p className="mt-1 text-xs font-black text-[#b3193a]">{t.totalPrizePool.toLocaleString()} VND</p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -740,6 +751,34 @@ export function AdminTournamentListPage() {
                         <p className="mt-2 text-[11px] font-bold text-slate-500">
                           Default is 2 active horses per owner.
                         </p>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* Prize Section */}
+                  <section>
+                    <h3 className="mb-4 text-xs font-black uppercase tracking-widest text-slate-400">
+                      Championship Prize
+                    </h3>
+                    <div className="grid gap-5 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                          Total Prize Pool (VND) *
+                        </label>
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          value={form.totalPrizePool || 0}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              totalPrizePool: e.target.value ? Number(e.target.value) : 0,
+                            })
+                          }
+                          className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium focus:border-[#b3193a] focus:ring-1 focus:ring-[#b3193a] focus:outline-none"
+                          placeholder="e.g. 50000000"
+                        />
                       </div>
                     </div>
                   </section>

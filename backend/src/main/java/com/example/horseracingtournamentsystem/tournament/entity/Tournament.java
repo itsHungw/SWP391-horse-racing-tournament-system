@@ -82,9 +82,18 @@ public class Tournament {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "total_prize_pool", nullable = false)
+    private long totalPrizePool;
+
     public static Tournament create(String name, String code, String description, String location, 
                                     LocalDate startDate, LocalDate endDate, LocalDateTime regStart, 
                                     LocalDateTime regEnd, Integer maxHorses, User creator) {
+        return create(name, code, description, location, startDate, endDate, regStart, regEnd, maxHorses, 0L, creator);
+    }
+
+    public static Tournament create(String name, String code, String description, String location, 
+                                    LocalDate startDate, LocalDate endDate, LocalDateTime regStart, 
+                                    LocalDateTime regEnd, Integer maxHorses, long totalPrizePool, User creator) {
         Tournament tournament = new Tournament();
         tournament.name = name;
         tournament.code = code;
@@ -97,6 +106,7 @@ public class Tournament {
         tournament.maxHorses = maxHorses;
         tournament.maxHorsesPerOwner = 2;
         tournament.status = TournamentStatus.DRAFT;
+        tournament.totalPrizePool = totalPrizePool;
         tournament.createdBy = creator;
         tournament.createdAt = LocalDateTime.now();
         return tournament;
@@ -106,14 +116,31 @@ public class Tournament {
                                     LocalDate startDate, LocalDate endDate, LocalDateTime regStart,
                                     LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner,
                                     User creator) {
+        return create(name, code, description, location, startDate, endDate, regStart, regEnd, maxHorses, maxHorsesPerOwner, 0L, creator);
+    }
+
+    public static Tournament create(String name, String code, String description, String location,
+                                    LocalDate startDate, LocalDate endDate, LocalDateTime regStart,
+                                    LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner,
+                                    long totalPrizePool, User creator) {
         Tournament tournament = create(
-                name, code, description, location, startDate, endDate, regStart, regEnd, maxHorses, creator);
+                name, code, description, location, startDate, endDate, regStart, regEnd, maxHorses, totalPrizePool, creator);
         tournament.maxHorsesPerOwner = maxHorsesPerOwner == null ? 2 : maxHorsesPerOwner;
         return tournament;
     }
 
     public void update(String name, String description, String location, LocalDate startDate, LocalDate endDate,
                        LocalDateTime regStart, LocalDateTime regEnd, Integer maxHorses) {
+        update(name, description, location, startDate, endDate, regStart, regEnd, maxHorses, this.maxHorsesPerOwner, this.totalPrizePool);
+    }
+
+    public void update(String name, String description, String location, LocalDate startDate, LocalDate endDate,
+                       LocalDateTime regStart, LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner) {
+        update(name, description, location, startDate, endDate, regStart, regEnd, maxHorses, maxHorsesPerOwner, this.totalPrizePool);
+    }
+
+    public void update(String name, String description, String location, LocalDate startDate, LocalDate endDate,
+                       LocalDateTime regStart, LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner, long totalPrizePool) {
         this.name = name;
         this.description = description;
         this.location = location;
@@ -122,13 +149,9 @@ public class Tournament {
         this.registrationStartAt = regStart;
         this.registrationEndAt = regEnd;
         this.maxHorses = maxHorses;
-        this.updatedAt = LocalDateTime.now();
-    }
-
-    public void update(String name, String description, String location, LocalDate startDate, LocalDate endDate,
-                       LocalDateTime regStart, LocalDateTime regEnd, Integer maxHorses, Integer maxHorsesPerOwner) {
-        update(name, description, location, startDate, endDate, regStart, regEnd, maxHorses);
         this.maxHorsesPerOwner = maxHorsesPerOwner == null ? 2 : maxHorsesPerOwner;
+        this.totalPrizePool = totalPrizePool;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public void postpone() {

@@ -93,6 +93,7 @@ export type Tournament = {
   organizationName?: string;
   approvedAt?: string;
   rejectionReason?: string;
+  totalPrizePool?: number;
 };
 
 export type OrganizationStatus = "PENDING" | "ACTIVE" | "SUSPENDED" | "REJECTED";
@@ -172,6 +173,7 @@ export type TournamentSummary = {
   registrationEndAt?: string;
   maxHorses?: number;
   status: string;
+  totalPrizePool?: number;
   raceCount: number;
   participantCount: number;
   nextRace?: {
@@ -392,6 +394,7 @@ export type JockeyChampionship = {
   approvedPoolCount: number;
   applicationWindowOpen: boolean;
   canApply: boolean;
+  totalPrizePool?: number;
 };
 
 export type JockeyInvitationStatus = "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED";

@@ -24,6 +24,8 @@ public interface RaceParticipantRepository extends JpaRepository<RaceParticipant
 
     boolean existsByRace_IdAndHorse_Id(Long raceId, Long horseId);
 
+    void deleteAllByRace_Tournament_IdAndHorse_Id(Long tournamentId, Long horseId);
+
     @Query("""
             SELECT participant.race.id, COUNT(participant)
             FROM RaceParticipant participant

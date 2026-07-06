@@ -25,6 +25,7 @@ public record JockeyChampionshipResponse(
         LocalDateTime reviewedAt,
         long approvedPoolCount,
         boolean applicationWindowOpen,
-        boolean canApply
+        boolean canApply,
+        Long totalPrizePool
 ) {
 }

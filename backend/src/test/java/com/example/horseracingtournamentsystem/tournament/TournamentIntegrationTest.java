@@ -100,7 +100,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -205,7 +206,8 @@ class TournamentIntegrationTest {
                     "endDate": "2026-07-01",
                     "registrationStartAt": "2026-06-01T00:00:00",
                     "registrationEndAt": "2026-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -228,7 +230,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2000-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -252,7 +255,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-07-01T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -285,7 +289,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-07-01T00:01:00",
-                    "maxHorses": 20
+                    "maxHorses": 20,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -336,7 +341,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -413,7 +419,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 40
+                    "maxHorses": 40,
+                    "totalPrizePool": 50000000
                 }
                 """;
 

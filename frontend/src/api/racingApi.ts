@@ -368,6 +368,10 @@ export async function lockAdminChampionshipParticipants(championshipId: number):
   return response.data;
 }
 
+export async function unlockAdminChampionshipParticipants(championshipId: number): Promise<void> {
+  await httpClient.post(`/admin/championships/${championshipId}/unlock-participants`);
+}
+
 export async function getAdminChampionshipParticipants(championshipId: number): Promise<TournamentParticipant[]> {
   const response = await httpClient.get<TournamentParticipant[]>(`/admin/championships/${championshipId}/participants`);
   return response.data;
@@ -442,6 +446,7 @@ export async function createOrganizerTournament(payload: {
   registrationEndAt: string;
   maxHorses?: number;
   maxHorsesPerOwner?: number;
+  totalPrizePool?: number;
 }): Promise<Tournament> {
   const response = await httpClient.post<Tournament>("/organizer/tournaments", payload);
   return response.data;
@@ -622,6 +627,10 @@ export async function lockOrganizerParticipants(tournamentId: number): Promise<L
     `/organizer/tournaments/${tournamentId}/lock-participants`,
   );
   return response.data;
+}
+
+export async function unlockOrganizerParticipants(tournamentId: number): Promise<void> {
+  await httpClient.post(`/organizer/tournaments/${tournamentId}/unlock-participants`);
 }
 
 export async function acceptRefereeContract(contractId: number): Promise<RefereeContract> {

@@ -270,6 +270,12 @@ export function ChampionshipDetailPage() {
                       Field capacity <span className="font-data text-ivory">{tournament.maxHorses}</span>
                     </span>
                   ) : null}
+                  {tournament.totalPrizePool !== undefined && tournament.totalPrizePool !== null ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Trophy size={16} className="text-gold-400/80" />
+                      Prize Pool <span className="font-data text-gold-400">{tournament.totalPrizePool.toLocaleString()} VND</span>
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-4 text-xs font-semibold">
                   {isRegistrationOpen(tournament) ? (

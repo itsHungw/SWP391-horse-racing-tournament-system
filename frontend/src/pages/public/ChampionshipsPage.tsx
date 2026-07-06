@@ -55,6 +55,9 @@ function FocusCard({ championship, owner }: { championship: TournamentSummary; o
             {championship.location ? <div className="inline-flex items-center gap-2"><MapPin size={15} className="text-gold-400" /> {championship.location}</div> : null}
             <div className="inline-flex items-center gap-2"><Flag size={15} className="text-gold-400" /> {championship.raceCount} rounds</div>
             <div className="inline-flex items-center gap-2"><Users size={15} className="text-gold-400" /> {championship.participantCount} horses</div>
+            {championship.totalPrizePool !== undefined && championship.totalPrizePool !== null ? (
+              <div className="inline-flex items-center gap-2"><Trophy size={15} className="text-gold-400" /> {championship.totalPrizePool.toLocaleString()} VND</div>
+            ) : null}
           </dl>
         </div>
         <div className="border-l border-white/10 pl-6">
@@ -92,7 +95,7 @@ function ChampionshipRow({ championship }: { championship: TournamentSummary }) 
   return (
     <article className="group relative border-t border-white/10 py-7 transition-colors hover:border-gold-400/40">
       <div className="absolute left-0 top-7 h-14 w-px bg-gold-400/60" />
-      <div className="grid gap-5 pl-5 md:grid-cols-[1fr_220px_auto] md:items-center">
+      <div className="grid gap-5 pl-5 md:grid-cols-[1fr_280px_auto] md:items-center">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <StatusPill tone={status.tone} label={status.label} />
@@ -105,9 +108,10 @@ function ChampionshipRow({ championship }: { championship: TournamentSummary }) 
             {championship.location || "Circuit venue TBA"} · {formatDateRange(championship.startDate, championship.endDate)}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-4 border-l border-white/10 pl-5">
+        <div className="grid grid-cols-3 gap-4 border-l border-white/10 pl-5">
           <div><p className="font-data text-xl text-ivory">{championship.raceCount}</p><p className="mt-1 text-xs text-ivory-faint">Rounds</p></div>
           <div><p className="font-data text-xl text-ivory">{championship.participantCount}</p><p className="mt-1 text-xs text-ivory-faint">Horses</p></div>
+          <div><p className="font-data text-sm font-semibold text-gold-400 leading-7">{championship.totalPrizePool ? championship.totalPrizePool.toLocaleString() : "0"} VND</p><p className="mt-0.5 text-[10px] text-ivory-faint uppercase tracking-wider">Prize</p></div>
         </div>
         <Link to={`/championships/${championship.id}`} className="inline-flex min-h-11 items-center gap-2 border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60 hover:text-gold-200">
           View <ArrowRight size={14} />
