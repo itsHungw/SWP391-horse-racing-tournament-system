@@ -44,9 +44,8 @@ function Field({
       </label>
       <input
         autoComplete={autoComplete}
-        className={`w-full rounded-sm border border-gray-200 px-4 text-sm font-sans transition-all focus:border-nyraGreen focus:ring-0 ${
-          compact ? "py-3" : "py-4"
-        }`}
+        className={`w-full rounded-sm border border-gray-200 px-4 text-sm font-sans transition-all focus:border-nyraGreen focus:ring-0 ${compact ? "py-3" : "py-4"
+          }`}
         id={id}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -162,7 +161,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         navigate("/", { replace: true });
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Login failed. Please check your credentials."));
+      const errorMessage = getApiErrorMessage(err, "Login failed. Please check your credentials.");
+      if (errorMessage === "EMAIL_NOT_VERIFIED") {
+        localStorage.setItem("pendingVerifyEmail", loginEmail);
+        navigate("/verify-email", { replace: true });
+        return;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -279,7 +284,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         aria-label="Authentication"
         className="flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:items-start lg:py-12"
       >
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -287,16 +292,14 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         >
           <div className="relative mb-8 flex w-full overflow-hidden rounded-2xl border border-white/70 bg-white/55 p-1 shadow-[0_18px_45px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/5 backdrop-blur-xl sm:mb-10">
             <div
-              className={`auth-toggle-pill absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-[14px] bg-nyraGreen/95 shadow-[0_14px_34px_rgba(0,77,61,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] ring-1 ring-white/25 backdrop-blur-2xl ${
-                isLogin ? "translate-x-0" : "translate-x-full"
-              }`}
+              className={`auth-toggle-pill absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-[14px] bg-nyraGreen/95 shadow-[0_14px_34px_rgba(0,77,61,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] ring-1 ring-white/25 backdrop-blur-2xl ${isLogin ? "translate-x-0" : "translate-x-full"
+                }`}
               aria-hidden="true"
             />
             <button
               aria-pressed={isLogin}
-              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${
-                isLogin ? "text-white" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${isLogin ? "text-white" : "text-slate-500 hover:text-slate-700"
+                }`}
               onClick={() => switchMode("login")}
               type="button"
             >
@@ -305,9 +308,8 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
             <button
               aria-label="Create account tab"
               aria-pressed={!isLogin}
-              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${
-                isLogin ? "text-slate-500 hover:text-slate-700" : "text-white"
-              }`}
+              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${isLogin ? "text-slate-500 hover:text-slate-700" : "text-white"
+                }`}
               onClick={() => switchMode("register")}
               type="button"
             >
@@ -475,7 +477,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full bg-nyraDark py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-black disabled:opacity-60"
+                    className="w-full bg-nyraRed py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-red-700 disabled:opacity-60"
                     disabled={loading}
                     type="submit"
                   >
