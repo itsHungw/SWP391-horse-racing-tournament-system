@@ -18,11 +18,10 @@ function Notice({ children, tone }: { children: string; tone: NoticeTone }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className={`mt-5 rounded-xl border p-4 text-sm font-semibold flex items-start gap-3 ${
-        isError
-          ? "border-red-200 bg-red-50 text-red-700"
-          : "border-emerald-200 bg-emerald-50 text-emerald-700"
-      }`}
+      className={`mt-5 rounded-xl border p-4 text-sm font-semibold flex items-start gap-3 ${isError
+        ? "border-red-200 bg-red-50 text-red-700"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700"
+        }`}
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
     >
@@ -95,7 +94,7 @@ export function VerifyEmailPage() {
     setMessage(null);
     const cleanVal = value.replace(/\D/g, "").slice(0, 6);
     setOtpCode(cleanVal);
-    
+
     // Automatically focus appropriate box when the master hidden value changes (e.g. from tests)
     const nextIdx = Math.min(cleanVal.length, 5);
     inputRefs.current[nextIdx]?.focus();
@@ -107,7 +106,7 @@ export function VerifyEmailPage() {
     const digits = otpCode.split("");
     // Take only the last typed character in case of multiple inputs in one box
     const char = value.slice(-1).replace(/\D/g, "");
-    
+
     digits[index] = char;
     const newOtp = digits.join("").slice(0, 6);
     setOtpCode(newOtp);
@@ -137,7 +136,7 @@ export function VerifyEmailPage() {
     event.preventDefault();
     const pastedData = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     setOtpCode(pastedData);
-    
+
     // Focus the appropriate input box
     const focusIdx = Math.min(pastedData.length, 5);
     inputRefs.current[focusIdx]?.focus();
@@ -346,11 +345,10 @@ export function VerifyEmailPage() {
                     onChange={(e) => handleBoxChange(idx, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(idx, e)}
                     onPaste={handlePaste}
-                    className={`h-14 w-full sm:h-16 text-center font-mono text-2xl font-bold rounded-xl border outline-none transition-all duration-200 ${
-                      digit
-                        ? "border-nyraGreen bg-nyraGreen/5 text-nyraDark shadow-sm"
-                        : "border-slate-200 bg-white text-slate-400 focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/10"
-                    }`}
+                    className={`h-14 w-full sm:h-16 text-center font-mono text-2xl font-bold rounded-xl border outline-none transition-all duration-200 ${digit
+                      ? "border-nyraGreen bg-nyraGreen/5 text-nyraDark shadow-sm"
+                      : "border-slate-200 bg-white text-slate-400 focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/10"
+                      }`}
                   />
                 ))}
               </motion.div>
@@ -527,7 +525,7 @@ export function VerifyEmailPage() {
                 V
               </div>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-nyraGreen">
-                Certified Tournament Partner
+                Certified Championship Partner
               </p>
             </div>
             <div className="flex items-center justify-between">
