@@ -63,10 +63,11 @@ describe("branded error pages", () => {
 
   it("lets the visitor retry an unexpected error when recovery is available", () => {
     const onRetry = vi.fn();
+    const onBackHome = vi.fn();
 
     render(
       <MemoryRouter>
-        <UnexpectedErrorPage onRetry={onRetry} />
+        <UnexpectedErrorPage onBackHome={onBackHome} onRetry={onRetry} />
       </MemoryRouter>,
     );
 
@@ -77,6 +78,12 @@ describe("branded error pages", () => {
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
 
     expect(onRetry).toHaveBeenCalledOnce();
-    expect(screen.getByRole("link", { name: /back home/i })).toHaveAttribute("href", "/");
+    const backHomeLink = screen.getByRole("link", { name: /back home/i });
+
+    expect(backHomeLink).toHaveAttribute("href", "/");
+
+    fireEvent.click(backHomeLink);
+
+    expect(onBackHome).toHaveBeenCalledOnce();
   });
 });

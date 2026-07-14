@@ -7,10 +7,11 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useErrorPageHeadingFocus } from "./useErrorPageHeadingFocus";
 
 export type UnexpectedErrorPageProps = {
+  onBackHome?: () => void;
   onRetry?: () => void;
 };
 
-export function UnexpectedErrorPage({ onRetry }: UnexpectedErrorPageProps) {
+export function UnexpectedErrorPage({ onBackHome, onRetry }: UnexpectedErrorPageProps) {
   useDocumentTitle("Unexpected race control error");
   const headingRef = useErrorPageHeadingFocus();
 
@@ -87,6 +88,7 @@ export function UnexpectedErrorPage({ onRetry }: UnexpectedErrorPageProps) {
             ) : null}
             <Link
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-ivory/35 bg-turf-950/30 px-6 py-3 text-sm font-bold text-ivory transition-colors hover:border-gold-300/70 hover:bg-turf-800/80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-200"
+              onClick={onBackHome}
               to="/"
             >
               <Home aria-hidden="true" className="h-4 w-4" />

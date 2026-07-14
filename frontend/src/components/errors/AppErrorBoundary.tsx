@@ -27,7 +27,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
   render() {
     if (this.state.hasError) {
-      return <UnexpectedErrorPage onRetry={this.reset} />;
+      return <UnexpectedErrorPage onBackHome={this.reset} onRetry={this.reset} />;
     }
 
     return this.props.children;

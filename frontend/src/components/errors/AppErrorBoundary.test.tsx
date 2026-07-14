@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { expect, it, vi } from "vitest";
 
 import { AppErrorBoundary } from "./AppErrorBoundary";
@@ -14,6 +14,22 @@ function ThrowingChild({ shouldThrow }: ThrowingChildProps) {
   }
 
   return <p>Recovered content</p>;
+}
+
+function RouteAwareChild() {
+  const location = useLocation();
+
+  if (location.pathname !== "/") {
+    throw new Error("Test route failure");
+  }
+
+  return <p>Home content</p>;
+}
+
+function LocationProbe() {
+  const location = useLocation();
+
+  return <output aria-label="Current route">{location.pathname}</output>;
 }
 
 it("shows the unexpected-error fallback and recovers after retry", () => {
@@ -54,4 +70,33 @@ it("shows the unexpected-error fallback and recovers after retry", () => {
   }
 
   expect(console.error).toBe(originalConsoleError);
+});
+
+it("resets the fallback when navigating home from a failed route", async () => {
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+  try {
+    render(
+      <MemoryRouter initialEntries={["/failed-route"]}>
+        <AppErrorBoundary>
+          <Routes>
+            <Route path="*" element={<RouteAwareChild />} />
+          </Routes>
+        </AppErrorBoundary>
+        <LocationProbe />
+      </MemoryRouter>,
+      { onRecoverableError: () => undefined },
+    );
+
+    expect(screen.getByRole("heading", { name: /unexpected obstacle/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: /back home/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/current route/i)).toHaveTextContent("/");
+      expect(screen.getByText("Home content")).toBeVisible();
+    });
+  } finally {
+    consoleError.mockRestore();
+  }
 });
