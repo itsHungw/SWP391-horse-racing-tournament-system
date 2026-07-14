@@ -265,6 +265,35 @@ describe("App", () => {
     expect(document.querySelectorAll("main")).toHaveLength(1);
   });
 
+  it("renders the 404 page without rewriting an unknown URL", () => {
+    window.history.pushState({}, "", "/results/ghost-race");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: /this page missed the starting gate/i }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/results/ghost-race");
+    expect(document.querySelectorAll("main")).toHaveLength(1);
+  });
+
+  it.each([
+    "/admin/participants",
+    "/admin/standings",
+    "/admin/races",
+    "/admin/settings",
+  ])("renders 404 for removed placeholder route %s", (path) => {
+    window.history.pushState({}, "", path);
+    setClientSession(createTokenWithRoles(["ADMIN"]), "Admin Operator", "admin@example.com");
+
+    render(<App />);
+
+    expect(
+      screen.getByRole("heading", { name: /this page missed the starting gate/i }),
+    ).toBeInTheDocument();
+    expect(window.location.pathname).toBe(path);
+  });
+
   it("renders the Join Us paddock page with application path", () => {
     window.history.pushState({}, "", "/join-us");
 

@@ -21,6 +21,7 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { NotFoundPage } from "../pages/errors/NotFoundPage";
 
 // Authenticated / role-gated workspaces are lazy-loaded so a public visitor never downloads
 // the admin / organizer / owner / jockey / referee bundles (or heavy deps like lightweight-charts).
@@ -45,7 +46,6 @@ const OrganizerOrganizationPage = lazy(() => import("../pages/organizer/Organize
 const AdminOverviewPage = lazy(() => import("../pages/admin/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
 const AdminRoleRequestsWorkspace = lazy(() => import("../pages/admin/AdminRoleRequestsWorkspace").then((m) => ({ default: m.AdminRoleRequestsWorkspace })));
 const AdminOrganizationsPage = lazy(() => import("../pages/admin/AdminOrganizationsPage").then((m) => ({ default: m.AdminOrganizationsPage })));
-const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage").then((m) => ({ default: m.AdminPlaceholderPage })));
 const AdminUserListPage = lazy(() => import("../pages/admin/AdminUserListPage").then((m) => ({ default: m.AdminUserListPage })));
 const AdminUserDetailPage = lazy(() => import("../pages/admin/AdminUserDetailPage").then((m) => ({ default: m.AdminUserDetailPage })));
 const AdminHorsesPage = lazy(() => import("../pages/admin/AdminHorsesPage").then((m) => ({ default: m.AdminHorsesPage })));
@@ -213,34 +213,6 @@ export function AppRouter() {
         <Route path="admin/tournament-registrations" element={adminRoute(<AdminTournamentRegistrationsPage />)} />
         <Route path="admin/tournaments" element={adminRoute(<AdminTournamentListPage />)} />
         <Route path="admin/tournaments/:id" element={adminRoute(<AdminTournamentDetailPage />)} />
-        <Route
-          path="admin/participants"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Participants"
-              description="Review horse and jockey pairings after registration, pool approval, and assignment contracts."
-            />
-          )}
-        />
-        <Route
-          path="admin/standings"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Standings"
-              description="Monitor championship points after round results are published."
-            />
-          )}
-        />
-        <Route
-          path="admin/races"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Races"
-              description="Review race cards, results, participant readiness, and race-day operations."
-            />
-          )}
-        />
-
         <Route path="admin/blog" element={adminRoute(<AdminBlogListPage />)} />
         <Route path="admin/blog/new" element={adminRoute(<AdminBlogFormPage />)} />
         <Route path="admin/blog/edit/:id" element={adminRoute(<AdminBlogFormPage />)} />
@@ -249,18 +221,8 @@ export function AppRouter() {
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
 
-
-        <Route
-          path="admin/settings"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Settings"
-              description="Configure admin workspace preferences and operational defaults."
-            />
-          )}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </Suspense>
   );
