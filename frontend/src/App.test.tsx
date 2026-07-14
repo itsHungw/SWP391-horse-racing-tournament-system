@@ -383,7 +383,18 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /owner workspace is not active/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /access beyond this gate is restricted/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Owner Workspace")).toBeInTheDocument();
+    expect(screen.getByText(/horse owner/i)).toBeInTheDocument();
+    expect(screen.getByText("fan@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /review role requests/i })).toHaveAttribute(
+      "href",
+      "/my-role-requests",
+    );
+    expect(screen.getByRole("link", { name: /^home$/i })).toHaveAttribute("href", "/");
+    expect(screen.getAllByRole("main")).toHaveLength(1);
   });
 
   it("redirects owner base route to owner dashboard for authenticated owners", async () => {
@@ -401,9 +412,19 @@ describe("App", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: /admin access required/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /access beyond this gate is restricted/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText(/your account is signed in/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /return home/i })).toHaveAttribute("href", "/");
+    expect(screen.getByText("Admin Operations")).toBeInTheDocument();
+    expect(screen.getByText(/^Admin$/i)).toBeInTheDocument();
+    expect(screen.getByText("member@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /review role requests/i })).toHaveAttribute(
+      "href",
+      "/my-role-requests",
+    );
+    expect(screen.getByRole("link", { name: /^home$/i })).toHaveAttribute("href", "/");
+    expect(screen.getAllByRole("main")).toHaveLength(1);
   });
 
   it("renders the admin operations foundation route for admin users", async () => {

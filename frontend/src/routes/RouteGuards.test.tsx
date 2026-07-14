@@ -55,6 +55,34 @@ describe("protected route guards", () => {
     expect(screen.queryByText("Owner dashboard")).not.toBeInTheDocument();
   });
 
+  it("sends unauthenticated role-route users to login with query and hash in returnTo", () => {
+    mockUseClientSession.mockReturnValue({
+      isAuthenticated: false,
+      isInitializing: false,
+      logout: vi.fn(),
+      session: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/owner/dashboard?tab=entries#history"]}>
+        <Routes>
+          <Route path="/login" element={<LoginProbe />} />
+          <Route
+            path="/owner/dashboard"
+            element={
+              <RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
+                <p>Owner dashboard</p>
+              </RequireRoleRoute>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("Return to: /owner/dashboard?tab=entries#history")).toBeInTheDocument();
+    expect(screen.queryByText("Owner dashboard")).not.toBeInTheDocument();
+  });
+
   it("shows the shared access-denied page without changing the URL when the required role is missing", () => {
     mockUseClientSession.mockReturnValue({
       isAuthenticated: true,

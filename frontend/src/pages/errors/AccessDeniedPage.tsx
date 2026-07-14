@@ -7,6 +7,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useErrorPageHeadingFocus } from "./useErrorPageHeadingFocus";
 
 export type AccessDeniedPageProps = {
+  embedded?: boolean;
   requiredRole?: string;
   workspaceName?: string;
   email?: string | null;
@@ -26,6 +27,7 @@ function formatRoleLabel(role?: string) {
 }
 
 export function AccessDeniedPage({
+  embedded = false,
   email,
   requiredRole,
   workspaceName = "Restricted Workspace",
@@ -34,9 +36,13 @@ export function AccessDeniedPage({
 
   const headingRef = useErrorPageHeadingFocus();
   const roleLabel = formatRoleLabel(requiredRole);
+  const Root = embedded ? "section" : "main";
 
   return (
-    <main className="client-theme relative flex min-h-screen min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-turf-950 text-ivory">
+    <Root
+      aria-labelledby="access-denied-title"
+      className="client-theme relative flex min-h-screen min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-turf-950 text-ivory"
+    >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <img
           alt=""
@@ -66,7 +72,6 @@ export function AccessDeniedPage({
       </header>
 
       <section
-        aria-labelledby="access-denied-title"
         className="error-hero-enter relative z-10 mx-auto grid w-full max-w-7xl flex-1 items-center gap-10 px-5 py-8 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(20rem,1fr)] lg:px-12"
       >
         <div className="relative min-h-64 min-w-0 overflow-hidden border border-gold-300/25 bg-turf-950/55 p-6 shadow-2xl backdrop-blur-sm sm:min-h-80 sm:p-8">
@@ -151,6 +156,6 @@ export function AccessDeniedPage({
         <span className="font-data">Race control · Access status 403</span>
         <span className="font-data text-gold-300/80">Session remains active</span>
       </footer>
-    </main>
+    </Root>
   );
 }

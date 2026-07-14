@@ -32,6 +32,7 @@ export function RequireRoleRoute({ children, role, workspaceName }: RequireRoleR
   if (!roles.has(role.toUpperCase())) {
     return (
       <AccessDeniedPage
+        embedded
         requiredRole={role}
         workspaceName={workspaceName}
         email={session?.email}

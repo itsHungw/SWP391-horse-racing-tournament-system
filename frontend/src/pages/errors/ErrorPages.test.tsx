@@ -52,6 +52,7 @@ describe("branded error pages", () => {
     expect(
       screen.getByRole("heading", { name: /access beyond this gate is restricted/i }),
     ).toHaveFocus();
+    expect(screen.getByRole("main")).toBeInTheDocument();
     expect(screen.getByText(/horse owner/i)).toBeVisible();
     expect(screen.getByText("fan@example.com")).toBeVisible();
     expect(screen.getByRole("link", { name: /review role requests/i })).toHaveAttribute(
@@ -59,6 +60,23 @@ describe("branded error pages", () => {
       "/my-role-requests",
     );
     expect(screen.queryByRole("button", { name: /log out|sign out/i })).not.toBeInTheDocument();
+  });
+
+  it("uses a labelled section instead of another main landmark when embedded", () => {
+    render(
+      <MemoryRouter>
+        <main>
+          <AccessDeniedPage embedded requiredRole="ADMIN" workspaceName="Admin Operations" />
+        </main>
+      </MemoryRouter>,
+    );
+
+    const heading = screen.getByRole("heading", {
+      name: /access beyond this gate is restricted/i,
+    });
+
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("region", { name: heading.textContent ?? "" })).toBeInTheDocument();
   });
 
   it("lets the visitor retry an unexpected error when recovery is available", () => {
