@@ -1,5 +1,5 @@
 import { FormEvent, useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { login, register, oauthLogin } from "../../api/authApi";
@@ -17,6 +17,20 @@ import { setClientSession } from "../../utils/authSession";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 type AuthMode = "login" | "register";
+
+function getSafeReturnTo(state: unknown) {
+  if (!state || typeof state !== "object" || !("returnTo" in state)) {
+    return null;
+  }
+
+  const returnTo = (state as { returnTo?: unknown }).returnTo;
+  return typeof returnTo === "string" &&
+    returnTo.startsWith("/") &&
+    !returnTo.startsWith("//") &&
+    !returnTo.startsWith("/\\")
+    ? returnTo
+    : null;
+}
 
 function Field({
   autoComplete,
@@ -61,6 +75,8 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
   useDocumentTitle(initialMode === "login" ? "Login | Aqueduct" : "Create Account | Aqueduct");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = getSafeReturnTo(location.state);
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -82,7 +98,9 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       const apiResponse = await oauthLogin("GOOGLE", response.credential);
       setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email);
       const roles = getRolesFromAccessToken(apiResponse.accessToken);
-      if (roles.includes("ADMIN")) {
+      if (returnTo) {
+        navigate(returnTo, { replace: true });
+      } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
       } else if (roles.includes("REFEREE")) {
         navigate("/referee", { replace: true });
@@ -154,7 +172,9 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       const response = await login({ email: loginEmail, password: loginPassword });
       setClientSession(response.accessToken, response.fullName, response.email);
       const roles = getRolesFromAccessToken(response.accessToken);
-      if (roles.includes("ADMIN")) {
+      if (returnTo) {
+        navigate(returnTo, { replace: true });
+      } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
       } else if (roles.includes("REFEREE")) {
         navigate("/referee", { replace: true });
