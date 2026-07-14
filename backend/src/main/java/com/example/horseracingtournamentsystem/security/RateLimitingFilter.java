@@ -36,7 +36,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         AppSecurityProperties.RateLimit limits = properties.getRateLimit();
         long longestWindow = Math.max(
                 limits.getWindowSeconds(),
-                Math.max(limits.getForgotPasswordWindowSeconds(), limits.getResetPasswordWindowSeconds())
+                Math.max(
+                        limits.getResendVerificationEmailWindowSeconds(),
+                        Math.max(limits.getForgotPasswordWindowSeconds(), limits.getResetPasswordWindowSeconds())
+                )
         );
         if (limits.getCacheTtlSeconds() < longestWindow) {
             throw new IllegalArgumentException("Rate-limit cache TTL must cover every rule window");
@@ -100,6 +103,9 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         }
         if ("POST".equals(method) && path.equals("/api/v1/auth/forgot-password")) {
             return new LimitRule("forgot-password", limits.getForgotPasswordLimit(), limits.getForgotPasswordWindowSeconds());
+        }
+        if ("POST".equals(method) && path.equals("/api/v1/auth/resend-verification-email")) {
+            return new LimitRule("resend-verification-email", limits.getResendVerificationEmailLimit(), limits.getResendVerificationEmailWindowSeconds());
         }
         if ("POST".equals(method) && (path.equals("/api/v1/auth/reset-password")
                 || path.equals("/api/v1/auth/verify-reset-code"))) {
