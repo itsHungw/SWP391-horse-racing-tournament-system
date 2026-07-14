@@ -4,9 +4,11 @@ import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import raceTrack from "../../assets/slide.jpg";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useErrorPageHeadingFocus } from "./useErrorPageHeadingFocus";
 
 export function NotFoundPage() {
   const navigate = useNavigate();
+  const headingRef = useErrorPageHeadingFocus();
 
   useDocumentTitle("Page not found");
 
@@ -59,8 +61,10 @@ export function NotFoundPage() {
             Error 404 · Lost course
           </p>
           <h1
-            className="font-display mt-4 max-w-xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] text-ivory sm:text-5xl lg:text-6xl"
+            className="font-display mt-4 max-w-xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] text-ivory outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-200 sm:text-5xl lg:text-6xl"
             id="not-found-title"
+            ref={headingRef}
+            tabIndex={-1}
           >
             This page missed the starting gate.
           </h1>

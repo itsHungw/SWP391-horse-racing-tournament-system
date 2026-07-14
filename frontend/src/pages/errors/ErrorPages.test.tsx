@@ -1,26 +1,41 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { AccessDeniedPage } from "./AccessDeniedPage";
 import { NotFoundPage } from "./NotFoundPage";
 import { UnexpectedErrorPage } from "./UnexpectedErrorPage";
 
+function LocationProbe() {
+  const location = useLocation();
+
+  return <output aria-label="Current route">{location.pathname}</output>;
+}
+
 describe("branded error pages", () => {
-  it("gives a lost visitor clear ways back from a missing page", () => {
+  it("focuses the missing-page heading and returns to the previous route", async () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={["/previous-route", "/missing"]} initialIndex={1}>
         <NotFoundPage />
+        <LocationProbe />
       </MemoryRouter>,
     );
 
+    const heading = screen.getByRole("heading", {
+      name: /this page missed the starting gate/i,
+    });
+
     expect(screen.getByRole("main")).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /this page missed the starting gate/i }),
-    ).toBeInTheDocument();
+    expect(heading).toHaveFocus();
     expect(screen.getByText("404")).toBeVisible();
     expect(screen.getByRole("link", { name: /back to home/i })).toHaveAttribute("href", "/");
-    expect(screen.getByRole("button", { name: /go back/i })).toBeVisible();
+    expect(screen.getByLabelText(/current route/i)).toHaveTextContent("/missing");
+
+    fireEvent.click(screen.getByRole("button", { name: /go back/i }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/current route/i)).toHaveTextContent("/previous-route");
+    });
   });
 
   it("explains the access gate without asking the visitor to sign out", () => {
@@ -36,7 +51,7 @@ describe("branded error pages", () => {
 
     expect(
       screen.getByRole("heading", { name: /access beyond this gate is restricted/i }),
-    ).toBeInTheDocument();
+    ).toHaveFocus();
     expect(screen.getByText(/horse owner/i)).toBeVisible();
     expect(screen.getByText("fan@example.com")).toBeVisible();
     expect(screen.getByRole("link", { name: /review role requests/i })).toHaveAttribute(
@@ -54,6 +69,10 @@ describe("branded error pages", () => {
         <UnexpectedErrorPage onRetry={onRetry} />
       </MemoryRouter>,
     );
+
+    expect(
+      screen.getByRole("heading", { name: /race control hit an unexpected obstacle/i }),
+    ).toHaveFocus();
 
     fireEvent.click(screen.getByRole("button", { name: /try again/i }));
 

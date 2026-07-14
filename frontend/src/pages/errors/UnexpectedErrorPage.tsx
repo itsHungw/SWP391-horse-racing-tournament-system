@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import raceTrack from "../../assets/slide.jpg";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useErrorPageHeadingFocus } from "./useErrorPageHeadingFocus";
 
 export type UnexpectedErrorPageProps = {
   onRetry?: () => void;
@@ -11,6 +12,7 @@ export type UnexpectedErrorPageProps = {
 
 export function UnexpectedErrorPage({ onRetry }: UnexpectedErrorPageProps) {
   useDocumentTitle("Unexpected race control error");
+  const headingRef = useErrorPageHeadingFocus();
 
   return (
     <main className="client-theme relative flex min-h-screen min-h-dvh w-full min-w-0 flex-col overflow-hidden bg-turf-950 text-ivory">
@@ -60,8 +62,10 @@ export function UnexpectedErrorPage({ onRetry }: UnexpectedErrorPageProps) {
             Unexpected obstacle · Error 500
           </p>
           <h1
-            className="font-display mt-4 max-w-2xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-6xl"
+            className="font-display mt-4 max-w-2xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-200 sm:text-5xl lg:text-6xl"
             id="unexpected-error-title"
+            ref={headingRef}
+            tabIndex={-1}
           >
             Race control hit an unexpected obstacle.
           </h1>

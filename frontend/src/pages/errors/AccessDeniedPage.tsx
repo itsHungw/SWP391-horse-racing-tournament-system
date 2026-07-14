@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import logo from "../../assets/logo.png";
 import raceTrack from "../../assets/slide.jpg";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { useErrorPageHeadingFocus } from "./useErrorPageHeadingFocus";
 
 export type AccessDeniedPageProps = {
   requiredRole?: string;
@@ -31,6 +32,7 @@ export function AccessDeniedPage({
 }: AccessDeniedPageProps) {
   useDocumentTitle("Access restricted");
 
+  const headingRef = useErrorPageHeadingFocus();
   const roleLabel = formatRoleLabel(requiredRole);
 
   return (
@@ -91,8 +93,10 @@ export function AccessDeniedPage({
             Locked starting gate
           </p>
           <h1
-            className="font-display mt-4 max-w-2xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] sm:text-5xl lg:text-6xl"
+            className="font-display mt-4 max-w-2xl text-4xl font-medium leading-[1.02] tracking-[-0.035em] outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-200 sm:text-5xl lg:text-6xl"
             id="access-denied-title"
+            ref={headingRef}
+            tabIndex={-1}
           >
             Access beyond this gate is restricted.
           </h1>
