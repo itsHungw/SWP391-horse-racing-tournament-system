@@ -4,6 +4,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.organization.entity.Organization;
+import com.example.horseracingtournamentsystem.organization.repository.OrganizationRepository;
 import com.example.horseracingtournamentsystem.race.entity.Race;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
@@ -47,6 +49,9 @@ class TournamentIntegrationTest {
     private TournamentRepository tournamentRepository;
 
     @Autowired
+    private OrganizationRepository organizationRepository;
+
+    @Autowired
     private RaceRepository raceRepository;
 
     @Autowired
@@ -65,6 +70,7 @@ class TournamentIntegrationTest {
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
+        organizationRepository.deleteAll();
         raceRepository.deleteAll();
         tournamentRepository.deleteAll();
         userRoleRepository.deleteAll();
@@ -100,7 +106,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -205,7 +212,8 @@ class TournamentIntegrationTest {
                     "endDate": "2026-07-01",
                     "registrationStartAt": "2026-06-01T00:00:00",
                     "registrationEndAt": "2026-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -228,7 +236,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2000-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -252,7 +261,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-07-01T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -285,7 +295,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-07-01T00:01:00",
-                    "maxHorses": 20
+                    "maxHorses": 20,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -336,7 +347,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 50
+                    "maxHorses": 50,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -413,7 +425,8 @@ class TournamentIntegrationTest {
                     "endDate": "2099-07-15",
                     "registrationStartAt": "2099-06-01T00:00:00",
                     "registrationEndAt": "2099-06-25T00:00:00",
-                    "maxHorses": 40
+                    "maxHorses": 40,
+                    "totalPrizePool": 50000000
                 }
                 """;
 
@@ -424,6 +437,64 @@ class TournamentIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Updated Postponed Name"))
                 .andExpect(jsonPath("$.location").value("New Location"));
+    }
+
+    @Test
+    void organizerCanEditOwnPostponedTournamentPrizePool() throws Exception {
+        Role organizerRole = roleRepository.save(Role.of("ORGANIZER", "Organizer"));
+        User organizer = User.pending("Organizer User", "organizer@example.com", "hash");
+        organizer.verifyEmail();
+        organizer = userRepository.save(organizer);
+        userRoleRepository.save(com.example.horseracingtournamentsystem.user.entity.UserRole.active(organizer, organizerRole, adminUser));
+
+        Organization organization = Organization.application(
+                organizer,
+                "ORG_PRIZE",
+                "Prize Racing Office",
+                "KYB-PRIZE-001",
+                "organizer@example.com",
+                "0909000000",
+                "Runs prize pool fixtures",
+                "/api/v1/files/private/kyb-prize.pdf",
+                null,
+                "Ready to operate championships."
+        );
+        organization.approve(adminUser);
+        organization = organizationRepository.save(organization);
+
+        com.example.horseracingtournamentsystem.tournament.entity.Tournament tournament =
+            com.example.horseracingtournamentsystem.tournament.entity.Tournament.create(
+                "Postponed Prize Cup", "POST_PRIZE", "Desc", "Loc",
+                LocalDate.now().plusDays(10), LocalDate.now().plusDays(15),
+                LocalDateTime.now().plusDays(1), LocalDateTime.now().plusDays(5),
+                20, organizer
+            );
+        tournament.assignOrganization(organization);
+        tournament.postpone();
+        tournament = tournamentRepository.save(tournament);
+
+        String updateBody = """
+                {
+                    "name": "Postponed Prize Cup",
+                    "code": "POST_PRIZE",
+                    "description": "Prize pool updated while postponed",
+                    "location": "Loc",
+                    "startDate": "2099-07-01",
+                    "endDate": "2099-07-15",
+                    "registrationStartAt": "2099-06-01T00:00:00",
+                    "registrationEndAt": "2099-06-25T00:00:00",
+                    "maxHorses": 20,
+                    "totalPrizePool": 88000000
+                }
+                """;
+
+        String organizerToken = jwtService.generateToken(organizer.getEmail(), Set.of("ORGANIZER"));
+        mockMvc.perform(put("/api/v1/organizer/tournaments/{id}", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + organizerToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateBody))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalPrizePool").value(88000000));
     }
 
     @Test

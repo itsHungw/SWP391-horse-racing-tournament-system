@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { FileText, Send, Users, X, Info, Search } from "lucide-react";
+import { FileText, Send, Users, X, Info, Search, Filter, SlidersHorizontal, RotateCcw, Calendar, CheckCircle2, ChevronRight, FileCheck2, Loader2 } from "lucide-react";
 
 import {
   getOwnerTournamentRegistrationsPage,
@@ -12,6 +12,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { OwnerLayout } from "../../layouts/OwnerLayout";
 import type { JockeyPoolApplication, TournamentRegistration } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { resolveFileUrl } from "../../utils/fileUrl";
 
 export function OwnerJockeyInvitationsPage() {
   useDocumentTitle("Jockey Invitations - Owner");
@@ -33,6 +34,10 @@ export function OwnerJockeyInvitationsPage() {
   const [contractSubmitting, setContractSubmitting] = useState(false);
   const [contractError, setContractError] = useState("");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTournament, setSelectedTournament] = useState("");
+  const [sortBy, setSortBy] = useState("horse-asc");
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -52,6 +57,46 @@ export function OwnerJockeyInvitationsPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const uniqueTournaments = useMemo(() => {
+    const names = registrations.map((r) => r.tournamentName);
+    return Array.from(new Set(names)).sort();
+  }, [registrations]);
+
+  const filteredAndSortedRegistrations = useMemo(() => {
+    let result = [...registrations];
+
+    // Search Query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (r) =>
+          r.horseName.toLowerCase().includes(query) ||
+          r.tournamentName.toLowerCase().includes(query)
+      );
+    }
+
+    // Tournament Filter
+    if (selectedTournament) {
+      result = result.filter((r) => r.tournamentName === selectedTournament);
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === "horse-asc") {
+        return a.horseName.localeCompare(b.horseName);
+      } else if (sortBy === "horse-desc") {
+        return b.horseName.localeCompare(a.horseName);
+      } else if (sortBy === "tournament-asc") {
+        return a.tournamentName.localeCompare(b.tournamentName);
+      } else if (sortBy === "tournament-desc") {
+        return b.tournamentName.localeCompare(a.tournamentName);
+      }
+      return 0;
+    });
+
+    return result;
+  }, [registrations, searchQuery, selectedTournament, sortBy]);
 
   const openContractModal = async (registration: TournamentRegistration) => {
     setContractRegistration(registration);
@@ -113,58 +158,204 @@ export function OwnerJockeyInvitationsPage() {
   return (
     <OwnerLayout>
       <section aria-labelledby="invitations-title" className="space-y-6">
+        {/* Standardized Hero Header */}
         <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
           <div className="absolute top-0 left-0 h-1.5 w-full bg-gradient-to-r from-[#008670] to-[#006d5b]"></div>
-          <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Jockey Hub</p>
-          <h1 id="invitations-title" className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
-            Jockey Invitations
-          </h1>
-          <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">
-            Send assignment contracts to approved jockeys for your registered horses.
-          </p>
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <p className="text-sm font-black uppercase tracking-[0.14em] text-[#006d5b]">Workspace Dashboard</p>
+              <h1 id="invitations-title" className="mt-2 text-3xl font-black tracking-tight text-slate-900 md:text-4xl">
+                Jockey Invitations
+              </h1>
+              <p className="mt-2 max-w-3xl text-base leading-7 text-slate-600">
+                Form winning combinations. Browse the approved jockey pool and send custom assignment contracts to secure elite riders for your certified horses.
+              </p>
+            </div>
+          </div>
         </div>
 
         {pageMessage && (
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-5 py-4 text-xs font-bold text-slate-700 shadow-sm" role="status">
-            <span>{pageMessage}</span>
-            <button aria-label="Dismiss message" onClick={() => setPageMessage(null)} className="cursor-pointer text-slate-400 hover:text-slate-600">
+          <div className="flex items-center justify-between rounded-xl border border-emerald-100 bg-[#f0fdfa] px-5 py-4 text-xs font-bold text-[#006d5b] shadow-sm" role="status">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              <span>{pageMessage}</span>
+            </div>
+            <button aria-label="Dismiss message" onClick={() => setPageMessage(null)} className="cursor-pointer text-slate-400 hover:text-slate-600 transition">
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
         )}
 
+        {/* Search, Filter, Sort Toolbar */}
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1 md:max-w-md">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by horse name or championship..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/50 pl-10 pr-10 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#006d5b] focus:bg-white focus:ring-2 focus:ring-[#006d5b]/10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Championship Filter */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 min-h-[44px]">
+              <Filter className="h-4 w-4 text-slate-500" />
+              <select
+                value={selectedTournament}
+                onChange={(e) => setSelectedTournament(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer pr-4"
+              >
+                <option value="">All Championships</option>
+                {uniqueTournaments.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-1.5 min-h-[44px]">
+              <SlidersHorizontal className="h-4 w-4 text-slate-500" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-transparent text-sm font-semibold text-slate-700 outline-none cursor-pointer pr-4"
+              >
+                <option value="horse-asc">Horse (A - Z)</option>
+                <option value="horse-desc">Horse (Z - A)</option>
+                <option value="tournament-asc">Championship (A - Z)</option>
+                <option value="tournament-desc">Championship (Z - A)</option>
+              </select>
+            </div>
+
+            {/* Reset Button */}
+            {(searchQuery || selectedTournament || sortBy !== "horse-asc") && (
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedTournament("");
+                  setSortBy("horse-asc");
+                }}
+                className="flex items-center gap-2 rounded-xl border border-dashed border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:border-slate-400 hover:bg-slate-50 transition cursor-pointer min-h-[44px]"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                Reset
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-4">
-          <h2 className="text-xl font-black text-slate-800">Approved Horses Needing Jockeys</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-800">Approved Horses Needing Jockeys</h2>
+            {!loading && filteredAndSortedRegistrations.length > 0 && (
+              <span className="text-xs font-semibold text-slate-500">
+                Showing {filteredAndSortedRegistrations.length} of {registrations.length} horses
+              </span>
+            )}
+          </div>
           {loading ? (
-            <div className="rounded-lg border border-slate-200 bg-white py-16 text-center text-sm font-bold text-slate-400">
+            <div className="rounded-2xl border border-slate-200 bg-white py-24 text-center text-sm font-bold text-slate-400 shadow-sm">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-[#006d5b] mb-4" />
               Loading approved horses...
             </div>
           ) : registrations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white py-16 text-center text-sm font-bold text-slate-500">
-              No approved horses currently need a jockey.
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center">
+              <FileCheck2 className="mx-auto h-12 w-12 text-[#006d5b]/45" />
+              <h3 className="mt-4 text-lg font-black text-slate-900">No approved horses</h3>
+              <p className="mt-2 text-sm font-semibold text-slate-500 max-w-md mx-auto">
+                None of your registered horses are approved by the organizer yet. Once approved, you can recruit jockeys here.
+              </p>
+            </div>
+          ) : filteredAndSortedRegistrations.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-16 text-center shadow-sm">
+              <Search className="mx-auto h-10 w-10 text-slate-300" />
+              <h3 className="mt-4 text-base font-black text-slate-800">No matching horses</h3>
+              <p className="mt-2 text-sm font-semibold text-slate-500 max-w-md mx-auto">
+                No approved horses matched your search or filters. Try adjusting your query or resetting filters.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery("");
+                  setSelectedTournament("");
+                  setSortBy("horse-asc");
+                }}
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#006d5b] px-5 py-2.5 text-xs font-black text-white hover:bg-[#005c4d] transition shadow-sm"
+              >
+                Reset Filters
+              </button>
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {registrations.map((reg) => (
-                <div key={reg.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm hover:border-[#006d5b]/30 hover:shadow-md transition">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="inline-flex rounded-md bg-emerald-50 px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-[#006d5b]">
-                        Approved
-                      </span>
-                      <h3 className="mt-3 text-lg font-black text-slate-950">{reg.horseName}</h3>
-                      <p className="text-sm font-semibold text-slate-500">{reg.tournamentName}</p>
-                    </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {filteredAndSortedRegistrations.map((reg) => (
+                <div
+                  key={reg.id}
+                  className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-[#006d5b]/30 hover:shadow-xl"
+                >
+                  {/* Card Header Image / Backdrop */}
+                  <div className="relative h-44 w-full overflow-hidden bg-slate-100">
+                    {reg.horseImageUrl ? (
+                      <img
+                        src={resolveFileUrl(reg.horseImageUrl)}
+                        alt={reg.horseName}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#005f51] to-[#013c33] text-white select-none">
+                        <span className="text-4xl font-black tracking-wider opacity-35">
+                          {reg.horseName.slice(0, 2).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span className="absolute left-3.5 top-3.5 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/90 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-white shadow-sm backdrop-blur-sm">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Approved
+                    </span>
                   </div>
-                  <div className="mt-5 border-t border-slate-100 pt-4">
-                    <button
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-[#008670] to-[#006d5b] px-4 py-2.5 text-sm font-black text-white shadow-[0_1px_2px_rgba(0,0,0,0.1),inset_0_1px_0_rgba(255,255,255,0.2)] transition-all hover:from-[#009b82] hover:to-[#007a66] hover:shadow-md hover:shadow-[#006d5b]/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
-                      onClick={() => openContractModal(reg)}
-                      type="button"
-                    >
-                      <Users className="h-4 w-4" aria-hidden="true" />
-                      Browse Jockey Pool
-                    </button>
+
+                  {/* Card Content */}
+                  <div className="flex flex-1 flex-col p-5">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-black text-slate-950 transition-colors group-hover:text-[#006d5b]">
+                        {reg.horseName}
+                      </h3>
+                      
+                      <div className="mt-3.5 space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-slate-600 font-semibold">
+                          <Calendar className="h-4 w-4 shrink-0 text-[#006d5b]" />
+                          <span className="truncate">{reg.tournamentName}</span>
+                        </div>
+                        {reg.note && (
+                          <div className="mt-3 rounded-lg bg-slate-50 p-3 border border-slate-100 text-xs font-semibold text-slate-500 italic leading-relaxed">
+                            "{reg.note}"
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mt-6 pt-4 border-t border-slate-100">
+                      <button
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#008670] to-[#006d5b] px-4 py-3 text-sm font-black text-white shadow-[0_2px_4px_rgba(0,0,0,0.08),inset_0_1px_0_rgba(255,255,255,0.15)] transition-all hover:from-[#009b82] hover:to-[#007a66] hover:shadow-lg hover:shadow-[#006d5b]/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#006d5b]"
+                        onClick={() => openContractModal(reg)}
+                        type="button"
+                      >
+                        <Users className="h-4 w-4" aria-hidden="true" />
+                        Browse Jockey Pool
+                        <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

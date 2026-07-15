@@ -14,10 +14,15 @@ import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRoleHistoryRepository;
-import java.time.LocalDateTime;
+import com.example.horseracingtournamentsystem.user.enums.UserRoleStatus;
+import java.util.HashSet;
+import java.util.Locale;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.function.Function;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -171,26 +176,26 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Admin user not found"));
 
         Set<String> currentRoleNames = user.getActiveRoleNames();
-        Set<Long> targetRoleIds = request.roleIds();
-
-        if (targetRoleIds != null && targetRoleIds.size() > 2) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A user can have at most 2 roles");
-        }
+        Map<String, Role> targetRolesByName = resolveTargetRoles(request);
+        Set<String> targetRoleNames = targetRolesByName.keySet();
 
         Role spectator = roleRepository.findByName("SPECTATOR")
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "SPECTATOR role not configured"));
         
         boolean currentlyHasSpectator = currentRoleNames.contains("SPECTATOR");
-        boolean targetHasSpectator = targetRoleIds != null && targetRoleIds.contains(spectator.getId());
+        boolean targetHasSpectator = targetRoleNames.contains(spectator.getName());
         if (currentlyHasSpectator != targetHasSpectator) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SPECTATOR role status cannot be modified by administrators");
         }
 
+        boolean targetHasBusinessRole = targetRoleNames.contains("ORGANIZER");
+        boolean targetHasPersonalRole = targetRoleNames.stream().anyMatch(UserRolePolicy::isPersonalRole);
+        if (targetHasBusinessRole && targetHasPersonalRole) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, UserRolePolicy.ORGANIZER_SEPARATION_MESSAGE);
+        }
+
         // Prevent removing the last admin in the system
-        if (currentRoleNames.contains("ADMIN") && (targetRoleIds == null || !targetRoleIds.stream().anyMatch(roleId -> {
-            Role r = roleRepository.findById(roleId).orElse(null);
-            return r != null && "ADMIN".equals(r.getName());
-        }))) {
+        if (currentRoleNames.contains("ADMIN") && !targetRoleNames.contains("ADMIN")) {
             if (userRepository.countActiveAdmins() <= 1) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot remove the last administrator from the system");
             }
@@ -198,67 +203,76 @@ public class UserService {
 
         String auditReason = request.reason() == null || request.reason().isBlank() ? "Updated by admin" : request.reason();
 
-        // Find the active non-SPECTATOR UserRole
-        UserRole activeNonSpectatorUserRole = user.getUserRoles().stream()
-                .filter(ur -> ur.isActive() && !ur.getRole().getName().equals("SPECTATOR"))
-                .findFirst()
-                .orElse(null);
+        Set<String> managedTargetRoleNames = new HashSet<>(targetRoleNames);
+        managedTargetRoleNames.remove("SPECTATOR");
 
-        // Find the target non-SPECTATOR Role ID
-        Long targetNonSpectatorRoleId = targetRoleIds.stream()
-                .filter(rid -> !rid.equals(spectator.getId()))
-                .findFirst()
-                .orElse(null);
+        user.getUserRoles().stream()
+                .filter(userRole -> userRole.isActive())
+                .filter(userRole -> !"SPECTATOR".equals(userRole.getRole().getName()))
+                .filter(userRole -> !managedTargetRoleNames.contains(userRole.getRole().getName()))
+                .forEach(userRole -> {
+                    userRole.remove(adminUser);
+                    userRoleRepository.save(userRole);
+                    userRoleHistoryRepository.save(UserRoleHistory.record(
+                            userRole, UserRoleStatus.ACTIVE, UserRoleStatus.REMOVED, adminUser, auditReason
+                    ));
+                });
 
-        if (activeNonSpectatorUserRole != null && targetNonSpectatorRoleId != null) {
-            // If they changed the role, update the existing record
-            if (!activeNonSpectatorUserRole.getRole().getId().equals(targetNonSpectatorRoleId)) {
-                Role newRole = roleRepository.findById(targetNonSpectatorRoleId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + targetNonSpectatorRoleId));
-                
-                String oldRoleName = activeNonSpectatorUserRole.getRole().getName();
-                
-                activeNonSpectatorUserRole.changeRole(newRole, adminUser);
-                userRoleRepository.save(activeNonSpectatorUserRole);
-                
-                String transitionReason = String.format("Changed role from %s to %s. Reason: %s", oldRoleName, newRole.getName(), auditReason);
-                UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, transitionReason);
-                userRoleHistoryRepository.save(history);
+        managedTargetRoleNames.forEach(roleName -> {
+            UserRole existingUserRole = findUserRole(user, roleName).orElse(null);
+            if (existingUserRole == null) {
+                UserRole newUserRole = UserRole.active(user, targetRolesByName.get(roleName), adminUser);
+                userRoleRepository.save(newUserRole);
+                userRoleHistoryRepository.save(UserRoleHistory.record(
+                        newUserRole, null, UserRoleStatus.ACTIVE, adminUser, auditReason
+                ));
+                return;
             }
-        } else if (activeNonSpectatorUserRole != null) {
-            // User had a non-spectator role, but now it was unassigned
-            activeNonSpectatorUserRole.remove(adminUser);
-            userRoleRepository.save(activeNonSpectatorUserRole);
-            
-            UserRoleHistory history = UserRoleHistory.record(activeNonSpectatorUserRole, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.REMOVED, adminUser, auditReason);
-            userRoleHistoryRepository.save(history);
-        } else if (targetNonSpectatorRoleId != null) {
-            // User did not have a non-spectator role, and now we are adding one
-            // Check if there is an inactive/removed UserRole for this role that we can reactivate
-            UserRole existingUserRole = user.getUserRoles().stream()
-                    .filter(ur -> ur.getRole().getId().equals(targetNonSpectatorRoleId))
-                    .findFirst()
-                    .orElse(null);
 
-            if (existingUserRole != null) {
-                com.example.horseracingtournamentsystem.user.enums.UserRoleStatus oldStatus = existingUserRole.getStatus();
+            if (!existingUserRole.isActive()) {
+                UserRoleStatus oldStatus = existingUserRole.getStatus();
                 existingUserRole.reactivate(adminUser);
                 userRoleRepository.save(existingUserRole);
-                
-                UserRoleHistory history = UserRoleHistory.record(existingUserRole, oldStatus, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, auditReason);
-                userRoleHistoryRepository.save(history);
-            } else {
-                Role role = roleRepository.findById(targetNonSpectatorRoleId)
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + targetNonSpectatorRoleId));
-                UserRole newUserRole = UserRole.active(user, role, adminUser);
-                userRoleRepository.save(newUserRole);
-                
-                UserRoleHistory history = UserRoleHistory.record(newUserRole, null, com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE, adminUser, auditReason);
-                userRoleHistoryRepository.save(history);
+                userRoleHistoryRepository.save(UserRoleHistory.record(
+                        existingUserRole, oldStatus, UserRoleStatus.ACTIVE, adminUser, auditReason
+                ));
             }
-        }
+        });
 
         return AdminUserDetailResponse.from(userRepository.save(user));
+    }
+
+    private Map<String, Role> resolveTargetRoles(UpdateUserRolesAdminRequest request) {
+        if (request.roleNames() != null) {
+            return request.roleNames().stream()
+                    .map(this::normalizeRoleName)
+                    .map(roleName -> roleRepository.findByName(roleName)
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + roleName)))
+                    .collect(Collectors.toMap(Role::getName, Function.identity(), (first, ignored) -> first));
+        }
+
+        Set<Long> roleIds = request.roleIds() == null ? Set.of() : request.roleIds();
+        return roleIds.stream()
+                .map(roleId -> roleRepository.findById(roleId)
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + roleId)))
+                .collect(Collectors.toMap(Role::getName, Function.identity(), (first, ignored) -> first));
+    }
+
+    private String normalizeRoleName(String roleName) {
+        if (roleName == null || roleName.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role name is required");
+        }
+        return roleName.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private Optional<UserRole> findUserRole(User user, String roleName) {
+        return user.getUserRoles().stream()
+                .filter(userRole -> roleName.equals(userRole.getRole().getName()))
+                .filter(UserRole::isActive)
+                .findFirst()
+                .or(() -> user.getUserRoles().stream()
+                        .filter(userRole -> roleName.equals(userRole.getRole().getName()))
+                        .findFirst());
     }
 
     @Transactional

@@ -14,11 +14,11 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 
 const AVAILABLE_ROLES = [
-  { id: 1, name: "ADMIN", label: "Admin" },
-  { id: 2, name: "HORSE_OWNER", label: "Horse Owner" },
-  { id: 3, name: "JOCKEY", label: "Jockey" },
-  { id: 4, name: "REFEREE", label: "Referee" },
-  { id: 5, name: "SPECTATOR", label: "Spectator" },
+  { name: "ADMIN", label: "Admin" },
+  { name: "HORSE_OWNER", label: "Horse Owner" },
+  { name: "JOCKEY", label: "Jockey" },
+  { name: "REFEREE", label: "Referee" },
+  { name: "SPECTATOR", label: "Spectator" },
 ];
 
 export function AdminUserDetailPage() {
@@ -46,7 +46,7 @@ export function AdminUserDetailPage() {
   });
 
   // Roles Form State
-  const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
+  const [selectedRoleNames, setSelectedRoleNames] = useState<string[]>([]);
   const [auditReason, setAuditReason] = useState("");
 
   // Submitting States
@@ -77,9 +77,7 @@ export function AdminUserDetailPage() {
         status: userDetail.status,
       });
 
-      // Map string roles to ID array
-      const mappedRoleIds = AVAILABLE_ROLES.filter((r) => userDetail.roles.includes(r.name)).map((r) => r.id);
-      setSelectedRoleIds(mappedRoleIds);
+      setSelectedRoleNames(AVAILABLE_ROLES.filter((r) => userDetail.roles.includes(r.name)).map((r) => r.name));
 
       // Load Audit History
       const historyData = await getAdminUserRoleHistory(userId);
@@ -121,7 +119,7 @@ export function AdminUserDetailPage() {
     e.preventDefault();
     setSubmittingRoles(true);
     try {
-      await updateAdminUserRoles(userId, selectedRoleIds, auditReason);
+      await updateAdminUserRoles(userId, selectedRoleNames, auditReason);
       showToast("Roles updated successfully!");
       setAuditReason("");
       loadData();
@@ -174,10 +172,10 @@ export function AdminUserDetailPage() {
   const isSelf = session?.email?.toLowerCase() === user.email.toLowerCase();
 
   // Check if roles have changed to toggle save button state
-  const initialRoleIds = AVAILABLE_ROLES.filter((r) => user.roles.includes(r.name)).map((r) => r.id);
+  const initialRoleNames = AVAILABLE_ROLES.filter((r) => user.roles.includes(r.name)).map((r) => r.name);
   const rolesChanged =
-    selectedRoleIds.length !== initialRoleIds.length ||
-    !selectedRoleIds.every((id) => initialRoleIds.includes(id));
+    selectedRoleNames.length !== initialRoleNames.length ||
+    !selectedRoleNames.every((name) => initialRoleNames.includes(name));
 
   return (
     <AdminLayout>
@@ -349,20 +347,20 @@ export function AdminUserDetailPage() {
                 <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-500 mb-2">Assign Roles</label>
                 <div className="space-y-2">
                   {AVAILABLE_ROLES.map((role) => {
-                    const isChecked = selectedRoleIds.includes(role.id);
+                    const isChecked = selectedRoleNames.includes(role.name);
                     return (
-                      <label key={role.id} className={`flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 ${
-                        (role.name === "SPECTATOR" || (!isChecked && selectedRoleIds.length >= 2)) ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
+                      <label key={role.name} className={`flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 ${
+                        role.name === "SPECTATOR" ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
                       }`}>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          disabled={role.name === "SPECTATOR" || (!isChecked && selectedRoleIds.length >= 2)}
+                          disabled={role.name === "SPECTATOR"}
                           onChange={() => {
                             if (isChecked) {
-                              setSelectedRoleIds(selectedRoleIds.filter((id) => id !== role.id));
+                              setSelectedRoleNames(selectedRoleNames.filter((name) => name !== role.name));
                             } else {
-                              setSelectedRoleIds([...selectedRoleIds, role.id]);
+                              setSelectedRoleNames([...selectedRoleNames, role.name]);
                             }
                           }}
                           className="h-4 w-4 rounded border-slate-300 text-[#b3193a] focus:ring-[#b3193a] disabled:opacity-50"

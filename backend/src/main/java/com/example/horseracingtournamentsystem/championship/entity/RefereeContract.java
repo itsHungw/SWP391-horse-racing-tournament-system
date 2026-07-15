@@ -120,6 +120,18 @@ public class RefereeContract {
         return STATUS_ACTIVE.equals(this.status);
     }
 
+    public void reInvite(User invitedBy, String agreementUrl, String message) {
+        this.invitedBy = invitedBy;
+        this.agreementUrl = agreementUrl;
+        this.reason = message;
+        this.status = STATUS_PENDING;
+        this.createdAt = LocalDateTime.now();
+        this.terminatedBy = null;
+        this.terminatedAt = null;
+        this.respondedAt = null;
+        this.updatedAt = null;
+    }
+
     private void ensureOwnedByReferee(String refereeEmail) {
         if (!this.referee.getEmail().equals(refereeEmail)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only respond to your own contracts");

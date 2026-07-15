@@ -12,6 +12,15 @@ import {
 
 const mockNavigate = vi.fn();
 
+vi.mock("../hooks/useClientSession", () => ({
+  useClientSession: () => ({
+    session: {
+      roles: ["ORGANIZER", "HORSE_OWNER"],
+    },
+    isAuthenticated: true,
+  }),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {

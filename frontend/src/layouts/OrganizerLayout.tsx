@@ -148,58 +148,62 @@ export function OrganizerLayout() {
 
       <div className={`mx-auto grid min-h-[calc(100dvh-81px)] max-w-[1680px] transition-[grid-template-columns] duration-300 ${isCollapsed ? 'lg:grid-cols-[80px_1fr]' : 'lg:grid-cols-[300px_1fr]'}`}>
         {/* ── Sidebar ───────────────────────────────────────── */}
-        <aside className="organizer-sidebar-scrollbar relative hidden bg-[#1c1816] text-[#efe9df] transition-all duration-300 lg:sticky lg:top-[81px] lg:block lg:h-[calc(100dvh-81px)] lg:overflow-y-auto lg:border-r lg:border-black/30">
-          <div className={`border-b border-white/10 transition-all duration-300 ${isCollapsed ? 'p-3 flex justify-center border-none' : 'p-5'}`}>
-            <div className={`rounded-xl border border-white/10 bg-white/[0.05] p-4 transition-all duration-300 ${isCollapsed ? 'hidden' : 'block'}`}>
-              <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#cfa24f]">Organization</p>
-              <p className="mt-3 truncate font-display text-lg font-semibold text-white">
-                {org?.name ?? displayName}
-              </p>
-              <p className={`mt-1 text-xs font-bold uppercase tracking-[0.12em] ${org ? statusTone[org.status] ?? "text-white/60" : "text-white/40"}`}>
-                {org ? org.status : "Loading…"}
-              </p>
-            </div>
-            {isCollapsed && (
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.05] text-[#cfa24f] font-black text-sm" title={org?.name ?? displayName}>
-                {org?.name ? org.name.substring(0, 2).toUpperCase() : displayName.substring(0, 2).toUpperCase()}
-              </span>
-            )}
-          </div>
-
-          <nav aria-label="Organizer workspace" className={`space-y-7 p-5 transition-all duration-300 ${isCollapsed ? 'flex flex-col items-center px-0 space-y-5' : ''}`}>
-            {navSections.map((section) => (
-              <div key={section.label} className={isCollapsed ? 'w-full flex flex-col items-center' : ''}>
-                {!isCollapsed && (
-                  <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">{section.label}</p>
-                )}
-                <div className={isCollapsed ? 'space-y-2 flex flex-col items-center' : 'mt-3 space-y-1.5'}>
-                  {section.items.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <NavLink
-                        to={item.href}
-                        key={item.href}
-                        end={item.end}
-                        title={isCollapsed ? item.label : undefined}
-                        className={({ isActive }) =>
-                          [
-                            "flex min-h-11 items-center gap-3 rounded-lg text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#cfa24f]",
-                            isCollapsed ? "w-11 justify-center px-0" : "px-4 w-full",
-                            isActive
-                              ? "bg-[#bb8a3c] text-[#1c1816] shadow-sm"
-                              : "text-white/70 hover:bg-white/[0.07] hover:text-white",
-                          ].join(" ")
-                        }
-                      >
-                        <Icon aria-hidden="true" className="h-5 w-5" />
-                        {!isCollapsed && <span>{item.label}</span>}
-                      </NavLink>
-                    );
-                  })}
+        <aside className="relative hidden bg-[#1c1816] text-[#efe9df] transition-all duration-300 lg:sticky lg:top-[81px] lg:block lg:h-[calc(100dvh-81px)] lg:border-r lg:border-black/30 z-20">
+          <div className="relative h-full w-full overflow-hidden">
+            <div className="relative flex h-full flex-col lg:overflow-y-auto organizer-sidebar-scrollbar">
+              <div className={`border-b border-white/10 transition-all duration-300 ${isCollapsed ? 'p-3 flex justify-center border-none' : 'p-5'}`}>
+                <div className={`rounded-xl border border-white/10 bg-white/[0.05] p-4 transition-all duration-300 ${isCollapsed ? 'hidden' : 'block'}`}>
+                  <p className="text-[10px] font-black uppercase tracking-[0.26em] text-[#cfa24f]">Organization</p>
+                  <p className="mt-3 truncate font-display text-lg font-semibold text-white">
+                    {org?.name ?? displayName}
+                  </p>
+                  <p className={`mt-1 text-xs font-bold uppercase tracking-[0.12em] ${org ? statusTone[org.status] ?? "text-white/60" : "text-white/40"}`}>
+                    {org ? org.status : "Loading…"}
+                  </p>
                 </div>
+                {isCollapsed && (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/[0.05] text-[#cfa24f] font-black text-sm" title={org?.name ?? displayName}>
+                    {org?.name ? org.name.substring(0, 2).toUpperCase() : displayName.substring(0, 2).toUpperCase()}
+                  </span>
+                )}
               </div>
-            ))}
-          </nav>
+
+              <nav aria-label="Organizer workspace" className={`space-y-7 p-5 transition-all duration-300 ${isCollapsed ? 'flex flex-col items-center px-0 space-y-5' : ''}`}>
+                {navSections.map((section) => (
+                  <div key={section.label} className={isCollapsed ? 'w-full flex flex-col items-center' : ''}>
+                    {!isCollapsed && (
+                      <p className="text-[10px] font-black uppercase tracking-[0.28em] text-white/35">{section.label}</p>
+                    )}
+                    <div className={isCollapsed ? 'space-y-2 flex flex-col items-center' : 'mt-3 space-y-1.5'}>
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <NavLink
+                            to={item.href}
+                            key={item.href}
+                            end={item.end}
+                            title={isCollapsed ? item.label : undefined}
+                            className={({ isActive }) =>
+                              [
+                                "flex min-h-11 items-center gap-3 rounded-lg text-sm font-bold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#cfa24f]",
+                                isCollapsed ? "w-11 justify-center px-0" : "px-4 w-full",
+                                isActive
+                                  ? "bg-[#bb8a3c] text-[#1c1816] shadow-sm"
+                                  : "text-white/70 hover:bg-white/[0.07] hover:text-white",
+                              ].join(" ")
+                            }
+                          >
+                            <Icon aria-hidden="true" className="h-5 w-5" />
+                            {!isCollapsed && <span>{item.label}</span>}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </nav>
+            </div>
+          </div>
 
           {/* Toggle Button (Desktop only) */}
           <button

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Bell, CheckCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useClientSession } from "../hooks/useClientSession";
 
 import {
   type AppNotification,
@@ -33,6 +34,14 @@ export interface NotificationBellProps {
  */
 export function NotificationBell({ theme = "organizer" }: NotificationBellProps) {
   const navigate = useNavigate();
+  const { session } = useClientSession();
+  const userRoles = (session?.roles || []).map((r) => r.trim().toUpperCase());
+  const isOrganizer = userRoles.includes("ORGANIZER");
+  const isAdmin = userRoles.includes("ADMIN");
+  const isReferee = userRoles.includes("REFEREE");
+  const isOwner = userRoles.includes("HORSE_OWNER");
+  const isJockey = userRoles.includes("JOCKEY");
+
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -40,39 +49,49 @@ export function NotificationBell({ theme = "organizer" }: NotificationBellProps)
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let active = true;
-    const load = () =>
-      getUnreadNotificationCount()
-        .then((c) => active && setUnread(c))
-        .catch(() => undefined);
-    void load();
-    const timer = window.setInterval(load, 30000);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
+    if (open) {
+      void loadNotifications();
+    }
+  }, [open]);
+
+  const loadNotifications = async () => {
+    setLoading(true);
+    try {
+      const data = await getNotifications();
+      setItems(Array.isArray(data) ? data : []);
+    } catch {
+      // Ignored
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    const fetchCount = async () => {
+      try {
+        const count = await getUnreadNotificationCount();
+        setUnread(count);
+      } catch {
+        // Ignored
+      }
     };
+    void fetchCount();
+    interval = setInterval(() => {
+      void fetchCount();
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (!open) return;
-    setLoading(true);
-    getNotifications()
-      .then((data) => setItems(Array.isArray(data) ? data : []))
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", handleOutsideClick);
     return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [open]);
 
@@ -107,22 +126,50 @@ export function NotificationBell({ theme = "organizer" }: NotificationBellProps)
           navigate("/wallet");
           break;
         case "TOURNAMENT":
-          if (theme === "organizer") navigate("/organizer");
-          else if (theme === "admin") navigate("/admin/tournaments");
-          else navigate(`/championships/${refId}`);
+          if (isOrganizer) {
+            if (n.type === "CONTRACT_ACCEPTED" || n.type === "CONTRACT_DECLINED") {
+              navigate(`/organizer/tournaments/${refId}?tab=rounds`);
+            } else {
+              navigate(`/organizer/tournaments/${refId}`);
+            }
+          } else if (isAdmin) {
+            navigate(`/admin/tournaments/${refId}`);
+          } else if (isReferee) {
+            navigate("/referee/contracts");
+          } else if (isJockey) {
+            navigate("/jockey/championships");
+          } else {
+            navigate(`/championships/${refId}`);
+          }
           break;
+        case "REGISTRATION":
         case "TOURNAMENT_REGISTRATION":
-          navigate("/owner/registrations");
+          if (isOwner) {
+            navigate(`/owner/registrations?registrationId=${refId}`);
+          } else if (isOrganizer) {
+            navigate(`/organizer/tournaments/${refId}?tab=applications`);
+          } else {
+            navigate(`/owner/registrations?registrationId=${refId}`);
+          }
           break;
         case "REFEREE_CONTRACT":
-          if (theme === "referee") navigate("/referee/dashboard");
-          else navigate("/organizer");
+          if (isReferee) {
+            navigate("/referee/contracts");
+          } else if (isOrganizer) {
+            navigate(`/organizer/tournaments/${refId}?tab=rounds`);
+          } else {
+            navigate("/organizer");
+          }
           break;
         case "JOCKEY_POOL_APPLICATION":
-          navigate("/jockey/dashboard");
+          if (isJockey) {
+            navigate("/jockey/championships");
+          } else {
+            navigate("/jockey/dashboard");
+          }
           break;
         case "RACE":
-          if (theme === "referee") navigate("/referee/dashboard");
+          if (isReferee) navigate(`/referee/races/${refId}/results`);
           else navigate(`/races/${refId}`);
           break;
         default:

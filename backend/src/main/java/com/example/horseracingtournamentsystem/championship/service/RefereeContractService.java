@@ -67,14 +67,19 @@ public class RefereeContractService {
                 refereeWithRoles,
                 TournamentParticipationRole.REFEREE
         );
-        if (refereeContractRepository.existsByTournament_IdAndReferee_IdAndStatusIn(
-                tournamentId, referee.getId(), ACTIVE_INVITE_STATUSES)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Referee already has a pending or active contract for this tournament");
-        }
-
-        RefereeContract contract = RefereeContract.invite(
-                tournament, referee, inviter, normalize(request.agreementUrl()), normalize(request.message()));
+        RefereeContract contract = refereeContractRepository
+                .findByTournament_IdAndReferee_Id(tournamentId, referee.getId())
+                .map(existing -> {
+                    if (ACTIVE_INVITE_STATUSES.contains(existing.getStatus())) {
+                        throw new ResponseStatusException(HttpStatus.CONFLICT,
+                                "Referee already has a pending or active contract for this tournament");
+                    }
+                    existing.reInvite(inviter, normalize(request.agreementUrl()), normalize(request.message()));
+                    return existing;
+                })
+                .orElseGet(() -> RefereeContract.invite(
+                        tournament, referee, inviter, normalize(request.agreementUrl()), normalize(request.message())
+                ));
         RefereeContract saved = refereeContractRepository.save(contract);
         notificationService.notify(referee, "REFEREE_INVITED", "New refereeing invitation",
                 "You’ve been invited to officiate “" + tournament.getName() + "”.",

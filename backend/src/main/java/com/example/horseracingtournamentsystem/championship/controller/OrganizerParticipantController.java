@@ -76,4 +76,12 @@ public class OrganizerParticipantController {
     ) {
         return contractService.lockParticipantsForOrganizer(tournamentId, authentication.getName());
     }
+
+    @PostMapping("/unlock-participants")
+    public void unlockParticipants(
+            @PathVariable Long tournamentId,
+            Authentication authentication
+    ) {
+        contractService.unlockParticipantsForOrganizer(tournamentId, authentication.getName());
+    }
 }

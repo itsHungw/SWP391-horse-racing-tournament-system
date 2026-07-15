@@ -49,16 +49,22 @@ export function StepSelectTournament({ tournaments, loading, onSelect }: Props) 
               <p className="text-slate-500 text-xs leading-relaxed line-clamp-3 mb-4">
                 {tournament.description || "No description available."}
               </p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-4 border-t border-slate-50 pt-3">
+              <div className="grid grid-cols-3 gap-2 text-xs text-slate-500 mb-4 border-t border-slate-50 pt-3">
                 <div>
                   <span className="block text-slate-400">Duration:</span>
-                  <span className="font-bold text-slate-700">
+                  <span className="font-bold text-slate-700 truncate block">
                     {tournament.startDate} - {tournament.endDate}
                   </span>
                 </div>
                 <div>
                   <span className="block text-slate-400">Location:</span>
-                  <span className="font-bold text-slate-700">{tournament.location || "N/A"}</span>
+                  <span className="font-bold text-slate-700 truncate block">{tournament.location || "N/A"}</span>
+                </div>
+                <div>
+                  <span className="block text-slate-400">Prize Pool:</span>
+                  <span className="font-bold text-[#006d5b] truncate block">
+                    {tournament.totalPrizePool !== undefined && tournament.totalPrizePool !== null ? `${tournament.totalPrizePool.toLocaleString()} VND` : "TBD"}
+                  </span>
                 </div>
               </div>
             </div>

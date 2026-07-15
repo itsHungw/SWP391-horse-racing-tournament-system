@@ -368,6 +368,10 @@ export async function lockAdminChampionshipParticipants(championshipId: number):
   return response.data;
 }
 
+export async function unlockAdminChampionshipParticipants(championshipId: number): Promise<void> {
+  await httpClient.post(`/admin/championships/${championshipId}/unlock-participants`);
+}
+
 export async function getAdminChampionshipParticipants(championshipId: number): Promise<TournamentParticipant[]> {
   const response = await httpClient.get<TournamentParticipant[]>(`/admin/championships/${championshipId}/participants`);
   return response.data;
@@ -431,6 +435,11 @@ export async function getMyOrganizerTournaments(): Promise<Tournament[]> {
   return response.data;
 }
 
+export async function getOrganizerTournament(id: number): Promise<Tournament> {
+  const response = await httpClient.get<Tournament>(`/organizer/tournaments/${id}`);
+  return response.data;
+}
+
 export async function createOrganizerTournament(payload: {
   name: string;
   code: string;
@@ -442,8 +451,29 @@ export async function createOrganizerTournament(payload: {
   registrationEndAt: string;
   maxHorses?: number;
   maxHorsesPerOwner?: number;
+  totalPrizePool?: number;
 }): Promise<Tournament> {
   const response = await httpClient.post<Tournament>("/organizer/tournaments", payload);
+  return response.data;
+}
+
+export async function updateOrganizerTournament(
+  id: number,
+  payload: {
+    name: string;
+    code: string;
+    description?: string;
+    location: string;
+    startDate: string;
+    endDate: string;
+    registrationStartAt: string;
+    registrationEndAt: string;
+    maxHorses?: number;
+    maxHorsesPerOwner?: number;
+    totalPrizePool?: number;
+  },
+): Promise<Tournament> {
+  const response = await httpClient.put<Tournament>(`/organizer/tournaments/${id}`, payload);
   return response.data;
 }
 
@@ -622,6 +652,10 @@ export async function lockOrganizerParticipants(tournamentId: number): Promise<L
     `/organizer/tournaments/${tournamentId}/lock-participants`,
   );
   return response.data;
+}
+
+export async function unlockOrganizerParticipants(tournamentId: number): Promise<void> {
+  await httpClient.post(`/organizer/tournaments/${tournamentId}/unlock-participants`);
 }
 
 export async function acceptRefereeContract(contractId: number): Promise<RefereeContract> {

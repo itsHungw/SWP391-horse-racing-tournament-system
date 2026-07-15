@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   CalendarDays,
@@ -21,12 +21,12 @@ import {
   Undo2,
   Globe,
   Lock,
+  Unlock,
   Pencil,
   Trash2,
 } from "lucide-react";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { RaceMediaPanel } from "../../components/race-media/RaceMediaPanel";
-import { httpClient } from "../../api/httpClient";
 import {
   approveOrganizerJockeyApplication,
   approveOrganizerTournamentRegistration,
@@ -34,16 +34,17 @@ import {
   createOrganizerRace,
   deleteOrganizerRace,
   getLicensedReferees,
+  getOrganizerTournament,
   getMyOrganizerTournaments,
   getOrganizerJockeyApplications,
   getOrganizerParticipants,
   getOrganizerRaces,
   getOrganizerRaceResults,
   getOrganizerTournamentRegistrations,
-  getPublicTournament,
   getTournamentRefereeContracts,
   inviteReferee,
   lockOrganizerParticipants,
+  unlockOrganizerParticipants,
   publishOrganizerRaceResults,
   rejectOrganizerJockeyApplication,
   rejectOrganizerTournamentRegistration,
@@ -51,6 +52,7 @@ import {
   submitTournamentForApproval,
   terminateRefereeContract,
   updateOrganizerRace,
+  updateOrganizerTournament,
   updateOrganizerTournamentStatus,
   confirmOrganizerRaceResults,
 } from "../../api/racingApi";
@@ -162,6 +164,8 @@ function getRaceStatusMeta(status: string) {
 function getChampionshipPhase(status: string) {
   switch (status) {
     case "DRAFT":
+    case "PENDING_APPROVAL":
+    case "APPROVED":
     case "OPEN_REGISTRATION":
       return "Registration";
     case "CLOSED_REGISTRATION":
@@ -227,12 +231,20 @@ function getChampionshipNextActionLabel(tournament: Tournament, race: Race | nul
 export function OrganizerTournamentDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const championshipId = Number(id);
 
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ChampionshipTab>("overview");
+
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && ["overview", "applications", "participants", "rounds", "standings", "controls"].includes(tabParam)) {
+      setActiveTab(tabParam as ChampionshipTab);
+    }
+  }, [searchParams]);
   const [races, setRaces] = useState<Race[]>([]);
   const [raceLoading, setRaceLoading] = useState(false);
   const [raceError, setRaceError] = useState("");
@@ -263,6 +275,7 @@ export function OrganizerTournamentDetailPage() {
     registrationEndAt: "",
     maxHorses: "",
     maxHorsesPerOwner: "2",
+    totalPrizePool: "0",
   });
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -298,7 +311,7 @@ export function OrganizerTournamentDetailPage() {
     try {
       setLoading(true);
       setErrorMsg("");
-      const data = await getPublicTournament(championshipId);
+      const data = await getOrganizerTournament(championshipId);
       setTournament(data);
       setForm({
         name: data.name ?? "",
@@ -311,6 +324,7 @@ export function OrganizerTournamentDetailPage() {
         registrationEndAt: data.registrationEndAt ? data.registrationEndAt.slice(0, 16) : "",
         maxHorses: data.maxHorses ? String(data.maxHorses) : "",
         maxHorsesPerOwner: String(data.maxHorsesPerOwner ?? 2),
+        totalPrizePool: String(data.totalPrizePool ?? 0),
       });
 
       const list = await getMyOrganizerTournaments();
@@ -433,7 +447,7 @@ export function OrganizerTournamentDetailPage() {
     setErrorMsg("");
     setSuccessMsg("");
 
-    if (!form.name || !form.code || !form.location || !form.startDate || !form.endDate || !form.registrationStartAt || !form.registrationEndAt) {
+    if (!form.name || !form.code || !form.location || !form.startDate || !form.endDate || !form.registrationStartAt || !form.registrationEndAt || form.totalPrizePool === "") {
       setErrorMsg("Please fill in all required fields.");
       return;
     }
@@ -446,10 +460,11 @@ export function OrganizerTournamentDetailPage() {
 
     try {
       setSaving(true);
-      await httpClient.put(`/organizer/tournaments/${championshipId}`, {
+      await updateOrganizerTournament(championshipId, {
         ...form,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
         maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
+        totalPrizePool: Number(form.totalPrizePool),
       });
       setSuccessMsg("Championship details updated successfully.");
       await loadDetail();
@@ -607,6 +622,20 @@ export function OrganizerTournamentDetailPage() {
       return;
     }
 
+    if (tournament) {
+      const raceDate = roundForm.raceDateTime.slice(0, 10);
+      const start = tournament.startDate ? tournament.startDate.slice(0, 10) : "";
+      const end = tournament.endDate ? tournament.endDate.slice(0, 10) : "";
+      if (start && raceDate < start) {
+        setRoundFormError(`Race date must not be before tournament start date (${start}).`);
+        return;
+      }
+      if (end && raceDate > end) {
+        setRoundFormError(`Race date must not be after tournament end date (${end}).`);
+        return;
+      }
+    }
+
     try {
       setCreatingRound(true);
       const createdRound = await createOrganizerRace({
@@ -645,6 +674,23 @@ export function OrganizerTournamentDetailPage() {
       await loadDetail();
     } catch (err) {
       setErrorMsg(getApiErrorMessage(err, "Failed to lock championship participants."));
+    } finally {
+      setLockingParticipants(false);
+    }
+  };
+
+  const handleUnlockParticipants = async () => {
+    try {
+      setLockingParticipants(true);
+      setErrorMsg("");
+      setSuccessMsg("");
+      await unlockOrganizerParticipants(championshipId);
+      setSuccessMsg("Participants unlocked successfully.");
+      setActiveTab("participants");
+      await loadParticipants();
+      await loadDetail();
+    } catch (err) {
+      setErrorMsg(getApiErrorMessage(err, "Failed to unlock championship participants."));
     } finally {
       setLockingParticipants(false);
     }
@@ -763,6 +809,8 @@ export function OrganizerTournamentDetailPage() {
   const allRoundsCreated = races.length > 0;
   const participantsLockedForSchedule = ["PARTICIPANTS_LOCKED", "SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
   const lockedParticipantsCount = participants.filter((p) => p.status !== "PENDING_LOCK").length;
+  const isCurrentlyLocked = participantsLockedForSchedule || (participants.length > 0 && participants.every((p) => p.status === "ACTIVE"));
+  const canUnlock = !["SCHEDULE_PUBLISHED", "ONGOING", "COMPLETED"].includes(tournament.status);
   const officialParticipantsReady = lockedParticipantsCount > 0 || participantsLockedForSchedule;
   
   // Referee assigned rounds readiness check
@@ -886,6 +934,26 @@ export function OrganizerTournamentDetailPage() {
         </button>
       )}
 
+      {["OPEN_REGISTRATION", "CLOSED_REGISTRATION"].includes(tournament.status) && (
+        isCurrentlyLocked ? (
+          <button
+            onClick={() => void handleUnlockParticipants()}
+            disabled={!canUnlock || lockingParticipants}
+            className="rounded-md bg-rose-600 px-4 py-2 text-xs font-bold text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {lockingParticipants ? "Unlocking..." : "Unlock Participants"}
+          </button>
+        ) : (
+          <button
+            onClick={() => void handleLockParticipants()}
+            disabled={lockingParticipants}
+            className="rounded-md bg-[#1c1816] px-4 py-2 text-xs font-bold text-[#f7f4ee] hover:bg-[#2a241f] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {lockingParticipants ? "Locking..." : "Lock Participants"}
+          </button>
+        )
+      )}
+
       {tournament.status === "OPEN_REGISTRATION" && (
         <>
           <button
@@ -904,21 +972,12 @@ export function OrganizerTournamentDetailPage() {
       )}
 
       {tournament.status === "CLOSED_REGISTRATION" && (
-        <>
-          <button
-            onClick={() => void handleLockParticipants()}
-            disabled={lockingParticipants}
-            className="rounded-md bg-[#1c1816] px-4 py-2 text-xs font-bold text-[#f7f4ee] hover:bg-[#2a241f] disabled:cursor-not-allowed disabled:bg-slate-300"
-          >
-            {lockingParticipants ? "Locking..." : "Lock Participants"}
-          </button>
-          <button
-            onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
-            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
-          >
-            Postpone
-          </button>
-        </>
+        <button
+          onClick={() => setShowStatusModal({ show: true, targetStatus: "POSTPONED" })}
+          className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50"
+        >
+          Postpone
+        </button>
       )}
 
       {tournament.status === "PARTICIPANTS_LOCKED" && (
@@ -1104,6 +1163,19 @@ export function OrganizerTournamentDetailPage() {
             disabled={isLocked}
             value={form.maxHorsesPerOwner}
             onChange={(e) => setForm({ ...form, maxHorsesPerOwner: e.target.value })}
+            className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
+          />
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700">Total Prize Pool (VND) *</label>
+          <input
+            type="number"
+            min={0}
+            required
+            disabled={isLocked}
+            value={form.totalPrizePool}
+            onChange={(e) => setForm({ ...form, totalPrizePool: e.target.value })}
             className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500 focus:border-[#bb8a3c] focus:outline-none focus:ring-2 focus:ring-[#bb8a3c]/20"
           />
         </div>
@@ -1342,7 +1414,7 @@ export function OrganizerTournamentDetailPage() {
                 </span>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                   <Flag className="h-5 w-5 text-slate-500" aria-hidden="true" />
                   <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Current Round</p>
@@ -1354,6 +1426,12 @@ export function OrganizerTournamentDetailPage() {
                   <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Participants Readiness</p>
                   <p className="mt-1 text-lg font-black text-slate-950">{participantsReadyLabel}</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">{registrationReadinessLabel}</p>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <Trophy className="h-5 w-5 text-slate-500" aria-hidden="true" />
+                  <p className="mt-3 text-[11px] font-black uppercase tracking-wider text-slate-500">Total Prize Pool</p>
+                  <p className="mt-1 text-lg font-black text-[#bb8a3c]">{tournament.totalPrizePool ? tournament.totalPrizePool.toLocaleString() : "0"} VND</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">Configured in controls.</p>
                 </div>
               </div>
 
@@ -1718,27 +1796,39 @@ export function OrganizerTournamentDetailPage() {
                   <span className="text-xs font-bold text-slate-650">Current Status:</span>
                   <span
                     className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase ${
-                      participantsLockedForSchedule
-                        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                      isCurrentlyLocked
+                        ? "border-emerald-250 bg-emerald-50 text-emerald-800"
                         : "border-amber-250 bg-amber-50 text-amber-800"
                     }`}
                   >
-                    {participantsLockedForSchedule ? "Participants Locked" : "Pending Lock"}
+                    {isCurrentlyLocked ? "Participants Locked" : "Pending Lock"}
                   </span>
                 </div>
               </div>
-              <button
-                type="button"
-                disabled={
-                  !["OPEN_REGISTRATION", "CLOSED_REGISTRATION"].includes(tournament.status) ||
-                  lockingParticipants
-                }
-                onClick={() => void handleLockParticipants()}
-                className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-md bg-[#bb8a3c] py-2 text-xs font-black uppercase tracking-wider text-[#1c1816] hover:bg-[#cfa24f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-455 transition"
-              >
-                <UserCheck className="h-4 w-4" aria-hidden="true" />
-                {lockingParticipants ? "Locking..." : "Lock Participants"}
-              </button>
+              {isCurrentlyLocked ? (
+                <button
+                  type="button"
+                  disabled={!canUnlock || lockingParticipants}
+                  onClick={() => void handleUnlockParticipants()}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-md bg-rose-600 py-2 text-xs font-black uppercase tracking-wider text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition"
+                >
+                  <Unlock className="h-4 w-4" aria-hidden="true" />
+                  {lockingParticipants ? "Unlocking..." : "Unlock Participants"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    !["OPEN_REGISTRATION", "CLOSED_REGISTRATION"].includes(tournament.status) ||
+                    lockingParticipants
+                  }
+                  onClick={() => void handleLockParticipants()}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-md bg-[#bb8a3c] py-2 text-xs font-black uppercase tracking-wider text-[#1c1816] hover:bg-[#cfa24f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 transition"
+                >
+                  <UserCheck className="h-4 w-4" aria-hidden="true" />
+                  {lockingParticipants ? "Locking..." : "Lock Participants"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -2399,6 +2489,8 @@ export function OrganizerTournamentDetailPage() {
                     required
                     value={roundForm.raceDateTime}
                     onChange={(e) => setRoundForm({ ...roundForm, raceDateTime: e.target.value })}
+                    min={tournament?.startDate ? `${tournament.startDate.slice(0, 10)}T00:00` : undefined}
+                    max={tournament?.endDate ? `${tournament.endDate.slice(0, 10)}T23:59` : undefined}
                     className="mt-1 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-[#bb8a3c] focus:outline-none"
                   />
                 </div>
@@ -2521,6 +2613,18 @@ function OfficialsTab({
     });
   }, [directory, refereeSearch]);
 
+  const [showTerminateModal, setShowTerminateModal] = useState<{
+    show: boolean;
+    contractId: number | null;
+    refereeId: number | null;
+    refereeName: string;
+  }>({
+    show: false,
+    contractId: null,
+    refereeId: null,
+    refereeName: "",
+  });
+
   const handleInvite = async (refereeId: number) => {
     setBusyRefereeId(refereeId);
     setErrorMsg("");
@@ -2534,8 +2638,20 @@ function OfficialsTab({
     }
   };
 
-  const handleTerminate = async (contractId: number, refereeId: number) => {
-    if (!window.confirm("Are you sure you want to terminate this referee contract?")) return;
+  const handleTerminateClick = (contractId: number, refereeId: number, refereeName: string) => {
+    setShowTerminateModal({
+      show: true,
+      contractId,
+      refereeId,
+      refereeName,
+    });
+  };
+
+  const confirmTerminate = async () => {
+    if (showTerminateModal.contractId === null || showTerminateModal.refereeId === null) return;
+    const { contractId, refereeId } = showTerminateModal;
+
+    setShowTerminateModal({ show: false, contractId: null, refereeId: null, refereeName: "" });
     setBusyRefereeId(refereeId);
     setErrorMsg("");
     try {
@@ -2582,7 +2698,7 @@ function OfficialsTab({
                   <button
                     type="button"
                     disabled={busyRefereeId === c.refereeId}
-                    onClick={() => handleTerminate(c.id, c.refereeId)}
+                    onClick={() => handleTerminateClick(c.id, c.refereeId, c.refereeName || "")}
                     className="rounded border border-rose-350 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-50"
                   >
                     Terminate
@@ -2638,6 +2754,40 @@ function OfficialsTab({
           )}
         </div>
       </section>
+
+      {showTerminateModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-900/5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-black text-slate-950">
+                Terminate Referee Contract
+              </h3>
+            </div>
+            <p className="mt-4 text-sm text-slate-500 leading-6">
+              Are you sure you want to terminate the contract for referee <strong className="text-slate-800">{showTerminateModal.refereeName}</strong>? This action will remove them from all assigned rounds and cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowTerminateModal({ show: false, contractId: null, refereeId: null, refereeName: "" })}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-black text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmTerminate}
+                className="rounded-lg bg-rose-600 px-4 py-2 text-xs font-black text-white hover:bg-rose-700 cursor-pointer"
+              >
+                Terminate Contract
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

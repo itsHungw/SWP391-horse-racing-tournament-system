@@ -24,6 +24,7 @@ public class TournamentSummaryResponse {
     private LocalDateTime registrationEndAt;
     private Integer maxHorses;
     private TournamentStatus status;
+    private long totalPrizePool;
     private long raceCount;
     private long participantCount;
     private NextRaceSummary nextRace;

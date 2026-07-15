@@ -51,11 +51,11 @@ export const updateAdminUserProfile = async (
 
 export const updateAdminUserRoles = async (
   id: number,
-  roleIds: number[],
+  roleNames: string[],
   reason: string
 ): Promise<AdminUserDetail> => {
   const response = await httpClient.put<AdminUserDetail>(`/admin/users/${id}/roles`, {
-    roleIds,
+    roleNames,
     reason,
   });
   return response.data;

@@ -75,6 +75,11 @@ public class JockeyInvitationContractController {
         return contractService.lockParticipants(championshipId);
     }
 
+    @PostMapping("/api/v1/admin/championships/{championshipId}/unlock-participants")
+    public void unlockParticipants(@PathVariable Long championshipId) {
+        contractService.unlockParticipants(championshipId);
+    }
+
     @GetMapping("/api/v1/admin/championships/{championshipId}/participants")
     public List<TournamentParticipantResponse> listParticipants(@PathVariable Long championshipId) {
         return contractService.listParticipants(championshipId);

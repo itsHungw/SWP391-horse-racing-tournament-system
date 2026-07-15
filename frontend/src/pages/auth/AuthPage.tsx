@@ -1,6 +1,7 @@
 import { FormEvent, useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ChevronDown, HelpCircle } from "lucide-react";
 
 import { login, register, oauthLogin } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
@@ -44,9 +45,8 @@ function Field({
       </label>
       <input
         autoComplete={autoComplete}
-        className={`w-full rounded-sm border border-gray-200 px-4 text-sm font-sans transition-all focus:border-nyraGreen focus:ring-0 ${
-          compact ? "py-3" : "py-4"
-        }`}
+        className={`w-full rounded-sm border border-gray-200 px-4 text-sm font-sans transition-all focus:border-nyraGreen focus:ring-0 ${compact ? "py-3" : "py-4"
+          }`}
         id={id}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -72,6 +72,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const isLogin = mode === "login";
 
@@ -162,7 +163,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         navigate("/", { replace: true });
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Login failed. Please check your credentials."));
+      const errorMessage = getApiErrorMessage(err, "Login failed. Please check your credentials.");
+      if (errorMessage === "EMAIL_NOT_VERIFIED") {
+        localStorage.setItem("pendingVerifyEmail", loginEmail);
+        navigate("/verify-email", { replace: true });
+        return;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -279,7 +286,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         aria-label="Authentication"
         className="flex w-full justify-center bg-white px-6 py-8 sm:px-8 lg:h-screen lg:overflow-y-auto lg:items-start lg:py-12"
       >
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -287,16 +294,14 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
         >
           <div className="relative mb-8 flex w-full overflow-hidden rounded-2xl border border-white/70 bg-white/55 p-1 shadow-[0_18px_45px_rgba(15,23,42,0.10)] ring-1 ring-slate-900/5 backdrop-blur-xl sm:mb-10">
             <div
-              className={`auth-toggle-pill absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-[14px] bg-nyraGreen/95 shadow-[0_14px_34px_rgba(0,77,61,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] ring-1 ring-white/25 backdrop-blur-2xl ${
-                isLogin ? "translate-x-0" : "translate-x-full"
-              }`}
+              className={`auth-toggle-pill absolute h-[calc(100%-8px)] w-[calc(50%-4px)] rounded-[14px] bg-nyraGreen/95 shadow-[0_14px_34px_rgba(0,77,61,0.28),inset_0_1px_0_rgba(255,255,255,0.22)] ring-1 ring-white/25 backdrop-blur-2xl ${isLogin ? "translate-x-0" : "translate-x-full"
+                }`}
               aria-hidden="true"
             />
             <button
               aria-pressed={isLogin}
-              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${
-                isLogin ? "text-white" : "text-slate-500 hover:text-slate-700"
-              }`}
+              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${isLogin ? "text-white" : "text-slate-500 hover:text-slate-700"
+                }`}
               onClick={() => switchMode("login")}
               type="button"
             >
@@ -305,9 +310,8 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
             <button
               aria-label="Create account tab"
               aria-pressed={!isLogin}
-              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${
-                isLogin ? "text-slate-500 hover:text-slate-700" : "text-white"
-              }`}
+              className={`relative z-10 min-h-11 flex-1 rounded-[14px] py-3 text-[11px] font-bold uppercase tracking-wider transition-colors duration-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-nyraGreen sm:text-xs sm:tracking-widest ${isLogin ? "text-slate-500 hover:text-slate-700" : "text-white"
+                }`}
               onClick={() => switchMode("register")}
               type="button"
             >
@@ -391,6 +395,65 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                   <div className="flex-grow border-t border-gray-200"></div>
                 </div>
                 <div id="google-login-btn" className="w-full flex justify-center mb-4" />
+
+                {/* Help Accordion */}
+                <div className="mt-6 border-t border-slate-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowHelp(!showHelp)}
+                    className="flex w-full items-center justify-between py-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-nyraGreen transition-colors"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <HelpCircle className="h-4 w-4" />
+                      Login Help & Troubleshooting
+                    </span>
+                    <motion.span
+                      animate={{ rotate: showHelp ? 180 : 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </motion.span>
+                  </button>
+
+                  <AnimatePresence initial={false}>
+                    {showHelp && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-3 space-y-4 rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 border border-slate-100 text-left">
+                          <div>
+                            <p className="font-bold text-slate-950">1. Invalid Credentials</p>
+                            <p className="mt-1">
+                              Ensure your email and password are typed correctly. Passwords are case-sensitive.
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-950">2. Used Google Login Previously?</p>
+                            <p className="mt-1">
+                              If you originally created your account using <strong>Google Login</strong>, you don't have a standard password yet. Click <strong>Forgot password</strong> to set one, or just continue using the Google Login button.
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-950">3. Account Not Found</p>
+                            <p className="mt-1">
+                              If you see an error that your account doesn't exist, please switch to the <strong>Register</strong> tab to create a new account.
+                            </p>
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-950">4. Forgot Password</p>
+                            <p className="mt-1">
+                              If you can't remember your password, click the <strong>Forgot password</strong> link above the login button to securely reset it.
+                            </p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </motion.div>
             ) : (
               <motion.div
@@ -475,7 +538,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                   <motion.button
                     whileHover={{ scale: 1.01 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full bg-nyraDark py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-black disabled:opacity-60"
+                    className="w-full bg-nyraRed py-5 text-xs font-bold uppercase tracking-[0.2em] text-white shadow-lg transition-colors hover:bg-red-700 disabled:opacity-60"
                     disabled={loading}
                     type="submit"
                   >
@@ -492,7 +555,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
                 V
               </div>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-nyraGreen">
-                Certified Tournament Partner
+                Certified Championship Partner
               </p>
             </div>
             <div className="flex items-center justify-between">

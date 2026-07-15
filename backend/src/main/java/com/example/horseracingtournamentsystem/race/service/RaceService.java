@@ -35,6 +35,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Locale;
@@ -94,6 +95,12 @@ public class RaceService {
         User creator = userRepository.findByEmail(creatorEmail)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Creator not found"));
 
+        LocalDate raceDate = req.getRaceDateTime().toLocalDate();
+        if (raceDate.isBefore(tournament.getStartDate()) || raceDate.isAfter(tournament.getEndDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Race date must be within the tournament dates (" + tournament.getStartDate() + " to " + tournament.getEndDate() + ")");
+        }
+
         Race race = Race.create(
                 tournament, req.getName(), req.getCode(), req.getRaceDateTime(),
                 req.getDistanceMeters(), req.getMaxParticipants(), creator
@@ -113,6 +120,12 @@ public class RaceService {
 
         if (raceRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race code already exists");
+        }
+
+        LocalDate raceDate = req.getRaceDateTime().toLocalDate();
+        if (raceDate.isBefore(tournament.getStartDate()) || raceDate.isAfter(tournament.getEndDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Race date must be within the tournament dates (" + tournament.getStartDate() + " to " + tournament.getEndDate() + ")");
         }
 
         race.update(tournament, req.getName(), req.getRaceDateTime(), req.getDistanceMeters(), req.getMaxParticipants());
@@ -282,6 +295,12 @@ public class RaceService {
         if (raceRepository.existsByCodeAndIdNotAndDeletedAtIsNull(req.getCode(), id)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race code already exists");
         }
+        LocalDate raceDate = req.getRaceDateTime().toLocalDate();
+        if (raceDate.isBefore(tournament.getStartDate()) || raceDate.isAfter(tournament.getEndDate())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Race date must be within the tournament dates (" + tournament.getStartDate() + " to " + tournament.getEndDate() + ")");
+        }
+
         race.update(tournament, req.getName(), req.getRaceDateTime(), req.getDistanceMeters(), req.getMaxParticipants());
         raceRepository.save(race);
         return mapToResponse(race);

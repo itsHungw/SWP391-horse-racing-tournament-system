@@ -44,6 +44,7 @@ export function StepConfirmRegistration({
           <div className="mt-3 space-y-1.5 text-xs text-slate-500 font-semibold border-t border-slate-50 pt-2.5">
             <p>📍 Location: {selectedTournament.location}</p>
             <p>📅 Duration: {selectedTournament.startDate} - {selectedTournament.endDate}</p>
+            <p>🏆 Prize Pool: <strong className="text-[#006d5b]">{selectedTournament.totalPrizePool !== undefined && selectedTournament.totalPrizePool !== null ? `${selectedTournament.totalPrizePool.toLocaleString()} VND` : "TBD"}</strong></p>
           </div>
         </div>
 

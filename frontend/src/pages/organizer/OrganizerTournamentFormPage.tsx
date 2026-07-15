@@ -27,6 +27,7 @@ export function OrganizerTournamentFormPage() {
     registrationEndAt: "",
     maxHorses: "",
     maxHorsesPerOwner: "2",
+    totalPrizePool: "0",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function OrganizerTournamentFormPage() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!form.name || !form.code || !form.location || !form.startDate || !form.endDate || !form.registrationStartAt || !form.registrationEndAt) {
+    if (!form.name || !form.code || !form.location || !form.startDate || !form.endDate || !form.registrationStartAt || !form.registrationEndAt || form.totalPrizePool === "") {
       setError("Please fill in all required fields.");
       return;
     }
@@ -58,6 +59,7 @@ export function OrganizerTournamentFormPage() {
         registrationEndAt: form.registrationEndAt,
         maxHorses: form.maxHorses ? Number(form.maxHorses) : undefined,
         maxHorsesPerOwner: form.maxHorsesPerOwner ? Number(form.maxHorsesPerOwner) : 2,
+        totalPrizePool: Number(form.totalPrizePool),
       });
       navigate("/organizer/tournaments");
     } catch (err) {
@@ -130,6 +132,10 @@ export function OrganizerTournamentFormPage() {
             <div>
               <label className={labelClass} htmlFor="t-maxowner">Max horses / owner</label>
               <input id="t-maxowner" type="number" min={1} className={inputClass} value={form.maxHorsesPerOwner} onChange={(e) => set("maxHorsesPerOwner")(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="t-prizepool">Total prize pool (VND) *</label>
+              <input id="t-prizepool" type="number" min={0} className={inputClass} value={form.totalPrizePool} onChange={(e) => set("totalPrizePool")(e.target.value)} required />
             </div>
           </div>
 
