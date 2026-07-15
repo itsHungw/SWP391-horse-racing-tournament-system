@@ -54,21 +54,24 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
       <header aria-label="Owner workspace header" className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md" role="banner">
         <div className="mx-auto flex min-h-20 max-w-[1680px] items-center justify-between px-5">
           <a
-            className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/"
             aria-label="EquinePro owner dashboard"
+            className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
+            href="/"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50 shrink-0">
-              <img
-                alt=""
-                className="h-12 w-12 object-contain brightness-0"
-                src={logo}
-              />
-            </span>
-            <div>
-              <p className="text-xl font-black tracking-tight text-slate-950">Owner Workspace</p>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#006d5b]">Stable operations</p>
+            <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#006d5b]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#006d5b]"></span>
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
+                  Stable Operations
+                </span>
+              </div>
             </div>
+            <h1 className="bg-gradient-to-br from-[#001712] via-[#003b30] to-[#006d5b] bg-clip-text text-3xl font-black leading-none tracking-tight text-transparent">
+              AQUEDUCT
+            </h1>
           </a>
 
           <div className="flex flex-wrap items-center gap-3">
