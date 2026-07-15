@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import { 
   CalendarDays, 
   CheckCircle2, 
@@ -69,10 +69,10 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
         role="banner"
       >
         <div className="mx-auto flex min-h-20 max-w-[1720px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
-          <a
+          <Link
             aria-label="EquinePro jockey dashboard"
             className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/"
+            to="/"
           >
             <div className="mb-1 flex items-center gap-2">
               <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#006d5b]">
@@ -88,7 +88,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
             <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 drop-shadow-sm">
               AQUEDUCT
             </h1>
-          </a>
+          </Link>
 
           <label className="relative w-full max-w-xl text-sm font-bold text-slate-700">
             <span className="sr-only">Search jockey workspace</span>

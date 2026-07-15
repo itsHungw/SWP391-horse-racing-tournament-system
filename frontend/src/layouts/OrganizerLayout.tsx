@@ -105,20 +105,24 @@ export function OrganizerLayout() {
       >
         <div className="mx-auto grid max-w-[1560px] gap-3 md:grid-cols-[minmax(240px,300px)_minmax(280px,1fr)_auto] md:items-center">
           <Link
-            to="/organizer"
-            className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#bb8a3c]"
+            aria-label="EquinePro organizer dashboard"
+            className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-[#bb8a3c]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#bb8a3c]"
+            to="/"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-[#1c1816] font-display text-lg font-semibold text-[#cfa24f] sm:h-12 sm:w-12">
-              ◆
+            <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-[#bb8a3c]/10 px-2 py-0.5 text-[#9e7629]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#bb8a3c] opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#bb8a3c]"></span>
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
+                  Race Office
+                </span>
+              </div>
             </div>
-            <div>
-              <p className="font-display text-lg font-semibold leading-none tracking-tight text-[#211d1a] sm:text-xl">
-                Race Office
-              </p>
-              <p className="mt-1.5 text-[10px] font-black uppercase tracking-[0.24em] text-[#a8801f] sm:text-[11px]">
-                Organizer Workspace
-              </p>
-            </div>
+            <h1 className="text-3xl font-black leading-none tracking-tight text-[#1c1816] drop-shadow-sm">
+              AQUEDUCT
+            </h1>
           </Link>
 
 

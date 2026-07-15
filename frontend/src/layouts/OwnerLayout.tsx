@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import { 
   ClipboardList, 
   Gauge, 
@@ -53,10 +53,10 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
     <div className="min-h-dvh bg-[#f3f6f4] text-slate-950">
       <header aria-label="Owner workspace header" className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md" role="banner">
         <div className="mx-auto flex min-h-20 max-w-[1680px] items-center justify-between px-5">
-          <a
+          <Link
             aria-label="EquinePro owner dashboard"
             className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/"
+            to="/"
           >
             <div className="mb-1 flex items-center gap-2">
               <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#006d5b]">
@@ -72,7 +72,7 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
             <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 drop-shadow-sm">
               AQUEDUCT
             </h1>
-          </a>
+          </Link>
 
           <div className="flex flex-wrap items-center gap-3">
             <NotificationBell theme="owner" />
