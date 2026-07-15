@@ -85,7 +85,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
                 </span>
               </div>
             </div>
-            <h1 className="bg-gradient-to-br from-[#001712] via-[#003b30] to-[#006d5b] bg-clip-text text-3xl font-black leading-none tracking-tight text-transparent">
+            <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 drop-shadow-sm">
               AQUEDUCT
             </h1>
           </a>
