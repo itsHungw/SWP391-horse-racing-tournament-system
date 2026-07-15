@@ -62,12 +62,12 @@ public class AuthService {
         User user = userRepository.findByEmailForUpdate(email)
                 .orElseThrow(() -> new IllegalArgumentException("INVALID_CREDENTIALS"));
 
-        if (UserStatus.PENDING_EMAIL_VERIFY == user.getStatus()) {
-            throw new IllegalArgumentException("EMAIL_NOT_VERIFIED");
-        }
-
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new IllegalArgumentException("INVALID_CREDENTIALS");
+        }
+
+        if (UserStatus.PENDING_EMAIL_VERIFY == user.getStatus()) {
+            throw new IllegalArgumentException("EMAIL_NOT_VERIFIED");
         }
 
         user.recordLogin();

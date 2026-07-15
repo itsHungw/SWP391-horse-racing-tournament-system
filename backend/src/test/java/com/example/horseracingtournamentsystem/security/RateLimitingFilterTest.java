@@ -83,6 +83,28 @@ class RateLimitingFilterTest {
     }
 
     @Test
+    void resendVerificationEmailUsesDedicatedRateLimit() throws Exception {
+        AppSecurityProperties properties = new AppSecurityProperties();
+        properties.getRateLimit().setResendVerificationEmailLimit(1);
+        properties.getRateLimit().setResendVerificationEmailWindowSeconds(300);
+        RateLimitingFilter filter = new RateLimitingFilter(
+                properties,
+                new ObjectMapper(),
+                Clock.fixed(Instant.parse("2026-06-16T00:00:00Z"), ZoneOffset.UTC)
+        );
+
+        MockHttpServletRequest firstRequest = post("/api/v1/auth/resend-verification-email");
+        MockHttpServletResponse firstResponse = new MockHttpServletResponse();
+        filter.doFilter(firstRequest, firstResponse, new MockFilterChain());
+        assertThat(firstResponse.getStatus()).isEqualTo(200);
+
+        MockHttpServletRequest secondRequest = post("/api/v1/auth/resend-verification-email");
+        MockHttpServletResponse secondResponse = new MockHttpServletResponse();
+        filter.doFilter(secondRequest, secondResponse, new MockFilterChain());
+        assertThat(secondResponse.getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void untrustedForwardedForCannotBypassRateLimit() throws Exception {
         AppSecurityProperties properties = new AppSecurityProperties();
         properties.getRateLimit().setResetPasswordLimit(1);
