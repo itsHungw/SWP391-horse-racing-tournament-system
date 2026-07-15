@@ -71,16 +71,23 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
         <div className="mx-auto flex min-h-20 max-w-[1720px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <a
             aria-label="EquinePro jockey dashboard"
-            className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
+            className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             href="/"
           >
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50">
-              <img alt="" className="h-12 w-12 object-contain brightness-0" src={logo} />
-            </span>
-            <div>
-              <p className="text-xl font-black tracking-tight text-slate-950">Aqueduct Racetrack</p>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Racing Cockpit</p>
+            <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#006d5b]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#006d5b]"></span>
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
+                  Racing Cockpit
+                </span>
+              </div>
             </div>
+            <h1 className="bg-gradient-to-br from-[#001712] via-[#003b30] to-[#006d5b] bg-clip-text text-3xl font-black leading-none tracking-tight text-transparent">
+              AQUEDUCT
+            </h1>
           </a>
 
           <label className="relative w-full max-w-xl text-sm font-bold text-slate-700">
