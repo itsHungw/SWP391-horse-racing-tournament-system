@@ -82,6 +82,19 @@ export function buildLiveRunners(participants: PreRaceParticipant[]): LiveRunner
     }));
 }
 
+export function buildScratchedRunners(participants: PreRaceParticipant[]): LiveRunner[] {
+  return participants
+    .filter((participant) => participant.status === "SCRATCHED")
+    .map((participant, index) => ({
+      participantId: participant.participantId,
+      horseName: participant.horseName,
+      gateNumber: index + 1,
+      progressPercent: 0,
+      speedMultiplier: 1,
+      status: "DNS",
+    }));
+}
+
 export function setLiveFlag(
   state: LiveRaceState,
   mode: LiveRaceState["mode"],

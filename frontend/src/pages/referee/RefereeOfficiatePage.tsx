@@ -27,6 +27,7 @@ import {
   applyLiveTick,
   applyPenalty,
   buildLiveRunners,
+  buildScratchedRunners,
   createFinishedSnapshot,
   markRunnerFinished,
   setLiveFlag,
@@ -120,7 +121,17 @@ export function RefereeOfficiatePage() {
       setStage(stageFromRaceStatus(normalizedRace.status));
 
       if (normalizedRace.status === "ONGOING") {
-        setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners: buildLiveRunners(normalizedParticipants) }, "RACING", new Date().toISOString()));
+        setLive(
+          setLiveFlag(
+            {
+              ...EMPTY_LIVE_STATE,
+              runners: buildLiveRunners(normalizedParticipants),
+              outOfRace: buildScratchedRunners(normalizedParticipants),
+            },
+            "RACING",
+            new Date().toISOString()
+          )
+        );
       }
     } catch {
       setError("Unable to load race control.");
@@ -190,7 +201,13 @@ export function RefereeOfficiatePage() {
       setSaving(true);
       setError(undefined);
       await startRace(raceId);
-      setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners }, "RACING", new Date().toISOString()));
+      setLive(
+        setLiveFlag(
+          { ...EMPTY_LIVE_STATE, runners, outOfRace: buildScratchedRunners(participants) },
+          "RACING",
+          new Date().toISOString()
+        )
+      );
       setRace((current) => (current ? { ...current, status: "ONGOING" } : current));
       setStage("ONGOING");
     } catch {

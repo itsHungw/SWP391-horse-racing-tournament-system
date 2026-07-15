@@ -56,7 +56,7 @@ function renderPage() {
 }
 
 describe("RefereeOfficiatePage", () => {
-  it("shows timeline and checklist during pre-race, then excludes scratched horses from live", async () => {
+  it("shows timeline and checklist during pre-race, then moves scratched horses out of the live field board", async () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Pre-race checks" })).toBeInTheDocument();
@@ -67,7 +67,8 @@ describe("RefereeOfficiatePage", () => {
 
     expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Golden Arrow" })).toBeInTheDocument();
-    expect(screen.queryByText("Thunderstrike")).not.toBeInTheDocument();
+    expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
+    expect(screen.getByText("DNS")).toBeInTheDocument();
   });
 
   it("moves a disqualified runner into Out of Race", async () => {
@@ -113,6 +114,25 @@ describe("RefereeOfficiatePage", () => {
     } finally {
       confirm.mockRestore();
     }
+  });
+
+  it("includes a scratched runner in the submitted result package", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
+    expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish Golden Arrow" }));
+    fireEvent.click(screen.getByRole("button", { name: "PROCEED TO POST-RACE" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Update finish order" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm official result" }));
+
+    const submitSpy = vi.mocked(refereeApi.submitRaceResultPackage);
+    expect(submitSpy).toHaveBeenCalled();
+    const payload = submitSpy.mock.calls[0][1];
+    expect(payload.results.map((entry) => entry.participantId)).toContain(5);
   });
 
   it("renders a finished draft snapshot summary", () => {
