@@ -92,4 +92,36 @@ describe("SubmitResultsPage", () => {
       reviewReason: null,
     });
   });
+
+  it("renders read-only once results are already submitted", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: 1,
+        finishTimeSeconds: 94.5,
+        status: "FINISHED" as const,
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "RESULT_SUBMITTED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(
+      screen.getByText("Results submitted — awaiting organizer confirmation.")
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("1")).toBeDisabled();
+    expect(screen.getByPlaceholderText("94.25")).toBeDisabled();
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /confirm result package/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+  });
 });

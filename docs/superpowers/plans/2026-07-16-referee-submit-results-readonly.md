@@ -1,3 +1,81 @@
+# Referee Submit Results Read-Only Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Make `/referee/races/:id/results` (`SubmitResultsPage.tsx`) read-only once a race's results have already been submitted, so referees can't hit the dead-end "Confirm result package" button a second time.
+
+**Architecture:** Fetch the race's current status alongside the existing result-entries fetch, gate the page on `race.status !== "FINISHED"`, and conditionally disable inputs / hide the confirm controls when that gate is true. Pure frontend change — no backend or API contract changes.
+
+**Tech Stack:** React + TypeScript, Vitest + `@testing-library/react`, existing `refereeApi.ts` client.
+
+## Global Constraints
+
+- No backend changes — `getRaceResultEntries` already returns saved `RaceResult` values once they exist.
+- No changes to `RaceSummary.tsx` (race-day "Official top 3" screen) — out of scope for this plan.
+- Follow TDD: write the failing test before touching `SubmitResultsPage.tsx`.
+- Match existing code style in `SubmitResultsPage.tsx` (Tailwind utility classes, no new UI libraries).
+
+---
+
+### Task 1: Read-only gate on SubmitResultsPage
+
+**Files:**
+- Modify: `frontend/src/pages/referee/SubmitResultsPage.tsx`
+- Modify: `frontend/src/pages/referee/SubmitResultsPage.test.tsx`
+
+**Interfaces:**
+- Consumes: `getAssignedRace(raceId: number): Promise<RaceSummary>` and type `RaceSummary` — both already exported from `frontend/src/api/refereeApi.ts` (`RaceSummary` has `id, name, code, distanceMeters, status, scheduledAt?, venue?`).
+- Produces: no new exports — this task only changes the internal behavior of `SubmitResultsPage`.
+
+- [ ] **Step 1: Write the failing test**
+
+Add this test to `frontend/src/pages/referee/SubmitResultsPage.test.tsx`, inside the existing `describe("SubmitResultsPage", ...)` block, after the last existing test:
+
+```tsx
+  it("renders read-only once results are already submitted", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: 1,
+        finishTimeSeconds: 94.5,
+        status: "FINISHED" as const,
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "RESULT_SUBMITTED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(
+      screen.getByText("Results submitted — awaiting organizer confirmation.")
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("1")).toBeDisabled();
+    expect(screen.getByPlaceholderText("94.25")).toBeDisabled();
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /confirm result package/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+  });
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `cd frontend && npx vitest run src/pages/referee/SubmitResultsPage.test.tsx -t "renders read-only once results are already submitted"`
+
+Expected: FAIL — `getAssignedRace` is not called by the component yet, so the banner text `"Results submitted — awaiting organizer confirmation."` is never rendered, and the Confirm button is still present. The failure should point at the `expect(screen.getByText(...))` or `expect(screen.queryByRole("button"...)).not.toBeInTheDocument()` assertion.
+
+- [ ] **Step 3: Implement the read-only gate**
+
+Replace the full contents of `frontend/src/pages/referee/SubmitResultsPage.tsx` with:
+
+```tsx
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, ShieldAlert } from "lucide-react";
@@ -285,3 +363,23 @@ export function SubmitResultsPage() {
     </section>
   );
 }
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `cd frontend && npx vitest run src/pages/referee/SubmitResultsPage.test.tsx`
+
+Expected: all 3 tests in the file PASS (the 2 pre-existing tests plus the new one).
+
+- [ ] **Step 5: Run the wider referee test suite to check for regressions**
+
+Run: `cd frontend && npx vitest run src/pages/referee`
+
+Expected: all tests PASS (no test elsewhere imports or asserts on `SubmitResultsPage` internals besides `SubmitResultsPage.test.tsx`).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add frontend/src/pages/referee/SubmitResultsPage.tsx frontend/src/pages/referee/SubmitResultsPage.test.tsx
+git commit -m "fix: make submit-results page read-only after results are submitted"
+```
