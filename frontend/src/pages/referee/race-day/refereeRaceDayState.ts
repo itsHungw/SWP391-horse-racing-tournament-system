@@ -156,6 +156,11 @@ export function applyLiveTick(state: LiveRaceState, elapsedMilliseconds: number)
   };
 }
 
+export function advanceLiveClock(state: LiveRaceState, lastFlushAtMs: number, nowMs: number): LiveRaceState {
+  const delta = nowMs - lastFlushAtMs;
+  return delta > 0 ? applyLiveTick(state, delta) : state;
+}
+
 export function markRunnerFinished(
   state: LiveRaceState,
   participantId: number,

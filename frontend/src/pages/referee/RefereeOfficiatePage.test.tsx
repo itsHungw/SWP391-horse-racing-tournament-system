@@ -135,6 +135,34 @@ describe("RefereeOfficiatePage", () => {
     expect(payload.results.map((entry) => entry.participantId)).toContain(5);
   });
 
+  it("captures a precise finish time between ticks instead of rounding to the tick size", async () => {
+    const baseNow = 1_800_000_000_000;
+    const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(baseNow);
+
+    try {
+      renderPage();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Mark race ready" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Confirm & Enter Live Control" }));
+      expect(await screen.findByRole("region", { name: "Live race workspace" })).toBeInTheDocument();
+
+      dateNowSpy.mockReturnValue(baseNow + 350);
+      fireEvent.click(screen.getByRole("button", { name: "Finish Golden Arrow" }));
+      fireEvent.click(screen.getByRole("button", { name: "PROCEED TO POST-RACE" }));
+
+      fireEvent.click(await screen.findByRole("button", { name: "Update finish order" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirm official result" }));
+
+      const submitSpy = vi.mocked(refereeApi.submitRaceResultPackage);
+      expect(submitSpy).toHaveBeenCalled();
+      const payload = submitSpy.mock.calls[0][1];
+      const goldenArrowEntry = payload.results.find((entry) => entry.participantId === 7);
+      expect(goldenArrowEntry?.rawFinishTimeSeconds).toBe(0.35);
+    } finally {
+      dateNowSpy.mockRestore();
+    }
+  });
+
   it("renders a finished draft snapshot summary", () => {
     render(
       <RaceSummary

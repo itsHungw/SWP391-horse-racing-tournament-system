@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -24,7 +24,7 @@ import {
   WorkspaceStage,
 } from "./race-day/refereeRaceDayModels";
 import {
-  applyLiveTick,
+  advanceLiveClock,
   applyPenalty,
   buildLiveRunners,
   buildScratchedRunners,
@@ -105,6 +105,14 @@ export function RefereeOfficiatePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const lastTickAtRef = useRef(Date.now());
+
+  const flushClock = useCallback((current: LiveRaceState) => {
+    const now = Date.now();
+    const next = advanceLiveClock(current, lastTickAtRef.current, now);
+    lastTickAtRef.current = now;
+    return next;
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +129,7 @@ export function RefereeOfficiatePage() {
       setStage(stageFromRaceStatus(normalizedRace.status));
 
       if (normalizedRace.status === "ONGOING") {
+        lastTickAtRef.current = Date.now();
         setLive(
           setLiveFlag(
             {
@@ -150,11 +159,11 @@ export function RefereeOfficiatePage() {
     }
 
     const timer = window.setInterval(() => {
-      setLive((current) => applyLiveTick(current, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds));
+      setLive((current) => flushClock(current));
     }, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds);
 
     return () => window.clearInterval(timer);
-  }, [live.mode, stage]);
+  }, [live.mode, stage, flushClock]);
 
   const checksBlocked = participants.some(
     (participant) =>
@@ -201,6 +210,7 @@ export function RefereeOfficiatePage() {
       setSaving(true);
       setError(undefined);
       await startRace(raceId);
+      lastTickAtRef.current = Date.now();
       setLive(
         setLiveFlag(
           { ...EMPTY_LIVE_STATE, runners, outOfRace: buildScratchedRunners(participants) },
@@ -222,7 +232,7 @@ export function RefereeOfficiatePage() {
       return;
     }
 
-    setLive((current) => setLiveFlag(current, mode, new Date().toISOString()));
+    setLive((current) => setLiveFlag(flushClock(current), mode, new Date().toISOString()));
 
     if (mode === "ABORTED") {
       setStage("ABORTED");
@@ -361,7 +371,7 @@ export function RefereeOfficiatePage() {
             setLive((current) => applyPenalty(current, participantId, penaltyAction, new Date().toISOString()))
           }
           onRunnerFinish={(participantId: number) =>
-            setLive((current) => markRunnerFinished(current, participantId, new Date().toISOString()))
+            setLive((current) => markRunnerFinished(flushClock(current), participantId, new Date().toISOString()))
           }
           race={race}
           state={live}
