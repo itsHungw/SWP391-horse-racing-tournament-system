@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository;
 import com.example.horseracingtournamentsystem.result.repository.RaceResultRepository;
 
 class OddsCalculationServiceTest {
@@ -14,7 +15,8 @@ class OddsCalculationServiceTest {
     private final OddsCalculationService service = new OddsCalculationService(
             mock(RaceResultRepository.class),
             mock(RacePredictionRepository.class),
-            mock(PredictionSettingRepository.class)
+            mock(PredictionSettingRepository.class),
+            mock(StreakPredictionLegRepository.class)
     );
 
     @Test
