@@ -160,12 +160,12 @@ public class SpectatorPredictionController {
         res.setPositionOddsMatrix(oddsCalculationService.calculatePositionOddsMatrix(raceId, participants));
         res.setH2hMatchups(oddsCalculationService.calculateH2HMatchups(raceId, participants));
 
-        // Fair win odds (1/p) per runner — used by the streak parlay so its preview matches settlement.
-        Map<Long, java.math.BigDecimal> winProbs = oddsCalculationService.getWinProbabilities(participants);
+        // Streak parlay dynamic odds — uses independent streak pool
+        Map<Long, java.math.BigDecimal> streakOddsMatrix = oddsCalculationService.calculateStreakOddsMatrix(raceId, participants);
         for (PredictionOptionsResponse.Option opt : res.getOptions()) {
-            java.math.BigDecimal p = winProbs.get(opt.getRaceParticipantId());
-            if (p != null && p.compareTo(java.math.BigDecimal.ZERO) > 0) {
-                opt.setWinOdds(java.math.BigDecimal.ONE.divide(p, 2, java.math.RoundingMode.HALF_UP));
+            java.math.BigDecimal odds = streakOddsMatrix.get(opt.getRaceParticipantId());
+            if (odds != null && odds.compareTo(java.math.BigDecimal.ZERO) > 0) {
+                opt.setWinOdds(odds);
             }
         }
 
