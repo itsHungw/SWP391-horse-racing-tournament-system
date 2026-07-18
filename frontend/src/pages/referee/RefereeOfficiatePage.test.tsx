@@ -194,6 +194,136 @@ describe("RefereeOfficiatePage", () => {
     expect(screen.getByText("P1 (was P1)")).toBeInTheDocument();
   });
 
+  it("shows a remaining finish order section for runners beyond the top 3", () => {
+    render(
+      <RaceSummary
+        raceId={9}
+        snapshot={{
+          elapsedMilliseconds: 70_000,
+          leaderboard: [
+            {
+              participantId: 7,
+              horseName: "Golden Arrow",
+              gateNumber: 1,
+              progressPercent: 100,
+              speedMultiplier: 1,
+              status: "RUNNING",
+              finishMilliseconds: 62_345,
+            },
+            {
+              participantId: 5,
+              horseName: "Night Bloom",
+              gateNumber: 2,
+              progressPercent: 100,
+              speedMultiplier: 0.98,
+              status: "RUNNING",
+              finishMilliseconds: 63_000,
+            },
+            {
+              participantId: 3,
+              horseName: "Silver Comet",
+              gateNumber: 3,
+              progressPercent: 100,
+              speedMultiplier: 0.95,
+              status: "RUNNING",
+              finishMilliseconds: 64_000,
+            },
+            {
+              participantId: 9,
+              horseName: "Blue Ridge",
+              gateNumber: 4,
+              progressPercent: 100,
+              speedMultiplier: 0.9,
+              status: "RUNNING",
+              finishMilliseconds: 65_000,
+            },
+          ],
+          outOfRace: [],
+          incidents: [],
+        }}
+      />
+    );
+
+    expect(screen.getByRole("heading", { name: "Remaining finish order" })).toBeInTheDocument();
+    expect(screen.getByText("Blue Ridge")).toBeInTheDocument();
+    expect(screen.getByLabelText("Override total time for Blue Ridge")).toBeEnabled();
+    expect(screen.getByText("P4 (was P4)")).toBeInTheDocument();
+  });
+
+  it("hides the remaining finish order section when there are 3 or fewer finishers", () => {
+    render(
+      <RaceSummary
+        raceId={9}
+        snapshot={{
+          elapsedMilliseconds: 62_345,
+          leaderboard: [
+            {
+              participantId: 7,
+              horseName: "Golden Arrow",
+              gateNumber: 1,
+              progressPercent: 96,
+              speedMultiplier: 1,
+              status: "RUNNING",
+            },
+          ],
+          outOfRace: [],
+          incidents: [],
+        }}
+      />
+    );
+
+    expect(screen.queryByRole("heading", { name: "Remaining finish order" })).not.toBeInTheDocument();
+  });
+
+  it("shows did-not-finish and disqualified runners as read-only", () => {
+    render(
+      <RaceSummary
+        raceId={9}
+        snapshot={{
+          elapsedMilliseconds: 62_345,
+          leaderboard: [
+            {
+              participantId: 7,
+              horseName: "Golden Arrow",
+              gateNumber: 1,
+              progressPercent: 96,
+              speedMultiplier: 1,
+              status: "RUNNING",
+              finishMilliseconds: 62_345,
+            },
+          ],
+          outOfRace: [
+            {
+              participantId: 5,
+              horseName: "Thunderstrike",
+              gateNumber: 2,
+              progressPercent: 0,
+              speedMultiplier: 1,
+              status: "DNS",
+            },
+            {
+              participantId: 3,
+              horseName: "Night Bloom",
+              gateNumber: 3,
+              progressPercent: 60,
+              speedMultiplier: 1,
+              status: "DSQ",
+            },
+          ],
+          incidents: [],
+        }}
+      />
+    );
+
+    expect(screen.getByRole("heading", { name: "Did not finish / disqualified" })).toBeInTheDocument();
+    expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
+    expect(screen.getByText("Night Bloom")).toBeInTheDocument();
+    expect(screen.getByText("DNF")).toBeInTheDocument();
+    expect(screen.getByText("DSQ")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Override total time for Thunderstrike")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Override total time for Night Bloom")).not.toBeInTheDocument();
+  });
+
   it("requires Update Time before applying a manual total time override", () => {
     render(
       <RaceSummary

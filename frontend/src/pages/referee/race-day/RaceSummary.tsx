@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { ParticipantResultEntry, submitRaceResultPackage } from "../../../api/refereeApi";
-import { RaceAppeal, RaceSnapshot } from "./refereeRaceDayModels";
+import { LiveRunner, RaceAppeal, RaceSnapshot } from "./refereeRaceDayModels";
 
 type RaceSummaryProps = {
   raceId: number;
@@ -17,6 +17,80 @@ function penaltyFor(snapshot: RaceSnapshot, participantId: number) {
   return snapshot.incidents
     .filter((incident) => incident.participantId === participantId)
     .reduce((total, incident) => total + (incident.penaltySeconds ?? 0), 0);
+}
+
+type ResultRowData = {
+  runner: LiveRunner;
+  physicalPosition: number;
+  actualSeconds: number;
+  penaltySeconds: number;
+  hasManualOverride: boolean;
+  totalSeconds: number;
+};
+
+function ResultRow({
+  row,
+  position,
+  confirmed,
+  timeDraft,
+  savedIndicatorVisible,
+  onDraftChange,
+  onSave,
+}: {
+  row: ResultRowData;
+  position: number;
+  confirmed: boolean;
+  timeDraft: string;
+  savedIndicatorVisible: boolean;
+  onDraftChange: (value: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <li className="race-day-row-motion rounded-2xl border border-slate-200 bg-[#fbfdfe] p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <span className="rounded-full bg-[#007a68] px-3 py-1 font-mono text-xs font-black text-white">P{position}</span>
+          <strong className="text-base text-slate-950">{row.runner.horseName}</strong>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
+            P{position} (was P{row.physicalPosition})
+          </span>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className="text-xs font-black text-slate-500">
+            Total time override
+            <input
+              aria-label={`Override total time for ${row.runner.horseName}`}
+              className="mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 font-mono text-sm font-black text-slate-950 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#d4f1e7] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:w-28"
+              disabled={confirmed}
+              inputMode="decimal"
+              onChange={(event) => onDraftChange(event.target.value)}
+              placeholder={row.totalSeconds.toFixed(3)}
+              type="number"
+              value={timeDraft}
+            />
+          </label>
+          <button
+            aria-label={`Update time for ${row.runner.horseName}`}
+            className="min-h-11 rounded-md bg-[#007a68] px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+            disabled={confirmed || !timeDraft.trim()}
+            onClick={onSave}
+            type="button"
+          >
+            Update Time
+          </button>
+          {savedIndicatorVisible ? (
+            <span className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-3 text-xs font-black text-emerald-700">
+              Saved
+            </span>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-3 rounded-xl bg-white px-3 py-2 font-mono text-sm font-black text-slate-700">
+        {seconds(row.actualSeconds)} + {seconds(row.penaltySeconds)} = {seconds(row.totalSeconds)}
+      </p>
+    </li>
+  );
 }
 
 export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: RaceSummaryProps) {
@@ -193,57 +267,67 @@ export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: Rac
           <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Official top 3</h3>
           <ol className="mt-3 space-y-3">
             {rows.slice(0, 3).map((row, index) => (
-              <li className="race-day-row-motion rounded-2xl border border-slate-200 bg-[#fbfdfe] p-4" key={row.runner.participantId}>
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="rounded-full bg-[#007a68] px-3 py-1 font-mono text-xs font-black text-white">P{index + 1}</span>
-                    <strong className="text-base text-slate-950">{row.runner.horseName}</strong>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-slate-500">
-                      P{index + 1} (was P{row.physicalPosition})
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                    <label className="text-xs font-black text-slate-500">
-                      Total time override
-                      <input
-                        aria-label={`Override total time for ${row.runner.horseName}`}
-                        className="mt-1 min-h-11 w-full rounded-md border border-slate-200 bg-white px-3 font-mono text-sm font-black text-slate-950 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#d4f1e7] disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 sm:w-28"
-                        disabled={confirmed}
-                        inputMode="decimal"
-                        onChange={(event) =>
-                          setTimeDrafts((current) => ({
-                            ...current,
-                            [row.runner.participantId]: event.target.value,
-                          }))
-                        }
-                        placeholder={row.totalSeconds.toFixed(3)}
-                        type="number"
-                        value={timeDrafts[row.runner.participantId] ?? ""}
-                      />
-                    </label>
-                    <button
-                      aria-label={`Update time for ${row.runner.horseName}`}
-                      className="min-h-11 rounded-md bg-[#007a68] px-3 text-xs font-black text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
-                      disabled={confirmed || !timeDrafts[row.runner.participantId]?.trim()}
-                      onClick={() => saveOverride(row.runner.participantId)}
-                      type="button"
-                    >
-                      Update Time
-                    </button>
-                    {savedRunnerIds.includes(row.runner.participantId) ? (
-                      <span className="inline-flex min-h-11 items-center rounded-md bg-emerald-50 px-3 text-xs font-black text-emerald-700">
-                        Saved
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-                <p className="mt-3 rounded-xl bg-white px-3 py-2 font-mono text-sm font-black text-slate-700">
-                  {seconds(row.actualSeconds)} + {seconds(row.penaltySeconds)} = {seconds(row.totalSeconds)}
-                </p>
-              </li>
+              <ResultRow
+                confirmed={confirmed}
+                key={row.runner.participantId}
+                onDraftChange={(value) =>
+                  setTimeDrafts((current) => ({
+                    ...current,
+                    [row.runner.participantId]: value,
+                  }))
+                }
+                onSave={() => saveOverride(row.runner.participantId)}
+                position={index + 1}
+                row={row}
+                savedIndicatorVisible={savedRunnerIds.includes(row.runner.participantId)}
+                timeDraft={timeDrafts[row.runner.participantId] ?? ""}
+              />
             ))}
           </ol>
+
+          {rows.length > 3 ? (
+            <>
+              <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Remaining finish order</h3>
+              <ol className="mt-3 space-y-3">
+                {rows.slice(3).map((row, index) => (
+                  <ResultRow
+                    confirmed={confirmed}
+                    key={row.runner.participantId}
+                    onDraftChange={(value) =>
+                      setTimeDrafts((current) => ({
+                        ...current,
+                        [row.runner.participantId]: value,
+                      }))
+                    }
+                    onSave={() => saveOverride(row.runner.participantId)}
+                    position={index + 4}
+                    row={row}
+                    savedIndicatorVisible={savedRunnerIds.includes(row.runner.participantId)}
+                    timeDraft={timeDrafts[row.runner.participantId] ?? ""}
+                  />
+                ))}
+              </ol>
+            </>
+          ) : null}
+
+          {snapshot.outOfRace.length > 0 ? (
+            <>
+              <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Did not finish / disqualified</h3>
+              <ol className="mt-3 space-y-2">
+                {snapshot.outOfRace.map((runner) => (
+                  <li
+                    className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                    key={runner.participantId}
+                  >
+                    <strong className="text-sm font-black text-slate-800">{runner.horseName}</strong>
+                    <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-700">
+                      {runner.status === "DSQ" ? "DSQ" : "DNF"}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : null}
 
           {draftUpdated ? (
             <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4" aria-labelledby="appeals-board-title">
