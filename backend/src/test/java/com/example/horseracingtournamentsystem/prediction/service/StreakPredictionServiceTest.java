@@ -2,7 +2,6 @@ package com.example.horseracingtournamentsystem.prediction.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -60,7 +59,7 @@ class StreakPredictionServiceTest {
     }
 
     @Test
-    void submitMultipliesFairLegOddsWithSingleMargin() {
+    void submitSumsCurrentStreakLegOdds() {
         User spectator = mock(User.class);
         Tournament tournament = mock(Tournament.class);
         Race raceOne = race(101L, "Race One");
@@ -79,9 +78,9 @@ class StreakPredictionServiceTest {
         when(participantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
                 anyLong(), any(ParticipantStatus.class)))
                 .thenReturn(List.of(horseOne, horseTwo));
-        when(oddsService.getWinProbabilities(anyList())).thenReturn(Map.of(
-                1001L, new BigDecimal("0.50"),
-                1002L, new BigDecimal("0.40")));
+        when(oddsService.calculateStreakOddsMatrix(anyLong(), any())).thenReturn(Map.of(
+                1001L, new BigDecimal("2.00"),
+                1002L, new BigDecimal("2.50")));
         when(walletService.getBalance(7L)).thenReturn(100_000L);
         when(streakRepository.saveAndFlush(any(StreakPrediction.class))).thenAnswer(invocation -> {
             StreakPrediction streak = invocation.getArgument(0);
@@ -96,8 +95,7 @@ class StreakPredictionServiceTest {
 
         StreakPredictionResponse response = service.submitStreakPrediction(7L, request);
 
-        // fair odds 1/0.50 * 1/0.40 = 2.0 * 2.5 = 5.0 ; * (1 - 0.20 parlay margin) = 4.00
-        assertEquals(new BigDecimal("4.00"), response.getTotalOdds());
+        assertEquals(new BigDecimal("4.50"), response.getTotalOdds());
         verify(walletService).adjust(
                 spectator, -10_000L, WalletTransactionType.BET_PLACED,
                 WalletTransaction.REF_STREAK_PREDICTION, 41L,

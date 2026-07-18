@@ -75,11 +75,12 @@ export function computePayout(stake: number, odds: number | null | undefined): P
   };
 }
 
-// Streak parlay multiplier from per-leg fair odds: product(legOdds) * (1 - takeout), capped.
+// Streak parlay multiplier from per-leg odds: sum(legOdds), capped.
+// Note: The commission is already baked into each legOdds by the backend.
 export function computeStreakOdds(legOdds: number[]): number {
   if (legOdds.length === 0) return 0;
-  const product = legOdds.reduce((acc, o) => acc * (o > 0 ? o : 1), 1);
-  return Math.min(product * (1 - STREAK_TAKEOUT), STREAK_MAX_ODDS);
+  const sum = legOdds.reduce((acc, o) => acc + (o > 0 ? o : 0), 0);
+  return Math.min(sum, STREAK_MAX_ODDS);
 }
 
 export function getEntryCost(options: PredictionOptions | null | undefined, predType: PredictionType): number {
