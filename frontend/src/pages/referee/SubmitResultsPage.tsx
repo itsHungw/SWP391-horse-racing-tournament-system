@@ -15,6 +15,76 @@ const READ_ONLY_STATUS_MESSAGES: Record<string, string> = {
   PUBLISHED: "Results published.",
 };
 
+function EntryRow({
+  badge,
+  entry,
+  isReadOnly,
+  onPositionChange,
+  onStatusChange,
+  onTimeChange,
+}: {
+  badge: string | null;
+  entry: ParticipantResultEntry;
+  isReadOnly: boolean;
+  onPositionChange: (value: string) => void;
+  onStatusChange: (status: ParticipantResultEntry["status"]) => void;
+  onTimeChange: (value: string) => void;
+}) {
+  const fieldsDisabled = isReadOnly || entry.status !== "FINISHED";
+
+  return (
+    <article className="rounded-2xl border border-slate-200 bg-[#fbfdfe] p-4">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1.4fr)_110px_150px_170px] lg:items-end">
+        <div className="flex items-center gap-3">
+          {badge ? (
+            <span className="rounded-full bg-[#007a68] px-3 py-1 font-mono text-xs font-black text-white">{badge}</span>
+          ) : null}
+          <div>
+            <p className="text-base font-black text-slate-950">{entry.horseName}</p>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{entry.jockeyName}</p>
+          </div>
+        </div>
+        <label className="block">
+          <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Position</span>
+          <input
+            className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            disabled={fieldsDisabled}
+            onChange={(event) => onPositionChange(event.target.value)}
+            placeholder="1"
+            type="number"
+            value={entry.position ?? ""}
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Time seconds</span>
+          <input
+            className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            disabled={fieldsDisabled}
+            onChange={(event) => onTimeChange(event.target.value)}
+            placeholder="94.25"
+            type="text"
+            value={entry.finishTimeSeconds ?? ""}
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Result status</span>
+          <select
+            className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            disabled={isReadOnly}
+            onChange={(event) => onStatusChange(event.target.value as ParticipantResultEntry["status"])}
+            value={entry.status}
+          >
+            <option value="FINISHED">Finished</option>
+            <option value="DISQUALIFIED">Disqualified</option>
+            <option value="DID_NOT_FINISH">Did not finish</option>
+            <option value="WITHDRAWN">Withdrawn</option>
+          </select>
+        </label>
+      </div>
+    </article>
+  );
+}
+
 export function SubmitResultsPage() {
   const { id } = useParams<{ id: string }>();
   const raceId = Number(id);
@@ -75,6 +145,19 @@ export function SubmitResultsPage() {
   );
   const resultBlocked = entries.length === 0 || hasDuplicates || missingFinishedData;
 
+  const sortedFinishedEntries = entries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.status === "FINISHED")
+    .sort((a, b) => {
+      const positionA = typeof a.entry.position === "number" ? a.entry.position : Number.POSITIVE_INFINITY;
+      const positionB = typeof b.entry.position === "number" ? b.entry.position : Number.POSITIVE_INFINITY;
+      return positionA - positionB || a.index - b.index;
+    });
+
+  const otherEntries = entries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => entry.status !== "FINISHED");
+
   const handleSave = async () => {
     if (hasDuplicates) {
       setMessage("Duplicate finish positions are not allowed.");
@@ -106,6 +189,7 @@ export function SubmitResultsPage() {
         requiresAdminReview,
         reviewReason: requiresAdminReview ? reviewReason.trim() : null,
       });
+      setRace((current) => (current ? { ...current, status: "RESULT_SUBMITTED" } : current));
       setMessage(
         requiresAdminReview
           ? "Result package submitted for admin review."
@@ -169,52 +253,58 @@ export function SubmitResultsPage() {
           </div>
 
           <div className="mt-5 space-y-3">
-            {entries.map((entry, index) => (
-              <article className="rounded-lg border border-slate-200 bg-slate-50 p-4" key={entry.participantId}>
-                <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1.4fr)_110px_150px_170px] lg:items-end">
-                  <div>
-                    <p className="text-base font-black text-slate-950">{entry.horseName}</p>
-                    <p className="mt-1 text-sm font-semibold text-slate-500">{entry.jockeyName}</p>
-                  </div>
-                  <label className="block">
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Position</span>
-                    <input
-                      className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                      disabled={isReadOnly}
-                      onChange={(event) => handleNumberChange(index, "position", event.target.value)}
-                      placeholder="1"
-                      type="number"
-                      value={entry.position ?? ""}
+            <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Official top 3</h3>
+            <div className="space-y-3">
+              {sortedFinishedEntries.slice(0, 3).map(({ entry, index }, position) => (
+                <EntryRow
+                  badge={`P${position + 1}`}
+                  entry={entry}
+                  isReadOnly={isReadOnly}
+                  key={entry.participantId}
+                  onPositionChange={(value) => handleNumberChange(index, "position", value)}
+                  onStatusChange={(status) => handleStatusChange(index, status)}
+                  onTimeChange={(value) => handleNumberChange(index, "finishTimeSeconds", value)}
+                />
+              ))}
+            </div>
+
+            {sortedFinishedEntries.length > 3 ? (
+              <>
+                <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Remaining finish order</h3>
+                <div className="space-y-3">
+                  {sortedFinishedEntries.slice(3).map(({ entry, index }, position) => (
+                    <EntryRow
+                      badge={`P${position + 4}`}
+                      entry={entry}
+                      isReadOnly={isReadOnly}
+                      key={entry.participantId}
+                      onPositionChange={(value) => handleNumberChange(index, "position", value)}
+                      onStatusChange={(status) => handleStatusChange(index, status)}
+                      onTimeChange={(value) => handleNumberChange(index, "finishTimeSeconds", value)}
                     />
-                  </label>
-                  <label className="block">
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Time seconds</span>
-                    <input
-                      className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                      disabled={isReadOnly}
-                      onChange={(event) => handleNumberChange(index, "finishTimeSeconds", event.target.value)}
-                      placeholder="94.25"
-                      type="text"
-                      value={entry.finishTimeSeconds ?? ""}
-                    />
-                  </label>
-                  <label className="block">
-                    <span className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">Result status</span>
-                    <select
-                      className="mt-1 h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                      disabled={isReadOnly}
-                      onChange={(event) => handleStatusChange(index, event.target.value as ParticipantResultEntry["status"])}
-                      value={entry.status}
-                    >
-                      <option value="FINISHED">Finished</option>
-                      <option value="DISQUALIFIED">Disqualified</option>
-                      <option value="DID_NOT_FINISH">Did not finish</option>
-                      <option value="WITHDRAWN">Withdrawn</option>
-                    </select>
-                  </label>
+                  ))}
                 </div>
-              </article>
-            ))}
+              </>
+            ) : null}
+
+            {otherEntries.length > 0 ? (
+              <>
+                <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Did not finish / disqualified</h3>
+                <div className="space-y-3">
+                  {otherEntries.map(({ entry, index }) => (
+                    <EntryRow
+                      badge={null}
+                      entry={entry}
+                      isReadOnly={isReadOnly}
+                      key={entry.participantId}
+                      onPositionChange={(value) => handleNumberChange(index, "position", value)}
+                      onStatusChange={(status) => handleStatusChange(index, status)}
+                      onTimeChange={(value) => handleNumberChange(index, "finishTimeSeconds", value)}
+                    />
+                  ))}
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
 
