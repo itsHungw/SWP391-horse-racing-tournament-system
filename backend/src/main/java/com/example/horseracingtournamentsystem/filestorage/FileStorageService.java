@@ -53,7 +53,8 @@ public class FileStorageService {
             Map.entry("HORSE_EVIDENCE", new UploadPolicy(true, "private/horses/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
             Map.entry("HORSE_DOCUMENT", new UploadPolicy(true, "private/horses/documents", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
             Map.entry("ORGANIZER_LICENSE", new UploadPolicy(true, "private/organizer-licenses", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
-            Map.entry("ORGANIZER_LOGO", new UploadPolicy(false, "public/organizer-logos", IMAGE_MAX_BYTES, IMAGE_TYPES))
+            Map.entry("ORGANIZER_LOGO", new UploadPolicy(false, "public/organizer-logos", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("DISPUTE_EVIDENCE", new UploadPolicy(true, "private/disputes/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES))
     );
 
     private final ObjectStorage objectStorage;
