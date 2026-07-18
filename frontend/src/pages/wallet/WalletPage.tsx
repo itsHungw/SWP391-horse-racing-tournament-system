@@ -13,6 +13,7 @@ import {
   Search,
   Wallet as WalletIcon,
   X,
+  Flag,
 } from "lucide-react";
 
 import { walletApi } from "../../api/walletApi";
@@ -37,6 +38,7 @@ import { PerformanceChart } from "./PerformanceChart";
 import { SavedAccounts } from "./SavedAccounts";
 import { TopUpSheet } from "./TopUpSheet";
 import { WithdrawSheet } from "./WithdrawSheet";
+import { CreateDisputeModal } from "../spectator/disputes/components/CreateDisputeModal";
 
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -279,6 +281,7 @@ export function WalletPage() {
   const [payoutStatusFilter, setPayoutStatusFilter] = useState<"ALL" | WithdrawalStatus>("ALL");
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [reportingTxId, setReportingTxId] = useState<number | null>(null);
   const [searchParams] = useSearchParams();
   const topupStatus = searchParams.get("topup");
 
@@ -609,7 +612,18 @@ export function WalletPage() {
                                 {formatVnd(tx.amount)}
                               </td>
                               <td className="px-5 py-4 text-right font-data text-xs text-ivory-dim">
-                                {tx.balanceAfter != null ? `${vnd.format(tx.balanceAfter)} VND` : "Pending"}
+                                <div className="flex items-center justify-end gap-3">
+                                  <span>{tx.balanceAfter != null ? `${vnd.format(tx.balanceAfter)} VND` : "Pending"}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setReportingTxId(tx.id)}
+                                    className="inline-flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ivory-dim transition-colors hover:bg-rose-500/10 hover:text-rose-300"
+                                    title="Report an issue with this transaction"
+                                  >
+                                    <Flag size={12} />
+                                    Report
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -753,6 +767,16 @@ export function WalletPage() {
         onClose={() => setWithdrawOpen(false)}
         onSubmitted={() => {
           void refresh();
+        }}
+      />
+
+      <CreateDisputeModal
+        isOpen={reportingTxId !== null}
+        onClose={() => setReportingTxId(null)}
+        referenceType="WALLET_TRANSACTION"
+        referenceId={reportingTxId ?? 0}
+        onSuccess={() => {
+          // Toast or confirmation
         }}
       />
 
