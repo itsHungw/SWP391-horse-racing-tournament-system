@@ -1,5 +1,5 @@
 import { httpClient } from "./httpClient";
-import type { BankAccount, Wallet, WalletSummary, WalletTransaction, Withdrawal } from "../types/wallet";
+import type { BankAccount, TopUpReceipt, Wallet, WalletSummary, WalletTransaction, Withdrawal } from "../types/wallet";
 
 export const walletApi = {
   getMyWallet: async () => {
@@ -16,6 +16,9 @@ export const walletApi = {
     const response = await httpClient.post<{ paymentUrl: string }>("/wallet/topup", { amount });
     return response.data;
   },
+
+  getTopUpReceipt: async (txnRef: string) =>
+    (await httpClient.get<TopUpReceipt>(`/wallet/topups/${encodeURIComponent(txnRef)}/receipt`)).data,
 
   getSummary: async () => {
     const response = await httpClient.get<WalletSummary>("/wallet/me/summary");

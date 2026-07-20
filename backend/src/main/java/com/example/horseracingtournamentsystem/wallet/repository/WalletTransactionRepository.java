@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.wallet.repository;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface WalletTransactionRepository extends JpaRepository<WalletTransaction, Long> {
@@ -16,4 +17,7 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
             Long referenceId,
             WalletTransactionType transactionType
     );
+
+    Optional<WalletTransaction> findByReferenceTypeAndReferenceIdAndTransactionType(
+            String referenceType, Long referenceId, WalletTransactionType transactionType);
 }

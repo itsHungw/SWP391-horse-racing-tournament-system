@@ -4,7 +4,6 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
-  CheckCircle2,
   Landmark,
   Lock,
   Plus,
@@ -38,6 +37,7 @@ import { Modal } from "./Modal";
 import { PerformanceChart } from "./PerformanceChart";
 import { SavedAccounts } from "./SavedAccounts";
 import { TopUpSheet } from "./TopUpSheet";
+import { PaymentResultDialog, type PaymentResultState } from "./PaymentResultDialog";
 import { WithdrawSheet } from "./WithdrawSheet";
 import { CreateDisputeModal } from "../spectator/disputes/components/CreateDisputeModal";
 
@@ -283,8 +283,8 @@ export function WalletPage() {
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reportingTxId, setReportingTxId] = useState<number | null>(null);
-  const [searchParams] = useSearchParams();
-  const topupStatus = searchParams.get("topup");
+  const [paymentResult, setPaymentResult] = useState<PaymentResultState | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const refresh = useCallback(async () => {
     const [summaryData, txData, wdData] = await Promise.all([
@@ -316,6 +316,27 @@ export function WalletPage() {
       mounted = false;
     };
   }, [refresh]);
+
+  const loadReceipt = useCallback(async (txnRef: string) => {
+    setPaymentResult({ kind: "loading", txnRef });
+    try {
+      const receipt = await walletApi.getTopUpReceipt(txnRef);
+      setPaymentResult({ kind: "receipt", receipt });
+      if (receipt.status === "SUCCESS") await refresh();
+    } catch {
+      setPaymentResult({ kind: "unavailable", txnRef, message: "We could not verify this receipt right now. No wallet outcome is being assumed." });
+    }
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!searchParams.has("topup")) return;
+    const txnRef = searchParams.get("txnRef");
+    const next = new URLSearchParams(searchParams);
+    next.delete("topup"); next.delete("txnRef");
+    setSearchParams(next, { replace: true });
+    if (txnRef) void loadReceipt(txnRef);
+    else setPaymentResult({ kind: "unavailable", txnRef: "", message: "The payment return did not include a receipt reference. Check your wallet ledger before trying again." });
+  }, [loadReceipt, searchParams, setSearchParams]);
 
   const walletLocked = summary?.status === "LOCKED";
   const capabilities = accountCapabilities(session?.accountStatus ?? "ACTIVE");
@@ -392,24 +413,6 @@ export function WalletPage() {
 
       <main className="relative isolate mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
         <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[560px] bg-[radial-gradient(circle_at_20%_0%,rgba(212,175,55,0.18),transparent_32%),linear-gradient(180deg,rgba(31,157,118,0.13),rgba(3,15,12,0))]" />
-
-        {topupStatus === "success" ? (
-          <p
-            className="mb-4 flex items-start gap-3 rounded-lg border border-emerald-soft/25 bg-emerald-soft/10 p-4 text-sm font-semibold text-emerald-soft"
-            role="status"
-          >
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            Top-up successful - your balance has been updated.
-          </p>
-        ) : topupStatus === "failed" ? (
-          <p
-            className="mb-4 flex items-start gap-3 rounded-lg border border-rose-300/25 bg-rose-400/10 p-4 text-sm font-semibold text-rose-200"
-            role="alert"
-          >
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            The top-up did not complete or was cancelled.
-          </p>
-        ) : null}
 
         <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_390px]">
           <div className="min-w-0 space-y-4">
@@ -603,7 +606,7 @@ export function WalletPage() {
                           const Icon = transactionIcon(tx.type);
                           const amountPositive = tx.amount >= 0;
                           return (
-                            <tr key={tx.id} className="transition-colors hover:bg-white/[0.03] motion-reduce:transition-none">
+                            <tr key={tx.id} data-wallet-transaction-id={tx.id} className="transition-colors hover:bg-white/[0.03] motion-reduce:transition-none">
                               <td className="px-5 py-4">
                                 <div className="flex items-center gap-3">
                                   <span className={`grid h-9 w-9 place-items-center rounded-lg bg-white/[0.04] ${amountPositive ? "text-emerald-soft" : "text-rose-400"}`}>
@@ -718,6 +721,14 @@ export function WalletPage() {
       </main>
 
       <TopUpSheet open={topUpOpen} onClose={() => setTopUpOpen(false)} currentBalance={balance} />
+      <PaymentResultDialog
+        state={paymentResult}
+        canTopUp={capabilities.canTopUp && !walletLocked}
+        onClose={() => setPaymentResult(null)}
+        onRetryReceipt={() => { const ref = paymentResult?.kind === "receipt" ? paymentResult.receipt.txnRef : paymentResult?.txnRef; if (ref) void loadReceipt(ref); }}
+        onTryAgain={() => { setPaymentResult(null); setTopUpOpen(true); }}
+        onViewTransaction={(id) => { setPaymentResult(null); setLedgerFilter("topup"); setLedgerVisible(Number.MAX_SAFE_INTEGER); window.setTimeout(() => document.querySelector(`[data-wallet-transaction-id="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 0); }}
+      />
 
       <Modal open={payoutAllOpen} onClose={() => setPayoutAllOpen(false)} label="Withdrawal requests" panelClassName="max-w-lg">
         <div className="flex items-start justify-between gap-4 border-b border-white/8 px-6 pb-4 pt-5">

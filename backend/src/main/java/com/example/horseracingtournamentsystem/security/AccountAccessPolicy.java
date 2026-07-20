@@ -64,8 +64,14 @@ public class AccountAccessPolicy {
             return path.equals("/api/v1/wallet/me")
                     || path.equals("/api/v1/wallet/me/summary")
                     || path.equals("/api/v1/wallet/me/transactions")
-                    || path.equals("/api/v1/wallet/withdrawals");
+                    || path.equals("/api/v1/wallet/withdrawals")
+                    || isTopUpReceiptGet(method, path);
         }
         return isResolutionMutation(method, path);
+    }
+
+    private boolean isTopUpReceiptGet(String method, String path) {
+        return HttpMethod.GET.matches(method)
+                && path.matches("/api/v1/wallet/topups/[A-Za-z0-9_-]{1,100}/receipt");
     }
 }
