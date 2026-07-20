@@ -46,7 +46,7 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col md:flex-row gap-8">
+        <div className="flex-1 overflow-y-auto modal-scrollbar p-6 flex flex-col md:flex-row gap-8">
           {/* Left Column: Details */}
           <div className="flex-1 flex flex-col gap-6">
             
@@ -75,7 +75,16 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Category</span>
-                <p className="font-semibold text-slate-800 mt-1">{dispute.category.replace('_', ' ')}</p>
+                <div className="mt-1.5">
+                  <span className={`font-bold px-2 py-1 rounded-md text-[11px] uppercase tracking-wider ${
+                    dispute.category === 'FINANCE' ? 'bg-emerald-100 text-emerald-700' :
+                    dispute.category === 'PREDICTION' ? 'bg-indigo-100 text-indigo-700' :
+                    dispute.category === 'SYSTEM' ? 'bg-rose-100 text-rose-700' :
+                    'bg-slate-200 text-slate-700'
+                  }`}>
+                    {dispute.category.replace('_', ' ')}
+                  </span>
+                </div>
               </div>
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Reference</span>
@@ -159,7 +168,7 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
                 value={resolutionNote}
                 onChange={(e) => setResolutionNote(e.target.value)}
                 placeholder="Explain the outcome or next steps..."
-                className="w-full h-32 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#b3193a] focus:ring-1 focus:ring-[#b3193a] shadow-sm resize-none"
+                className="w-full h-32 rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-[#b3193a] focus:ring-1 focus:ring-[#b3193a] shadow-sm resize-none modal-scrollbar"
               />
             </div>
 

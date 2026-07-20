@@ -12,6 +12,7 @@ export function AdminDisputesWorkspace() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<DisputeStatus | "ALL">("ALL");
+  const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [selectedDispute, setSelectedDispute] = useState<DisputeResponse | null>(null);
 
   const fetchDisputes = async () => {
@@ -46,7 +47,8 @@ export function AdminDisputesWorkspace() {
                           d.id.toString().includes(searchTerm) ||
                           d.referenceType.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "ALL" || d.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesPriority = priorityFilter === "ALL" || d.priority === priorityFilter;
+    return matchesSearch && matchesStatus && matchesPriority;
   });
 
   const getStatusBadge = (status: DisputeStatus) => {
@@ -62,22 +64,32 @@ export function AdminDisputesWorkspace() {
 
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
-      case "URGENT": return <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">URGENT</span>;
-      case "HIGH": return <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-0.5 rounded border border-orange-200">HIGH</span>;
-      case "MEDIUM": return <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">MEDIUM</span>;
-      case "LOW": return <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">LOW</span>;
+      case "URGENT": return <span className="font-bold text-[10px] uppercase tracking-wider text-white bg-rose-600 px-2.5 py-1 rounded-md shadow-sm">URGENT</span>;
+      case "HIGH": return <span className="font-bold text-[10px] uppercase tracking-wider text-white bg-orange-500 px-2.5 py-1 rounded-md shadow-sm">HIGH</span>;
+      case "MEDIUM": return <span className="font-bold text-[10px] uppercase tracking-wider text-blue-700 bg-blue-100 px-2.5 py-1 rounded-md">MEDIUM</span>;
+      case "LOW": return <span className="font-bold text-[10px] uppercase tracking-wider text-slate-600 bg-slate-200 px-2.5 py-1 rounded-md">LOW</span>;
       default: return null;
+    }
+  };
+
+  const getCategoryBadge = (category: string) => {
+    switch (category) {
+      case "FINANCE": return <span className="font-bold text-[11px] uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-md">FINANCE</span>;
+      case "PREDICTION": return <span className="font-bold text-[11px] uppercase tracking-wider text-indigo-700 bg-indigo-100 px-2.5 py-1 rounded-md">PREDICTION</span>;
+      case "SYSTEM": return <span className="font-bold text-[11px] uppercase tracking-wider text-rose-700 bg-rose-100 px-2.5 py-1 rounded-md">SYSTEM</span>;
+      case "GENERAL": return <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 bg-slate-200 px-2.5 py-1 rounded-md">GENERAL</span>;
+      default: return <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md">{category.replace('_', ' ')}</span>;
     }
   };
 
   return (
     <AdminLayout>
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">Workspace</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-[#070f4f]">Dispute Management</h1>
-            <p className="mt-1 text-sm text-slate-500">Review, track, and resolve user complaints across the platform.</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">Dispute Management</h1>
+            <p className="mt-2 max-w-3xl text-sm text-slate-500">Review, track, and resolve user complaints across the platform.</p>
           </div>
           <button 
             onClick={fetchDisputes}
@@ -100,7 +112,7 @@ export function AdminDisputesWorkspace() {
                 className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-10 pr-4 text-sm outline-none focus:border-[#b3193a] focus:ring-1 focus:ring-[#b3193a]"
               />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Filter className="h-4 w-4 text-slate-500" />
               <select
                 value={statusFilter}
@@ -113,6 +125,17 @@ export function AdminDisputesWorkspace() {
                 <option value="ESCALATED">Escalated</option>
                 <option value="RESOLVED">Resolved</option>
                 <option value="REJECTED">Rejected</option>
+              </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm font-semibold text-slate-700 outline-none focus:border-[#b3193a] focus:ring-1 focus:ring-[#b3193a]"
+              >
+                <option value="ALL">All Priorities</option>
+                <option value="URGENT">Urgent</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
               </select>
             </div>
           </div>
@@ -161,9 +184,7 @@ export function AdminDisputesWorkspace() {
                         <p className="text-xs text-slate-500">{dispute.referenceType} #{dispute.referenceId}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-md text-xs">
-                          {dispute.category.replace('_', ' ')}
-                        </span>
+                        {getCategoryBadge(dispute.category)}
                       </td>
                       <td className="px-6 py-4">
                         {getPriorityBadge(dispute.priority)}
