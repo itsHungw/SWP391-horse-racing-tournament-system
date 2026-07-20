@@ -70,11 +70,15 @@ public class AuthService {
             throw new IllegalArgumentException("EMAIL_NOT_VERIFIED");
         }
 
+        if (!canAuthenticate(user.getStatus())) {
+            throw new IllegalArgumentException("USER_ACCOUNT_DISABLED");
+        }
+
         user.recordLogin();
 
         String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
         String refreshToken = createRefreshSession(user, userAgent, ipAddress);
-        return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail()), refreshToken);
+        return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail(), user.getStatus()), refreshToken);
     }
 
     @Transactional
@@ -86,7 +90,7 @@ public class AuthService {
         User user = userRepository.findByEmailForUpdate(email).orElse(null);
         
         if (user != null) {
-            if (UserStatus.ACTIVE != user.getStatus()) {
+            if (!canAuthenticate(user.getStatus())) {
                 throw new IllegalArgumentException("USER_ACCOUNT_DISABLED");
             }
             if (user.getAuthProvider() == AuthProvider.LOCAL) {
@@ -117,7 +121,7 @@ public class AuthService {
         String accessToken = jwtService.generateToken(user.getEmail(), user.getActiveRoleNames());
         String refreshToken = createRefreshSession(user, userAgent, ipAddress);
         
-        return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail()), refreshToken);
+        return new LoginResult(new LoginResponse(accessToken, user.getFullName(), user.getEmail(), user.getStatus()), refreshToken);
     }
 
     private String generateSecureRandomPassword() {
@@ -141,6 +145,12 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "REFRESH_TOKEN_EXPIRED");
         }
 
+        User sessionUser = session.getUser();
+        if (!canAuthenticate(sessionUser.getStatus())) {
+            session.revokeNow();
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "USER_ACCOUNT_DISABLED");
+        }
+
         String nextRefreshToken = generateRefreshToken();
         AuthSession replacementSession = authSessionRepository.save(AuthSession.create(
                 session.getUser(),
@@ -152,8 +162,9 @@ public class AuthService {
         session.markUsedNow();
         session.replaceBy(replacementSession);
 
-        String accessToken = jwtService.generateToken(session.getUser().getEmail(), session.getUser().getActiveRoleNames());
-        return new RefreshResult(new AuthResponse(accessToken), nextRefreshToken);
+        String accessToken = jwtService.generateToken(sessionUser.getEmail(), sessionUser.getActiveRoleNames());
+        return new RefreshResult(new AuthResponse(
+                accessToken, sessionUser.getFullName(), sessionUser.getEmail(), sessionUser.getStatus()), nextRefreshToken);
     }
 
     @Transactional
@@ -258,6 +269,10 @@ public class AuthService {
 
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean canAuthenticate(UserStatus status) {
+        return status == UserStatus.ACTIVE || status == UserStatus.SUSPENDED || status == UserStatus.BANNED;
     }
 
     private String normalizeOptionalPhone(String phone) {

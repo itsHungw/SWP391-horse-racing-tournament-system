@@ -156,8 +156,6 @@ public class UserService {
                 user.getAvatarUrl()
         );
 
-        user.changeStatus(request.status());
-
         User savedUser = userRepository.save(user);
         return AdminUserDetailResponse.from(savedUser);
     }

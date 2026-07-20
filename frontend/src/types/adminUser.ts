@@ -45,7 +45,43 @@ export interface UpdateUserProfileAdminRequest {
   dateOfBirth?: string;
   gender?: string;
   address?: string;
-  status: string;
+}
+
+export type AccountEnforcementAction = "suspend" | "restore" | "ban" | "reopen";
+
+export interface AccountStatusHistoryItem {
+  id: number;
+  oldStatus: string;
+  newStatus: string;
+  publicReason: string;
+  internalNote?: string;
+  changedById: number;
+  changedByName: string;
+  changedAt: string;
+  walletLocked: boolean;
+}
+
+export interface AccountTransitionRequest {
+  reason: string;
+  internalNote?: string;
+  lockWallet?: boolean;
+}
+
+export interface WalletControl {
+  userId: number;
+  walletStatus: "ACTIVE" | "LOCKED";
+  canWithdraw: boolean;
+}
+
+export interface WalletStatusHistoryItem {
+  id: number;
+  oldStatus: "ACTIVE" | "LOCKED";
+  newStatus: "ACTIVE" | "LOCKED";
+  publicReason: string;
+  internalNote?: string;
+  changedById: number;
+  changedByName: string;
+  changedAt: string;
 }
 
 export interface PageResponse<T> {
