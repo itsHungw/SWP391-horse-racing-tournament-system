@@ -29,7 +29,7 @@ When the dispute subsystem is available, a `Request a review` section appears be
 
 - Both `SUSPENDED` and `BANNED` users may appeal.
 - An appeal always references the latest applicable `UserStatusHistory` record, never a user-supplied user ID.
-- At most one non-terminal appeal may exist for an enforcement decision.
+- At most one appeal may exist for an enforcement decision, regardless of its status.
 - Terminal statuses are `RESOLVED` and `REJECTED`.
 - A new appeal is allowed only when a newer enforcement decision exists.
 - Submitting or resolving an appeal does not itself change account status, wallet status, race participation, results, settlements, or refunds.
@@ -44,7 +44,7 @@ Extend the shared dispute model rather than creating an `account_appeals` table:
 - Use `UserStatusHistory.id` as `referenceId`.
 - Use category `DISCIPLINARY` by default.
 - Set requester from the authenticated user and handler role to `ADMIN`.
-- Add a repository existence check for a non-terminal dispute with the same requester, reference type, and reference ID.
+- Add a repository existence check for any dispute with the same requester, reference type, and reference ID.
 
 The account-appeal endpoint is separate from the spectator endpoint so eligibility is based on authenticated account ownership, not the presence of a `SPECTATOR` role.
 
@@ -65,7 +65,7 @@ Request fields:
 - `description`: required, trimmed, maximum 3000 characters;
 - `evidenceUrls`: optional list created through the existing dispute evidence upload flow.
 
-The server generates the dispute title, fixes category to `DISCIPLINARY`, and selects and validates the latest enforcement decision inside the transaction. It returns `409 Conflict` if that decision already has a non-terminal appeal. The client cannot submit a title, category, requester, handler, user ID, or reference ID.
+The server generates the dispute title, fixes category to `DISCIPLINARY`, and selects and validates the latest enforcement decision inside the transaction. It returns `409 Conflict` if that decision already has an appeal. The client cannot submit a title, category, requester, handler, user ID, or reference ID.
 
 ## Restricted-account access policy
 

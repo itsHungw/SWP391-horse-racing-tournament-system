@@ -29,6 +29,7 @@ The response contains:
 - `status`: `PENDING`, `SUCCESS`, or `FAILED`;
 - `amount`;
 - `balanceAfter`, nullable until a successful wallet credit exists;
+- `walletTransactionId`, nullable until a successful wallet credit exists;
 - `processedAt`, nullable while pending;
 - `failureReason`, nullable and mapped to user-safe copy.
 
