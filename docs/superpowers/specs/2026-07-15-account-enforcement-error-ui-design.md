@@ -2,6 +2,8 @@
 
 **Date:** 2026-07-15
 
+**Updated:** 2026-07-20
+
 **Status:** Approved design
 
 **Scope:** Account suspension/ban policy, wallet behavior, authorization, admin workflow, frontend route guards, and shared error UI
@@ -14,13 +16,27 @@ The product needs graduated enforcement: stop a user from creating new risk with
 
 The frontend also has inconsistent access-error behavior. Some guards redirect to home, some redirect to login, admin has a bespoke 403 page, other roles get an inline card, and the catch-all route silently redirects unknown URLs to home. The error UI will be standardized as part of this feature.
 
+### 1.1 Operating Model
+
+The product uses a managed B2B2C model:
+
+- The platform owner governs identities, global account status, wallets, prediction money, and platform-wide policy.
+- An organizer is an approved business operator that runs tournaments for one organization under platform moderation. It is not an independent wallet custodian or a tenant with authority over global accounts.
+- Platform Admin is the only actor that may suspend or ban a user globally or lock a user wallet.
+- Organizers and referees may apply tournament-scoped operational decisions such as registration rejection, scratch, reassignment, incident reporting, and disqualification where their existing domain permissions allow it.
+- A tournament-scoped penalty never changes `users.status` automatically, and an account-status decision never changes a participant or race result automatically.
+
+The current MVP does not model organizer prize escrow, organizer payables, platform commission, separate cash/winnings balances, or tenant-specific wallets. Those capabilities require a separate accounting design rather than being inferred from the single user-wallet balance.
+
 ## 2. Goals
 
 - Reuse `ACTIVE`, `SUSPENDED`, and `BANNED`; do not add another user status.
 - Separate identity authentication from account authorization.
 - Let restricted users see and resolve existing rights without creating new platform activity.
 - Keep wallet enforcement separate from account enforcement.
+- Keep platform account enforcement separate from tournament sporting discipline.
 - Preserve system-generated payouts and refunds even when a wallet is locked.
+- Preserve legitimate user funds; never convert an entire wallet balance into platform or organizer revenue merely because an account is banned.
 - Give admins an explicit, auditable Suspend -> Restore/Ban workflow.
 - Standardize 401, 403, 404, 500, validation, conflict, and rate-limit UX.
 - Deliver a modern error-page family aligned with the product's horse-racing visual language.
@@ -33,6 +49,8 @@ The frontend also has inconsistent access-error behavior. Some guards redirect t
 - Confiscation, chargeback adjudication, KYC, or AML workflows.
 - A full customer-support ticketing or legal appeal system.
 - Granular per-transaction wallet freezes or double-entry accounting.
+- Organizer-owned wallets, event escrow, prize-purse accounting, platform commission, and tenant-scoped account bans.
+- Automatic scratch or disqualification caused solely by account suspension or ban.
 - Cloudflare custom error-page configuration.
 
 ## 4. Account Lifecycle
@@ -106,9 +124,42 @@ Rules:
 
 This requires refining the current wallet-lock rule, which blocks every adjustment. The new rule blocks user-originated operations while allowing idempotent system settlement and refund credits.
 
+### 6.1 Money Ownership And Enforcement
+
+Policy text does not by itself determine that every wallet amount belongs to the platform or organizer after a ban. The system treats each movement according to its business source:
+
+| Money category | Enforcement behavior |
+| --- | --- |
+| Unused legitimate top-up balance | Remains recorded for the user; withdrawal depends on wallet status |
+| Legitimate prediction winnings | Settlement still credits the wallet |
+| System payout/refund | Still credits a locked wallet and remains auditable |
+| Pending withdrawal | Continues through the withdrawal workflow; it is not auto-rejected by account status |
+| Suspected fraudulent funds | Admin locks the wallet while the case is reviewed |
+| Confirmed invalid transaction | Reversed through an explicit, auditable adjustment/refund operation |
+| Tournament prize affected by disqualification | Resolved under tournament rules, not converted automatically into organizer or platform revenue |
+
+The MVP does not classify portions of one balance as clean, fraudulent, cash, winnings, organizer-owned, or platform-owned. Therefore enforcement operates at wallet level (`ACTIVE`/`LOCKED`) plus audited transaction-specific corrections. Blanket confiscation is outside scope. A production implementation involving real-money forfeiture requires separate legal, contractual, and accounting review.
+
+### 6.2 Account Enforcement Versus Race Discipline
+
+Account enforcement controls access to the platform. Sporting discipline controls tournament participation and results. They are related by an investigation but remain separate decisions with separate reasons and audit records.
+
+Rules for active commitments:
+
+- Before participant lock, a suspended user cannot create or accept new participation.
+- After assignment but before a race starts, the organizer/admin may retain, replace, or scratch the participant through the tournament workflow.
+- During an `ONGOING` race, suspending the account immediately blocks digital mutations but does not stop the physical race, remove the participant, or rewrite the result.
+- After the race, the actual result remains unless an authorized referee/admin performs an explicit disciplinary correction or disqualification under tournament rules.
+- Existing organizer/referee work is preserved for audit. Admin or another authorized operator takes over pending operations.
+- A safety emergency may trigger a separate scratch/incident action, but the account decision and sporting decision retain distinct reasons.
+
+The admin suspension surface must warn when the user has active assignments. The warning explains that suspension blocks platform operations but does not automatically scratch or disqualify the participant.
+
 ## 7. Admin Workflow And Audit
 
 Account enforcement is removed from the generic profile-edit operation and exposed as explicit actions on the admin user-detail page.
+
+Only Platform Admin performs global account and wallet enforcement. Organizer/referee controls remain tournament-scoped and cannot call these endpoints.
 
 ### 7.1 Actions
 
@@ -440,6 +491,9 @@ Backend `/api/v1/admin/races` endpoints are not removed by this frontend cleanup
 - Locked wallet still accepts idempotent payout/refund credits.
 - Status change, history write, and optional wallet lock are atomic.
 - Internal note is absent from user-facing responses.
+- Account suspension does not mutate participant, assignment, race, or result status.
+- An ongoing race remains intact after account suspension; explicit disciplinary action is required for scratch/disqualification.
+- Organizer/referee actors cannot invoke global account or wallet enforcement endpoints.
 
 ### Frontend
 
@@ -454,6 +508,7 @@ Backend `/api/v1/admin/races` endpoints are not removed by this frontend cleanup
 - Resource 404 and page-load failure render their contextual states.
 - Error pages meet keyboard, focus, contrast, semantic-heading, and reduced-motion requirements.
 - Admin enforcement modal validates reason, prevents duplicate submit, and renders transition conflict inline.
+- Admin sees a clear active-assignment warning without language implying automatic disqualification.
 
 ## 16. Delivery Order
 
@@ -476,6 +531,10 @@ Backend `/api/v1/admin/races` endpoints are not removed by this frontend cleanup
 - Banned users cannot enter role workspaces but can use the restricted resolution surface.
 - Wallet lock, not account ban alone, controls withdrawal eligibility.
 - Locked wallets retain system-originated payout/refund credits.
+- Banning an account never transfers the whole wallet balance to the platform or organizer.
+- Platform Admin alone controls global account status and wallet lock; organizer/referee penalties remain tournament-scoped.
+- Suspending or banning a user never automatically scratches/disqualifies a participant or rewrites a race result.
+- An ongoing race can finish and be recorded while a separate account investigation continues.
 - Backend returns consistent 401/403/409 semantics and stable error codes.
 - Frontend unknown routes show a branded 404; missing roles show shared 403; unrecoverable UI failures show 500.
 - Action-level conflicts, validation errors, rate limits, and server failures stay in context rather than forcing an error-page navigation.
