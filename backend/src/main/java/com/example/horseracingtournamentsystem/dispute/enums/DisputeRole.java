@@ -6,5 +6,6 @@ public enum DisputeRole {
     HORSE_OWNER,
     ADMIN,
     REFEREE,
-    ORGANIZER
+    ORGANIZER,
+    ACCOUNT_HOLDER
 }

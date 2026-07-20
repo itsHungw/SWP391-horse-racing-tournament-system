@@ -1,11 +1,14 @@
 package com.example.horseracingtournamentsystem.dispute.service;
 
+import com.example.horseracingtournamentsystem.dispute.dto.CreateAccountAppealRequest;
 import com.example.horseracingtournamentsystem.dispute.dto.CreateDisputeRequest;
 import com.example.horseracingtournamentsystem.dispute.dto.DisputeAttachmentResponse;
 import com.example.horseracingtournamentsystem.dispute.dto.DisputeResponse;
 import com.example.horseracingtournamentsystem.dispute.entity.Dispute;
 import com.example.horseracingtournamentsystem.dispute.entity.DisputeAttachment;
 import com.example.horseracingtournamentsystem.dispute.enums.DisputeRole;
+import com.example.horseracingtournamentsystem.dispute.enums.DisputeCategory;
+import com.example.horseracingtournamentsystem.dispute.enums.DisputeReferenceType;
 import com.example.horseracingtournamentsystem.dispute.repository.DisputeRepository;
 import com.example.horseracingtournamentsystem.organization.entity.Organization;
 import com.example.horseracingtournamentsystem.organization.repository.OrganizationRepository;
@@ -66,6 +69,26 @@ public class DisputeService {
         return mapToResponse(savedDispute);
     }
 
+    @Transactional
+    public DisputeResponse createAccountAppeal(
+            User requester, Long decisionId, String decisionStatus, CreateAccountAppealRequest request) {
+        Dispute dispute = Dispute.builder()
+                .requester(requester)
+                .requesterRole(DisputeRole.ACCOUNT_HOLDER)
+                .handlerRole(DisputeRole.ADMIN)
+                .referenceType(DisputeReferenceType.ACCOUNT_ENFORCEMENT)
+                .referenceId(decisionId)
+                .category(DisputeCategory.DISCIPLINARY)
+                .title("Appeal of " + decisionStatus + " decision")
+                .description(request.description().trim())
+                .build();
+        if (request.evidenceUrls() != null) {
+            request.evidenceUrls().forEach(url ->
+                    dispute.addAttachment(DisputeAttachment.builder().fileUrl(url).build()));
+        }
+        return toResponse(disputeRepository.saveAndFlush(dispute));
+    }
+
     @Transactional(readOnly = true)
     public List<DisputeResponse> getDisputesByRequester(Long requesterId) {
         List<Dispute> disputes = disputeRepository.findByRequesterIdOrderByCreatedAtDesc(requesterId);
@@ -103,7 +126,7 @@ public class DisputeService {
         return mapToResponse(savedDispute);
     }
 
-    private DisputeResponse mapToResponse(Dispute dispute) {
+    public DisputeResponse toResponse(Dispute dispute) {
         return DisputeResponse.builder()
                 .id(dispute.getId())
                 .requesterId(dispute.getRequester().getId())
@@ -130,5 +153,9 @@ public class DisputeService {
                         .createdAt(a.getCreatedAt())
                         .build()).collect(Collectors.toList()))
                 .build();
+    }
+
+    private DisputeResponse mapToResponse(Dispute dispute) {
+        return toResponse(dispute);
     }
 }

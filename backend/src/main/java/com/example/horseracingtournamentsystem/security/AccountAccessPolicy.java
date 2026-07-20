@@ -21,14 +21,27 @@ public class AccountAccessPolicy {
         String method = request.getMethod();
         String path = request.getRequestURI();
         if (status == UserStatus.SUSPENDED) {
-            return isSafe(method) || isResolutionMutation(method, path);
+            return isSafe(method) || isResolutionMutation(method, path)
+                    || isAccountAppealAccess(method, path) || isAppealEvidenceUpload(request);
         }
         if (status == UserStatus.BANNED) {
             return isPublicGet(method, path)
                     || (isSafe(method) && path.equals("/api/v1/me/account-restriction"))
-                    || isBannedResolutionAccess(method, path);
+                    || isBannedResolutionAccess(method, path)
+                    || isAccountAppealAccess(method, path) || isAppealEvidenceUpload(request);
         }
         return false;
+    }
+
+    private boolean isAccountAppealAccess(String method, String path) {
+        return path.equals("/api/v1/me/account-appeal")
+                && (isSafe(method) || HttpMethod.POST.matches(method));
+    }
+
+    private boolean isAppealEvidenceUpload(HttpServletRequest request) {
+        return HttpMethod.POST.matches(request.getMethod())
+                && request.getRequestURI().equals("/api/v1/files/upload")
+                && "DISPUTE_EVIDENCE".equalsIgnoreCase(request.getParameter("category"));
     }
 
     private boolean isSafe(String method) {
