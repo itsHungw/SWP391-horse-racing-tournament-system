@@ -5,6 +5,7 @@ import { AppLayout } from "../layouts/AppLayout";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 import { RequireRoleRoute } from "./RequireRoleRoute";
+import { RequireAccountAccessRoute } from "./RequireAccountAccessRoute";
 
 // Public + auth pages stay eagerly imported: they are the first-paint surfaces, so
 // code-splitting them would only add a Suspense flash on the most common entry points.
@@ -22,6 +23,7 @@ import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
 import { NotFoundPage } from "../pages/errors/NotFoundPage";
+import { AccountRestrictedPage } from "../pages/account/AccountRestrictedPage";
 
 // Authenticated / role-gated workspaces are lazy-loaded so a public visitor never downloads
 // the admin / organizer / owner / jockey / referee bundles (or heavy deps like lightweight-charts).
@@ -91,42 +93,42 @@ function RouteFallback() {
 }
 
 function adminRoute(element: ReactNode) {
-  return <RequireAdminRoute>{element}</RequireAdminRoute>;
+  return <RequireAccountAccessRoute><RequireAdminRoute>{element}</RequireAdminRoute></RequireAccountAccessRoute>;
 }
 
 function authRoute(element: ReactNode) {
-  return <RequireAuthRoute>{element}</RequireAuthRoute>;
+  return <RequireAuthRoute><RequireAccountAccessRoute>{element}</RequireAccountAccessRoute></RequireAuthRoute>;
 }
 
 function jockeyRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="JOCKEY" workspaceName="Jockey Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="JOCKEY" workspaceName="Jockey Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function refereeRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function organizerRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="ORGANIZER" workspaceName="Organizer Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="ORGANIZER" workspaceName="Organizer Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function ownerRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
@@ -153,7 +155,8 @@ export function AppRouter() {
 
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
-        <Route path="wallet" element={authRoute(<WalletPage />)} />
+        <Route path="wallet" element={<RequireAuthRoute><WalletPage /></RequireAuthRoute>} />
+        <Route path="account-restricted" element={<RequireAuthRoute><AccountRestrictedPage /></RequireAuthRoute>} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
         <Route path="organizer/register" element={authRoute(<OrganizerRegisterPage />)} />
         <Route path="organizer" element={organizerRoute(<OrganizerLayout />)}>

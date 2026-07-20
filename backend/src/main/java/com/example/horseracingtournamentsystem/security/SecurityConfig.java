@@ -29,6 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 public class SecurityConfig {
 
         private final JwtAuthenticationFilter jwtAuthFilter;
+        private final AccountStatusEnforcementFilter accountStatusEnforcementFilter;
         // private final RateLimitingFilter rateLimitingFilter;
         private final AppSecurityProperties securityProperties;
         private final ObjectMapper objectMapper;
@@ -91,6 +92,7 @@ public class SecurityConfig {
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(rateLimitingFilter(), UsernamePasswordAuthenticationFilter.class)
                                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                                .addFilterAfter(accountStatusEnforcementFilter, JwtAuthenticationFilter.class)
                                 .build();
         }
 

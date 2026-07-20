@@ -73,6 +73,18 @@ httpClient.interceptors.request.use(
 httpClient.interceptors.response.use(
   (response) => response,
   async (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 403) {
+      const code = (error.response.data as { code?: string } | undefined)?.code;
+      if (code === "ACCOUNT_SUSPENDED" || code === "ACCOUNT_BANNED") {
+        const current = getClientSession();
+        const nextStatus = code === "ACCOUNT_SUSPENDED" ? "SUSPENDED" : "BANNED";
+        if (current.accessToken && current.accountStatus !== nextStatus) {
+          setClientSession(current.accessToken, current.fullName, current.email, nextStatus);
+        }
+      }
+      return Promise.reject(error);
+    }
+
     if (!axios.isAxiosError(error) || error.response?.status !== 401) {
       return Promise.reject(error);
     }
@@ -96,7 +108,8 @@ httpClient.interceptors.response.use(
       setClientSession(
         nextAccessToken,
         refreshResponse.data.fullName,
-        refreshResponse.data.email
+        refreshResponse.data.email,
+        refreshResponse.data.accountStatus
       );
 
       const headers = AxiosHeaders.from(originalRequest.headers);

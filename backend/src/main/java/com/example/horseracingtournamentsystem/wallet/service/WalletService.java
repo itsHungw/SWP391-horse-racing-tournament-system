@@ -101,7 +101,8 @@ public class WalletService {
                 .orElseThrow(() -> new IllegalStateException("Wallet missing after create for user " + user.getId()));
 
         // 4. Chặn ví bị khóa.
-        if (wallet.isLocked()) {
+        // Enforcement must never swallow money already owed by the platform.
+        if (wallet.isLocked() && !isAllowedLockedWalletCredit(amount, transactionType)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wallet is locked");
         }
 
@@ -136,5 +137,11 @@ public class WalletService {
                         referenceId,
                         transactionType
                 );
+    }
+
+    private boolean isAllowedLockedWalletCredit(long amount, WalletTransactionType transactionType) {
+        return amount > 0 && (transactionType == WalletTransactionType.BET_PAYOUT
+                || transactionType == WalletTransactionType.BET_REFUND
+                || transactionType == WalletTransactionType.WITHDRAWAL_REFUND);
     }
 }

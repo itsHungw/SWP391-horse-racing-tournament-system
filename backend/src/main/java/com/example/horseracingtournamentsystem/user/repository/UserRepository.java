@@ -48,6 +48,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             JOIN u.userRoles ur
             JOIN ur.role r
             WHERE u.deletedAt IS NULL
+              AND u.status = com.example.horseracingtournamentsystem.user.enums.UserStatus.ACTIVE
               AND r.name = 'ADMIN'
               AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE
             """)

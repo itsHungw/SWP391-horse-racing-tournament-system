@@ -96,9 +96,11 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       setError(null);
       setLoading(true);
       const apiResponse = await oauthLogin("GOOGLE", response.credential);
-      setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email);
+      setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email, apiResponse.accountStatus);
       const roles = getRolesFromAccessToken(apiResponse.accessToken);
-      if (returnTo) {
+      if (apiResponse.accountStatus === "BANNED") {
+        navigate("/account-restricted", { replace: true });
+      } else if (returnTo) {
         navigate(returnTo, { replace: true });
       } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
@@ -170,9 +172,11 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       setError(null);
       setLoading(true);
       const response = await login({ email: loginEmail, password: loginPassword });
-      setClientSession(response.accessToken, response.fullName, response.email);
+      setClientSession(response.accessToken, response.fullName, response.email, response.accountStatus);
       const roles = getRolesFromAccessToken(response.accessToken);
-      if (returnTo) {
+      if (response.accountStatus === "BANNED") {
+        navigate("/account-restricted", { replace: true });
+      } else if (returnTo) {
         navigate(returnTo, { replace: true });
       } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });

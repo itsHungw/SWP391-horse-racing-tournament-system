@@ -5,6 +5,9 @@ import {
   UpdateUserProfileAdminRequest,
   PageResponse,
   UserRoleHistoryItem,
+  AccountStatusHistoryItem,
+  AccountEnforcementAction,
+  AccountTransitionRequest,
 } from "../types/adminUser";
 
 export const getAdminUsers = async (
@@ -61,6 +64,12 @@ export const updateAdminUserRoles = async (
   return response.data;
 };
 
-export const deleteAdminUser = async (id: number): Promise<void> => {
-  await httpClient.delete(`/admin/users/${id}`);
-};
+export const enforceAdminUserAccount = async (
+  id: number,
+  action: AccountEnforcementAction,
+  data: AccountTransitionRequest,
+): Promise<AdminUserDetail> =>
+  (await httpClient.post<AdminUserDetail>(`/admin/users/${id}/${action}`, data)).data;
+
+export const getAdminUserStatusHistory = async (id: number): Promise<AccountStatusHistoryItem[]> =>
+  (await httpClient.get<AccountStatusHistoryItem[]>(`/admin/users/${id}/status-history`)).data;
