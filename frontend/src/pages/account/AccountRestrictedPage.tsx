@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { getAccountRestriction, type AccountRestriction } from "../../api/accountRestrictionApi";
+import raceHero from "../../assets/slide.jpg";
 import { useClientSession } from "../../hooks/useClientSession";
 import { setClientSession } from "../../utils/authSession";
 
@@ -27,8 +28,19 @@ export function AccountRestrictedPage() {
 
   const banned = session.accountStatus === "BANNED";
   return (
-    <main className="mx-auto flex min-h-[75vh] max-w-4xl items-center px-5 py-16">
-      <section className="w-full overflow-hidden rounded-[2rem] border border-amber-200 bg-white shadow-2xl shadow-amber-950/10">
+    <div className="relative isolate min-h-screen overflow-hidden bg-[#020817]">
+      <img
+        src={raceHero}
+        alt=""
+        aria-hidden="true"
+        className="absolute inset-0 -z-30 h-full w-full object-cover object-center opacity-40"
+      />
+      <div className="absolute inset-0 -z-20 bg-[linear-gradient(115deg,rgba(2,8,23,0.96)_0%,rgba(7,17,38,0.86)_48%,rgba(73,30,18,0.82)_100%)]" />
+      <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_78%_18%,rgba(245,158,11,0.18),transparent_30%),linear-gradient(to_top,rgba(2,8,23,0.92),transparent_55%)]" />
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:100%_44px]" />
+
+      <main className="mx-auto flex min-h-screen max-w-5xl items-center px-5 py-12 md:py-16">
+      <section className="w-full overflow-hidden rounded-[2rem] border border-amber-300/50 bg-white shadow-[0_30px_90px_-30px_rgba(0,0,0,0.75)] ring-1 ring-white/10">
         <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-7 py-10 text-white md:px-12">
           <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-300">Account status</p>
           <h1 className="mt-3 text-3xl font-black md:text-5xl">{banned ? "Account restricted" : "Account under review"}</h1>
@@ -56,6 +68,7 @@ export function AccountRestrictedPage() {
           </div>
         </div>
       </section>
-    </main>
+      </main>
+    </div>
   );
 }
