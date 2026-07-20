@@ -69,7 +69,7 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
         </div>
         <div className="flex flex-wrap gap-2">
           {availableActions(user.status).map((item) => (
-            <button key={item} disabled={isSelf} onClick={() => { setError(null); setAction(item); }} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black capitalize hover:bg-slate-50 disabled:opacity-40">
+            <button key={item} disabled={isSelf || (item === "suspend" && !wallet)} onClick={() => { setError(null); setAction(item); }} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black capitalize hover:bg-slate-50 disabled:opacity-40">
               {item}
             </button>
           ))}
@@ -108,7 +108,7 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
       <Timeline title="Wallet status timeline" empty="No wallet restrictions yet." items={walletHistory} />
 
       {action && (
-        <AccountEnforcementModal action={action} busy={busy} error={error} onClose={() => !busy && setAction(null)} onSubmit={async (data) => {
+        <AccountEnforcementModal action={action} busy={busy} error={error} walletAlreadyLocked={wallet?.walletStatus === "LOCKED"} onClose={() => !busy && setAction(null)} onSubmit={async (data) => {
           setBusy(true);
           setError(null);
           try {

@@ -25,10 +25,8 @@ public class AccountAccessPolicy {
         }
         if (status == UserStatus.BANNED) {
             return isPublicGet(method, path)
-                    || path.equals("/api/v1/me/account-restriction")
-                    || path.startsWith("/api/v1/wallet/me")
-                    || path.startsWith("/api/v1/wallet/withdrawals")
-                    || path.equals("/api/v1/auth/logout");
+                    || (isSafe(method) && path.equals("/api/v1/me/account-restriction"))
+                    || isBannedResolutionAccess(method, path);
         }
         return false;
     }
@@ -46,5 +44,15 @@ public class AccountAccessPolicy {
                 && (path.equals("/api/v1/wallet/withdrawals")
                     || path.matches("/api/v1/wallet/withdrawals/\\d+/cancel")
                     || path.equals("/api/v1/auth/logout"));
+    }
+
+    private boolean isBannedResolutionAccess(String method, String path) {
+        if (isSafe(method)) {
+            return path.equals("/api/v1/wallet/me")
+                    || path.equals("/api/v1/wallet/me/summary")
+                    || path.equals("/api/v1/wallet/me/transactions")
+                    || path.equals("/api/v1/wallet/withdrawals");
+        }
+        return isResolutionMutation(method, path);
     }
 }

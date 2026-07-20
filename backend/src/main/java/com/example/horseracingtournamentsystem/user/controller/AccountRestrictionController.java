@@ -7,6 +7,8 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserStatusHistoryRepository;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletStatus;
 import com.example.horseracingtournamentsystem.wallet.repository.WalletRepository;
+import com.example.horseracingtournamentsystem.wallet.entity.WalletStatusHistory;
+import com.example.horseracingtournamentsystem.wallet.repository.WalletStatusHistoryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
@@ -23,6 +25,7 @@ public class AccountRestrictionController {
     private final UserRepository userRepository;
     private final UserStatusHistoryRepository historyRepository;
     private final WalletRepository walletRepository;
+    private final WalletStatusHistoryRepository walletHistoryRepository;
 
     @GetMapping
     public AccountRestrictionResponse get(Authentication authentication) {
@@ -32,8 +35,13 @@ public class AccountRestrictionController {
                 .findFirst().orElse(null);
         WalletStatus walletStatus = walletRepository.findById(user.getId())
                 .map(wallet -> wallet.getStatus()).orElse(WalletStatus.ACTIVE);
+        WalletStatusHistory walletDecision = walletHistoryRepository
+                .findByUserIdOrderByChangedAtDescIdDesc(user.getId()).stream()
+                .findFirst().orElse(null);
         return new AccountRestrictionResponse(
                 user.getStatus(), latest == null ? null : latest.getPublicReason(),
-                latest == null ? null : latest.getChangedAt(), walletStatus);
+                latest == null ? null : latest.getChangedAt(), walletStatus,
+                walletDecision == null ? null : walletDecision.getPublicReason(),
+                walletDecision == null ? null : walletDecision.getChangedAt());
     }
 }

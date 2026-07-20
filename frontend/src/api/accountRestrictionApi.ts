@@ -6,6 +6,8 @@ export type AccountRestriction = {
   publicReason: string | null;
   effectiveAt: string | null;
   walletStatus: "ACTIVE" | "LOCKED";
+  walletReason: string | null;
+  walletChangedAt: string | null;
 };
 
 export async function getAccountRestriction() {

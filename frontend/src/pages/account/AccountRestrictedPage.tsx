@@ -1,17 +1,26 @@
-import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { getAccountRestriction, type AccountRestriction } from "../../api/accountRestrictionApi";
 import { useClientSession } from "../../hooks/useClientSession";
+import { setClientSession } from "../../utils/authSession";
 
 export function AccountRestrictedPage() {
   const { session, logout } = useClientSession();
+  const location = useLocation();
   const [restriction, setRestriction] = useState<AccountRestriction | null>(null);
 
-  useEffect(() => {
-    if (session?.accountStatus !== "ACTIVE") {
-      void getAccountRestriction().then(setRestriction).catch(() => undefined);
+  const refreshRestriction = useCallback(async () => {
+    if (!session || session.accountStatus === "ACTIVE") return;
+    const data = await getAccountRestriction();
+    setRestriction(data);
+    if (data.accountStatus !== session.accountStatus) {
+      setClientSession(session.accessToken, session.fullName, session.email, data.accountStatus);
     }
-  }, [session?.accountStatus]);
+  }, [session]);
+
+  useEffect(() => {
+    void refreshRestriction().catch(() => undefined);
+  }, [refreshRestriction]);
 
   if (!session) return <Navigate to="/login" replace />;
   if (session.accountStatus === "ACTIVE") return <Navigate to="/" replace />;
@@ -36,9 +45,13 @@ export function AccountRestrictedPage() {
           <div className="rounded-2xl bg-slate-50 p-5">
             <p className="text-sm font-bold text-slate-900">Wallet: {restriction?.walletStatus ?? "Checking…"}</p>
             <p className="mt-2 text-sm text-slate-600">Race settlement and refunds are preserved. A locked wallet cannot start new money movements.</p>
+            {restriction?.walletReason && <p className="mt-3 text-sm font-semibold text-amber-800">{restriction.walletReason}</p>}
+            {restriction?.walletChangedAt && <p className="mt-2 text-xs text-slate-500">Wallet decision {new Date(restriction.walletChangedAt).toLocaleString()}</p>}
           </div>
           <div className="flex flex-wrap gap-3 md:col-span-2">
             <Link to="/wallet" className="rounded-full bg-amber-500 px-5 py-3 text-sm font-black text-slate-950">Wallet & withdrawals</Link>
+            {!banned && <Link to={(location.state as { from?: string } | null)?.from ?? "/"} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700">Return to workspace</Link>}
+            <button onClick={() => void refreshRestriction().catch(() => undefined)} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700">Check current status</button>
             <button onClick={logout} className="rounded-full border border-slate-300 px-5 py-3 text-sm font-bold text-slate-700">Log out</button>
           </div>
         </div>

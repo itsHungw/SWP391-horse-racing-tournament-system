@@ -48,6 +48,7 @@ public class TopUpService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Top-up amount must be between " + props.getMinAmount() + " and " + props.getMaxAmount() + " VND");
         }
+        walletService.requireActiveForUserAction(user);
         String txnRef = generateTxnRef();
         TopUpOrder order = orderRepository.save(TopUpOrder.initiate(user, amount, txnRef));
         return vnPayService.buildPaymentUrl(txnRef, amount, "Wallet top-up #" + order.getId(), ipAddr);

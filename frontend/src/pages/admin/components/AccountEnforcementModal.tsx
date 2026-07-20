@@ -8,16 +8,17 @@ const LABELS: Record<AccountEnforcementAction, string> = {
   reopen: "Reopen for review",
 };
 
-export function AccountEnforcementModal({ action, busy, error, onClose, onSubmit }: {
+export function AccountEnforcementModal({ action, busy, error, walletAlreadyLocked = false, onClose, onSubmit }: {
   action: AccountEnforcementAction;
   busy: boolean;
   error: string | null;
+  walletAlreadyLocked?: boolean;
   onClose: () => void;
   onSubmit: (value: { reason: string; internalNote?: string; lockWallet?: boolean }) => void;
 }) {
   const [reason, setReason] = useState("");
   const [internalNote, setInternalNote] = useState("");
-  const [lockWallet, setLockWallet] = useState(false);
+  const [lockWallet, setLockWallet] = useState(walletAlreadyLocked);
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4" role="dialog" aria-modal="true">
       <form className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl" onSubmit={(event) => {
@@ -30,7 +31,13 @@ export function AccountEnforcementModal({ action, busy, error, onClose, onSubmit
         <textarea required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3" />
         <label className="mt-4 block text-sm font-bold text-slate-700">Internal note (admin only)</label>
         <textarea maxLength={1000} value={internalNote} onChange={(e) => setInternalNote(e.target.value)} className="mt-2 min-h-20 w-full rounded-xl border border-slate-300 p-3" />
-        {action === "suspend" && (
+        {action === "suspend" && walletAlreadyLocked && (
+          <div className="mt-5 rounded-xl border border-orange-300 bg-orange-50 p-4 text-sm text-orange-950">
+            <strong>Withdrawals are already frozen.</strong>
+            <p className="mt-1 text-orange-800">Suspending this account will keep the wallet locked. Restore wallet access separately after the financial review.</p>
+          </div>
+        )}
+        {action === "suspend" && !walletAlreadyLocked && (
           <fieldset className="mt-5">
             <legend className="text-sm font-bold text-slate-700">Financial access</legend>
             <div className="mt-2 space-y-2">

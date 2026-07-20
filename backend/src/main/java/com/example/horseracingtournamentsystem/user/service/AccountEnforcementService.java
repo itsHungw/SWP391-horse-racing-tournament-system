@@ -94,13 +94,12 @@ public class AccountEnforcementService {
     }
 
     private User targetWithRoles(Long userId) {
-        User basic = userRepository.findById(userId)
+        User target = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        if (basic.getDeletedAt() != null) {
+        if (target.getDeletedAt() != null) {
             throw new ResponseStatusException(HttpStatus.GONE, "User has been deleted");
         }
-        return userRepository.findWithUserRolesByEmail(basic.getEmail())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return target;
     }
 
     private User actor(String email) {

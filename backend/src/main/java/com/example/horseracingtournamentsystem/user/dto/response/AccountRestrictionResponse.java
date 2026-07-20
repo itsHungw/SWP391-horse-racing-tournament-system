@@ -8,5 +8,7 @@ public record AccountRestrictionResponse(
         UserStatus accountStatus,
         String publicReason,
         LocalDateTime effectiveAt,
-        WalletStatus walletStatus
+        WalletStatus walletStatus,
+        String walletReason,
+        LocalDateTime walletChangedAt
 ) {}
