@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserStatusHistoryRepository;
 import com.example.horseracingtournamentsystem.wallet.entity.Wallet;
 import com.example.horseracingtournamentsystem.wallet.repository.WalletRepository;
+import com.example.horseracingtournamentsystem.wallet.service.WalletEnforcementService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,7 @@ public class AccountEnforcementService {
     private final UserRepository userRepository;
     private final UserStatusHistoryRepository historyRepository;
     private final WalletRepository walletRepository;
+    private final WalletEnforcementService walletEnforcementService;
 
     @Transactional
     public AdminUserDetailResponse suspend(Long userId, SuspendAccountRequest request, String actorEmail) {
@@ -34,13 +36,11 @@ public class AccountEnforcementService {
         requireStatus(target, UserStatus.ACTIVE, "Only an active account can be suspended");
         protectLastActiveAdmin(target);
 
-        boolean walletLocked = false;
-        if (request.lockWallet()) {
-            Wallet wallet = walletRepository.lockByUserId(target.getId()).orElse(null);
-            if (wallet != null) {
-                wallet.lock();
-                walletLocked = true;
-            }
+        boolean walletLocked = walletIsLocked(target);
+        if (request.lockWallet() && !walletLocked) {
+            walletEnforcementService.lockForSuspension(
+                    target, actor, request.reason(), request.internalNote());
+            walletLocked = true;
         }
         return transition(target, actor, UserStatus.SUSPENDED, request.reason(), request.internalNote(), walletLocked);
     }

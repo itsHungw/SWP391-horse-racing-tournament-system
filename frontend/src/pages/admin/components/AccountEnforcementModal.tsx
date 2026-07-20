@@ -30,7 +30,21 @@ export function AccountEnforcementModal({ action, busy, error, onClose, onSubmit
         <textarea required maxLength={500} value={reason} onChange={(e) => setReason(e.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3" />
         <label className="mt-4 block text-sm font-bold text-slate-700">Internal note (admin only)</label>
         <textarea maxLength={1000} value={internalNote} onChange={(e) => setInternalNote(e.target.value)} className="mt-2 min-h-20 w-full rounded-xl border border-slate-300 p-3" />
-        {action === "suspend" && <label className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-950"><input type="checkbox" checked={lockWallet} onChange={(e) => setLockWallet(e.target.checked)} className="mt-1" /><span><strong>Lock wallet</strong><br />Use only when financial risk exists. Settlement credits and refunds will still be recorded.</span></label>}
+        {action === "suspend" && (
+          <fieldset className="mt-5">
+            <legend className="text-sm font-bold text-slate-700">Financial access</legend>
+            <div className="mt-2 space-y-2">
+              <label className={`flex cursor-pointer gap-3 rounded-xl border p-3 text-sm ${!lockWallet ? "border-emerald-400 bg-emerald-50" : "border-slate-200"}`}>
+                <input type="radio" name="walletAction" checked={!lockWallet} onChange={() => setLockWallet(false)} className="mt-1" />
+                <span><strong>Keep withdrawals available</strong><br /><span className="text-slate-600">Recommended. Betting and top-ups are already blocked; the user can still withdraw eligible funds.</span></span>
+              </label>
+              <label className={`flex cursor-pointer gap-3 rounded-xl border p-3 text-sm ${lockWallet ? "border-orange-400 bg-orange-50" : "border-slate-200"}`}>
+                <input type="radio" name="walletAction" checked={lockWallet} onChange={() => setLockWallet(true)} className="mt-1" />
+                <span><strong>Freeze new withdrawals</strong><br /><span className="text-slate-600">Use for financial risk. New withdrawals stop, while payout and refund credits remain recorded.</span></span>
+              </label>
+            </div>
+          </fieldset>
+        )}
         {error && <p className="mt-4 text-sm font-semibold text-rose-700" role="alert">{error}</p>}
         <div className="mt-6 flex justify-end gap-3">
           <button type="button" onClick={onClose} disabled={busy} className="rounded-full border px-5 py-2 text-sm font-bold">Cancel</button>

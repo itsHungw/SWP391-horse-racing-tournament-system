@@ -67,6 +67,23 @@ export interface AccountTransitionRequest {
   lockWallet?: boolean;
 }
 
+export interface WalletControl {
+  userId: number;
+  walletStatus: "ACTIVE" | "LOCKED";
+  canWithdraw: boolean;
+}
+
+export interface WalletStatusHistoryItem {
+  id: number;
+  oldStatus: "ACTIVE" | "LOCKED";
+  newStatus: "ACTIVE" | "LOCKED";
+  publicReason: string;
+  internalNote?: string;
+  changedById: number;
+  changedByName: string;
+  changedAt: string;
+}
+
 export interface PageResponse<T> {
   content: T[];
   totalPages: number;
