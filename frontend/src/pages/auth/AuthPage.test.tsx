@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { login, register } from "../../api/authApi";
@@ -14,6 +14,11 @@ vi.mock("../../api/authApi", () => ({
 
 const mockedLogin = vi.mocked(login);
 const mockedRegister = vi.mocked(register);
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output aria-label="Current URL">{`${location.pathname}${location.search}${location.hash}`}</output>;
+}
 
 function createAccessTokenWithRoles(roles: string[]) {
   const header = window.btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
@@ -102,6 +107,51 @@ describe("Auth pages", () => {
 
     expect(await screen.findByRole("heading", { name: /admin dashboard/i })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: /^home$/i })).not.toBeInTheDocument();
+  });
+
+  it("returns to the requested internal URL after login", async () => {
+    mockedLogin.mockResolvedValue({
+      accessToken: createAccessTokenWithRoles(["HORSE_OWNER"]),
+      email: "owner@nyra.com",
+      fullName: "Horse Owner",
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/login",
+            state: { returnTo: "/owner/dashboard?tab=entries#history" },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/owner/dashboard"
+            element={
+              <>
+                <h1>Owner dashboard</h1>
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "owner@nyra.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "Password1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /secure login/i }));
+
+    expect(await screen.findByRole("heading", { name: /owner dashboard/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/current url/i)).toHaveTextContent(
+      "/owner/dashboard?tab=entries#history",
+    );
   });
 
   it("connects the NYRA-style register UI to the register API", async () => {

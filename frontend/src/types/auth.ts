@@ -8,10 +8,14 @@ export interface LoginResponse {
   accessToken: string;
   fullName: string;
   email: string;
+  accountStatus?: AccountStatus;
 }
 
 export interface AuthResponse {
   accessToken: string;
   fullName: string;
   email: string;
+  accountStatus?: AccountStatus;
 }
+
+export type AccountStatus = "ACTIVE" | "SUSPENDED" | "BANNED";

@@ -136,3 +136,10 @@ Source mapping:
 - Organizer payout, prize purse escrow, and platform commission are not implemented as accounting workflows.
 - Referee fee terms are not represented as money fields on `referee_contracts`.
 - Admin routes for some tournament operations still exist alongside organizer routes; demos should present organizer routes as the target business workflow.
+
+## 10. Platform Enforcement Versus Tournament Discipline
+
+- Only the platform admin controls global `SUSPENDED` and `BANNED` account states in the managed B2B2C model.
+- Organizer and referee penalties remain scoped to their tournament, registration, assignment, incident, or result workflow.
+- Global suspension does not automatically scratch a horse, disqualify a participant, cancel an assignment, stop an ongoing race, or rewrite a published result.
+- If a competition consequence is required, the authorized organizer/referee must record it as a separate explicit and auditable decision under that tournament's policy.

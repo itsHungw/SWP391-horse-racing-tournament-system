@@ -1,9 +1,12 @@
 export const AUTH_SESSION_CHANGED_EVENT = "auth-session-changed";
 
-let memorySession: { accessToken: string | null; fullName: string | null; email: string | null } = {
+import type { AccountStatus } from "../types/auth";
+
+let memorySession: { accessToken: string | null; fullName: string | null; email: string | null; accountStatus: AccountStatus | null } = {
   accessToken: null,
   fullName: localStorage.getItem("fullName"),
   email: localStorage.getItem("email"),
+  accountStatus: localStorage.getItem("accountStatus") as AccountStatus | null,
 };
 
 type AccessTokenPayload = {
@@ -48,25 +51,27 @@ export function getClientSession() {
   return memorySession;
 }
 
-export function setClientSession(accessToken: string | null, fullName: string | null, email: string | null) {
-  memorySession = { accessToken, fullName, email };
+export function setClientSession(accessToken: string | null, fullName: string | null, email: string | null, accountStatus: AccountStatus = "ACTIVE") {
+  memorySession = { accessToken, fullName, email, accountStatus };
   localStorage.removeItem("accessToken");
   if (fullName) localStorage.setItem("fullName", fullName);
   else localStorage.removeItem("fullName");
   if (email) localStorage.setItem("email", email);
   else localStorage.removeItem("email");
+  localStorage.setItem("accountStatus", accountStatus);
   window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
 }
 
 export function clearClientSession({ notify = true } = {}) {
   const session = getClientSession();
-  const hadSession = Boolean(session.accessToken || session.fullName || session.email);
+  const hadSession = Boolean(session.accessToken || session.fullName || session.email || session.accountStatus);
 
   localStorage.removeItem("accessToken");
   localStorage.removeItem("fullName");
   localStorage.removeItem("email");
+  localStorage.removeItem("accountStatus");
   
-  memorySession = { accessToken: null, fullName: null, email: null };
+  memorySession = { accessToken: null, fullName: null, email: null, accountStatus: null };
 
   if (notify && hadSession) {
     window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
