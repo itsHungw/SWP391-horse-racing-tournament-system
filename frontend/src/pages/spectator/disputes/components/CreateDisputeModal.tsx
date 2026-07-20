@@ -17,13 +17,24 @@ export function CreateDisputeModal({
   onClose,
   onSuccess,
 }: CreateDisputeModalProps) {
-  const [category, setCategory] = useState<DisputeCategory>("FINANCE");
+  const [category, setCategory] = useState<DisputeCategory>(
+    referenceType === 'WALLET_TRANSACTION' ? 'FINANCE' :
+    referenceType === 'RACE_PREDICTION' ? 'PREDICTION' : 'GENERAL'
+  );
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isGlobal = referenceId === 0;
+  
+  const effectiveReferenceType = isGlobal 
+    ? (category === 'FINANCE' ? 'WALLET_TRANSACTION' : category === 'PREDICTION' ? 'RACE_PREDICTION' : 'GENERAL') as DisputeReferenceType
+    : referenceType;
+    
+  const effectiveReferenceId = isGlobal ? 0 : referenceId;
 
   if (!isOpen) return null;
 
@@ -57,8 +68,8 @@ export function CreateDisputeModal({
 
       setSubmitting(true);
       await disputeApi.createSpectatorDispute({
-        referenceType,
-        referenceId,
+        referenceType: effectiveReferenceType,
+        referenceId: effectiveReferenceId,
         category,
         title,
         description,
@@ -89,12 +100,21 @@ export function CreateDisputeModal({
         </div>
 
         <div className="p-6">
-          <div className="mb-6 rounded-lg bg-blue-500/10 p-3 text-sm text-blue-200">
-            <p className="flex items-center gap-2">
-              <AlertCircle size={16} />
-              You are submitting a dispute for {referenceType.replace("_", " ")} #{referenceId}.
-            </p>
-          </div>
+
+          {isGlobal && (
+            <div className="mb-6 rounded-lg bg-blue-500/10 p-3 text-sm text-blue-200">
+              <p className="flex items-start gap-2">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>
+                  {category === 'FINANCE' 
+                    ? "You are submitting a finance-related dispute. Please include transaction details (amount, date, time) in your description."
+                    : category === 'PREDICTION'
+                    ? "You are submitting a prediction dispute. Please include the race name and prediction details in your description."
+                    : "You are submitting a general support ticket."}
+                </span>
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-300">
