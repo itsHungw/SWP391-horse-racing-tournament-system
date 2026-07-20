@@ -121,6 +121,7 @@ Rules:
 - System-originated `BET_PAYOUT`, `BET_REFUND`, and `WITHDRAWAL_REFUND` must still credit a locked wallet and remain in the append-only transaction log.
 - A locked wallet keeps credited money unavailable for withdrawal until an admin unlocks it.
 - Restoring the account does not automatically unlock the wallet; the two reviews may have different conclusions.
+- Wallet lock and unlock remain available as explicit admin decisions outside the account-status transition flow. Both require a reason and immutable audit history.
 
 This requires refining the current wallet-lock rule, which blocks every adjustment. The new rule blocks user-originated operations while allowing idempotent system settlement and refund credits.
 
@@ -166,7 +167,10 @@ Only Platform Admin performs global account and wallet enforcement. Organizer/re
 1. **Suspend account** (`ACTIVE -> SUSPENDED`)
    - Requires a public reason.
    - Accepts an optional internal note.
-   - Allows admin to lock the wallet in the same transaction.
+   - Includes an explicit financial-access choice rather than an ambiguous `Lock wallet` checkbox:
+     - `Keep withdrawals available` (default): account restrictions already block wagers and top-ups; an active wallet may still create eligible withdrawals.
+     - `Freeze new withdrawals`: locks the wallet when financial risk is part of the review.
+   - Explains that both choices continue to record system payout and refund credits.
 2. **Restore account** (`SUSPENDED -> ACTIVE`)
    - Requires a conclusion/reason.
    - Does not unlock the wallet automatically.
@@ -187,7 +191,19 @@ Only Platform Admin performs global account and wallet enforcement. Organizer/re
 - A status change writes audit history in the same database transaction as the user change and optional wallet lock.
 - A notification record is created after a successful decision. Email failure must not roll back the enforcement transaction.
 
-### 7.3 Audit Model
+### 7.3 Independent Wallet Control
+
+The admin user-detail page always shows the current wallet status, independent of account status.
+
+- `ACTIVE` wallet offers `Freeze new withdrawals`.
+- `LOCKED` wallet offers `Restore withdrawals`.
+- Lock and unlock require a public reason and accept an optional internal note.
+- Unlocking a wallet does not restore a suspended or banned account.
+- Restoring an account does not unlock the wallet.
+- Each wallet transition records old/new status, actor, reason, internal note, and timestamp in immutable wallet-status history.
+- When suspension also freezes withdrawals, the account transition, wallet transition, and both audit records commit atomically.
+
+### 7.4 Audit Model
 
 Add `user_status_history` rather than overloading `user_role_history`:
 
@@ -204,6 +220,8 @@ wallet_locked
 ```
 
 `users.status` remains the current state. The history table is immutable audit data.
+
+Independent wallet changes use `wallet_status_history` with `user_id`, old/new wallet status, public reason, internal note, actor, and timestamp. The current state remains in `wallets.status`.
 
 ## 8. Backend Authentication And Authorization
 
@@ -278,6 +296,10 @@ POST /api/v1/admin/users/{id}/restore
 POST /api/v1/admin/users/{id}/ban
 POST /api/v1/admin/users/{id}/reopen
 GET  /api/v1/admin/users/{id}/status-history
+GET  /api/v1/admin/users/{id}/wallet-control
+POST /api/v1/admin/users/{id}/wallet/lock
+POST /api/v1/admin/users/{id}/wallet/unlock
+GET  /api/v1/admin/users/{id}/wallet-status-history
 ```
 
 Suspend request:
@@ -291,6 +313,8 @@ Suspend request:
 ```
 
 Other transition requests contain required `reason` and optional `internalNote`.
+
+The wallet-control response exposes current wallet status and whether a new withdrawal is permitted. Wallet lock/unlock requests contain required `reason` and optional `internalNote`. Internal notes are returned only from admin endpoints.
 
 ### 9.2 Restricted user
 
@@ -453,14 +477,28 @@ The admin user-detail page receives a dedicated Account Enforcement section:
 - Contextual action buttons based on valid transitions.
 - Status history timeline showing actor, time, transition, and public reason.
 - Internal notes visible only inside admin detail/history.
+- User-list status uses one exhaustive mapping rather than a fallback label:
+  - `ACTIVE` -> green `Active`
+  - `PENDING_EMAIL_VERIFY` -> amber `Unverified`
+  - `SUSPENDED` -> orange `Suspended`
+  - `BANNED` -> red `Banned`
+  - `INACTIVE` -> neutral gray `Inactive`
+- The status filter exposes all five values, including `SUSPENDED` and `INACTIVE`.
 
 Modal behavior:
 
-- Suspend modal: required public reason, optional internal note, wallet-lock checkbox.
+- Suspend modal: required public reason, optional internal note, and a `Financial access` choice. `Keep withdrawals available` is selected by default; `Freeze new withdrawals` states the exact impact and is never preselected.
 - Restore modal: required conclusion and explicit note that wallet remains unchanged.
 - Ban modal: danger styling, final reason, typed/explicit confirmation, no direct action from `ACTIVE`.
 - Reopen modal: required reason; explains the result is `SUSPENDED`, not `ACTIVE`.
 - Submit is disabled while pending; API conflict/error remains inside the modal.
+
+The Account Enforcement section contains a separate wallet row:
+
+- Current `Active`/`Locked` wallet badge.
+- Plain-language capability summary, especially withdrawal eligibility and preservation of payout/refund credits.
+- Contextual `Freeze new withdrawals` or `Restore withdrawals` action.
+- Wallet status timeline separated visually from account-status history so admins do not infer that the two states transition together.
 
 ## 14. Route And Page Cleanup
 
