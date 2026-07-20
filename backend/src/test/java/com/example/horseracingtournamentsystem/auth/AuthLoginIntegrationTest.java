@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.example.horseracingtournamentsystem.auth.dto.request.RegisterRequest;
 import com.example.horseracingtournamentsystem.auth.repository.AuthSessionRepository;
+import com.example.horseracingtournamentsystem.auth.repository.EmailVerificationTokenRepository;
 import com.example.horseracingtournamentsystem.auth.service.AuthService;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -46,11 +47,15 @@ class AuthLoginIntegrationTest {
     private AuthSessionRepository authSessionRepository;
 
     @Autowired
+    private EmailVerificationTokenRepository emailVerificationTokenRepository;
+
+    @Autowired
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
         authSessionRepository.deleteAll();
+        emailVerificationTokenRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
         userRepository.deleteAll();

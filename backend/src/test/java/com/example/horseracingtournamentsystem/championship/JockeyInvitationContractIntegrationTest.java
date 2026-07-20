@@ -347,6 +347,11 @@ class JockeyInvitationContractIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(put("/api/v1/admin/tournaments/{id}/status", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "CLOSED_REGISTRATION"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk());
@@ -380,6 +385,11 @@ class JockeyInvitationContractIntegrationTest {
         long contractId = createContract();
         mockMvc.perform(post("/api/v1/jockey/contracts/{id}/accept", contractId)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + jockeyToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/v1/admin/tournaments/{id}/status", tournament.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .param("status", "CLOSED_REGISTRATION"))
                 .andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/admin/championships/{id}/lock-participants", tournament.getId())

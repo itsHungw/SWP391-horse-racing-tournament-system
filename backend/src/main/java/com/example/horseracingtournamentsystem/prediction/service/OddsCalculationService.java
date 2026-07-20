@@ -25,6 +25,7 @@ public class OddsCalculationService {
     private final RaceResultRepository resultRepo;
     private final RacePredictionRepository predictionRepo;
     private final PredictionSettingRepository predictionSettingRepo;
+    private final com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository streakLegRepo;
    
     /**
      * Tỷ lệ hoa hồng mặc định của nhà cái (takeout rate) làm fallback.
@@ -40,10 +41,12 @@ public class OddsCalculationService {
 
     public OddsCalculationService(RaceResultRepository resultRepo, 
                                   RacePredictionRepository predictionRepo,
-                                  PredictionSettingRepository predictionSettingRepo) {
+                                  PredictionSettingRepository predictionSettingRepo,
+                                  com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository streakLegRepo) {
         this.resultRepo = resultRepo;
         this.predictionRepo = predictionRepo;
         this.predictionSettingRepo = predictionSettingRepo;
+        this.streakLegRepo = streakLegRepo;
     }
 
     private double getDisplaySeed() {
@@ -368,6 +371,64 @@ public class OddsCalculationService {
                 pOdds.put(j, odds);
             }
             matrix.put(p.getId(), pOdds);
+        }
+
+        return matrix;
+    }
+
+    public Map<Long, BigDecimal> calculateStreakOddsMatrix(Long raceId, List<RaceParticipant> participants) {
+        int N = participants.size();
+        if (N == 0) return new HashMap<>();
+
+        Map<Long, Double> rawProb = new HashMap<>();
+        double colSum = 0.0;
+
+        // 1. Calculate historical probabilities
+        HorseHistory history = loadHorseHistory(participants);
+        for (RaceParticipant p : participants) {
+            Long horseId = p.getHorse().getId();
+            long totalRaces = history.totalFor(horseId);
+            long winCount = history.positionsFor(horseId).getOrDefault(1, 0L);
+            double prob = (winCount + 1.0) / (totalRaces + N); // Laplace smoothing
+            rawProb.put(p.getId(), prob);
+            colSum += prob;
+        }
+
+        // 2. Lấy thông tin các khoản đặt cược từ Streak
+        List<com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg> activeLegs = streakLegRepo.findActiveLegsByRaceId(raceId);
+        
+        double totalRealBets = 0.0;
+        Map<Long, Double> realBetsHorse = new HashMap<>();
+        for (RaceParticipant p : participants) {
+            realBetsHorse.put(p.getId(), 0.0);
+        }
+
+        for (com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg leg : activeLegs) {
+            if (leg.getPredictedWinner() != null) {
+                // Toàn bộ tiền vé chuỗi được tính vào quỹ đua
+                double wager = leg.getStreakPrediction().getWagerAmount() != null ? leg.getStreakPrediction().getWagerAmount() : 0.0;
+                totalRealBets += wager;
+                
+                if (realBetsHorse.containsKey(leg.getPredictedWinner().getId())) {
+                    realBetsHorse.put(leg.getPredictedWinner().getId(), realBetsHorse.get(leg.getPredictedWinner().getId()) + wager);
+                }
+            }
+        }
+
+        // 3. Tính tỷ lệ cược Pari-mutuel độc lập cho Streak
+        Map<Long, BigDecimal> matrix = new HashMap<>();
+        double seed = getDisplaySeed();
+        double margin = 1.0 - getTakeoutRate().doubleValue();
+
+        for (RaceParticipant p : participants) {
+            double normalizedProb = rawProb.get(p.getId()) / colSum;
+            double flat = (normalizedProb + 1.0 / N) / 2.0;
+            double vHorse = seed * flat;
+
+            double realBetsOnHorse = realBetsHorse.get(p.getId());
+
+            BigDecimal odds = calculateOdds(seed, totalRealBets, margin, vHorse, realBetsOnHorse);
+            matrix.put(p.getId(), odds);
         }
 
         return matrix;

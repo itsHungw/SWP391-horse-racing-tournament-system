@@ -1,7 +1,43 @@
+# Email Verification OTP Redesign Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Redesign the email verification page (`VerifyEmailPage.tsx`) to match the premium, split-screen authentication styling used across the rest of the application, while introducing interactive 6-digit individual input fields and rich animations.
+
+**Architecture:** Refactor `VerifyEmailPage.tsx` using a split-screen grid layout. Implement a 6-box OTP entry system utilizing React refs for auto-focusing/navigation, and synchronize it with a visually hidden (but screen-reader and test-accessible) `sr-only` input to maintain full test compatibility. Apply Framer Motion for slide/fade animations and shake effects.
+
+**Tech Stack:** React, Tailwind CSS (v4), Framer Motion, Lucide React, Vitest.
+
+---
+
+### Task 1: Verify Current Tests & Setup
+
+**Files:**
+- Test: `frontend/src/pages/auth/VerifyEmailPage.test.tsx`
+
+- [ ] **Step 1: Run the current verification tests**
+  Run: `npm run test VerifyEmailPage.test.tsx` inside `frontend` directory.
+  Expected: PASS
+
+---
+
+### Task 2: Redesign Bố cục & Giao diện VerifyEmailPage (Split-Screen & 6 OTP Boxes)
+
+**Files:**
+- Modify: `frontend/src/pages/auth/VerifyEmailPage.tsx`
+
+- [ ] **Step 1: Implement the redesigned code**
+  Replace the entire content of `frontend/src/pages/auth/VerifyEmailPage.tsx` with the following implementation. This includes:
+  1. Split-screen layout (sticky left hero with background image overlay, scrollable right panel for OTP forms).
+  2. 6-digit individual numeric input boxes using React refs.
+  3. `sr-only` input labeled "Verification code" for full accessibility and automated test compatibility.
+  4. Framer Motion wrappers for animations (fade-in, button loading spin, error shake).
+
+```tsx
 import { FormEvent, useEffect, useMemo, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, ArrowRight, ArrowLeft, Loader2, CheckCircle2, AlertCircle, RefreshCw, HelpCircle, ChevronDown } from "lucide-react";
+import { Mail, ArrowRight, Loader2, CheckCircle2, AlertCircle, RefreshCw } from "lucide-react";
 
 import { resendVerificationEmail, verifyEmail } from "../../api/authApi";
 import heroImage from "../../assets/slide.jpg";
@@ -18,10 +54,11 @@ function Notice({ children, tone }: { children: string; tone: NoticeTone }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className={`mt-5 rounded-xl border p-4 text-sm font-semibold flex items-start gap-3 ${isError
-        ? "border-red-200 bg-red-50 text-red-700"
-        : "border-emerald-200 bg-emerald-50 text-emerald-700"
-        }`}
+      className={`mt-5 rounded-xl border p-4 text-sm font-semibold flex items-start gap-3 ${
+        isError
+          ? "border-red-200 bg-red-50 text-red-700"
+          : "border-emerald-200 bg-emerald-50 text-emerald-700"
+      }`}
       role={isError ? "alert" : "status"}
       aria-live={isError ? "assertive" : "polite"}
     >
@@ -35,26 +72,8 @@ function Notice({ children, tone }: { children: string; tone: NoticeTone }) {
   );
 }
 
-const translateApiError = (rawMessage: string): string => {
-  const clean = rawMessage.toUpperCase();
-  if (
-    clean.includes("INVALID_EMAIL_VERIFICATION_TOKEN") ||
-    clean.includes("EXPIRED") ||
-    clean.includes("INVALID")
-  ) {
-    return "Invalid or expired verification code. Please check and try again.";
-  }
-  if (clean.includes("EMAIL_ALREADY_VERIFIED") || clean.includes("ALREADY VERIFIED")) {
-    return "This email has already been verified.";
-  }
-  if (clean.includes("USER_NOT_FOUND") || clean.includes("NOT FOUND")) {
-    return "Account not found. Please return to the registration page.";
-  }
-  return rawMessage;
-};
-
 export function VerifyEmailPage() {
-  useDocumentTitle("Verify Email");
+  useDocumentTitle("Verify Email | EquinePro Elite");
 
   const [email, setEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -65,7 +84,6 @@ export function VerifyEmailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shouldShake, setShouldShake] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
   const hasPendingEmail = email !== "";
   const canVerify = hasPendingEmail && otpCode.length === 6 && !verifying;
@@ -94,7 +112,7 @@ export function VerifyEmailPage() {
     setMessage(null);
     const cleanVal = value.replace(/\D/g, "").slice(0, 6);
     setOtpCode(cleanVal);
-
+    
     // Automatically focus appropriate box when the master hidden value changes (e.g. from tests)
     const nextIdx = Math.min(cleanVal.length, 5);
     inputRefs.current[nextIdx]?.focus();
@@ -106,7 +124,7 @@ export function VerifyEmailPage() {
     const digits = otpCode.split("");
     // Take only the last typed character in case of multiple inputs in one box
     const char = value.slice(-1).replace(/\D/g, "");
-
+    
     digits[index] = char;
     const newOtp = digits.join("").slice(0, 6);
     setOtpCode(newOtp);
@@ -136,7 +154,7 @@ export function VerifyEmailPage() {
     event.preventDefault();
     const pastedData = event.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     setOtpCode(pastedData);
-
+    
     // Focus the appropriate input box
     const focusIdx = Math.min(pastedData.length, 5);
     inputRefs.current[focusIdx]?.focus();
@@ -165,8 +183,7 @@ export function VerifyEmailPage() {
       setVerified(false);
       setShouldShake(true);
       setTimeout(() => setShouldShake(false), 500);
-      const rawError = getApiErrorMessage(err, "Verification code expired or invalid.");
-      setError(translateApiError(rawError));
+      setError(getApiErrorMessage(err, "Verification code expired or invalid."));
     } finally {
       setVerifying(false);
     }
@@ -250,7 +267,13 @@ export function VerifyEmailPage() {
           src={heroImage}
         />
         <div className="absolute inset-0 bg-[#00081e]/30" />
-        <div className="relative z-10 flex min-h-[300px] flex-col justify-end bg-gradient-to-t from-[#00081e] via-[#00081e]/25 to-transparent p-6 sm:p-8 md:p-12 lg:min-h-screen lg:p-16">
+        <div className="relative z-10 flex min-h-[300px] flex-col justify-between p-6 sm:p-8 md:p-12 lg:min-h-screen lg:p-16">
+          <Link
+            to="/"
+            className="inline-flex w-fit items-center border-l-4 border-nyraGold pl-3 text-xs font-black uppercase tracking-[0.22em] text-nyraGold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+          >
+            EquinePro Elite
+          </Link>
           <div className="max-w-2xl pt-10">
             <span className="border-b-2 border-nyraGold pb-1 text-xs font-bold uppercase tracking-[0.2em] text-nyraGold">
               Official Tournament Operations
@@ -345,10 +368,11 @@ export function VerifyEmailPage() {
                     onChange={(e) => handleBoxChange(idx, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(idx, e)}
                     onPaste={handlePaste}
-                    className={`h-14 w-full sm:h-16 text-center font-mono text-2xl font-bold rounded-xl border outline-none transition-all duration-200 ${digit
-                      ? "border-nyraGreen bg-nyraGreen/5 text-nyraDark shadow-sm"
-                      : "border-slate-200 bg-white text-slate-400 focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/10"
-                      }`}
+                    className={`h-14 w-full sm:h-16 text-center font-mono text-2xl font-bold rounded-xl border outline-none transition-all duration-200 ${
+                      digit
+                        ? "border-nyraGreen bg-nyraGreen/5 text-nyraDark shadow-sm"
+                        : "border-slate-200 bg-white text-slate-400 focus:border-nyraGreen focus:ring-2 focus:ring-nyraGreen/10"
+                    }`}
                   />
                 ))}
               </motion.div>
@@ -401,65 +425,6 @@ export function VerifyEmailPage() {
                   <span>{resendLabel}</span>
                 </motion.button>
               </div>
-
-              {/* Help Accordion */}
-              <div className="mt-6 border-t border-slate-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowHelp(!showHelp)}
-                  className="flex w-full items-center justify-between py-2 text-xs font-bold uppercase tracking-wider text-slate-500 hover:text-nyraGreen transition-colors"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <HelpCircle className="h-4 w-4" />
-                    Need help?
-                  </span>
-                  <motion.span
-                    animate={{ rotate: showHelp ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronDown className="h-4 w-4" />
-                  </motion.span>
-                </button>
-
-                <AnimatePresence initial={false}>
-                  {showHelp && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.3, ease: "easeInOut" }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-3 space-y-4 rounded-xl bg-slate-50 p-4 text-xs leading-relaxed text-slate-600 border border-slate-100">
-                        <div>
-                          <p className="font-bold text-slate-950">1. Invalid Code</p>
-                          <p className="mt-1">
-                            Make sure you entered the correct 6-digit code from the latest verification email. Requesting a new code invalidates all previous codes.
-                          </p>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-950">2. Expired Code</p>
-                          <p className="mt-1">
-                            Verification codes are valid for a limited time (e.g., 10 minutes). If your code has expired, click the <strong>Resend code</strong> button above to request a new one.
-                          </p>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-950">3. No Email Received</p>
-                          <p className="mt-1">
-                            Check your spam, promotions, or trash folder. If you still don't see it, wait 1-2 minutes and request a new code.
-                          </p>
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-950">4. Incorrect Email Address</p>
-                          <p className="mt-1">
-                            If the email address shown above is typed incorrectly, click <strong>Back to register</strong> below to register a new account.
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
             </form>
           )}
 
@@ -486,7 +451,7 @@ export function VerifyEmailPage() {
             {verified ? (
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 rounded-xl bg-nyraGreen px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-nyraGreen/30 transition-all duration-200 hover:bg-nyraLightGreen hover:shadow-nyraGreen/40 hover:scale-[1.03] active:scale-95"
+                className="text-xs font-bold uppercase tracking-widest text-nyraGreen hover:text-nyraLightGreen transition flex items-center gap-1.5"
               >
                 <span>Go to Login</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -494,26 +459,23 @@ export function VerifyEmailPage() {
             ) : hasPendingEmail ? (
               <Link
                 to="/login"
-                className="inline-flex items-center gap-2 rounded-xl border border-nyraGreen/40 bg-nyraGreen/8 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-nyraGreen shadow-sm transition-all duration-200 hover:bg-nyraGreen hover:text-white hover:shadow-nyraGreen/30 hover:scale-[1.03] active:scale-95"
+                className="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-700 transition"
               >
-                <ArrowLeft className="h-3.5 w-3.5" />
-                <span>Back to Login</span>
+                Back to login
               </Link>
             ) : (
-              <div className="flex gap-3">
+              <div className="flex gap-6">
                 <Link
                   to="/register"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-slate-600 shadow-sm transition-all duration-200 hover:border-nyraGreen/40 hover:bg-nyraGreen/8 hover:text-nyraGreen hover:scale-[1.03] active:scale-95"
+                  className="text-xs font-bold uppercase tracking-widest text-nyraGreen hover:text-nyraLightGreen transition"
                 >
-                  <ArrowLeft className="h-3.5 w-3.5" />
-                  <span>Back to Register</span>
+                  Back to register
                 </Link>
                 <Link
                   to="/login"
-                  className="inline-flex items-center gap-2 rounded-xl bg-nyraGreen px-5 py-2.5 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-nyraGreen/30 transition-all duration-200 hover:bg-nyraLightGreen hover:shadow-nyraGreen/40 hover:scale-[1.03] active:scale-95"
+                  className="text-xs font-bold uppercase tracking-widest text-slate-500 hover:text-slate-700 transition"
                 >
-                  <span>Back to Login</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  Back to login
                 </Link>
               </div>
             )}
@@ -525,11 +487,11 @@ export function VerifyEmailPage() {
                 V
               </div>
               <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-nyraGreen">
-                Certified Championship Partner
+                Certified Tournament Partner
               </p>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 Tournament</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 EquinePro Elite</span>
             </div>
           </footer>
         </motion.div>
@@ -537,3 +499,27 @@ export function VerifyEmailPage() {
     </div>
   );
 }
+```
+
+---
+
+### Task 3: Verify and Build
+
+**Files:**
+- Test: `frontend/src/pages/auth/VerifyEmailPage.test.tsx`
+
+- [ ] **Step 1: Run verification tests to ensure full compliance**
+  Run: `npm run test VerifyEmailPage.test.tsx` inside `frontend` directory.
+  Expected: PASS
+
+- [ ] **Step 2: Build the project production bundle to ensure no TypeScript or CSS compile errors**
+  Run: `npm run build` inside `frontend` directory.
+  Expected: Success without compile errors
+
+- [ ] **Step 3: Commit all changes**
+  Run:
+  ```bash
+  git add frontend/src/pages/auth/VerifyEmailPage.tsx
+  git commit -m "feat: redesign email OTP verification page with premium split layout and animated 6-digit input"
+  ```
+  Expected: Commit successfully completed

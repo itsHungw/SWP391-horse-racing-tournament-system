@@ -25,6 +25,8 @@ public class AppSecurityProperties {
         private long forgotPasswordWindowSeconds = 900; // limit 900 seconds
         private int resetPasswordLimit = 10; // limit 10 times per 900 seconds
         private long resetPasswordWindowSeconds = 900; // limit 900 seconds
+        private int resendVerificationEmailLimit = 3; // limit 3 times per 300 seconds
+        private long resendVerificationEmailWindowSeconds = 300; // limit 300 seconds
         private long cacheMaximumSize = 50_000;
         private long cacheTtlSeconds = 1_200;
         private List<String> trustedProxies = List.of();
