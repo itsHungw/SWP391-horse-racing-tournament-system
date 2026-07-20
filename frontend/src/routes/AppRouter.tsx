@@ -31,6 +31,7 @@ const ProfilePage = lazy(() => import("../pages/user/ProfilePage").then((m) => (
 const WalletPage = lazy(() => import("../pages/wallet/WalletPage").then((m) => ({ default: m.WalletPage })));
 const MyRoleRequestsPage = lazy(() => import("../pages/user/MyRoleRequestsPage").then((m) => ({ default: m.MyRoleRequestsPage })));
 const SpectatorPredictionsPage = lazy(() => import("../pages/spectator/predictions/SpectatorPredictionsPage").then((m) => ({ default: m.SpectatorPredictionsPage })));
+const SpectatorDisputesPage = lazy(() => import("../pages/spectator/disputes/SpectatorDisputesPage").then((m) => ({ default: m.SpectatorDisputesPage })));
 
 const OrganizerLayout = lazy(() => import("../layouts/OrganizerLayout").then((m) => ({ default: m.OrganizerLayout })));
 const OrganizerRegisterPage = lazy(() => import("../pages/organizer/OrganizerRegisterPage").then((m) => ({ default: m.OrganizerRegisterPage })));
@@ -59,6 +60,7 @@ const AdminBlogFormPage = lazy(() => import("../pages/admin/AdminBlogFormPage").
 const AdminPredictionsWorkspace = lazy(() => import("../pages/admin/AdminPredictionsWorkspace").then((m) => ({ default: m.AdminPredictionsWorkspace })));
 const AdminRacePredictionDetailPage = lazy(() => import("../pages/admin/AdminRacePredictionDetailPage").then((m) => ({ default: m.AdminRacePredictionDetailPage })));
 const AdminWithdrawalsPage = lazy(() => import("../pages/admin/AdminWithdrawalsPage").then((m) => ({ default: m.AdminWithdrawalsPage })));
+const AdminDisputesWorkspace = lazy(() => import("../pages/admin/AdminDisputesWorkspace").then((m) => ({ default: m.AdminDisputesWorkspace })));
 
 const OwnerDashboardPage = lazy(() => import("../pages/owner/OwnerDashboardPage").then((m) => ({ default: m.OwnerDashboardPage })));
 const OwnerHorseProfilePage = lazy(() => import("../pages/owner/OwnerHorseProfilePage").then((m) => ({ default: m.OwnerHorseProfilePage })));
@@ -206,6 +208,7 @@ export function AppRouter() {
         <Route path="spectator" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/dashboard" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/predictions" element={authRoute(<SpectatorPredictionsPage />)} />
+        <Route path="spectator/disputes" element={authRoute(<SpectatorDisputesPage />)} />
 
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
@@ -223,6 +226,7 @@ export function AppRouter() {
         <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
+        <Route path="admin/disputes" element={adminRoute(<AdminDisputesWorkspace />)} />
 
       </Route>
       <Route path="*" element={<NotFoundPage />} />

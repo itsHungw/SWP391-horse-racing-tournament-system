@@ -5,6 +5,8 @@ import { Plus, Minus } from "lucide-react";
 import { ClientHeader } from "../../../components/client/ClientHeader";
 import { ClientFooter } from "../../../components/client/ClientFooter";
 import { useDocumentTitle } from "../../../hooks/useDocumentTitle";
+import { useClientSession } from "../../../hooks/useClientSession";
+import { accountCapabilities } from "../../../utils/accountCapabilities";
 import { useSpectatorPredictions } from "./hooks/useSpectatorPredictions";
 import { RaceTimeline } from "./components/RaceTimeline";
 import { RaceCockpitHeader } from "./components/RaceCockpitHeader";
@@ -13,6 +15,7 @@ import { HeadToHeadSelector } from "./components/HeadToHeadSelector";
 import { RunnerTable } from "./components/RunnerTable";
 import { PredictionSlip } from "./components/PredictionSlip";
 import { StreakSlip } from "./components/StreakSlip";
+import { SuspendedPredictionNotice } from "./components/SuspendedPredictionNotice";
 import { MyPredictionsList } from "./components/MyPredictionsList";
 import { X } from "lucide-react";
 import { spectatorPredictionApi } from "./services/spectatorPredictionApi";
@@ -28,6 +31,12 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 
 export function SpectatorPredictionsPage() {
   useDocumentTitle("Prediction Arena | Night at the Races");
+  const { session } = useClientSession();
+  const capabilities = accountCapabilities(session?.accountStatus ?? "ACTIVE");
+  const predictionReadOnly = !capabilities.canMutateBusinessData;
+  const readOnlyReason = predictionReadOnly
+    ? "Predictions are unavailable while your account is under review."
+    : undefined;
 
   const {
     pointAccount,
@@ -106,6 +115,7 @@ export function SpectatorPredictionsPage() {
   };
 
   const handleSelectRunner = (participantId: number, position?: number) => {
+    if (predictionReadOnly) return;
     if (predType === "EXACT_POSITION") {
       // Toggle if already selected, otherwise select
       if (picks.winnerId === participantId && picks.predictedPosition === position) {
@@ -157,6 +167,7 @@ export function SpectatorPredictionsPage() {
   };
 
   const handleClearSelections = () => {
+    if (predictionReadOnly) return;
     setPicks(EMPTY_PICKS);
   };
 
@@ -179,7 +190,7 @@ export function SpectatorPredictionsPage() {
   };
 
   const handleCockpitConfirm = async () => {
-    if (!cockpitValidation.canConfirm || cockpitSubmitting) return;
+    if (predictionReadOnly || !cockpitValidation.canConfirm || cockpitSubmitting) return;
 
     setCockpitSubmitting(true);
     setCockpitSubmitError(null);
@@ -202,6 +213,7 @@ export function SpectatorPredictionsPage() {
       <ClientHeader />
 
       <main className="mx-auto max-w-[1300px] px-3 py-4 sm:px-4 lg:px-5">
+        {session?.accountStatus === "SUSPENDED" ? <SuspendedPredictionNotice /> : null}
         {!booted && (
           <div className="rounded-lg border border-turf-700 bg-turf-900 p-10 text-center">
             <div className="flex items-center justify-center gap-3 font-data text-sm uppercase tracking-[0.16em] text-ivory-dim">
@@ -259,8 +271,8 @@ export function SpectatorPredictionsPage() {
                           matchups={predictionOptions.h2hMatchups || []}
                           participants={predictionOptions.options}
                           selectedWinnerId={picks.winnerId}
-                          onSelectWinner={(horseId) => setPicks({ ...EMPTY_PICKS, winnerId: horseId })}
-                          disabled={!predictionOptions.predictionOpen || cockpitSubmitting}
+                          onSelectWinner={(horseId) => handleSelectRunner(horseId)}
+                          disabled={predictionReadOnly || !predictionOptions.predictionOpen || cockpitSubmitting}
                         />
                       </div>
                     ) : (
@@ -272,7 +284,7 @@ export function SpectatorPredictionsPage() {
                             ? { ...EMPTY_PICKS, winnerId: streakLegs.find((l) => l.raceId === selectedRace?.raceId)?.predictedWinnerId ?? null }
                             : picks
                         }
-                        disabled={!predictionOptions.predictionOpen || cockpitSubmitting}
+                        disabled={predictionReadOnly || !predictionOptions.predictionOpen || cockpitSubmitting}
                         onSelectRunner={handleSelectRunner}
                       />
                     )}
@@ -287,11 +299,12 @@ export function SpectatorPredictionsPage() {
                             <button
                               key={`${points}-${index}`}
                               type="button"
+                              disabled={predictionReadOnly}
                               onClick={() => {
                                 setWagerAmount(points);
                                 setIsCustomWager(false);
                               }}
-                              className={`grid min-h-10 place-items-center rounded-md border px-2 font-data text-[13px] font-extrabold transition-colors ${!isCustomWager && wagerAmount === points
+                              className={`grid min-h-10 place-items-center rounded-md border px-2 font-data text-[13px] font-extrabold transition-colors disabled:cursor-not-allowed disabled:border-turf-800 disabled:bg-turf-850 disabled:text-ivory-faint ${!isCustomWager && wagerAmount === points
                                   ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
                                   : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
                                 }`}
@@ -301,8 +314,9 @@ export function SpectatorPredictionsPage() {
                           ))}
                           <button
                             type="button"
+                            disabled={predictionReadOnly}
                             onClick={() => setIsCustomWager(true)}
-                            className={`grid min-h-10 place-items-center rounded-md border px-2 text-[13px] font-semibold transition-colors ${isCustomWager
+                            className={`grid min-h-10 place-items-center rounded-md border px-2 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:border-turf-800 disabled:bg-turf-850 disabled:text-ivory-faint ${isCustomWager
                                 ? "border-gold-400 bg-turf-900 text-ivory shadow-[inset_0_0_0_1px_rgba(212,175,55,0.3)]"
                                 : "border-turf-600 bg-turf-850 text-ivory-dim hover:bg-turf-800"
                               }`}
@@ -316,6 +330,7 @@ export function SpectatorPredictionsPage() {
                             <div className="flex items-center overflow-hidden rounded-lg border border-turf-600 bg-turf-900/50 p-1 transition-all focus-within:border-gold-400 focus-within:ring-1 focus-within:ring-gold-400">
                               <button
                                 type="button"
+                                disabled={predictionReadOnly}
                                 onClick={() => setWagerAmount(Math.max(10000, wagerAmount - 10000))}
                                 className="grid h-7 w-7 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
                               >
@@ -326,11 +341,13 @@ export function SpectatorPredictionsPage() {
                                 min={10000}
                                 step={10000}
                                 value={wagerAmount}
+                                disabled={predictionReadOnly}
                                 onChange={(e) => setWagerAmount(Math.max(0, parseInt(e.target.value) || 0))}
                                 className="w-24 bg-transparent px-2 text-center font-data text-[15px] font-bold text-gold-300 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               />
                               <button
                                 type="button"
+                                disabled={predictionReadOnly}
                                 onClick={() => setWagerAmount(wagerAmount + 10000)}
                                 className="grid h-7 w-7 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
                               >
@@ -364,7 +381,10 @@ export function SpectatorPredictionsPage() {
                     onRemoveLeg={(id) => setStreakLegs(prev => prev.filter(l => l.raceId !== id))}
                     onWagerChange={setWagerAmount}
                     onViewAllStreaks={() => setIsAllStreaksModalOpen(true)}
+                    readOnly={predictionReadOnly}
+                    readOnlyReason={readOnlyReason}
                     onSubmit={async () => {
+                      if (predictionReadOnly) return;
                       if (!selectedRace?.tournamentId) throw new Error("Tournament not found");
                       await spectatorPredictionApi.submitStreakPrediction({
                         tournamentId: selectedRace.tournamentId,
@@ -389,6 +409,8 @@ export function SpectatorPredictionsPage() {
                     onClear={handleClearSelections}
                     onConfirm={handleCockpitConfirm}
                     onViewAll={() => setIsAllPredictionsModalOpen(true)}
+                    readOnly={predictionReadOnly}
+                    readOnlyReason={readOnlyReason}
                   />
                 )}
               </div>

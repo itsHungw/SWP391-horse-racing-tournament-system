@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { getAccountRestriction, type AccountRestriction } from "../../api/accountRestrictionApi";
+import { getCurrentAccountAppeal, submitAccountAppeal, type AccountAppeal } from "../../api/accountAppealApi";
 import raceHero from "../../assets/slide.jpg";
 import { useClientSession } from "../../hooks/useClientSession";
 import { setClientSession } from "../../utils/authSession";
+import { AccountAppealCard } from "./AccountAppealCard";
+import { AccountAppealModal } from "./AccountAppealModal";
 
 export function AccountRestrictedPage() {
   const { session, logout } = useClientSession();
   const location = useLocation();
   const [restriction, setRestriction] = useState<AccountRestriction | null>(null);
+  const [appeal, setAppeal] = useState<AccountAppeal | null>(null);
+  const [appealOpen, setAppealOpen] = useState(false);
 
   const refreshRestriction = useCallback(async () => {
     if (!session || session.accountStatus === "ACTIVE") return;
-    const data = await getAccountRestriction();
+    const [data, appealData] = await Promise.all([getAccountRestriction(), getCurrentAccountAppeal()]);
     setRestriction(data);
+    setAppeal(appealData);
     if (data.accountStatus !== session.accountStatus) {
       setClientSession(session.accessToken, session.fullName, session.email, data.accountStatus);
     }
@@ -40,7 +46,8 @@ export function AccountRestrictedPage() {
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:100%_44px]" />
 
       <main className="mx-auto flex min-h-screen max-w-5xl items-center px-5 py-12 md:py-16">
-      <section className="w-full overflow-hidden rounded-[2rem] border border-amber-300/50 bg-white shadow-[0_30px_90px_-30px_rgba(0,0,0,0.75)] ring-1 ring-white/10">
+      <div className="w-full space-y-5">
+      <section className="overflow-hidden rounded-[2rem] border border-amber-300/50 bg-white shadow-[0_30px_90px_-30px_rgba(0,0,0,0.75)] ring-1 ring-white/10">
         <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950 px-7 py-10 text-white md:px-12">
           <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-300">Account status</p>
           <h1 className="mt-3 text-3xl font-black md:text-5xl">{banned ? "Account restricted" : "Account under review"}</h1>
@@ -68,7 +75,10 @@ export function AccountRestrictedPage() {
           </div>
         </div>
       </section>
+      {appeal && <AccountAppealCard data={appeal} onAppeal={() => setAppealOpen(true)} />}
+      </div>
       </main>
+      {appealOpen && appeal && <AccountAppealModal data={appeal} onClose={() => setAppealOpen(false)} onSubmit={async (description, evidenceUrls) => { const result = await submitAccountAppeal(description, evidenceUrls); setAppeal(result); setAppealOpen(false); }} />}
     </div>
   );
 }

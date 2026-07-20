@@ -33,6 +33,16 @@ export interface WalletSummary {
   pendingWithdrawal: number;
 }
 
+export interface TopUpReceipt {
+  txnRef: string;
+  status: "PENDING" | "SUCCESS" | "FAILED";
+  amount: number;
+  balanceAfter: number | null;
+  walletTransactionId: number | null;
+  processedAt: string | null;
+  failureReason: string | null;
+}
+
 export interface BankAccount {
   id: number;
   bankCode: string;

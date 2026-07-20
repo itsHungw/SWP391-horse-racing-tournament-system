@@ -67,6 +67,12 @@ export function AdminOverviewPage() {
             >
               New Tournament
             </a>
+            <a
+              className="flex min-h-11 items-center rounded-lg bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 shadow-sm transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b3193a]"
+              href="/admin/disputes"
+            >
+              Disputes
+            </a>
           </div>
         </div>
 

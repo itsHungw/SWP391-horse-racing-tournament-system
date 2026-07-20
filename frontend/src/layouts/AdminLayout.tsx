@@ -9,6 +9,7 @@ import {
   FileText,
   Building2,
   Wallet,
+  MessageSquareWarning,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -25,6 +26,7 @@ const adminNavGroups = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
       { label: "Championships", href: "/admin/tournaments", icon: Trophy },
+      { label: "Disputes", href: "/admin/disputes", icon: MessageSquareWarning },
     ],
   },
   {

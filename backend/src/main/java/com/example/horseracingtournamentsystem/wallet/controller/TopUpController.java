@@ -5,6 +5,8 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.config.VNPayProperties;
 import com.example.horseracingtournamentsystem.wallet.dto.CreateTopUpRequest;
 import com.example.horseracingtournamentsystem.wallet.dto.CreateTopUpResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.TopUpReceiptResponse;
+import jakarta.validation.constraints.Size;
 import com.example.horseracingtournamentsystem.wallet.service.TopUpService;
 import com.example.horseracingtournamentsystem.wallet.service.TopUpService.TopUpResult;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.view.RedirectView;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @RestController
 @RequestMapping("/api/v1/wallet")
@@ -62,7 +66,19 @@ public class TopUpController {
             case SUCCESS, ALREADY_CONFIRMED -> "success";
             default -> "failed";
         };
-        return new RedirectView(props.getFrontendReturnUrl() + "?topup=" + status);
+        UriComponentsBuilder redirect = UriComponentsBuilder.fromUriString(props.getFrontendReturnUrl())
+                .queryParam("topup", status);
+        String txnRef = params.get("vnp_TxnRef");
+        if (txnRef != null && !txnRef.isBlank()) {
+            redirect.queryParam("txnRef", txnRef);
+        }
+        return new RedirectView(redirect.build().encode().toUriString());
+    }
+
+    @GetMapping("/topups/{txnRef}/receipt")
+    public TopUpReceiptResponse receipt(
+            @PathVariable @Size(max = 100) String txnRef, Authentication authentication) {
+        return topUpService.receipt(currentUser(authentication), txnRef);
     }
 
     private Map<String, String> ipnResponse(TopUpResult result) {
