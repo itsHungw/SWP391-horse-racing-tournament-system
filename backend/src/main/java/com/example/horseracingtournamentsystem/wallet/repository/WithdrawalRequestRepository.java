@@ -4,6 +4,7 @@ import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
 import java.util.List;
 import java.util.Optional;
+import java.time.LocalDateTime;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -22,6 +23,46 @@ public interface WithdrawalRequestRepository
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WithdrawalRequest w join fetch w.user where w.id = :id")
     Optional<WithdrawalRequest> findByIdForUpdate(@Param("id") Long id);
+
+    @Query("""
+            select count(w)
+            from WithdrawalRequest w
+            where w.user.id = :userId
+              and w.requestedAt >= :since
+            """)
+    long countRequestedByUserSince(
+            @Param("userId") Long userId,
+            @Param("since") LocalDateTime since);
+
+    @Query("""
+            select w.amount
+            from WithdrawalRequest w
+            where w.user.id = :userId
+              and w.status in (
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.PAID,
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.REJECTED,
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.CANCELLED
+              )
+              and w.requestedAt >= :since
+            order by w.amount asc
+            """)
+    List<Long> findTerminalAmountsSince(
+            @Param("userId") Long userId,
+            @Param("since") LocalDateTime since);
+
+    @Query("""
+            select case when count(w) > 0 then true else false end
+            from WithdrawalRequest w
+            where w.user.id = :userId
+              and w.status in (
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.REJECTED,
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.CANCELLED
+              )
+              and w.requestedAt >= :since
+            """)
+    boolean existsRecentRejectedOrCancelled(
+            @Param("userId") Long userId,
+            @Param("since") LocalDateTime since);
 
     @org.springframework.data.jpa.repository.Query(
             "select coalesce(sum(w.amount), 0) from WithdrawalRequest w "

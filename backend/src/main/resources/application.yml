@@ -67,6 +67,13 @@ wallet:
   withdrawal:
     enabled: ${WALLET_WITHDRAWAL_ENABLED:true}
     min-amount: ${WALLET_WITHDRAWAL_MIN_AMOUNT:50000}
+    risk:
+      velocity-count: ${WALLET_WITHDRAWAL_RISK_VELOCITY_COUNT:3}
+      velocity-window: ${WALLET_WITHDRAWAL_RISK_VELOCITY_WINDOW:24h}
+      anomaly-multiplier: ${WALLET_WITHDRAWAL_RISK_ANOMALY_MULTIPLIER:2.0}
+      anomaly-min-history: ${WALLET_WITHDRAWAL_RISK_ANOMALY_MIN_HISTORY:3}
+      recent-terminal-window: ${WALLET_WITHDRAWAL_RISK_RECENT_TERMINAL_WINDOW:7d}
+      history-window: ${WALLET_WITHDRAWAL_RISK_HISTORY_WINDOW:90d}
 
 app:
   cors:

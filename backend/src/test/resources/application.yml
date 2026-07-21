@@ -23,6 +23,18 @@ storage:
     region: ap-southeast-1
     presigned-url-ttl: 5m
 
+wallet:
+  withdrawal:
+    enabled: true
+    min-amount: 50000
+    risk:
+      velocity-count: 3
+      velocity-window: 24h
+      anomaly-multiplier: 2.0
+      anomaly-min-history: 3
+      recent-terminal-window: 7d
+      history-window: 90d
+
 app:
   cors:
     allowed-origins: http://localhost:5173
