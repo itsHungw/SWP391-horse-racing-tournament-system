@@ -131,6 +131,10 @@ public class UserService {
             for (Long roleId : request.roleIds()) {
                 Role role = roleRepository.findById(roleId)
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Role not found: " + roleId));
+                if ("ORGANIZER".equals(role.getName())) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "ORGANIZER role is managed through organization approval and cannot be assigned here");
+                }
                 UserRole userRole = UserRole.active(savedUser, role, null);
                 userRoleRepository.save(userRole);
             }
@@ -186,7 +190,14 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "SPECTATOR role status cannot be modified by administrators");
         }
 
-        boolean targetHasBusinessRole = targetRoleNames.contains("ORGANIZER");
+        boolean currentlyHasOrganizer = currentRoleNames.contains("ORGANIZER");
+        boolean targetHasOrganizer = targetRoleNames.contains("ORGANIZER");
+        if (currentlyHasOrganizer != targetHasOrganizer) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "ORGANIZER role is managed through organization approval and cannot be changed here");
+        }
+
+        boolean targetHasBusinessRole = targetHasOrganizer;
         boolean targetHasPersonalRole = targetRoleNames.stream().anyMatch(UserRolePolicy::isPersonalRole);
         if (targetHasBusinessRole && targetHasPersonalRole) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, UserRolePolicy.ORGANIZER_SEPARATION_MESSAGE);

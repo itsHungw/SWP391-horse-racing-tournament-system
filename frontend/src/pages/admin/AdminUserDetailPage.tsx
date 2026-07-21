@@ -18,7 +18,13 @@ const AVAILABLE_ROLES = [
   { name: "HORSE_OWNER", label: "Horse Owner" },
   { name: "JOCKEY", label: "Jockey" },
   { name: "REFEREE", label: "Referee" },
-  { name: "SPECTATOR", label: "Spectator" },
+  {
+    name: "ORGANIZER",
+    label: "Organizer",
+    managed: true,
+    description: "Managed through organization approval",
+  },
+  { name: "SPECTATOR", label: "Spectator", managed: true },
 ];
 
 export function AdminUserDetailPage() {
@@ -309,12 +315,12 @@ export function AdminUserDetailPage() {
                     const isChecked = selectedRoleNames.includes(role.name);
                     return (
                       <label key={role.name} className={`flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 ${
-                        role.name === "SPECTATOR" ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
+                        role.managed ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
                       }`}>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          disabled={role.name === "SPECTATOR"}
+                          disabled={role.managed}
                           onChange={() => {
                             if (isChecked) {
                               setSelectedRoleNames(selectedRoleNames.filter((name) => name !== role.name));
@@ -326,6 +332,9 @@ export function AdminUserDetailPage() {
                         />
                         <div>
                           <span className="font-bold text-slate-800">{role.label}</span>
+                          {role.description && (
+                            <p className="text-xs text-slate-600">{role.description}</p>
+                          )}
                         </div>
                       </label>
                     );
