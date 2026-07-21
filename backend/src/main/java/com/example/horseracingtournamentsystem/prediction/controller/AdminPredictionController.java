@@ -17,6 +17,10 @@ import com.example.horseracingtournamentsystem.prediction.dto.response.AdminAudi
 import com.example.horseracingtournamentsystem.prediction.dto.request.UpdatePredictionSettingRequest;
 import com.example.horseracingtournamentsystem.prediction.dto.response.PredictionSettingResponse;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSetting;
+import com.example.horseracingtournamentsystem.prediction.dto.response.AdminStreakPredictionResponse;
+import com.example.horseracingtournamentsystem.prediction.dto.response.AdminStreakPredictionLegResponse;
+import com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
@@ -39,19 +43,59 @@ public class AdminPredictionController {
     private final RaceResultRepository resultRepo;
     private final PredictionSettingRepository predictionSettingRepo;
     private final UserRepository userRepository;
+    private final StreakPredictionRepository streakRepo;
 
     public AdminPredictionController(PredictionSettlementJobRepository jobRepo,
                                      RacePredictionRepository predictionRepo,
                                      RaceRepository raceRepo,
                                      RaceResultRepository resultRepo,
                                      PredictionSettingRepository predictionSettingRepo,
-                                     UserRepository userRepository) {
+                                     UserRepository userRepository,
+                                     StreakPredictionRepository streakRepo) {
         this.jobRepo = jobRepo;
         this.predictionRepo = predictionRepo;
         this.raceRepo = raceRepo;
         this.resultRepo = resultRepo;
         this.predictionSettingRepo = predictionSettingRepo;
         this.userRepository = userRepository;
+        this.streakRepo = streakRepo;
+    }
+
+    @GetMapping("/streaks")
+    public ResponseEntity<List<AdminStreakPredictionResponse>> getStreaks() {
+        List<StreakPrediction> streaks = streakRepo.findAll();
+        
+        List<AdminStreakPredictionResponse> response = streaks.stream().map(s -> {
+            List<AdminStreakPredictionLegResponse> legs = s.getLegs().stream().map(leg -> 
+                AdminStreakPredictionLegResponse.builder()
+                    .id(leg.getId())
+                    .raceId(leg.getRace().getId())
+                    .raceName(leg.getRace().getName())
+                    .predictedWinnerId(leg.getPredictedWinner().getId())
+                    .predictedWinnerName(leg.getPredictedWinner().getHorse().getName())
+                    .lockedOdds(leg.getLockedOdds())
+                    .status(leg.getStatus())
+                    .build()
+            ).collect(java.util.stream.Collectors.toList());
+
+            return AdminStreakPredictionResponse.builder()
+                .id(s.getId())
+                .spectatorId(s.getSpectator().getId())
+                .spectatorName(s.getSpectator().getFullName())
+                .spectatorEmail(s.getSpectator().getEmail())
+                .tournamentId(s.getTournament().getId())
+                .tournamentName(s.getTournament().getName())
+                .wagerAmount(s.getWagerAmount())
+                .totalOdds(s.getTotalOdds())
+                .status(s.getStatus())
+                .rewardPoints(s.getRewardPoints())
+                .createdAt(s.getCreatedAt())
+                .evaluatedAt(s.getEvaluatedAt())
+                .legs(legs)
+                .build();
+        }).collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/races")
@@ -93,7 +137,7 @@ public class AdminPredictionController {
             s.setPredictionStatus(predStatus);
 
             // Correct/Incorrect totals
-            s.setCorrectWinnerCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
+            s.setCorrectWinnerCount(preds.stream().filter(p -> PredictionStatus.CORRECT == p.getStatus()).count());
             s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
 
             return s;
@@ -136,7 +180,7 @@ public class AdminPredictionController {
         s.setTotalPredictions(preds.size());
         s.setWinnerPickCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType())).count());
 
-        s.setWinnerCorrectCount(preds.stream().filter(p -> RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) && PredictionStatus.CORRECT == p.getStatus()).count());
+        s.setWinnerCorrectCount(preds.stream().filter(p -> PredictionStatus.CORRECT == p.getStatus()).count());
         s.setIncorrectCount(preds.stream().filter(p -> PredictionStatus.INCORRECT == p.getStatus()).count());
         s.setRefundedCount(preds.stream().filter(p -> PredictionStatus.REFUNDED == p.getStatus()).count());
         s.setRewardedPoints(preds.stream().mapToLong(RacePrediction::getRewardPoints).sum());
@@ -183,7 +227,17 @@ public class AdminPredictionController {
             
             // Build selected horse names list
             List<String> selections = new ArrayList<>();
-            selections.add(participantHorseNames.getOrDefault(p.getPredictedWinnerId(), "Unknown (#" + p.getPredictedWinnerId() + ")"));
+            String pickedHorse = participantHorseNames.getOrDefault(p.getPredictedWinnerId(), "Unknown (#" + p.getPredictedWinnerId() + ")");
+            
+            if (RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
+                selections.add(pickedHorse + " (Pos: " + p.getPredictedPosition() + ")");
+            } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                String opponentHorse = participantHorseNames.getOrDefault(p.getMatchupOpponentId(), "Unknown (#" + p.getMatchupOpponentId() + ")");
+                selections.add("Pick: " + pickedHorse);
+                selections.add("vs: " + opponentHorse);
+            } else {
+                selections.add(pickedHorse);
+            }
             r.setSelections(selections);
             r.setEntryCostPoints(p.getEntryCostPoints());
             r.setStatus(p.getStatus());
@@ -206,10 +260,14 @@ public class AdminPredictionController {
                 resCategory = "Incorrect";
             } else if (PredictionStatus.CORRECT == p.getStatus()) {
                 displayStatus = "Won";
-                if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
+                if (RacePrediction.TYPE_EXACT_POSITION.equals(p.getPredictionType())) {
+                    resCategory = "Position Correct";
+                } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
+                    resCategory = "Matchup Correct";
+                } else if (RacePrediction.TYPE_WINNER.equals(p.getPredictionType())) {
                     resCategory = "Winner Correct";
                 } else {
-                    resCategory = p.getRewardPoints() == 30 ? "Exact Top 3" : "Top 3 Any Order";
+                    resCategory = "Correct";
                 }
             }
             
