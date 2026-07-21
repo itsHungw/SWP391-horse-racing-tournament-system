@@ -1,9 +1,9 @@
 import { httpClient } from "./httpClient";
 
 export type DisputeStatus = "OPEN" | "IN_PROGRESS" | "ESCALATED" | "RESOLVED" | "REJECTED";
-export type DisputeRole = "SPECTATOR" | "JOCKEY" | "HORSE_OWNER" | "ADMIN" | "REFEREE" | "ORGANIZER";
+export type DisputeRole = "SPECTATOR" | "JOCKEY" | "HORSE_OWNER" | "ADMIN" | "REFEREE" | "ORGANIZER" | "ACCOUNT_HOLDER";
 export type DisputeCategory = "FINANCE" | "PREDICTION" | "RACING_RULES" | "SYSTEM" | "DISCIPLINARY" | "GENERAL";
-export type DisputeReferenceType = "RACE_PREDICTION" | "WALLET_TRANSACTION" | "RACE_RESULT" | "GENERAL";
+export type DisputeReferenceType = "RACE_PREDICTION" | "WALLET_TRANSACTION" | "RACE_RESULT" | "ACCOUNT_ENFORCEMENT" | "GENERAL";
 export type DisputePriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
 export interface DisputeAttachmentResponse {

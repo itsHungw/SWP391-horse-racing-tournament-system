@@ -3,14 +3,21 @@ import { Link } from "react-router-dom";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { Calendar, ChevronRight, Search, Compass, Settings, Save, Check, RotateCw, ChevronDown, Trophy, Layers } from "lucide-react";
-import { getAdminPredictionRaces, getPredictionSettings, updatePredictionSettings, getAdminStreakPredictions, AdminStreakPrediction } from "../../api/adminPredictionApi";
+import {
+  getAdminPredictionRaces,
+  getPredictionSettings,
+  updatePredictionSettings,
+  getAdminStreakPredictions,
+  type AdminRaceSummary,
+  type AdminStreakPrediction,
+} from "../../api/adminPredictionApi";
 import { formatVnd } from "../spectator/predictions/predictionCockpitUtils";
 import { AdminStreakKanbanBoard } from "./components/AdminStreakKanbanBoard";
 
 export function AdminPredictionsWorkspace() {
   useDocumentTitle("Race predictions monitor");
 
-  const [races, setRaces] = useState<any[]>([]);
+  const [races, setRaces] = useState<AdminRaceSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterChampionship, setFilterChampionship] = useState("");
@@ -172,12 +179,12 @@ export function AdminPredictionsWorkspace() {
     return matchesChampionship && matchesStatus && matchesSearch;
   });
 
-  const groupedRaces = filteredRaces.reduce((acc, race) => {
+  const groupedRaces = filteredRaces.reduce<Record<string, AdminRaceSummary[]>>((acc, race) => {
     const tName = race.tournamentName || "Other Races";
     if (!acc[tName]) acc[tName] = [];
     acc[tName].push(race);
     return acc;
-  }, {} as Record<string, typeof races>);
+  }, {});
 
   const toggleTournament = (tName: string) => {
     setSelectedTournament(tName);

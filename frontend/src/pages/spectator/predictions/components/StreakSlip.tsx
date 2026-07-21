@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History, HelpCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History, HelpCircle, LockKeyhole } from "lucide-react";
 import type { StreakPredictionLeg, StreakPredictionResponse } from "../types/prediction.types";
 import { computeStreakOdds } from "../predictionCockpitUtils";
 import { PayoutReceipt } from "./PayoutReceipt";
@@ -15,6 +15,8 @@ interface StreakSlipProps {
   onWagerChange: (wager: number) => void;
   onSubmit: () => Promise<void>;
   onViewAllStreaks?: () => void;
+  readOnly?: boolean;
+  readOnlyReason?: string;
 }
 
 export function StreakSlip({
@@ -27,6 +29,8 @@ export function StreakSlip({
   onWagerChange,
   onSubmit,
   onViewAllStreaks,
+  readOnly = false,
+  readOnlyReason,
 }: StreakSlipProps) {
   const [activeTab, setActiveTab] = useState<"NEW" | "HISTORY">("NEW");
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +57,7 @@ export function StreakSlip({
   }
 
   const handleConfirm = async () => {
-    if (!canSubmit || submitting) return;
+    if (readOnly || !canSubmit || submitting) return;
     setSubmitting(true);
     setError(null);
     setSuccess(null);
@@ -89,7 +93,7 @@ export function StreakSlip({
           {activeTab === "NEW" && (
             <button
               onClick={onClearAll}
-              disabled={submitting || legs.length === 0}
+              disabled={readOnly || submitting || legs.length === 0}
               className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold text-turf-400 hover:bg-turf-800 hover:text-turf-300 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -132,7 +136,9 @@ export function StreakSlip({
             <div key={leg.raceId} className="relative rounded-lg border border-turf-800 bg-turf-850 p-3 shadow-inner">
               <button
                 onClick={() => onRemoveLeg(leg.raceId)}
-                className="absolute right-2 top-2 text-turf-500 hover:text-red-400"
+                disabled={readOnly}
+                aria-label={`Remove ${leg.horseName} from streak`}
+                className="absolute right-2 top-2 text-turf-500 hover:text-red-400 disabled:cursor-not-allowed disabled:text-turf-700"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -160,6 +166,7 @@ export function StreakSlip({
             <div className="flex items-center overflow-hidden rounded-lg border border-turf-700 bg-turf-900 p-1 transition-all focus-within:border-gold-400 focus-within:ring-1 focus-within:ring-gold-400">
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => onWagerChange(Math.max(10000, wagerAmount - 10000))}
                 className="grid h-8 w-8 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
               >
@@ -170,11 +177,13 @@ export function StreakSlip({
                 min={10000}
                 step={10000}
                 value={wagerAmount}
+                disabled={readOnly}
                 onChange={(e) => onWagerChange(Math.max(0, parseInt(e.target.value) || 0))}
                 className="flex-1 bg-transparent px-2 text-center font-data text-[15px] font-bold text-gold-300 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
               />
               <button
                 type="button"
+                disabled={readOnly}
                 onClick={() => onWagerChange(wagerAmount + 10000)}
                 className="grid h-8 w-8 place-items-center rounded-md bg-turf-800 text-ivory-dim transition-colors hover:bg-turf-700 hover:text-ivory"
               >
@@ -196,11 +205,16 @@ export function StreakSlip({
             onOpenRules={() => setRulesOpen(true)}
           />
 
-          {!canSubmit && (
+          {readOnly ? (
+            <div className="flex items-start justify-center gap-2 rounded-md border border-amber-300/20 bg-amber-300/5 p-3 text-center text-xs font-semibold leading-5 text-amber-200">
+              <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{readOnlyReason ?? "Predictions are currently unavailable."}</span>
+            </div>
+          ) : !canSubmit ? (
             <div className="rounded-md bg-turf-800/50 p-2 text-center text-xs font-semibold text-turf-400">
               {validationMessage}
             </div>
-          )}
+          ) : null}
 
           {error && (
             <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-center text-sm font-semibold text-red-400">
@@ -217,10 +231,16 @@ export function StreakSlip({
 
           <button
             onClick={handleConfirm}
-            disabled={!canSubmit || submitting || !!success}
+            disabled={readOnly || !canSubmit || submitting || !!success}
+            aria-label={readOnly ? "Unavailable while suspended" : "Place Streak Bet"}
             className="group relative w-full overflow-hidden rounded-lg bg-gradient-to-r from-gold-500 to-gold-400 py-3.5 font-display text-sm font-bold uppercase tracking-wider text-turf-900 shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 disabled:opacity-50 disabled:grayscale disabled:shadow-none"
           >
-            {submitting ? (
+            {readOnly ? (
+              <span className="flex items-center justify-center gap-2">
+                <LockKeyhole className="h-4 w-4" aria-hidden="true" />
+                Unavailable while suspended
+              </span>
+            ) : submitting ? (
               <span className="flex items-center justify-center gap-2">
                 <RefreshCw className="h-5 w-5 animate-spin" />
                 Processing...
@@ -228,7 +248,7 @@ export function StreakSlip({
             ) : (
               "Place Streak Bet"
             )}
-            {!submitting && canSubmit && !success && (
+            {!readOnly && !submitting && canSubmit && !success && (
               <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/40 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
             )}
           </button>

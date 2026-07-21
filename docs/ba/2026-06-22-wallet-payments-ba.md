@@ -164,3 +164,11 @@ Source mapping:
 - No organizer prize purse escrow or referee fee payment.
 - No accounting reconciliation reports.
 - Legal review is required before any real-money gambling or withdrawal of betting winnings outside a sandbox/demo context.
+
+## 10. Account Enforcement And Funds
+
+- Account status and wallet status are separate controls. Suspending or banning an account does not transfer, confiscate, or erase its balance.
+- A suspended or banned user may review wallet history and use the withdrawal-resolution flow when the wallet remains active.
+- A locked wallet rejects new user/business movements such as top-up, bet placement, and withdrawal hold.
+- A locked wallet still accepts system credits for `BET_PAYOUT`, `BET_REFUND`, and `WITHDRAWAL_REFUND`. This preserves money already owed while financial review is in progress.
+- Existing withdrawal requests remain reviewable after an account status change.

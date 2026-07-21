@@ -71,11 +71,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           role="banner"
         >
           <div className="flex min-h-20 flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <a className="flex items-center gap-3" href="/admin" aria-label="EquinePro admin home">
+            <a className="flex items-center gap-3" href="/admin" aria-label="Aqueduct admin home">
               <img alt="" className="h-10 w-10 object-contain" src={logo} />
               <div>
                 <p className="text-3xl font-black lowercase italic tracking-tight text-[#b3193a]">
-                  equinepro
+                  aqueduct
                 </p>
                 <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
                   tournament control

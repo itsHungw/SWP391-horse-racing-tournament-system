@@ -6,6 +6,7 @@ import { getAdminUsers, createAdminUser } from "../../api/adminUserApi";
 import { AdminUserDetail } from "../../types/adminUser";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
+import { StatusPill } from "../../components/office/StatusPill";
 
 export function AdminUserListPage() {
   useDocumentTitle("Manage Users");
@@ -173,7 +174,9 @@ export function AdminUserListPage() {
               <option value="">All Statuses</option>
               <option value="ACTIVE">Active</option>
               <option value="PENDING_EMAIL_VERIFY">Pending Verification</option>
-              <option value="LOCKED">Banned</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="BANNED">Banned</option>
+              <option value="INACTIVE">Inactive</option>
             </select>
           </div>
         </div>
@@ -243,17 +246,7 @@ export function AdminUserListPage() {
                         </div>
                       </td>
                       <td className="px-5 py-4">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-bold ${
-                            user.status === "ACTIVE"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : user.status === "LOCKED"
-                              ? "bg-rose-100 text-rose-800"
-                              : "bg-amber-100 text-amber-800"
-                          }`}
-                        >
-                          {user.status === "ACTIVE" ? "Active" : user.status === "LOCKED" ? "Banned" : "Unverified"}
-                        </span>
+                        <StatusPill status={user.status} className="text-xs normal-case tracking-normal" />
                       </td>
                       <td className="px-5 py-4">
                         <Link
@@ -363,6 +356,7 @@ export function AdminUserListPage() {
                   <label className="block text-xs font-bold text-slate-700">Date of Birth</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     value={createForm.dateOfBirth}
                     onChange={(e) => setCreateForm({ ...createForm, dateOfBirth: e.target.value })}
                     className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm focus:outline-none"

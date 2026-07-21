@@ -9,6 +9,7 @@ vi.mock("../../api/walletApi", () => ({
   walletApi: {
     getMyWallet: vi.fn(),
     getSummary: vi.fn(),
+    getTopUpReceipt: vi.fn(),
     getMyTransactions: vi.fn(),
     getMyWithdrawals: vi.fn(),
     createTopUp: vi.fn(),
@@ -28,6 +29,15 @@ describe("WalletPage", () => {
       status: "ACTIVE",
       inPlay: 125000,
       pendingWithdrawal: 150000,
+    });
+    vi.mocked(walletApi.getTopUpReceipt).mockResolvedValue({
+      txnRef: "TOPUP-21",
+      status: "SUCCESS",
+      amount: 50000,
+      balanceAfter: 1295875,
+      walletTransactionId: 5,
+      processedAt: "2026-06-22T09:30:00Z",
+      failureReason: null,
     });
     vi.mocked(walletApi.getMyTransactions).mockResolvedValue([
       {
@@ -133,13 +143,16 @@ describe("WalletPage", () => {
 
   it("renders money states, performance, ledger, and the active payout request", async () => {
     render(
-      <MemoryRouter initialEntries={["/wallet?topup=success"]}>
+      <MemoryRouter initialEntries={["/wallet?topup=success&txnRef=TOPUP-21"]}>
         <WalletPage />
       </MemoryRouter>,
     );
 
     expect(await screen.findByRole("heading", { name: /available balance/i })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/top-up successful/i);
+    const resultDialog = await screen.findByRole("dialog", { name: /top-up result/i });
+    expect(within(resultDialog).getByRole("heading", { name: /money added/i })).toBeInTheDocument();
+    expect(within(resultDialog).getByText("50,000 VND")).toBeInTheDocument();
+    expect(walletApi.getTopUpReceipt).toHaveBeenCalledWith("TOPUP-21");
 
     expect(screen.getByText("125,000 VND")).toBeInTheDocument();
     expect(screen.getAllByText("150,000 VND")[0]).toBeInTheDocument();

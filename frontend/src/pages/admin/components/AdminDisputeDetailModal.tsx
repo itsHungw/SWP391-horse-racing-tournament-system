@@ -1,6 +1,9 @@
-import { useState } from "react";
-import { X, Eye, Save, Clock, AlertCircle, RefreshCw } from "lucide-react";
-import { DisputeResponse, DisputeStatus, DisputePriority } from "../../../api/disputeApi";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { X, Eye, Save, Clock, AlertCircle, RefreshCw, ShieldAlert, ArrowUpRight } from "lucide-react";
+import type { DisputeResponse, DisputeStatus, DisputePriority } from "../../../api/disputeApi";
+import { getAdminUserStatusHistory } from "../../../api/adminUserApi";
+import type { AccountStatusHistoryItem } from "../../../types/adminUser";
 import { resolveFileUrl } from "../../../utils/fileUrl";
 import { AuthenticatedFileLink } from "../../../components/AuthenticatedFileLink";
 import { AuthenticatedImage } from "../../../components/AuthenticatedImage";
@@ -16,6 +19,15 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
   const [priority, setPriority] = useState<DisputePriority>(dispute.priority);
   const [resolutionNote, setResolutionNote] = useState(dispute.resolutionNote || "");
   const [isSaving, setIsSaving] = useState(false);
+  const [enforcementDecision, setEnforcementDecision] = useState<AccountStatusHistoryItem | null>(null);
+
+  const isAccountAppeal = dispute.referenceType === "ACCOUNT_ENFORCEMENT";
+  useEffect(() => {
+    if (!isAccountAppeal) return;
+    void getAdminUserStatusHistory(dispute.requesterId)
+      .then((history) => setEnforcementDecision(history.find((item) => item.id === dispute.referenceId) ?? null))
+      .catch(() => setEnforcementDecision(null));
+  }, [dispute.referenceId, dispute.requesterId, isAccountAppeal]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -71,6 +83,21 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
                 </div>
               </div>
             </div>
+
+            {isAccountAppeal && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <div className="flex items-start gap-3">
+                  <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-800" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-amber-900">Account enforcement</h4>
+                    {enforcementDecision ? (
+                      <><p className="mt-2 text-sm font-bold text-slate-900">{enforcementDecision.oldStatus} → {enforcementDecision.newStatus}</p><p className="mt-1 text-sm leading-5 text-slate-700">{enforcementDecision.publicReason}</p><p className="mt-2 text-xs text-slate-500">Decision made {new Date(enforcementDecision.changedAt).toLocaleString()}</p></>
+                    ) : <p className="mt-2 text-sm text-slate-600">Decision details are unavailable. Open the user record to review its timeline.</p>}
+                    <Link to={`/admin/users/${dispute.requesterId}`} className="mt-3 inline-flex min-h-11 items-center gap-1.5 py-2 text-sm font-black text-red-800 hover:text-red-950">Review account enforcement <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
@@ -126,6 +153,7 @@ export function AdminDisputeDetailModal({ dispute, onClose, onUpdate }: Props) {
 
           {/* Right Column: Actions */}
           <div className="w-full md:w-80 flex flex-col gap-6 border-l border-slate-100 md:pl-8">
+            {isAccountAppeal && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs leading-5 text-red-900"><strong className="block">Appeal outcome only</strong>Changing this dispute status does not restore the account or unlock the wallet. Use the linked user enforcement screen for that separate decision.</div>}
             <div>
               <label className="text-xs font-black uppercase tracking-wider text-slate-500 mb-2 block">
                 Update Status
