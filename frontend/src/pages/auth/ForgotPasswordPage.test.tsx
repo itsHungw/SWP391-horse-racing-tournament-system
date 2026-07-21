@@ -32,7 +32,7 @@ describe("ForgotPasswordPage", () => {
     expect(screen.getByLabelText(/tournament operations introduction/i)).toBeInTheDocument();
     expect(screen.getByText(/official tournament operations/i)).toBeInTheDocument();
     expect(screen.getByText(/the prestige of performance/i)).toBeInTheDocument();
-    expect(screen.getByText(/certified tournament partner/i)).toBeInTheDocument();
+    expect(screen.getByText(/certified championship partner/i)).toBeInTheDocument();
     expect(screen.getByText(/2026 aqueduct/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /back to login/i })).toHaveAttribute("href", "/login");
   });

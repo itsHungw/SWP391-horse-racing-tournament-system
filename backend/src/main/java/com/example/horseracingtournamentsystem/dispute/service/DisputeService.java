@@ -14,6 +14,7 @@ import com.example.horseracingtournamentsystem.organization.entity.Organization;
 import com.example.horseracingtournamentsystem.organization.repository.OrganizationRepository;
 import com.example.horseracingtournamentsystem.tournament.entity.Tournament;
 import com.example.horseracingtournamentsystem.tournament.repository.TournamentRepository;
+import com.example.horseracingtournamentsystem.notification.service.NotificationService;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,7 @@ public class DisputeService {
     private final DisputeRepository disputeRepository;
     private final OrganizationRepository organizationRepository;
     private final TournamentRepository tournamentRepository;
+    private final NotificationService notificationService;
 
     @Transactional
     public DisputeResponse createDispute(User requester, DisputeRole requesterRole, DisputeRole handlerRole, CreateDisputeRequest request) {
@@ -120,6 +122,15 @@ public class DisputeService {
                 dispute.setResolvedAt(java.time.LocalDateTime.now());
             }
             dispute.setHandler(admin);
+            
+            notificationService.notify(
+                    dispute.getRequester(),
+                    "DISPUTE_UPDATED",
+                    "Dispute " + request.getStatus().name(),
+                    "Your dispute '" + dispute.getTitle() + "' has been updated to " + request.getStatus().name() + ".",
+                    "DISPUTE",
+                    dispute.getId()
+            );
         }
 
         Dispute savedDispute = disputeRepository.save(dispute);
