@@ -12,6 +12,10 @@ public record WithdrawalResponse(
         long amount,
         String status,
         String bankInfo,
+        String bankCode,
+        String bankName,
+        String accountHolder,
+        String maskedAccountNumber,
         String reviewNote,
         String reviewedByName,
         LocalDateTime requestedAt,
@@ -29,11 +33,26 @@ public record WithdrawalResponse(
                 request.getAmount(),
                 request.getStatus().name(),
                 request.getBankInfo(),
+                request.getBankCode(),
+                request.getBankName(),
+                request.getAccountHolder(),
+                mask(request.getAccountNumber()),
                 request.getReviewNote(),
                 reviewer != null ? reviewer.getFullName() : null,
                 request.getRequestedAt(),
                 request.getReviewedAt(),
                 request.getPaidAt()
         );
+    }
+
+    private static String mask(String accountNumber) {
+        if (accountNumber == null || accountNumber.isBlank()) {
+            return null;
+        }
+        String normalized = accountNumber.trim();
+        if (normalized.length() <= 4) {
+            return normalized;
+        }
+        return "•••• " + normalized.substring(normalized.length() - 4);
     }
 }

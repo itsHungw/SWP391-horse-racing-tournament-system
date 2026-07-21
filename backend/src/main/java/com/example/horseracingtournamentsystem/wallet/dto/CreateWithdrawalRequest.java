@@ -1,4 +1,10 @@
 package com.example.horseracingtournamentsystem.wallet.dto;
 
-public record CreateWithdrawalRequest(long amount, String bankInfo) {
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+public record CreateWithdrawalRequest(
+        @Positive long amount,
+        @NotNull Long bankAccountId
+) {
 }

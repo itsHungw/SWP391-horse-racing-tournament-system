@@ -4,8 +4,14 @@ import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.entity.UserBankAccount;
+import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionHistory;
+import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionType;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
+import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRiskLevel;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
+import com.example.horseracingtournamentsystem.wallet.repository.UserBankAccountRepository;
+import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalActionHistoryRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +30,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class WithdrawalService {
 
     private final WithdrawalRequestRepository repository;
+    private final UserBankAccountRepository bankAccountRepository;
+    private final WithdrawalActionHistoryRepository actionHistoryRepository;
     private final WalletService walletService;
     private final UserRepository userRepository;
     private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
@@ -35,21 +43,37 @@ public class WithdrawalService {
     private long minAmount;
 
     @Transactional
-    public WithdrawalRequest createRequest(User user, long amount, String bankInfo) {
+    public WithdrawalRequest createRequest(User user, long amount, Long bankAccountId) {
         if (!withdrawalEnabled) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Withdrawals are currently disabled");
         }
         if (amount < minAmount) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Minimum withdrawal is " + minAmount + " VND");
         }
-        if (bankInfo == null || bankInfo.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bank information is required");
-        }
+        UserBankAccount bankAccount = bankAccountRepository.findByIdAndUserId(bankAccountId, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.FORBIDDEN, "Bank account is not available"));
         if (walletService.getBalance(user.getId()) < amount) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient balance");
         }
 
-        WithdrawalRequest request = repository.save(WithdrawalRequest.create(user, amount, bankInfo.trim()));
+        String bankInfo = bankAccount.getAccountHolder()
+                + " · " + bankAccount.getAccountNumber()
+                + " · " + bankAccount.getBankName()
+                + " (" + bankAccount.getBankCode() + ")";
+        WithdrawalRequest request = repository.save(
+                WithdrawalRequest.create(user, amount, bankAccount, bankInfo));
+        actionHistoryRepository.save(WithdrawalActionHistory.record(
+                request,
+                WithdrawalActionType.CREATED,
+                null,
+                WithdrawalStatus.REQUESTED,
+                user,
+                null,
+                null,
+                null,
+                WithdrawalRiskLevel.LOW,
+                "[]"));
         // HOLD: trừ tiền ngay (adjust kiểm tra số dư dưới khóa, chống double-spend).
         walletService.adjust(
                 user, -amount, WalletTransactionType.WITHDRAWAL_HOLD,

@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.dto.CreateWithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalResponse;
 import com.example.horseracingtournamentsystem.wallet.service.WithdrawalService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -28,12 +29,13 @@ public class WithdrawalController {
 
     @PostMapping
     public ResponseEntity<WithdrawalResponse> create(
-            @RequestBody CreateWithdrawalRequest request,
+            @Valid @RequestBody CreateWithdrawalRequest request,
             Authentication authentication
     ) {
         User user = currentUser(authentication);
         return ResponseEntity.ok(
-                WithdrawalResponse.from(withdrawalService.createRequest(user, request.amount(), request.bankInfo())));
+                WithdrawalResponse.from(
+                        withdrawalService.createRequest(user, request.amount(), request.bankAccountId())));
     }
 
     @GetMapping
