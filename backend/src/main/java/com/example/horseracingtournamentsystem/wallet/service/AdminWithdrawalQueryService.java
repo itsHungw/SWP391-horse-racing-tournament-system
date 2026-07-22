@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.wallet.service;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalRowResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalSummaryResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalRiskAssessmentResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalExportFilter;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRiskLevel;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
@@ -65,12 +66,7 @@ public class AdminWithdrawalQueryService {
                 .filter(row -> risk == null || row.risk().level() == risk)
                 .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
         if (riskSort) {
-            matching.sort(Comparator
-                    .comparingInt((AdminWithdrawalRowResponse row) -> riskRank(row.risk().level()))
-                    .reversed()
-                    .thenComparing(
-                            AdminWithdrawalRowResponse::requestedAt,
-                            Comparator.reverseOrder()));
+            matching.sort(riskComparator());
         }
 
         int start = Math.min(boundedPage * boundedSize, matching.size());
@@ -92,6 +88,22 @@ public class AdminWithdrawalQueryService {
                 .filter(level -> level == WithdrawalRiskLevel.HIGH)
                 .count();
         return new AdminWithdrawalSummaryResponse(needsReview, readyToPay, pendingValue, highRisk);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminWithdrawalRowResponse> findAllForExport(WithdrawalExportFilter filter) {
+        String query = filter.query() == null ? "" : filter.query().trim().toLowerCase();
+        List<AdminWithdrawalRowResponse> rows = repository.findAll(
+                        specification(query, filter.status(), filter.from(), filter.to()),
+                        databaseSort(filter.sort())).stream()
+                .map(withdrawal -> AdminWithdrawalRowResponse.from(
+                        withdrawal, riskService.assess(withdrawal)))
+                .filter(row -> filter.risk() == null || row.risk().level() == filter.risk())
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        if (isRiskSort(filter.sort())) {
+            rows.sort(riskComparator());
+        }
+        return List.copyOf(rows);
     }
 
     private Specification<WithdrawalRequest> specification(
@@ -149,6 +161,15 @@ public class AdminWithdrawalQueryService {
             case MEDIUM -> 2;
             case HIGH -> 3;
         };
+    }
+
+    private Comparator<AdminWithdrawalRowResponse> riskComparator() {
+        return Comparator
+                .comparingInt((AdminWithdrawalRowResponse row) -> riskRank(row.risk().level()))
+                .reversed()
+                .thenComparing(
+                        AdminWithdrawalRowResponse::requestedAt,
+                        Comparator.reverseOrder());
     }
 
     private String normalizeSort(String value) {

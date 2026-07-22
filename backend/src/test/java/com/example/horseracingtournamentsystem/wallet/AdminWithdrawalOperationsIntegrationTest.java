@@ -5,6 +5,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
@@ -346,6 +348,33 @@ class AdminWithdrawalOperationsIntegrationTest {
         assertEquals(List.of(WithdrawalActionType.CREATED, WithdrawalActionType.CANCELLED),
                 actions(withdrawal));
         assertEquals(1_000_000L, walletService.getBalance(target.getId()));
+    }
+
+    @Test
+    void exportPreviewAndDownloadUseCurrentFiltersAndNoStoreHeaders() throws Exception {
+        WithdrawalRequest withdrawal = withdrawalService.createRequest(
+                target, 100_000L, bankAccount.getId());
+        withdrawalService.approve(withdrawal.getId(), admin.getEmail(), true, "Reviewed");
+
+        mockMvc.perform(get("/api/v1/admin/withdrawals/export/preview")
+                        .param("status", "APPROVED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.operationsRows").value(1))
+                .andExpect(jsonPath("$.reconciliationRows").value(1))
+                .andExpect(jsonPath("$.containsSensitiveData").value(true));
+
+        mockMvc.perform(get("/api/v1/admin/withdrawals/export")
+                        .param("status", "APPROVED")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string(HttpHeaders.CACHE_CONTROL, "no-store"))
+                .andExpect(header().string(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        org.hamcrest.Matchers.matchesPattern(
+                                "attachment; filename=\\\"withdrawals-.*\\.xlsx\\\"")));
     }
 
     private List<WithdrawalActionType> actions(WithdrawalRequest withdrawal) {

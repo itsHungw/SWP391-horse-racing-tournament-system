@@ -74,6 +74,8 @@ wallet:
       anomaly-min-history: ${WALLET_WITHDRAWAL_RISK_ANOMALY_MIN_HISTORY:3}
       recent-terminal-window: ${WALLET_WITHDRAWAL_RISK_RECENT_TERMINAL_WINDOW:7d}
       history-window: ${WALLET_WITHDRAWAL_RISK_HISTORY_WINDOW:90d}
+    export:
+      max-rows: ${WALLET_WITHDRAWAL_EXPORT_MAX_ROWS:50000}
 
 app:
   cors:

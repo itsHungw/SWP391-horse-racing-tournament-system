@@ -34,6 +34,8 @@ wallet:
       anomaly-min-history: 3
       recent-terminal-window: 7d
       history-window: 90d
+    export:
+      max-rows: 100
 
 app:
   cors:
