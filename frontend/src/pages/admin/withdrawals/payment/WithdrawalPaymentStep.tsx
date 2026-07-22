@@ -102,7 +102,7 @@ export function WithdrawalPaymentStep({
           onClick={() => payment.setRejectOpen(!payment.rejectOpen)}
           className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-bold text-slate-700 hover:text-[#070f4f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#070f4f]"
         >
-          <span className="flex items-center gap-2"><AlertTriangle size={17} aria-hidden="true" /> Cannot complete payment</span>
+          <span className="flex items-center gap-2 text-rose-700"><AlertTriangle size={17} aria-hidden="true" /> Cannot complete payment</span>
           <span aria-hidden="true">{payment.rejectOpen ? "−" : "+"}</span>
         </button>
 
