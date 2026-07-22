@@ -205,12 +205,8 @@ Introduce `withdrawal_payment_evidence` with:
 - `id`
 - unique `withdrawal_id`
 - unique `idempotency_key`
-- `status` (`STAGED`, `FINALIZED`)
 - `transfer_reference`
-- `storage_key`
-- original filename
-- detected MIME type
-- file size
+- private stored-file reference
 - SHA-256 checksum
 - uploaded-by admin ID and name
 - timestamps
@@ -220,13 +216,12 @@ The admin performs one visible **Confirm paid** action. Internally, `WithdrawalP
 1. Validate multipart metadata and authenticated admin.
 2. Reuse the result when the idempotency key has already completed.
 3. Validate file signature, MIME type, and configured size limit.
-4. Store the file in a private staging location and persist `STAGED` evidence.
+4. Store the file through the existing private `stored_files` flow using the `WITHDRAWAL_RECEIPT` category.
 5. Lock and reload the withdrawal.
-6. Validate `APPROVED`, transaction reference, evidence ownership, and mismatch acknowledgement.
-7. Mark the withdrawal paid, append audit history, and finalize evidence in one database transaction.
-8. Keep the already stored private object immutable and referenced by the finalized evidence.
+6. Validate `APPROVED`, transaction reference, file category/uploader, and mismatch acknowledgement.
+7. Create the payment-evidence record, mark the withdrawal paid, and append audit history in one database transaction.
 
-The private object is stored before the final database transaction, so a committed `PAID` state never points to a missing upload. If finalization fails, the request is not paid. Staged evidence is safe to reuse for the same attempt or is removed by a scheduled cleanup after the configured expiry. A cleanup job also removes storage objects whose staging metadata no longer exists.
+The private object and its existing stored-file metadata are created before the final database transaction, so a committed `PAID` state never points to a missing upload. If finalization fails, the request is not paid and the orchestration service deletes the newly stored file. A small scheduled safety-net cleanup removes old `WITHDRAWAL_RECEIPT` files that are not referenced by any payment evidence after the configured expiry.
 
 Concurrent admins cannot produce two finalized evidence records because the withdrawal row is locked and both withdrawal ID and idempotency key are unique.
 
@@ -341,7 +336,7 @@ wallet:
         - image/jpeg
         - image/png
         - image/webp
-      staged-receipt-expiry: 24h
+      orphan-receipt-expiry: 24h
 ```
 
 Spring property startup validation rejects empty templates, unsupported MIME configuration, non-positive sizes, and non-positive expiry.
@@ -381,7 +376,7 @@ User-visible text stays in frontend presentation constants/components. Business 
 - Receipt upload failure: retain local file and OCR state; retry with the same idempotency key.
 - Database conflict: reload authoritative detail without duplicating evidence or payment.
 - Lost success response: retry returns the existing `PAID` result.
-- Stale staged evidence: scheduled cleanup removes it after configured expiry.
+- Unreferenced private receipt: immediate best-effort deletion plus scheduled cleanup after configured expiry.
 - Completed payment: QR and payment actions are disabled.
 
 ## 16. Testing Strategy
@@ -395,7 +390,7 @@ User-visible text stays in frontend presentation constants/components. Business 
 - Multipart content, signature, size, and private-storage tests.
 - Idempotent retry and lost-response behavior.
 - Two-admin concurrency behavior.
-- Evidence uniqueness and staged cleanup.
+- Evidence uniqueness and orphan-receipt cleanup.
 - Receipt authorization: admin allowed, user forbidden.
 - Requested and approved rejection both refund exactly once.
 - Paid requests cannot reject or refund.
