@@ -322,6 +322,33 @@ class AdminWithdrawalOperationsIntegrationTest {
     }
 
     @Test
+    void exposesPaymentInstructionOnlyAfterApproval() throws Exception {
+        UserBankAccount trustedAccount = bankAccountRepository.save(UserBankAccount.create(
+                target,
+                bankDirectoryRepository.findByCodeIgnoreCaseAndActiveTrue("VCB").orElseThrow(),
+                "1122334455",
+                "WITHDRAWAL TARGET",
+                "VietQR"));
+        WithdrawalRequest withdrawal = withdrawalService.createRequest(
+                target, 250_000L, trustedAccount.getId());
+
+        mockMvc.perform(get("/api/v1/admin/withdrawals/{id}", withdrawal.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paymentInstruction").doesNotExist());
+
+        mockMvc.perform(post("/api/v1/admin/withdrawals/{id}/approve", withdrawal.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"riskAcknowledged\":true,\"internalNote\":\"Reviewed\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.paymentInstruction.available").value(true))
+                .andExpect(jsonPath("$.paymentInstruction.payload").isNotEmpty())
+                .andExpect(jsonPath("$.paymentInstruction.transferContent")
+                        .value(org.hamcrest.Matchers.matchesPattern("WD\\d{6,}")));
+    }
+
+    @Test
     void markPaidRequiresTransferReferenceAndPreservesApprover() throws Exception {
         WithdrawalRequest withdrawal = withdrawalService.createRequest(
                 target, 100_000L, bankAccount.getId());

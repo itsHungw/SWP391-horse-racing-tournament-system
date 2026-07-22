@@ -23,6 +23,7 @@ public class AdminWithdrawalReviewService {
     private final WithdrawalActionHistoryRepository actionHistoryRepository;
     private final WalletRepository walletRepository;
     private final WithdrawalRiskAssessmentService riskService;
+    private final VietQrService vietQrService;
 
     @Transactional(readOnly = true)
     public AdminWithdrawalReviewResponse get(Long id) {
@@ -68,7 +69,10 @@ public class AdminWithdrawalReviewService {
                 riskService.assess(withdrawal),
                 aggregates(userId),
                 recent,
-                actions);
+                actions,
+                withdrawal.getStatus() == WithdrawalStatus.APPROVED
+                        ? vietQrService.instructionFor(withdrawal)
+                        : null);
     }
 
     private AdminWithdrawalReviewResponse.Aggregates aggregates(Long userId) {
