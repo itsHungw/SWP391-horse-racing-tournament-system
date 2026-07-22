@@ -200,16 +200,14 @@ The original receipt is sent only to this application's private backend storage 
 
 ## 9. Payment Evidence and Idempotency
 
-Introduce `withdrawal_payment_evidence` with:
+Because a withdrawal can have exactly one successful payment receipt, keep the payment reference on `withdrawal_requests` instead of introducing a one-to-one evidence entity. Add:
 
-- `id`
-- unique `withdrawal_id`
-- unique `idempotency_key`
+- unique nullable `payment_idempotency_key`
 - `transfer_reference`
-- private stored-file reference
-- SHA-256 checksum
-- uploaded-by admin ID and name
-- timestamps
+- private `payment_receipt_filename` referencing the existing `stored_files` metadata
+- `payment_receipt_checksum`
+
+Uploader identity, original filename, MIME type, file size, and upload timestamp remain in the existing private `stored_files` record. The mark-paid action history already records the payment actor, reference, and timestamp.
 
 The admin performs one visible **Confirm paid** action. Internally, `WithdrawalPaymentService` performs:
 
@@ -219,11 +217,11 @@ The admin performs one visible **Confirm paid** action. Internally, `WithdrawalP
 4. Store the file through the existing private `stored_files` flow using the `WITHDRAWAL_RECEIPT` category.
 5. Lock and reload the withdrawal.
 6. Validate `APPROVED`, transaction reference, file category/uploader, and mismatch acknowledgement.
-7. Create the payment-evidence record, mark the withdrawal paid, and append audit history in one database transaction.
+7. Attach the private receipt filename/checksum, mark the withdrawal paid, and append audit history in one database transaction.
 
-The private object and its existing stored-file metadata are created before the final database transaction, so a committed `PAID` state never points to a missing upload. If finalization fails, the request is not paid and the orchestration service deletes the newly stored file. A small scheduled safety-net cleanup removes old `WITHDRAWAL_RECEIPT` files that are not referenced by any payment evidence after the configured expiry.
+The private object and its existing stored-file metadata are created before the final database transaction, so a committed `PAID` state never points to a missing upload. If finalization fails, the request is not paid and the orchestration service deletes the newly stored file. A small scheduled safety-net cleanup removes old `WITHDRAWAL_RECEIPT` files that are not referenced by any withdrawal after the configured expiry.
 
-Concurrent admins cannot produce two finalized evidence records because the withdrawal row is locked and both withdrawal ID and idempotency key are unique.
+Concurrent admins cannot attach two receipts because the withdrawal row is locked and the idempotency key is unique.
 
 ## 10. Backend Structure
 
@@ -240,11 +238,9 @@ wallet/
     ReceiptStorageService
   repository/
     WithdrawalRequestRepository
-    WithdrawalPaymentEvidenceRepository
     BankDirectoryRepository
   entity/
     WithdrawalRequest
-    WithdrawalPaymentEvidence
     BankDirectory
   dto/
     payment request and response records
@@ -360,7 +356,7 @@ User-visible text stays in frontend presentation constants/components. Business 
 - Sanitize filenames and never use them as storage paths.
 - Store checksums and bounded metadata only.
 - Do not log account numbers, QR payloads, receipt contents, or storage keys.
-- Audit admin identity, withdrawal ID, action, evidence ID, and outcome.
+- Audit admin identity, withdrawal ID, action, private receipt filename, and outcome without logging file contents or storage keys.
 - Keep full bank details out of list endpoints.
 - Render OCR text as plain text; never inject extracted HTML.
 - Apply `no-store` to QR/payment detail and receipt responses.
@@ -390,7 +386,7 @@ User-visible text stays in frontend presentation constants/components. Business 
 - Multipart content, signature, size, and private-storage tests.
 - Idempotent retry and lost-response behavior.
 - Two-admin concurrency behavior.
-- Evidence uniqueness and orphan-receipt cleanup.
+- Receipt/idempotency uniqueness and orphan-receipt cleanup.
 - Receipt authorization: admin allowed, user forbidden.
 - Requested and approved rejection both refund exactly once.
 - Paid requests cannot reject or refund.
@@ -417,7 +413,7 @@ OCR fixtures use synthetic receipts with no real bank-account or personal data.
 - Add the bank directory and seed a versioned supported-bank dataset.
 - Add nullable bank-directory/BIN fields to existing accounts and withdrawal snapshots.
 - Backfill normalized known codes; leave unknown legacy records manual-transfer capable.
-- Add the payment-evidence table without changing existing paid records.
+- Add nullable payment receipt/reference/idempotency columns to withdrawals without changing existing paid records.
 - Existing `PAID` withdrawals remain readable without evidence and are labelled legacy evidence in admin review.
 - Existing Excel export remains available and includes transaction references as before.
 
@@ -428,7 +424,7 @@ OCR fixtures use synthetic receipts with no real bank-account or personal data.
 - Desktop can scan; mobile can download the same QR image.
 - Receipt OCR runs locally and suggests a transaction reference without making payment decisions.
 - Confirm paid requires private receipt evidence and a verified/corrected transaction reference.
-- Retrying after a network failure cannot create a duplicate payment or evidence record.
+- Retrying after a network failure cannot create a duplicate payment or receipt link.
 - Reject from any permitted unpaid state refunds held funds exactly once.
 - Users cannot access receipt evidence.
 - Unsupported legacy bank data has a clear manual-transfer fallback.
