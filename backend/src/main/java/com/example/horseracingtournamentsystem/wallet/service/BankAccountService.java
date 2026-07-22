@@ -2,7 +2,9 @@ package com.example.horseracingtournamentsystem.wallet.service;
 
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.wallet.dto.CreateBankAccountRequest;
+import com.example.horseracingtournamentsystem.wallet.entity.BankDirectory;
 import com.example.horseracingtournamentsystem.wallet.entity.UserBankAccount;
+import com.example.horseracingtournamentsystem.wallet.repository.BankDirectoryRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.UserBankAccountRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,7 @@ public class BankAccountService {
     private static final int MAX_ACCOUNTS = 10;
 
     private final UserBankAccountRepository repository;
+    private final BankDirectoryRepository bankDirectoryRepository;
 
     @Transactional(readOnly = true)
     public List<UserBankAccount> listMine(Long userId) {
@@ -27,13 +30,15 @@ public class BankAccountService {
     @Transactional
     public UserBankAccount add(User user, CreateBankAccountRequest request) {
         String bankCode = trimmed(request.bankCode());
-        String bankName = trimmed(request.bankName());
         String accountNumber = request.accountNumber() == null ? "" : request.accountNumber().replaceAll("\\s", "");
         String accountHolder = trimmed(request.accountHolder());
 
-        if (bankCode.isEmpty() || bankName.isEmpty()) {
+        if (bankCode.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bank is required");
         }
+        BankDirectory bank = bankDirectoryRepository.findByCodeIgnoreCaseAndActiveTrue(bankCode)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Bank is not supported"));
         if (accountNumber.length() < 6) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid account number");
         }
@@ -46,7 +51,12 @@ public class BankAccountService {
 
         String label = request.label() == null || request.label().isBlank() ? null : request.label().trim();
         return repository.save(UserBankAccount.create(
-                user, bankCode, bankName, accountNumber, accountHolder.toUpperCase(), label));
+                user, bank, accountNumber, accountHolder.toUpperCase(), label));
+    }
+
+    @Transactional(readOnly = true)
+    public List<BankDirectory> listActiveBanks() {
+        return bankDirectoryRepository.findByActiveTrueOrderByDisplayNameAsc();
     }
 
     @Transactional

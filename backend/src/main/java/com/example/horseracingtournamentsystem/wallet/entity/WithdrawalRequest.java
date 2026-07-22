@@ -58,6 +58,9 @@ public class WithdrawalRequest {
     @Column(name = "bank_name", length = 100)
     private String bankName;
 
+    @Column(name = "bank_bin", length = 12)
+    private String bankBin;
+
     @Column(name = "account_number", length = 40)
     private String accountNumber;
 
@@ -104,6 +107,7 @@ public class WithdrawalRequest {
         request.bankAccount = bankAccount;
         request.bankCode = bankAccount.getBankCode();
         request.bankName = bankAccount.getBankName();
+        request.bankBin = bankAccount.getBankBin();
         request.accountNumber = bankAccount.getAccountNumber();
         request.accountHolder = bankAccount.getAccountHolder();
         return request;

@@ -25,6 +25,7 @@ import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
 import com.example.horseracingtournamentsystem.wallet.repository.UserBankAccountRepository;
+import com.example.horseracingtournamentsystem.wallet.repository.BankDirectoryRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalActionHistoryRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
 import com.example.horseracingtournamentsystem.wallet.service.WalletService;
@@ -52,6 +53,7 @@ class AdminWithdrawalOperationsIntegrationTest {
     @Autowired RoleRepository roleRepository;
     @Autowired UserRoleRepository userRoleRepository;
     @Autowired UserBankAccountRepository bankAccountRepository;
+    @Autowired BankDirectoryRepository bankDirectoryRepository;
     @Autowired WithdrawalRequestRepository withdrawalRepository;
     @Autowired WithdrawalActionHistoryRepository actionHistoryRepository;
     @Autowired WalletService walletService;
@@ -69,6 +71,11 @@ class AdminWithdrawalOperationsIntegrationTest {
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
+        jdbcTemplate.update("""
+                insert into bank_directory
+                    (code, bin, display_name, qr_supported, active, directory_version)
+                values ('VCB', '970436', 'Vietcombank', true, true, 1)
+                """);
         admin = activeUser("Withdrawal Admin", "withdrawal-admin@example.com");
         secondAdmin = activeUser("Payout Admin", "payout-admin@example.com");
         target = activeUser("Withdrawal Target", "withdrawal-target@example.com");
@@ -139,6 +146,54 @@ class AdminWithdrawalOperationsIntegrationTest {
                 .findByWithdrawalIdOrderByCreatedAtAscIdAsc(created.getId());
         assertEquals(List.of(WithdrawalActionType.CREATED),
                 history.stream().map(WithdrawalActionHistory::getAction).toList());
+    }
+
+    @Test
+    void listsTrustedBanksAndSnapshotsBinFromBankCode() throws Exception {
+        mockMvc.perform(get("/api/v1/wallet/bank-accounts/directory")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].code").value("VCB"))
+                .andExpect(jsonPath("$[0].bin").value("970436"));
+
+        String accountJson = mockMvc.perform(post("/api/v1/wallet/bank-accounts")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"bankCode":"VCB","accountNumber":"1122334455",
+                                 "accountHolder":"MAI TRAN","label":"Payout"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bankName").value("Vietcombank"))
+                .andExpect(jsonPath("$.bankBin").value("970436"))
+                .andReturn().getResponse().getContentAsString();
+
+        long accountId = tools.jackson.databind.json.JsonMapper.builder().build()
+                .readTree(accountJson).get("id").asLong();
+        mockMvc.perform(post("/api/v1/wallet/withdrawals")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":250000,\"bankAccountId\":" + accountId + "}"))
+                .andExpect(status().isOk());
+
+        assertEquals("970436", withdrawalRepository
+                .findByUserIdOrderByRequestedAtDesc(target.getId()).getFirst().getBankBin());
+    }
+
+    @Test
+    void rejectsUnknownBankCode() throws Exception {
+        long accountCount = bankAccountRepository.countByUserId(target.getId());
+
+        mockMvc.perform(post("/api/v1/wallet/bank-accounts")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"bankCode":"UNKNOWN","accountNumber":"1122334455",
+                                 "accountHolder":"MAI TRAN","label":"Payout"}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertEquals(accountCount, bankAccountRepository.countByUserId(target.getId()));
     }
 
     @Test

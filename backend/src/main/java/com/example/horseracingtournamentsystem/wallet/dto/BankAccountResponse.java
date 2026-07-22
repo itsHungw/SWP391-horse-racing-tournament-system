@@ -6,6 +6,7 @@ public record BankAccountResponse(
         Long id,
         String bankCode,
         String bankName,
+        String bankBin,
         String accountNumber,
         String accountHolder,
         String label
@@ -15,6 +16,7 @@ public record BankAccountResponse(
                 account.getId(),
                 account.getBankCode(),
                 account.getBankName(),
+                account.getBankBin(),
                 account.getAccountNumber(),
                 account.getAccountHolder(),
                 account.getLabel()

@@ -3,7 +3,9 @@ package com.example.horseracingtournamentsystem.wallet.controller;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.dto.BankAccountResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.BankDirectoryResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.CreateBankAccountRequest;
+import jakarta.validation.Valid;
 import com.example.horseracingtournamentsystem.wallet.service.BankAccountService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,9 +36,16 @@ public class BankAccountController {
                 bankAccountService.listMine(user.getId()).stream().map(BankAccountResponse::from).toList());
     }
 
+    @GetMapping("/directory")
+    public ResponseEntity<List<BankDirectoryResponse>> directory() {
+        return ResponseEntity.ok(bankAccountService.listActiveBanks().stream()
+                .map(BankDirectoryResponse::from)
+                .toList());
+    }
+
     @PostMapping
     public ResponseEntity<BankAccountResponse> add(
-            @RequestBody CreateBankAccountRequest request,
+            @Valid @RequestBody CreateBankAccountRequest request,
             Authentication authentication
     ) {
         User user = currentUser(authentication);
