@@ -1,7 +1,7 @@
 # Admin Withdrawal Direct Payment Design
 
 **Date:** 2026-07-23
-**Status:** Approved in brainstorming; awaiting written-spec review
+**Status:** Approved
 **Scope:** Extend the existing admin withdrawal review modal into a complete, single-session payment workflow with VietQR, private receipt evidence, and client-side OCR.
 
 ## 1. Context
@@ -86,6 +86,8 @@ The payment step displays:
 The transfer content follows a configurable template and defaults to `WD{withdrawalId}` with a normalized, bank-safe output such as `WD000123`.
 
 The admin performs the transfer in their banking application, returns to the still-open modal, chooses a receipt image, reviews OCR output, and selects **Confirm paid**.
+
+The previous list-level quick-approve shortcut is removed. Approval now always happens in review detail because the next payment step, QR, and receipt evidence belong to the same continuously open modal.
 
 ### 5.3 Receipt interaction
 
