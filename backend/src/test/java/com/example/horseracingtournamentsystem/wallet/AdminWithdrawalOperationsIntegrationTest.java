@@ -455,7 +455,8 @@ class AdminWithdrawalOperationsIntegrationTest {
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.operationsRows").value(1))
-                .andExpect(jsonPath("$.reconciliationRows").value(1))
+                .andExpect(jsonPath("$.paymentQueueRows").value(1))
+                .andExpect(jsonPath("$.paidReconciliationRows").value(0))
                 .andExpect(jsonPath("$.containsSensitiveData").value(true));
 
         mockMvc.perform(get("/api/v1/admin/withdrawals/export")

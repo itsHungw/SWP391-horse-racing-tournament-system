@@ -142,7 +142,8 @@ describe("AdminWithdrawalsPage", () => {
     vi.mocked(adminWalletApi.getReview).mockResolvedValue(review);
     vi.mocked(adminWalletApi.getExportPreview).mockResolvedValue({
       operationsRows: 2,
-      reconciliationRows: 1,
+      paymentQueueRows: 1,
+      paidReconciliationRows: 0,
       containsSensitiveData: true,
     });
     vi.mocked(adminWalletApi.downloadExport).mockResolvedValue({
@@ -228,7 +229,7 @@ describe("AdminWithdrawalsPage", () => {
     expect(adminWalletApi.getReview).not.toHaveBeenCalled();
   });
 
-  it("previews and confirms a sensitive two-sheet export", async () => {
+  it("previews and confirms a sensitive three-sheet export", async () => {
     render(
       <MemoryRouter initialEntries={["/admin/withdrawals?status=APPROVED&from=2026-07-01"]}>
         <AdminWithdrawalsPage />
@@ -236,6 +237,9 @@ describe("AdminWithdrawalsPage", () => {
     );
     fireEvent.click(await screen.findByRole("button", { name: /export excel/i }));
 
+    expect(await screen.findByText("Payment queue")).toBeInTheDocument();
+    expect(screen.getByText("Paid reconciliation")).toBeInTheDocument();
+    expect(screen.getByText("Operations archive")).toBeInTheDocument();
     expect(await screen.findByText(/contains full bank account details/i)).toBeInTheDocument();
     expect(adminWalletApi.getExportPreview).toHaveBeenCalledWith(
       expect.objectContaining({ status: "APPROVED", from: "2026-07-01" }),

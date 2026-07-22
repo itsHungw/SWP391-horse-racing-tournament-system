@@ -248,7 +248,8 @@ export interface ConfirmWithdrawalPayment {
 
 export interface WithdrawalExportPreview {
   operationsRows: number;
-  reconciliationRows: number;
+  paymentQueueRows: number;
+  paidReconciliationRows: number;
   containsSensitiveData: boolean;
 }
 

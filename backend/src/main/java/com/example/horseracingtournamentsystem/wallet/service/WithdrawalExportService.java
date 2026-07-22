@@ -56,11 +56,17 @@ public class WithdrawalExportService {
     @Transactional(readOnly = true)
     public WithdrawalExportPreviewResponse preview(WithdrawalExportFilter filter) {
         List<AdminWithdrawalRowResponse> rows = queryService.findAllForExport(filter);
-        int reconciliationRows = (int) rows.stream()
-                .filter(row -> RECONCILIATION_STATUSES.contains(row.status()))
+        int paymentQueueRows = (int) rows.stream()
+                .filter(row -> row.status() == WithdrawalStatus.APPROVED)
+                .count();
+        int paidReconciliationRows = (int) rows.stream()
+                .filter(row -> row.status() == WithdrawalStatus.PAID)
                 .count();
         return new WithdrawalExportPreviewResponse(
-                rows.size(), reconciliationRows, reconciliationRows > 0);
+                rows.size(),
+                paymentQueueRows,
+                paidReconciliationRows,
+                paymentQueueRows + paidReconciliationRows > 0);
     }
 
     @Transactional
