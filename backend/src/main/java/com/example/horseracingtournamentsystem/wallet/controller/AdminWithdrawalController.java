@@ -5,7 +5,6 @@ import com.example.horseracingtournamentsystem.wallet.dto.ApproveWithdrawalReque
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalRowResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalReviewResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalSummaryResponse;
-import com.example.horseracingtournamentsystem.wallet.dto.MarkWithdrawalPaidRequest;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalExportFilter;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalExportPreviewResponse;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -16,6 +15,7 @@ import com.example.horseracingtournamentsystem.wallet.service.WithdrawalService;
 import com.example.horseracingtournamentsystem.wallet.service.AdminWithdrawalQueryService;
 import com.example.horseracingtournamentsystem.wallet.service.AdminWithdrawalReviewService;
 import com.example.horseracingtournamentsystem.wallet.service.WithdrawalExportService;
+import com.example.horseracingtournamentsystem.wallet.service.WithdrawalPaymentService;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
@@ -32,9 +32,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
@@ -47,6 +49,7 @@ public class AdminWithdrawalController {
     private final AdminWithdrawalQueryService queryService;
     private final AdminWithdrawalReviewService reviewService;
     private final WithdrawalExportService exportService;
+    private final WithdrawalPaymentService paymentService;
     private final UserRepository userRepository;
 
     @GetMapping
@@ -139,15 +142,24 @@ public class AdminWithdrawalController {
         return ResponseEntity.ok(reviewService.get(id));
     }
 
-    @PostMapping("/{id}/mark-paid")
+    @PostMapping(value = "/{id}/mark-paid", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AdminWithdrawalReviewResponse> markPaid(
             @PathVariable Long id,
-            @Valid @RequestBody MarkWithdrawalPaidRequest request,
+            @RequestParam String transferReference,
+            @RequestParam(defaultValue = "") String internalNote,
+            @RequestParam(defaultValue = "false") boolean mismatchAcknowledged,
+            @RequestParam String idempotencyKey,
+            @RequestPart("receipt") MultipartFile receipt,
             Authentication authentication
     ) {
-        withdrawalService.markPaid(
-                id, authentication.getName(), request.transferReference(), request.internalNote());
-        return ResponseEntity.ok(reviewService.get(id));
+        return ResponseEntity.ok(paymentService.confirm(
+                id,
+                authentication.getName(),
+                transferReference,
+                internalNote,
+                mismatchAcknowledged,
+                idempotencyKey,
+                receipt));
     }
 
     private User currentAdmin(Authentication authentication) {

@@ -18,6 +18,7 @@ public record WithdrawalResponse(
         String maskedAccountNumber,
         String reviewNote,
         String reviewedByName,
+        String transferReference,
         LocalDateTime requestedAt,
         LocalDateTime reviewedAt,
         LocalDateTime paidAt
@@ -39,6 +40,7 @@ public record WithdrawalResponse(
                 mask(request.getAccountNumber()),
                 request.getReviewNote(),
                 reviewer != null ? reviewer.getFullName() : null,
+                request.getTransferReference(),
                 request.getRequestedAt(),
                 request.getReviewedAt(),
                 request.getPaidAt()

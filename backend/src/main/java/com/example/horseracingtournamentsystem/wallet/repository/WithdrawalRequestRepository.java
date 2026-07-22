@@ -23,6 +23,8 @@ public interface WithdrawalRequestRepository
 
     List<WithdrawalRequest> findAllByOrderByRequestedAtDesc();
 
+    Optional<WithdrawalRequest> findByPaymentIdempotencyKey(String paymentIdempotencyKey);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WithdrawalRequest w join fetch w.user where w.id = :id")
     Optional<WithdrawalRequest> findByIdForUpdate(@Param("id") Long id);

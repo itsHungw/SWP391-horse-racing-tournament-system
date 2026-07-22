@@ -180,13 +180,28 @@ public class WithdrawalService {
             Long id,
             String reviewerEmail,
             String transferReference,
-            String internalNote
+            String internalNote,
+            String receiptFilename,
+            String receiptChecksum,
+            String idempotencyKey
     ) {
         WithdrawalRequest request = getForUpdate(id);
+        if (idempotencyKey.equals(request.getPaymentIdempotencyKey())) {
+            return request;
+        }
+        if (request.getPaymentIdempotencyKey() != null
+                || request.getStatus() != WithdrawalStatus.APPROVED) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT, "Withdrawal payment state changed");
+        }
         User actor = reviewer(reviewerEmail);
         WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
         WithdrawalStatus oldStatus = request.getStatus();
-        request.markPaid();
+        request.markPaid(
+                transferReference,
+                receiptFilename,
+                receiptChecksum,
+                idempotencyKey);
         recordAction(
                 request, WithdrawalActionType.MARKED_PAID, oldStatus, actor,
                 null, internalNote, transferReference, risk);
@@ -201,10 +216,6 @@ public class WithdrawalService {
         );
         
         return request;
-    }
-
-    public WithdrawalRequest markPaid(Long id, String reviewerEmail) {
-        return markPaid(id, reviewerEmail, "LEGACY-" + id, "Paid through legacy service call");
     }
 
     @Transactional

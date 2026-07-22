@@ -87,6 +87,18 @@ public class WithdrawalRequest {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "transfer_reference", length = 120)
+    private String transferReference;
+
+    @Column(name = "payment_receipt_filename", length = 120)
+    private String paymentReceiptFilename;
+
+    @Column(name = "payment_receipt_checksum", length = 64)
+    private String paymentReceiptChecksum;
+
+    @Column(name = "payment_idempotency_key", unique = true, length = 36)
+    private String paymentIdempotencyKey;
+
     public static WithdrawalRequest create(User user, long amount, String bankInfo) {
         WithdrawalRequest request = new WithdrawalRequest();
         request.user = user;
@@ -130,9 +142,18 @@ public class WithdrawalRequest {
         this.reviewedAt = LocalDateTime.now();
     }
 
-    public void markPaid() {
+    public void markPaid(
+            String transferReference,
+            String receiptFilename,
+            String receiptChecksum,
+            String idempotencyKey
+    ) {
         ensureStatus(WithdrawalStatus.APPROVED);
         this.status = WithdrawalStatus.PAID;
+        this.transferReference = transferReference;
+        this.paymentReceiptFilename = receiptFilename;
+        this.paymentReceiptChecksum = receiptChecksum;
+        this.paymentIdempotencyKey = idempotencyKey;
         this.paidAt = LocalDateTime.now();
     }
 

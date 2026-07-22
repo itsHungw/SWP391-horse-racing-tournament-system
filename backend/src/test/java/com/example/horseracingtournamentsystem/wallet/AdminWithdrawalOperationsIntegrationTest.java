@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.wallet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -9,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.filestorage.ObjectStorage;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.Role;
@@ -31,7 +33,9 @@ import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalReque
 import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.wallet.service.WithdrawalService;
 import java.util.List;
+import java.util.Base64;
 import java.util.Set;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,6 +45,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -58,6 +64,7 @@ class AdminWithdrawalOperationsIntegrationTest {
     @Autowired WithdrawalActionHistoryRepository actionHistoryRepository;
     @Autowired WalletService walletService;
     @Autowired WithdrawalService withdrawalService;
+    @MockitoBean ObjectStorage objectStorage;
 
     private User admin;
     private User secondAdmin;
@@ -360,17 +367,22 @@ class AdminWithdrawalOperationsIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("APPROVED"));
 
-        mockMvc.perform(post("/api/v1/admin/withdrawals/{id}/mark-paid", withdrawal.getId())
+        MockMultipartFile receipt = new MockMultipartFile(
+                "receipt", "receipt.png", MediaType.IMAGE_PNG_VALUE, syntheticPng());
+        mockMvc.perform(multipart("/api/v1/admin/withdrawals/{id}/mark-paid", withdrawal.getId())
+                        .file(receipt)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + secondAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"transferReference\":\"\",\"internalNote\":\"Transferred\"}"))
+                        .param("transferReference", "")
+                        .param("internalNote", "Transferred")
+                        .param("idempotencyKey", UUID.randomUUID().toString()))
                 .andExpect(status().isBadRequest());
 
-        mockMvc.perform(post("/api/v1/admin/withdrawals/{id}/mark-paid", withdrawal.getId())
+        mockMvc.perform(multipart("/api/v1/admin/withdrawals/{id}/mark-paid", withdrawal.getId())
+                        .file(receipt)
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + secondAdminToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"transferReference\":\"BANK-20260721-001\","
-                                + "\"internalNote\":\"Transferred\"}"))
+                        .param("transferReference", "BANK-20260721-001")
+                        .param("internalNote", "Transferred")
+                        .param("idempotencyKey", UUID.randomUUID().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
@@ -471,5 +483,10 @@ class AdminWithdrawalOperationsIntegrationTest {
         user.verifyEmail();
         userRepository.save(user);
         return user;
+    }
+
+    private byte[] syntheticPng() {
+        return Base64.getDecoder().decode(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z6l8AAAAASUVORK5CYII=");
     }
 }

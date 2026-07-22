@@ -22,7 +22,8 @@ public record AdminWithdrawalReviewResponse(
         Aggregates aggregates,
         List<RecentWithdrawal> recentWithdrawals,
         List<Action> actions,
-        WithdrawalPaymentInstructionResponse paymentInstruction
+        WithdrawalPaymentInstructionResponse paymentInstruction,
+        WithdrawalPaymentEvidenceResponse paymentEvidence
 ) {
     public record UserContext(
             Long id,

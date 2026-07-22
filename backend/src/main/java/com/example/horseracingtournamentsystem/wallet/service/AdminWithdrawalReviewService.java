@@ -1,6 +1,7 @@
 package com.example.horseracingtournamentsystem.wallet.service;
 
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalReviewResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalPaymentEvidenceResponse;
 import com.example.horseracingtournamentsystem.wallet.entity.Wallet;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionHistory;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
@@ -72,7 +73,19 @@ public class AdminWithdrawalReviewService {
                 actions,
                 withdrawal.getStatus() == WithdrawalStatus.APPROVED
                         ? vietQrService.instructionFor(withdrawal)
-                        : null);
+                        : null,
+                paymentEvidence(withdrawal));
+    }
+
+    private WithdrawalPaymentEvidenceResponse paymentEvidence(WithdrawalRequest withdrawal) {
+        if (withdrawal.getPaymentReceiptFilename() == null) {
+            return null;
+        }
+        return new WithdrawalPaymentEvidenceResponse(
+                withdrawal.getTransferReference(),
+                "/api/v1/files/private/" + withdrawal.getPaymentReceiptFilename(),
+                withdrawal.getPaymentReceiptChecksum(),
+                withdrawal.getPaidAt());
     }
 
     private AdminWithdrawalReviewResponse.Aggregates aggregates(Long userId) {
