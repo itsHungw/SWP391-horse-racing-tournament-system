@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
 import java.util.List;
 import java.util.Optional;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -63,6 +64,20 @@ public interface WithdrawalRequestRepository
     boolean existsRecentRejectedOrCancelled(
             @Param("userId") Long userId,
             @Param("since") LocalDateTime since);
+
+    long countByStatus(WithdrawalStatus status);
+
+    List<WithdrawalRequest> findByStatusInOrderByRequestedAtDesc(Collection<WithdrawalStatus> statuses);
+
+    @Query("""
+            select coalesce(sum(w.amount), 0)
+            from WithdrawalRequest w
+            where w.status in (
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.REQUESTED,
+                com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.APPROVED
+            )
+            """)
+    long sumPendingAmount();
 
     @org.springframework.data.jpa.repository.Query(
             "select coalesce(sum(w.amount), 0) from WithdrawalRequest w "

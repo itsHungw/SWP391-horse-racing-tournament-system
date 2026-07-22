@@ -8,7 +8,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.horseracingtournamentsystem.security.JwtService;
 import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.entity.Role;
+import com.example.horseracingtournamentsystem.user.entity.UserRole;
+import com.example.horseracingtournamentsystem.user.repository.RoleRepository;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
+import com.example.horseracingtournamentsystem.user.repository.UserRoleRepository;
 import com.example.horseracingtournamentsystem.wallet.entity.UserBankAccount;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionHistory;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionType;
@@ -41,6 +45,8 @@ class AdminWithdrawalOperationsIntegrationTest {
     @Autowired JwtService jwtService;
     @Autowired JdbcTemplate jdbcTemplate;
     @Autowired UserRepository userRepository;
+    @Autowired RoleRepository roleRepository;
+    @Autowired UserRoleRepository userRoleRepository;
     @Autowired UserBankAccountRepository bankAccountRepository;
     @Autowired WithdrawalRequestRepository withdrawalRepository;
     @Autowired WithdrawalActionHistoryRepository actionHistoryRepository;
@@ -51,18 +57,24 @@ class AdminWithdrawalOperationsIntegrationTest {
     private UserBankAccount bankAccount;
     private UserBankAccount otherUsersBank;
     private String targetToken;
+    private String adminToken;
 
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
         admin = activeUser("Withdrawal Admin", "withdrawal-admin@example.com");
         target = activeUser("Withdrawal Target", "withdrawal-target@example.com");
+        Role adminRole = roleRepository.save(Role.of("ADMIN", "Administrator"));
+        Role spectatorRole = roleRepository.save(Role.of("SPECTATOR", "Spectator"));
+        userRoleRepository.save(UserRole.active(admin, adminRole, admin));
+        userRoleRepository.save(UserRole.active(target, spectatorRole, admin));
         bankAccount = bankAccountRepository.save(UserBankAccount.create(
                 target, "TEST", "Test Bank", "0123456789", "WITHDRAWAL TARGET", "Primary"));
         User otherUser = activeUser("Other User", "other-user@example.com");
         otherUsersBank = bankAccountRepository.save(UserBankAccount.create(
                 otherUser, "OTHER", "Other Bank", "9988776655", "OTHER USER", "Primary"));
         targetToken = jwtService.generateToken(target.getEmail(), Set.of("SPECTATOR"));
+        adminToken = jwtService.generateToken(admin.getEmail(), Set.of("ADMIN"));
         walletService.adjust(
                 target,
                 1_000_000L,
@@ -109,7 +121,7 @@ class AdminWithdrawalOperationsIntegrationTest {
                 .andExpect(jsonPath("$.bankCode").value("TEST"))
                 .andExpect(jsonPath("$.bankInfo").value(
                         "WITHDRAWAL TARGET \u00b7 0123456789 \u00b7 Test Bank (TEST)"))
-                .andExpect(jsonPath("$.maskedAccountNumber").value("•••• 6789"));
+                .andExpect(jsonPath("$.maskedAccountNumber").value("\u2022\u2022\u2022\u2022 6789"));
 
         WithdrawalRequest created = withdrawalRepository
                 .findByUserIdOrderByRequestedAtDesc(target.getId()).getFirst();
@@ -128,9 +140,90 @@ class AdminWithdrawalOperationsIntegrationTest {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void adminSearchesAndPagesMaskedWithdrawalRows() throws Exception {
+        bankAccountRepository.save(UserBankAccount.create(
+                otherUsersBank.getUser(), "TEST", "Test Bank", "0123456789", "OTHER USER", "Shared"));
+        withdrawalRepository.save(WithdrawalRequest.create(
+                target, 250_000L, bankAccount,
+                "WITHDRAWAL TARGET · 0123456789 · Test Bank (TEST)"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/admin/withdrawals")
+                        .param("query", "withdrawal-target@example.com")
+                        .param("status", "REQUESTED")
+                        .param("risk", "HIGH")
+                        .param("sort", "amount,desc")
+                        .param("page", "0")
+                        .param("size", "20")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].maskedAccountNumber").value("\u2022\u2022\u2022\u2022 6789"))
+                .andExpect(jsonPath("$.content[0].risk.level").value("HIGH"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void summaryReturnsGlobalOperationalMetrics() throws Exception {
+        WithdrawalRequest requested = withdrawalRepository.save(WithdrawalRequest.create(
+                target, 200_000L, bankAccount,
+                "WITHDRAWAL TARGET · 0123456789 · Test Bank (TEST)"));
+        WithdrawalRequest approved = withdrawalRepository.save(WithdrawalRequest.create(
+                target, 300_000L, bankAccount,
+                "WITHDRAWAL TARGET · 0123456789 · Test Bank (TEST)"));
+        approved.approve(admin);
+        withdrawalRepository.save(approved);
+
+        User restricted = activeUser("Restricted User", "restricted-user@example.com");
+        restricted.suspend();
+        userRepository.save(restricted);
+        UserBankAccount restrictedBank = bankAccountRepository.save(UserBankAccount.create(
+                restricted, "SAFE", "Safe Bank", "555566667777", "RESTRICTED USER", "Primary"));
+        withdrawalRepository.save(WithdrawalRequest.create(
+                restricted, 250_000L, restrictedBank,
+                "RESTRICTED USER · 555566667777 · Safe Bank (SAFE)"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/admin/withdrawals/summary")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.needsReview").value(2))
+                .andExpect(jsonPath("$.readyToPay").value(1))
+                .andExpect(jsonPath("$.pendingValue").value(750_000))
+                .andExpect(jsonPath("$.highRisk").value(1));
+    }
+
+    @Test
+    void riskSortPlacesHighestRiskFirst() throws Exception {
+        User lowRiskUser = activeUser("Low Risk User", "low-risk@example.com");
+        UserBankAccount lowRiskBank = bankAccountRepository.save(UserBankAccount.create(
+                lowRiskUser, "LOW", "Low Risk Bank", "111122223333", "LOW RISK USER", "Primary"));
+        withdrawalRepository.save(WithdrawalRequest.create(
+                lowRiskUser, 100_000L, lowRiskBank,
+                "LOW RISK USER · 111122223333 · Low Risk Bank (LOW)"));
+
+        User highRiskUser = activeUser("High Risk User", "high-risk@example.com");
+        highRiskUser.suspend();
+        userRepository.save(highRiskUser);
+        UserBankAccount highRiskBank = bankAccountRepository.save(UserBankAccount.create(
+                highRiskUser, "HIGH", "High Risk Bank", "999900001111", "HIGH RISK USER", "Primary"));
+        withdrawalRepository.save(WithdrawalRequest.create(
+                highRiskUser, 100_000L, highRiskBank,
+                "HIGH RISK USER · 999900001111 · High Risk Bank (HIGH)"));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/admin/withdrawals")
+                        .param("sort", "risk_desc")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].risk.level").value("HIGH"))
+                .andExpect(jsonPath("$.content[1].risk.level").value("LOW"));
+    }
+
     private User activeUser(String name, String email) {
         User user = userRepository.save(User.pending(name, email, "hash"));
         user.verifyEmail();
-        return userRepository.save(user);
+        userRepository.save(user);
+        return user;
     }
 }

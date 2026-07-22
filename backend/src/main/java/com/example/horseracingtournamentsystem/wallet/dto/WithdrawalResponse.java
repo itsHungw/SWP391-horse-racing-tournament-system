@@ -53,6 +53,6 @@ public record WithdrawalResponse(
         if (normalized.length() <= 4) {
             return normalized;
         }
-        return "•••• " + normalized.substring(normalized.length() - 4);
+        return "\u2022\u2022\u2022\u2022 " + normalized.substring(normalized.length() - 4);
     }
 }
