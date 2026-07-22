@@ -62,9 +62,164 @@ export interface Withdrawal {
   amount: number;
   status: WithdrawalStatus;
   bankInfo: string;
+  bankCode?: string | null;
+  bankName?: string | null;
+  accountHolder?: string | null;
+  maskedAccountNumber?: string | null;
   reviewNote: string | null;
   reviewedByName: string | null;
   requestedAt: string;
   reviewedAt: string | null;
   paidAt: string | null;
+}
+
+export type WithdrawalRiskLevel = "LOW" | "MEDIUM" | "HIGH";
+export type WithdrawalSort = "newest" | "oldest" | "amount_desc" | "risk_desc";
+
+export interface WithdrawalAdminFilters {
+  query?: string;
+  status?: WithdrawalStatus;
+  risk?: WithdrawalRiskLevel;
+  from?: string;
+  to?: string;
+  sort?: WithdrawalSort;
+  page: number;
+  size: number;
+}
+
+export type WithdrawalExportFilters = Omit<WithdrawalAdminFilters, "page" | "size">;
+
+export interface PageResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+export interface WithdrawalRiskFinding {
+  code: string;
+  severity: WithdrawalRiskLevel;
+  title: string;
+  explanation: string;
+  evidence: string;
+  suggestedCheck: string;
+}
+
+export interface WithdrawalRiskAssessment {
+  level: WithdrawalRiskLevel;
+  findings: WithdrawalRiskFinding[];
+  contextMarkers: string[];
+}
+
+export interface AdminWithdrawalRow {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  amount: number;
+  status: WithdrawalStatus;
+  bankCode: string | null;
+  bankName: string | null;
+  accountHolder: string | null;
+  maskedAccountNumber: string;
+  risk: WithdrawalRiskAssessment;
+  requestedAt: string;
+}
+
+export interface AdminWithdrawalSummary {
+  needsReview: number;
+  readyToPay: number;
+  pendingValue: number;
+  highRisk: number;
+}
+
+export type WithdrawalUserStatus =
+  | "ACTIVE"
+  | "PENDING_EMAIL_VERIFY"
+  | "SUSPENDED"
+  | "INACTIVE"
+  | "BANNED";
+
+export interface AdminWithdrawalAction {
+  id: number;
+  action: "CREATED" | "APPROVED" | "REJECTED" | "MARKED_PAID" | "CANCELLED";
+  oldStatus: WithdrawalStatus | null;
+  newStatus: WithdrawalStatus;
+  actorId: number;
+  actorName: string;
+  publicReason: string | null;
+  internalNote: string | null;
+  transferReference: string | null;
+  riskLevel: WithdrawalRiskLevel;
+  createdAt: string;
+}
+
+export interface AdminWithdrawalReview {
+  id: number;
+  amount: number;
+  status: WithdrawalStatus;
+  requestedAt: string;
+  reviewedAt: string | null;
+  paidAt: string | null;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    status: WithdrawalUserStatus;
+    createdAt: string;
+  };
+  wallet: {
+    balance: number;
+    status: WalletStatus | null;
+  };
+  destination: {
+    bankCode: string | null;
+    bankName: string | null;
+    accountHolder: string | null;
+    accountNumber: string | null;
+    displayText: string;
+    legacy: boolean;
+  };
+  risk: WithdrawalRiskAssessment;
+  aggregates: {
+    requestCount: number;
+    totalRequested: number;
+    paidCount: number;
+    totalPaid: number;
+    rejectedOrCancelledCount: number;
+  };
+  recentWithdrawals: Array<{
+    id: number;
+    amount: number;
+    status: WithdrawalStatus;
+    requestedAt: string;
+  }>;
+  actions: AdminWithdrawalAction[];
+}
+
+export interface ApproveWithdrawalBody {
+  riskAcknowledged: boolean;
+  internalNote: string;
+}
+
+export interface RejectWithdrawalBody {
+  publicReason: string;
+  internalNote: string;
+}
+
+export interface MarkWithdrawalPaidBody {
+  transferReference: string;
+  internalNote: string;
+}
+
+export interface WithdrawalExportPreview {
+  operationsRows: number;
+  reconciliationRows: number;
+  containsSensitiveData: boolean;
+}
+
+export interface WithdrawalExportDownload {
+  blob: Blob;
+  filename: string;
 }

@@ -136,8 +136,7 @@ export function WithdrawSheet({
     setSubmitting(true);
     setError(null);
     try {
-      const bankInfo = `${selectedAccount.accountHolder} · ${selectedAccount.accountNumber} · ${selectedAccount.bankName} (${selectedAccount.bankCode})`;
-      await walletApi.createWithdrawal(amountValue, bankInfo);
+      await walletApi.createWithdrawal(amountValue, selectedAccount.id);
       onSubmitted();
       onClose();
     } catch (err) {

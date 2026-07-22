@@ -30,8 +30,8 @@ export const walletApi = {
     return response.data;
   },
 
-  createWithdrawal: async (amount: number, bankInfo: string) => {
-    const response = await httpClient.post<Withdrawal>("/wallet/withdrawals", { amount, bankInfo });
+  createWithdrawal: async (amount: number, bankAccountId: number) => {
+    const response = await httpClient.post<Withdrawal>("/wallet/withdrawals", { amount, bankAccountId });
     return response.data;
   },
 

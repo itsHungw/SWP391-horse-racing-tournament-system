@@ -103,7 +103,7 @@ describe("WalletPage", () => {
     ]);
     vi.mocked(walletApi.getBankAccounts).mockResolvedValue([
       {
-        id: 11,
+        id: 41,
         bankCode: "VCB",
         bankName: "Vietcombank",
         accountNumber: "123456789",
@@ -203,7 +203,7 @@ describe("WalletPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /withdraw 100,000 vnd/i }));
 
     await waitFor(() => {
-      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(100000, "RACING FAN · 123456789 · Vietcombank (VCB)");
+      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(100000, 41);
     });
   });
 

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { adminWalletApi } from "../../api/adminWalletApi";
-import type { Withdrawal, WithdrawalStatus } from "../../types/wallet";
+import type { AdminWithdrawalRow, WithdrawalStatus } from "../../types/wallet";
 
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -35,7 +35,7 @@ function formatDateTime(value: string) {
 export function AdminWithdrawalsPage() {
   useDocumentTitle("Withdrawal requests");
 
-  const [rows, setRows] = useState<Withdrawal[]>([]);
+  const [rows, setRows] = useState<AdminWithdrawalRow[]>([]);
   const [filter, setFilter] = useState<WithdrawalStatus | "">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +45,12 @@ export function AdminWithdrawalsPage() {
     setLoading(true);
     setError(null);
     try {
-      setRows(await adminWalletApi.listWithdrawals(filter || undefined));
+      const response = await adminWalletApi.listWithdrawals({
+        status: filter || undefined,
+        page: 0,
+        size: 100,
+      });
+      setRows(response.content);
     } catch {
       setRows([]);
       setError("Unable to load withdrawal requests.");
@@ -58,7 +63,7 @@ export function AdminWithdrawalsPage() {
     load();
   }, [load]);
 
-  async function act(action: "approve" | "reject" | "markPaid", row: Withdrawal) {
+  async function act(action: "approve" | "reject" | "markPaid", row: AdminWithdrawalRow) {
     let note = "";
     if (action === "reject") {
       note = window.prompt("Reason for rejection:") ?? "";
@@ -66,9 +71,15 @@ export function AdminWithdrawalsPage() {
     }
     setBusyId(row.id);
     try {
-      if (action === "approve") await adminWalletApi.approve(row.id);
-      else if (action === "reject") await adminWalletApi.reject(row.id, note.trim());
-      else await adminWalletApi.markPaid(row.id);
+      if (action === "approve") {
+        await adminWalletApi.approve(row.id, { riskAcknowledged: false, internalNote: "" });
+      } else if (action === "reject") {
+        await adminWalletApi.reject(row.id, { publicReason: note.trim(), internalNote: "" });
+      } else {
+        const transferReference = window.prompt("Bank transfer reference:")?.trim();
+        if (!transferReference) return;
+        await adminWalletApi.markPaid(row.id, { transferReference, internalNote: "" });
+      }
       await load();
     } catch {
       setError("Action failed. Please try again.");
@@ -155,14 +166,15 @@ export function AdminWithdrawalsPage() {
                       <p className="text-xs text-slate-500">{w.userEmail}</p>
                     </td>
                     <td className="px-4 py-3 font-bold text-slate-900">{vnd.format(w.amount)} VND</td>
-                    <td className="px-4 py-3 max-w-[220px] text-slate-600 font-medium">{w.bankInfo}</td>
+                    <td className="px-4 py-3 max-w-[220px] text-slate-600 font-medium">
+                      {w.bankName ?? w.bankCode ?? "Legacy destination"} · {w.maskedAccountNumber}
+                    </td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[w.status]}`}
                       >
                         {w.status}
                       </span>
-                      {w.reviewNote ? <p className="mt-1 text-xs text-rose-600 font-semibold">{w.reviewNote}</p> : null}
                     </td>
                     <td className="px-4 py-3 text-xs text-slate-500">{formatDateTime(w.requestedAt)}</td>
                     <td className="px-4 py-3">
