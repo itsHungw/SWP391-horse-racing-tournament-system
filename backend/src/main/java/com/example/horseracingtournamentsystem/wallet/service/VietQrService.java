@@ -17,8 +17,7 @@ public class VietQrService {
     private final WithdrawalPaymentProperties properties;
 
     public WithdrawalPaymentInstructionResponse instructionFor(WithdrawalRequest request) {
-        String transferContent = properties.transferContentTemplate()
-                .replace("{withdrawalId}", "%06d".formatted(request.getId()));
+        String transferContent = transferContentFor(request);
         if (request.getBankBin() == null || request.getBankBin().isBlank()
                 || request.getAccountNumber() == null || request.getAccountNumber().isBlank()) {
             return WithdrawalPaymentInstructionResponse.manual(
@@ -40,6 +39,11 @@ public class VietQrService {
                 + "6304";
         return WithdrawalPaymentInstructionResponse.qr(
                 withoutCrc + crc16(withoutCrc), transferContent, request);
+    }
+
+    public String transferContentFor(WithdrawalRequest request) {
+        return properties.transferContentTemplate()
+                .replace("{withdrawalId}", "%06d".formatted(request.getId()));
     }
 
     private String field(String id, String value) {

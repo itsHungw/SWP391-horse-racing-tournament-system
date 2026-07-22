@@ -30,7 +30,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
-@SpringBootTest(properties = "wallet.withdrawal.export.max-rows=1")
+@SpringBootTest(properties = {
+        "wallet.withdrawal.export.max-rows=1",
+        "app.frontend-base-url=https://admin.example.test"
+})
 class WithdrawalExportServiceTest {
 
     @Autowired JdbcTemplate jdbcTemplate;
@@ -48,6 +51,7 @@ class WithdrawalExportServiceTest {
     @BeforeEach
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxRows", 50_000);
         admin = activeUser("Export Admin", "export-admin@example.com");
         target = activeUser("Export Target", "export-target@example.com");
         bankAccount = bankAccountRepository.save(UserBankAccount.create(
@@ -62,24 +66,56 @@ class WithdrawalExportServiceTest {
     }
 
     @Test
-    void workbookContainsMaskedOperationsAndFullReconciliationSheets() throws Exception {
-        WithdrawalRequest withdrawal = withdrawalService.createRequest(
+    void workbookSeparatesPaymentPaidAndMaskedOperationsWithoutEmbeddingReceipts() throws Exception {
+        WithdrawalRequest approved = withdrawalService.createRequest(
                 target, 250_000L, bankAccount.getId());
-        withdrawalService.approve(withdrawal.getId(), admin.getEmail(), true, "Reviewed");
+        withdrawalService.approve(approved.getId(), admin.getEmail(), true, "Reviewed");
+        WithdrawalRequest paid = withdrawalService.createRequest(
+                target, 150_000L, bankAccount.getId());
+        withdrawalService.approve(paid.getId(), admin.getEmail(), true, "Reviewed");
+        withdrawalService.markPaid(
+                paid.getId(),
+                admin.getEmail(),
+                "FT-PAID-001",
+                "Receipt verified",
+                "receipt.png",
+                "a".repeat(64),
+                java.util.UUID.randomUUID().toString());
 
         byte[] bytes = service.export(WithdrawalExportFilter.empty(), admin);
 
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(bytes))) {
+            assertEquals(3, workbook.getNumberOfSheets());
+            assertEquals("Payment Queue", workbook.getSheetAt(0).getSheetName());
+            assertEquals("Paid Reconciliation", workbook.getSheetAt(1).getSheetName());
+            assertEquals("Operations", workbook.getSheetAt(2).getSheetName());
+
+            Sheet paymentQueue = workbook.getSheet("Payment Queue");
+            Sheet paidReconciliation = workbook.getSheet("Paid Reconciliation");
             Sheet operations = workbook.getSheet("Operations");
-            Sheet reconciliation = workbook.getSheet("Bank Reconciliation");
+            assertNotNull(paymentQueue);
+            assertNotNull(paidReconciliation);
             assertNotNull(operations);
-            assertNotNull(reconciliation);
+            assertEquals(3, paymentQueue.getLastRowNum());
+            assertEquals(3, paidReconciliation.getLastRowNum());
+            assertEquals(CellType.STRING, paymentQueue.getRow(3).getCell(6).getCellType());
+            assertEquals("0123456789", paymentQueue.getRow(3).getCell(6).getStringCellValue());
+            assertEquals("WD%06d".formatted(approved.getId()),
+                    paymentQueue.getRow(3).getCell(8).getStringCellValue());
+            assertEquals(
+                    "https://admin.example.test/admin/withdrawals?review=" + approved.getId(),
+                    paymentQueue.getRow(3).getCell(10).getHyperlink().getAddress());
+            assertEquals("0123456789", paidReconciliation.getRow(3).getCell(6).getStringCellValue());
+            assertEquals("FT-PAID-001", paidReconciliation.getRow(3).getCell(8).getStringCellValue());
+            assertEquals(
+                    "https://admin.example.test/admin/withdrawals?review=" + paid.getId(),
+                    paidReconciliation.getRow(3).getCell(10).getHyperlink().getAddress());
             assertEquals(CellType.NUMERIC, operations.getRow(3).getCell(4).getCellType());
-            assertEquals("\u2022\u2022\u2022\u2022 6789", operations.getRow(3).getCell(7).getStringCellValue());
-            assertEquals("0123456789", reconciliation.getRow(3).getCell(7).getStringCellValue());
+            assertTrue(operations.getRow(3).getCell(7).getStringCellValue().contains("6789"));
             assertEquals(3, operations.getPaneInformation().getHorizontalSplitPosition());
             assertTrue(((org.apache.poi.xssf.usermodel.XSSFSheet) operations)
                     .getCTWorksheet().isSetAutoFilter());
+            assertEquals(0, workbook.getAllPictures().size());
         }
 
         assertEquals(1, auditRepository.count());
@@ -112,6 +148,7 @@ class WithdrawalExportServiceTest {
 
     @Test
     void exportRejectsMoreThanConfiguredMaximumRows() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxRows", 1);
         withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
         withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
 

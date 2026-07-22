@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalRowResp
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalExportFilter;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalExportPreviewResponse;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionHistory;
+import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionType;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalActionHistoryRepository;
@@ -15,14 +16,15 @@ import java.io.IOException;
 import java.time.ZoneId;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.common.usermodel.HyperlinkType;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.CreationHelper;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
 import org.apache.poi.ss.usermodel.IndexedColors;
@@ -49,9 +51,13 @@ public class WithdrawalExportService {
     private final WithdrawalRequestRepository withdrawalRepository;
     private final WithdrawalActionHistoryRepository actionHistoryRepository;
     private final WithdrawalExportAuditRepository auditRepository;
+    private final VietQrService vietQrService;
 
     @Value("${wallet.withdrawal.export.max-rows:50000}")
     private int maxRows;
+
+    @Value("${app.frontend-base-url:}")
+    private String frontendBaseUrl;
 
     @Transactional(readOnly = true)
     public WithdrawalExportPreviewResponse preview(WithdrawalExportFilter filter) {
@@ -77,12 +83,12 @@ public class WithdrawalExportService {
         List<Long> ids = rows.stream().map(AdminWithdrawalRowResponse::id).toList();
         Map<Long, WithdrawalRequest> withdrawals = withdrawalRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(WithdrawalRequest::getId, Function.identity()));
-        Map<Long, String> transferReferences = transferReferences(ids);
+        Map<Long, String> paidActors = paidActors(ids);
         int reconciliationRows = (int) rows.stream()
                 .filter(row -> RECONCILIATION_STATUSES.contains(row.status()))
                 .count();
 
-        byte[] bytes = buildWorkbook(rows, withdrawals, transferReferences, filter.normalized());
+        byte[] bytes = buildWorkbook(rows, withdrawals, paidActors, filter.normalized());
         auditRepository.save(com.example.horseracingtournamentsystem.wallet.entity.WithdrawalExportAudit.record(
                 actor, filter.normalized(), rows.size(), reconciliationRows));
         return bytes;
@@ -91,16 +97,19 @@ public class WithdrawalExportService {
     private byte[] buildWorkbook(
             List<AdminWithdrawalRowResponse> rows,
             Map<Long, WithdrawalRequest> withdrawals,
-            Map<Long, String> transferReferences,
+            Map<Long, String> paidActors,
             String normalizedFilters
     ) {
         SXSSFWorkbook workbook = new SXSSFWorkbook(100);
         workbook.setCompressTempFiles(true);
         try (workbook; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
             Styles styles = styles(workbook);
+            CreationHelper creationHelper = workbook.getCreationHelper();
+            writePaymentQueue(
+                    workbook, rows, withdrawals, styles, creationHelper, normalizedFilters);
+            writePaidReconciliation(
+                    workbook, rows, withdrawals, paidActors, styles, creationHelper, normalizedFilters);
             writeOperations(workbook, rows, styles, normalizedFilters);
-            writeReconciliation(
-                    workbook, rows, withdrawals, transferReferences, styles, normalizedFilters);
             workbook.write(output);
             return output.toByteArray();
         } catch (IOException exception) {
@@ -138,39 +147,80 @@ public class WithdrawalExportService {
         finishSheet(sheet, rowIndex, 8);
     }
 
-    private void writeReconciliation(
+    private void writePaymentQueue(
             SXSSFWorkbook workbook,
             List<AdminWithdrawalRowResponse> rows,
             Map<Long, WithdrawalRequest> withdrawals,
-            Map<Long, String> transferReferences,
             Styles styles,
+            CreationHelper creationHelper,
             String filters
     ) {
-        Sheet sheet = workbook.createSheet("Bank Reconciliation");
-        prepareSheet(sheet, "Bank Reconciliation", filters, styles, 10);
+        Sheet sheet = workbook.createSheet("Payment Queue");
+        prepareSheet(sheet, "Approved Payouts — Payment Queue", filters, styles, 11);
         writeHeader(sheet, styles, List.of(
-                "Request ID", "Requested At", "User", "Email", "Amount (VND)",
-                "Status", "Bank", "Account Number", "Account Holder", "Transfer Reference"));
+                "Request ID", "Approved At", "User", "Email", "Amount (VND)",
+                "Bank", "Account Number", "Account Holder", "Transfer Content",
+                "Reviewed By", "Admin Review"));
 
         int rowIndex = FIRST_DATA_ROW;
         for (AdminWithdrawalRowResponse item : rows) {
-            if (!RECONCILIATION_STATUSES.contains(item.status())) {
+            if (item.status() != WithdrawalStatus.APPROVED) {
                 continue;
             }
             WithdrawalRequest withdrawal = withdrawals.get(item.id());
             Row row = sheet.createRow(rowIndex++);
             number(row, 0, item.id(), styles.number());
-            date(row, 1, item.requestedAt(), styles.date());
+            date(row, 1, withdrawal == null ? null : withdrawal.getReviewedAt(), styles.date());
             text(row, 2, item.userName());
             text(row, 3, item.userEmail());
             number(row, 4, item.amount(), styles.amount());
-            text(row, 5, item.status().name());
-            text(row, 6, bankLabel(item.bankName(), item.bankCode()));
-            text(row, 7, withdrawal == null ? null : withdrawal.getAccountNumber());
-            text(row, 8, withdrawal == null ? null : withdrawal.getAccountHolder());
-            text(row, 9, transferReferences.get(item.id()));
+            text(row, 5, bankLabel(item.bankName(), item.bankCode()));
+            text(row, 6, withdrawal == null ? null : withdrawal.getAccountNumber());
+            text(row, 7, withdrawal == null ? null : withdrawal.getAccountHolder());
+            text(row, 8, withdrawal == null ? null : vietQrService.transferContentFor(withdrawal));
+            text(row, 9, withdrawal == null || withdrawal.getReviewedBy() == null
+                    ? null : withdrawal.getReviewedBy().getFullName());
+            adminLink(row, 10, "Open review", item.id(), styles.hyperlink(), creationHelper);
         }
-        finishSheet(sheet, rowIndex, 9);
+        finishSheet(sheet, rowIndex, 10);
+    }
+
+    private void writePaidReconciliation(
+            SXSSFWorkbook workbook,
+            List<AdminWithdrawalRowResponse> rows,
+            Map<Long, WithdrawalRequest> withdrawals,
+            Map<Long, String> paidActors,
+            Styles styles,
+            CreationHelper creationHelper,
+            String filters
+    ) {
+        Sheet sheet = workbook.createSheet("Paid Reconciliation");
+        prepareSheet(sheet, "Paid Payouts — Reconciliation", filters, styles, 11);
+        writeHeader(sheet, styles, List.of(
+                "Request ID", "Paid At", "User", "Email", "Amount (VND)",
+                "Bank", "Account Number", "Account Holder", "Transfer Reference",
+                "Paid By", "Receipt Review"));
+
+        int rowIndex = FIRST_DATA_ROW;
+        for (AdminWithdrawalRowResponse item : rows) {
+            if (item.status() != WithdrawalStatus.PAID) {
+                continue;
+            }
+            WithdrawalRequest withdrawal = withdrawals.get(item.id());
+            Row row = sheet.createRow(rowIndex++);
+            number(row, 0, item.id(), styles.number());
+            date(row, 1, withdrawal == null ? null : withdrawal.getPaidAt(), styles.date());
+            text(row, 2, item.userName());
+            text(row, 3, item.userEmail());
+            number(row, 4, item.amount(), styles.amount());
+            text(row, 5, bankLabel(item.bankName(), item.bankCode()));
+            text(row, 6, withdrawal == null ? null : withdrawal.getAccountNumber());
+            text(row, 7, withdrawal == null ? null : withdrawal.getAccountHolder());
+            text(row, 8, withdrawal == null ? null : withdrawal.getTransferReference());
+            text(row, 9, paidActors.get(item.id()));
+            adminLink(row, 10, "Open receipt", item.id(), styles.hyperlink(), creationHelper);
+        }
+        finishSheet(sheet, rowIndex, 10);
     }
 
     private void prepareSheet(
@@ -201,7 +251,7 @@ public class WithdrawalExportService {
         sheet.createFreezePane(0, FIRST_DATA_ROW);
         sheet.setAutoFilter(new CellRangeAddress(
                 HEADER_ROW, Math.max(HEADER_ROW, nextRowIndex - 1), 0, lastColumn));
-        int[] widths = {14, 22, 24, 30, 18, 15, 26, 22, 24, 24};
+        int[] widths = {14, 22, 24, 30, 18, 26, 22, 24, 24, 24, 30};
         for (int index = 0; index <= lastColumn; index++) {
             sheet.setColumnWidth(index, widths[index] * 256);
         }
@@ -228,20 +278,24 @@ public class WithdrawalExportService {
         amount.setDataFormat(workbook.createDataFormat().getFormat("#,##0"));
         CellStyle date = workbook.createCellStyle();
         date.setDataFormat(workbook.createDataFormat().getFormat("yyyy-mm-dd hh:mm"));
-        return new Styles(title, header, number, amount, date);
+        Font hyperlinkFont = workbook.createFont();
+        hyperlinkFont.setColor(IndexedColors.BLUE.getIndex());
+        hyperlinkFont.setUnderline(Font.U_SINGLE);
+        CellStyle hyperlink = workbook.createCellStyle();
+        hyperlink.setFont(hyperlinkFont);
+        return new Styles(title, header, number, amount, date, hyperlink);
     }
 
-    private Map<Long, String> transferReferences(Collection<Long> withdrawalIds) {
+    private Map<Long, String> paidActors(Collection<Long> withdrawalIds) {
         if (withdrawalIds.isEmpty()) {
             return Map.of();
         }
-        Map<Long, String> references = new HashMap<>();
-        for (WithdrawalActionHistory history : actionHistoryRepository.findForWithdrawals(withdrawalIds)) {
-            if (history.getTransferReference() != null) {
-                references.put(history.getWithdrawal().getId(), history.getTransferReference());
-            }
-        }
-        return references;
+        return actionHistoryRepository.findForWithdrawals(withdrawalIds).stream()
+                .filter(history -> history.getAction() == WithdrawalActionType.MARKED_PAID)
+                .collect(Collectors.toMap(
+                        history -> history.getWithdrawal().getId(),
+                        WithdrawalActionHistory::getActorName,
+                        (first, latest) -> latest));
     }
 
     private void validateRowLimit(int rowCount) {
@@ -271,8 +325,40 @@ public class WithdrawalExportService {
 
     private void date(Row row, int column, java.time.LocalDateTime value, CellStyle style) {
         Cell cell = row.createCell(column);
+        if (value == null) {
+            cell.setCellValue("");
+            return;
+        }
         cell.setCellValue(Date.from(value.atZone(ZoneId.systemDefault()).toInstant()));
         cell.setCellStyle(style);
+    }
+
+    private void adminLink(
+            Row row,
+            int column,
+            String label,
+            long withdrawalId,
+            CellStyle style,
+            CreationHelper creationHelper
+    ) {
+        Cell cell = row.createCell(column);
+        cell.setCellValue(label);
+        String address = adminReviewUrl(withdrawalId);
+        if (address == null) {
+            return;
+        }
+        var hyperlink = creationHelper.createHyperlink(HyperlinkType.URL);
+        hyperlink.setAddress(address);
+        cell.setHyperlink(hyperlink);
+        cell.setCellStyle(style);
+    }
+
+    private String adminReviewUrl(long withdrawalId) {
+        if (frontendBaseUrl == null || frontendBaseUrl.isBlank()) {
+            return null;
+        }
+        return frontendBaseUrl.strip().replaceAll("/+$", "")
+                + "/admin/withdrawals?review=" + withdrawalId;
     }
 
     private String safeText(String value) {
@@ -291,7 +377,8 @@ public class WithdrawalExportService {
             CellStyle header,
             CellStyle number,
             CellStyle amount,
-            CellStyle date
+            CellStyle date,
+            CellStyle hyperlink
     ) {
     }
 }
