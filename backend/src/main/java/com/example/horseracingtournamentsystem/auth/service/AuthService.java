@@ -90,6 +90,9 @@ public class AuthService {
         User user = userRepository.findByEmailForUpdate(email).orElse(null);
         
         if (user != null) {
+            if (user.getStatus() == UserStatus.PENDING_EMAIL_VERIFY) {
+                user.verifyEmail();
+            }
             if (!canAuthenticate(user.getStatus())) {
                 throw new IllegalArgumentException("USER_ACCOUNT_DISABLED");
             }
