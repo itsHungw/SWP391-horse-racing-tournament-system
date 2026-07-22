@@ -1,5 +1,13 @@
 import { httpClient } from "./httpClient";
-import type { BankAccount, TopUpReceipt, Wallet, WalletSummary, WalletTransaction, Withdrawal } from "../types/wallet";
+import type {
+  BankAccount,
+  BankDirectoryItem,
+  TopUpReceipt,
+  Wallet,
+  WalletSummary,
+  WalletTransaction,
+  Withdrawal,
+} from "../types/wallet";
 
 export const walletApi = {
   getMyWallet: async () => {
@@ -45,9 +53,13 @@ export const walletApi = {
     return response.data;
   },
 
+  getBankDirectory: async () => {
+    const response = await httpClient.get<BankDirectoryItem[]>("/wallet/bank-accounts/directory");
+    return response.data;
+  },
+
   addBankAccount: async (data: {
     bankCode: string;
-    bankName: string;
     accountNumber: string;
     accountHolder: string;
     label?: string | null;

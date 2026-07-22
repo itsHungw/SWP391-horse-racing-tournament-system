@@ -114,6 +114,8 @@ const review: AdminWithdrawalReview = {
       createdAt: "2026-07-21T12:00:00",
     },
   ],
+  paymentInstruction: null,
+  paymentEvidence: null,
 };
 
 describe("AdminWithdrawalsPage", () => {
@@ -158,7 +160,7 @@ describe("AdminWithdrawalsPage", () => {
     );
     expect(screen.getAllByRole("button", { name: /review withdrawal #22/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /quick approve withdrawal #22/i })).not.toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /quick approve withdrawal #23/i }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /quick approve withdrawal #23/i })).not.toBeInTheDocument();
   });
 
   it("opens the large review dialog and shows explainable risk evidence", async () => {

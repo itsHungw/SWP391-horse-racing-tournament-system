@@ -4,7 +4,7 @@ import type {
   AdminWithdrawalRow,
   AdminWithdrawalSummary,
   ApproveWithdrawalBody,
-  MarkWithdrawalPaidBody,
+  ConfirmWithdrawalPayment,
   PageResponse,
   RejectWithdrawalBody,
   WithdrawalAdminFilters,
@@ -47,8 +47,18 @@ export const adminWalletApi = {
   reject: async (id: number, body: RejectWithdrawalBody) =>
     (await httpClient.post<AdminWithdrawalReview>(`/admin/withdrawals/${id}/reject`, body)).data,
 
-  markPaid: async (id: number, body: MarkWithdrawalPaidBody) =>
-    (await httpClient.post<AdminWithdrawalReview>(`/admin/withdrawals/${id}/mark-paid`, body)).data,
+  markPaid: async (id: number, body: ConfirmWithdrawalPayment) => {
+    const data = new FormData();
+    data.append("transferReference", body.transferReference);
+    data.append("internalNote", body.internalNote);
+    data.append("mismatchAcknowledged", String(body.mismatchAcknowledged));
+    data.append("idempotencyKey", body.idempotencyKey);
+    data.append("receipt", body.receipt);
+    return (await httpClient.post<AdminWithdrawalReview>(
+      `/admin/withdrawals/${id}/mark-paid`,
+      data,
+    )).data;
+  },
 
   getExportPreview: async (filters: WithdrawalExportFilters) =>
     (

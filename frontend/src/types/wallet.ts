@@ -47,9 +47,17 @@ export interface BankAccount {
   id: number;
   bankCode: string;
   bankName: string;
+  bankBin: string | null;
   accountNumber: string;
   accountHolder: string;
   label: string | null;
+}
+
+export interface BankDirectoryItem {
+  code: string;
+  bin: string;
+  name: string;
+  qrSupported: boolean;
 }
 
 export type WithdrawalStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "PAID" | "CANCELLED";
@@ -68,6 +76,7 @@ export interface Withdrawal {
   maskedAccountNumber?: string | null;
   reviewNote: string | null;
   reviewedByName: string | null;
+  transferReference?: string | null;
   requestedAt: string;
   reviewedAt: string | null;
   paidAt: string | null;
@@ -196,6 +205,27 @@ export interface AdminWithdrawalReview {
     requestedAt: string;
   }>;
   actions: AdminWithdrawalAction[];
+  paymentInstruction: WithdrawalPaymentInstruction | null;
+  paymentEvidence: WithdrawalPaymentEvidence | null;
+}
+
+export interface WithdrawalPaymentInstruction {
+  available: boolean;
+  unavailableReason: string | null;
+  payload: string | null;
+  transferContent: string;
+  bankCode: string | null;
+  bankName: string | null;
+  accountHolder: string | null;
+  accountNumber: string | null;
+  amount: number;
+}
+
+export interface WithdrawalPaymentEvidence {
+  transferReference: string;
+  receiptUrl: string;
+  checksum: string;
+  paidAt: string;
 }
 
 export interface ApproveWithdrawalBody {
@@ -208,9 +238,12 @@ export interface RejectWithdrawalBody {
   internalNote: string;
 }
 
-export interface MarkWithdrawalPaidBody {
+export interface ConfirmWithdrawalPayment {
   transferReference: string;
   internalNote: string;
+  mismatchAcknowledged: boolean;
+  idempotencyKey: string;
+  receipt: File;
 }
 
 export interface WithdrawalExportPreview {

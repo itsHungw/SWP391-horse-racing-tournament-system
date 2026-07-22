@@ -5,11 +5,14 @@ import { walletApi } from "../../api/walletApi";
 import type { BankAccount } from "../../types/wallet";
 import { BankLogo } from "./BankLogo";
 import { BankSelect } from "./BankSelect";
-import { BANKS, maskAccount } from "./banks";
+import { maskAccount, toBankOptions, type Bank } from "./banks";
 
 export function SavedAccounts() {
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
   const [loading, setLoading] = useState(true);
+  const [directoryLoading, setDirectoryLoading] = useState(true);
+  const [directoryError, setDirectoryError] = useState(false);
   const [adding, setAdding] = useState(false);
   const [bankCode, setBankCode] = useState<string | null>(null);
   const [accountNumber, setAccountNumber] = useState("");
@@ -29,8 +32,36 @@ export function SavedAccounts() {
     };
   }, []);
 
+  useEffect(() => {
+    let mounted = true;
+    walletApi
+      .getBankDirectory()
+      .then((directory) => {
+        if (!mounted) return;
+        setBanks(toBankOptions(directory));
+        setDirectoryError(false);
+      })
+      .catch(() => mounted && setDirectoryError(true))
+      .finally(() => mounted && setDirectoryLoading(false));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function retryDirectory() {
+    setDirectoryLoading(true);
+    setDirectoryError(false);
+    try {
+      setBanks(toBankOptions(await walletApi.getBankDirectory()));
+    } catch {
+      setDirectoryError(true);
+    } finally {
+      setDirectoryLoading(false);
+    }
+  }
+
   async function handleSave() {
-    const bank = BANKS.find((item) => item.code === bankCode);
+    const bank = banks.find((item) => item.code === bankCode);
     if (!bank) return setError("Please select a bank.");
     if (accountNumber.trim().length < 6) return setError("Enter a valid account number.");
     if (holder.trim().length < 2) return setError("Enter the account holder name.");
@@ -39,9 +70,9 @@ export function SavedAccounts() {
     try {
       const saved = await walletApi.addBankAccount({
         bankCode: bank.code,
-        bankName: bank.name,
         accountNumber: accountNumber.trim(),
         accountHolder: holder.trim(),
+        label: null,
       });
       setAccounts((prev) => [saved, ...prev]);
       setAdding(false);
@@ -113,7 +144,22 @@ export function SavedAccounts() {
 
       {adding ? (
         <div className="mt-3 space-y-3 rounded-xl border border-white/10 bg-[#030f0c] p-4">
-          <BankSelect banks={BANKS} value={bankCode} onChange={setBankCode} />
+          {directoryLoading ? (
+            <p role="status" className="text-sm text-ivory-dim">Loading supported banks...</p>
+          ) : directoryError ? (
+            <div className="rounded-lg border border-rose-400/20 bg-rose-400/5 p-3">
+              <p role="alert" className="text-sm text-rose-200">Could not load supported banks.</p>
+              <button
+                type="button"
+                onClick={retryDirectory}
+                className="mt-2 min-h-11 rounded-sm border border-white/15 px-4 text-xs font-bold uppercase tracking-[0.12em] text-ivory"
+              >
+                Retry bank list
+              </button>
+            </div>
+          ) : (
+            <BankSelect banks={banks} value={bankCode} onChange={setBankCode} />
+          )}
           <input
             type="text"
             inputMode="numeric"

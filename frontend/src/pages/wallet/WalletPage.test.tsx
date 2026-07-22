@@ -14,6 +14,7 @@ vi.mock("../../api/walletApi", () => ({
     getMyWithdrawals: vi.fn(),
     createTopUp: vi.fn(),
     getBankAccounts: vi.fn(),
+    getBankDirectory: vi.fn(),
     addBankAccount: vi.fn(),
     deleteBankAccount: vi.fn(),
     createWithdrawal: vi.fn(),
@@ -106,10 +107,15 @@ describe("WalletPage", () => {
         id: 41,
         bankCode: "VCB",
         bankName: "Vietcombank",
+        bankBin: "970436",
         accountNumber: "123456789",
         accountHolder: "RACING FAN",
         label: "Main account",
       },
+    ]);
+    vi.mocked(walletApi.getBankDirectory).mockResolvedValue([
+      { code: "VCB", bin: "970436", name: "Vietcombank", qrSupported: true },
+      { code: "TCB", bin: "970407", name: "Techcombank", qrSupported: true },
     ]);
     vi.mocked(walletApi.createWithdrawal).mockResolvedValue({
       id: 12,
@@ -231,5 +237,46 @@ describe("WalletPage", () => {
 
     await screen.findByRole("heading", { name: /available balance/i });
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  it("loads trusted bank options and submits only the selected bank code", async () => {
+    vi.mocked(walletApi.getBankDirectory).mockResolvedValue([
+      { code: "SVR", bin: "999999", name: "Server Bank", qrSupported: true },
+    ]);
+    vi.mocked(walletApi.addBankAccount).mockResolvedValue({
+      id: 42,
+      bankCode: "SVR",
+      bankName: "Server Bank",
+      bankBin: "999999",
+      accountNumber: "0123456789",
+      accountHolder: "RACING FAN",
+      label: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /add bank account/i }));
+    fireEvent.click(screen.getByRole("button", { name: /select your bank/i }));
+    fireEvent.click(await screen.findByText("Server Bank"));
+    fireEvent.change(screen.getByLabelText("Account number"), {
+      target: { value: "0123456789" },
+    });
+    fireEvent.change(screen.getByLabelText("Account holder"), {
+      target: { value: "RACING FAN" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save account/i }));
+
+    await waitFor(() => {
+      expect(walletApi.addBankAccount).toHaveBeenCalledWith({
+        bankCode: "SVR",
+        accountNumber: "0123456789",
+        accountHolder: "RACING FAN",
+        label: null,
+      });
+    });
   });
 });

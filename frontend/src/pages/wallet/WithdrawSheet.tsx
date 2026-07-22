@@ -6,7 +6,7 @@ import { walletApi } from "../../api/walletApi";
 import type { BankAccount } from "../../types/wallet";
 import { BankLogo } from "./BankLogo";
 import { BankSelect } from "./BankSelect";
-import { BANKS } from "./banks";
+import { toBankOptions, type Bank } from "./banks";
 
 const vnd = new Intl.NumberFormat("en-US");
 
@@ -28,6 +28,9 @@ export function WithdrawSheet({
   const reduce = useReducedMotion();
   const [amount, setAmount] = useState("");
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
+  const [banks, setBanks] = useState<Bank[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [newBankCode, setNewBankCode] = useState<string | null>(null);
@@ -41,6 +44,16 @@ export function WithdrawSheet({
     if (!open) return;
     setAmount("");
     setError(null);
+    setDirectoryLoading(true);
+    setDirectoryError(false);
+    walletApi
+      .getBankDirectory()
+      .then((directory) => setBanks(toBankOptions(directory)))
+      .catch(() => {
+        setBanks([]);
+        setDirectoryError(true);
+      })
+      .finally(() => setDirectoryLoading(false));
     walletApi
       .getBankAccounts()
       .then((list) => {
@@ -54,6 +67,18 @@ export function WithdrawSheet({
         setAdding(true);
       });
   }, [open]);
+
+  async function retryDirectory() {
+    setDirectoryLoading(true);
+    setDirectoryError(false);
+    try {
+      setBanks(toBankOptions(await walletApi.getBankDirectory()));
+    } catch {
+      setDirectoryError(true);
+    } finally {
+      setDirectoryLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +114,7 @@ export function WithdrawSheet({
   }
 
   async function handleSaveBank() {
-    const bank = BANKS.find((b) => b.code === newBankCode);
+    const bank = banks.find((b) => b.code === newBankCode);
     if (!bank) return setError("Please select a bank.");
     if (newAccount.trim().length < 6) return setError("Enter a valid account number.");
     if (newHolder.trim().length < 2) return setError("Enter the account holder name.");
@@ -98,9 +123,9 @@ export function WithdrawSheet({
     try {
       const saved = await walletApi.addBankAccount({
         bankCode: bank.code,
-        bankName: bank.name,
         accountNumber: newAccount.trim(),
         accountHolder: newHolder.trim(),
+        label: null,
       });
       setAccounts((prev) => [saved, ...prev]);
       setSelectedId(saved.id);
@@ -322,7 +347,22 @@ export function WithdrawSheet({
 
                   {adding ? (
                     <div className="space-y-3 rounded-2xl border border-white/10 bg-turf-950 p-4">
-                      <BankSelect banks={BANKS} value={newBankCode} onChange={setNewBankCode} />
+                      {directoryLoading ? (
+                        <p role="status" className="text-sm text-ivory-dim">Loading supported banks...</p>
+                      ) : directoryError ? (
+                        <div className="rounded-lg border border-rose-400/20 bg-rose-400/5 p-3">
+                          <p role="alert" className="text-sm text-rose-200">Could not load supported banks.</p>
+                          <button
+                            type="button"
+                            onClick={retryDirectory}
+                            className="mt-2 min-h-11 rounded-sm border border-white/15 px-4 text-xs font-bold uppercase tracking-[0.12em] text-ivory"
+                          >
+                            Retry bank list
+                          </button>
+                        </div>
+                      ) : (
+                        <BankSelect banks={banks} value={newBankCode} onChange={setNewBankCode} />
+                      )}
                       <input
                         type="text"
                         inputMode="numeric"
