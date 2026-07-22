@@ -2,12 +2,14 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { adminWalletApi } from "../../../api/adminWalletApi";
 import type { AdminWithdrawalReview } from "../../../types/wallet";
+import { createReceiptOcr } from "./payment/receiptOcr";
 import { WithdrawalReviewModal } from "./WithdrawalReviewModal";
 
 vi.mock("../../../api/adminWalletApi", () => ({ adminWalletApi: { getReview: vi.fn(), approve: vi.fn(), reject: vi.fn(), markPaid: vi.fn() } }));
 vi.mock("../../../components/AuthenticatedImage", () => ({
   AuthenticatedImage: ({ alt }: { alt: string }) => <img alt={alt} />,
 }));
+vi.mock("./payment/receiptOcr", () => ({ createReceiptOcr: vi.fn() }));
 vi.mock("qrcode.react", () => ({
   QRCodeCanvas: ({ value, ...props }: { value: string; "aria-label": string }) => (
     <canvas data-value={value} aria-label={props["aria-label"]} />
@@ -60,6 +62,17 @@ describe("WithdrawalReviewModal", () => {
   beforeEach(() => {
     vi.mocked(adminWalletApi.getReview).mockResolvedValue(highRiskReview);
     vi.mocked(adminWalletApi.approve).mockResolvedValue(approvedReview);
+    vi.mocked(createReceiptOcr).mockResolvedValue({
+      recognize: vi.fn().mockResolvedValue({
+        rawText: "Ma giao dich FT-20260723-001",
+        referenceCandidates: [{ value: "FT-20260723-001", confidence: 0.92 }],
+        amount: 420_000,
+        transferContent: "WD000022",
+        transactionTime: "23/07/2026 14:31",
+        confidence: "HIGH",
+      }),
+      terminate: vi.fn().mockResolvedValue(undefined),
+    });
   });
 
   it("guards a high-risk approval with acknowledgement and an internal note", async () => {
@@ -99,6 +112,28 @@ describe("WithdrawalReviewModal", () => {
     expect(within(dialog).getByRole("button", { name: /view review details/i })).toBeInTheDocument();
     expect(within(dialog).queryByRole("heading", { name: /risk evidence/i })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /^approve/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the approved review read-only and returns to the preserved payment workspace", async () => {
+    vi.mocked(adminWalletApi.getReview).mockResolvedValue(approvedReview);
+    render(<WithdrawalReviewModal id={22} onClose={vi.fn()} onUpdated={vi.fn()} />);
+
+    const dialog = await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
+    const receipt = new File(["image"], "receipt.png", { type: "image/png" });
+    fireEvent.change(within(dialog).getByLabelText(/receipt image/i), {
+      target: { files: [receipt] },
+    });
+    expect(await within(dialog).findByDisplayValue("FT-20260723-001")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /view approved review/i }));
+    expect(within(dialog).getByRole("heading", { name: /approved review record/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: /risk evidence/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /approve & continue|reject withdrawal/i })).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Receipt and confirmation")).not.toBeVisible();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /return to transfer/i }));
+    expect(within(dialog).getByRole("heading", { name: /receipt and confirmation/i })).toBeVisible();
+    expect(within(dialog).getByText("receipt.png")).toBeInTheDocument();
   });
 
   it("opens a paid withdrawal on the completed step", async () => {

@@ -15,6 +15,7 @@ import { WithdrawalTimeline } from "./WithdrawalTimeline";
 import { WithdrawalWizardStepper } from "./WithdrawalWizardStepper";
 
 const IDLE_WORKFLOW: PaymentStepState = { dirty: false, busy: false };
+type ViewedStep = "AUTHORITATIVE" | "REVIEW";
 
 export function WithdrawalReviewModal({
   id,
@@ -29,6 +30,7 @@ export function WithdrawalReviewModal({
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [workflow, setWorkflow] = useState<PaymentStepState>(IDLE_WORKFLOW);
+  const [viewedStep, setViewedStep] = useState<ViewedStep>("AUTHORITATIVE");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocus = useRef<HTMLElement | null>(null);
@@ -42,6 +44,7 @@ export function WithdrawalReviewModal({
     try {
       setReview(await adminWalletApi.getReview(id));
       setWorkflow(IDLE_WORKFLOW);
+      setViewedStep("AUTHORITATIVE");
     } catch {
       setLoadError("Review details could not be loaded.");
     } finally {
@@ -53,6 +56,7 @@ export function WithdrawalReviewModal({
     setReview(null);
     setLoadError(null);
     setWorkflow(IDLE_WORKFLOW);
+    setViewedStep("AUTHORITATIVE");
     setConfirmDiscard(false);
     if (id !== null) void load();
   }, [id, load]);
@@ -111,6 +115,7 @@ export function WithdrawalReviewModal({
   const handleUpdated = useCallback((updated: AdminWithdrawalReview) => {
     setReview(updated);
     setWorkflow(IDLE_WORKFLOW);
+    setViewedStep("AUTHORITATIVE");
     onUpdated();
   }, [onUpdated]);
 
@@ -134,7 +139,13 @@ export function WithdrawalReviewModal({
           <button type="button" aria-label="Close review" onClick={requestClose} disabled={workflow.busy} className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-40"><X className="h-5 w-5" aria-hidden="true" /></button>
         </header>
 
-        {review ? <WithdrawalWizardStepper status={review.status} /> : null}
+        {review ? (
+          <WithdrawalWizardStepper
+            status={review.status}
+            inspectingReview={viewedStep === "REVIEW"}
+            onInspectReview={review.status === "REQUESTED" ? undefined : () => setViewedStep("REVIEW")}
+          />
+        ) : null}
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
@@ -145,7 +156,14 @@ export function WithdrawalReviewModal({
               <button type="button" onClick={() => void load()} className="mt-4 inline-flex min-h-11 items-center gap-2 bg-[#070f4f] px-4 text-sm font-black text-white"><RefreshCw className="h-4 w-4" aria-hidden="true" /> Retry</button>
             </div>
           ) : review ? (
-            <ReviewWorkspace review={review} onUpdated={handleUpdated} onConflict={handleConflict} onStateChange={handleStateChange} />
+            <ReviewWorkspace
+              review={review}
+              viewedStep={viewedStep}
+              onReturn={() => setViewedStep("AUTHORITATIVE")}
+              onUpdated={handleUpdated}
+              onConflict={handleConflict}
+              onStateChange={handleStateChange}
+            />
           ) : null}
         </div>
 
@@ -169,11 +187,15 @@ export function WithdrawalReviewModal({
 
 function ReviewWorkspace({
   review,
+  viewedStep,
+  onReturn,
   onUpdated,
   onConflict,
   onStateChange,
 }: {
   review: AdminWithdrawalReview;
+  viewedStep: ViewedStep;
+  onReturn: () => void;
   onUpdated: (review: AdminWithdrawalReview) => void;
   onConflict: () => Promise<void>;
   onStateChange: (state: PaymentStepState) => void;
@@ -191,19 +213,78 @@ function ReviewWorkspace({
 
   if (review.status === "APPROVED") {
     return (
-      <main className="space-y-5 p-5 sm:p-7">
-        <WithdrawalCompactSummary review={review} />
-        <WithdrawalPaymentStep
-          review={review}
-          onPaid={onUpdated}
-          onStateChange={onStateChange}
-          onConflict={onConflict}
-        />
-      </main>
+      <>
+        <div hidden={viewedStep === "REVIEW"}>
+          <main className="withdrawal-stage-panel space-y-5 p-5 sm:p-7">
+            <WithdrawalCompactSummary review={review} />
+            <WithdrawalPaymentStep
+              review={review}
+              onPaid={onUpdated}
+              onStateChange={onStateChange}
+              onConflict={onConflict}
+            />
+          </main>
+        </div>
+        {viewedStep === "REVIEW" ? (
+          <ReadOnlyReviewWorkspace review={review} returnLabel="Return to transfer" onReturn={onReturn} />
+        ) : null}
+      </>
     );
   }
 
-  return <CompletedWithdrawalWorkspace review={review} />;
+  return viewedStep === "REVIEW" ? (
+    <ReadOnlyReviewWorkspace review={review} returnLabel="Return to completed" onReturn={onReturn} />
+  ) : (
+    <CompletedWithdrawalWorkspace review={review} />
+  );
+}
+
+function ReadOnlyReviewWorkspace({
+  review,
+  returnLabel,
+  onReturn,
+}: {
+  review: AdminWithdrawalReview;
+  returnLabel: string;
+  onReturn: () => void;
+}) {
+  const approved = review.status === "APPROVED" || review.status === "PAID";
+
+  return (
+    <main className="withdrawal-stage-panel p-5 sm:p-7">
+      <div className="mb-6 flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Recorded decision</p>
+          <h3 className="mt-1 text-xl font-black text-[#070f4f]">
+            {approved ? "Approved review record" : "Recorded review"}
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+            This is the evidence captured at review time. It is read-only and does not change the current withdrawal status.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onReturn}
+          className="inline-flex min-h-11 items-center border border-[#070f4f] px-4 text-sm font-black text-[#070f4f] hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#070f4f]"
+        >
+          {returnLabel}
+        </button>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
+        <div className="space-y-6">
+          <WithdrawalOverview review={review} />
+          <WithdrawalRiskPanel risk={review.risk} />
+          <UserContext review={review} />
+        </div>
+        <aside>
+          <div className="border border-slate-200 bg-white p-5">
+            <WithdrawalTimeline actions={review.actions} />
+          </div>
+        </aside>
+      </div>
+    </main>
+  );
 }
 
 function RequestedReviewWorkspace({
@@ -218,7 +299,7 @@ function RequestedReviewWorkspace({
   onStateChange: (state: PaymentStepState) => void;
 }) {
   return (
-    <main className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
+    <main className="withdrawal-stage-panel grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
       <div className="space-y-6">
         <WithdrawalOverview review={review} />
         <WithdrawalRiskPanel risk={review.risk} />
@@ -241,7 +322,7 @@ function RequestedReviewWorkspace({
 
 function CompletedWithdrawalWorkspace({ review }: { review: AdminWithdrawalReview }) {
   return (
-    <main className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <main className="withdrawal-stage-panel grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_360px]">
       <CompletedPanel review={review} />
       <div className="border border-slate-200 bg-white p-5">
         <WithdrawalTimeline actions={review.actions} />
