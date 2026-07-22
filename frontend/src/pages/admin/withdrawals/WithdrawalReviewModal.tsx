@@ -8,9 +8,11 @@ import type { AdminWithdrawalReview } from "../../../types/wallet";
 import { WithdrawalDecisionPanel } from "./WithdrawalDecisionPanel";
 import { WithdrawalPaymentStep } from "./payment/WithdrawalPaymentStep";
 import type { PaymentStepState } from "./payment/useWithdrawalPayment";
+import { WithdrawalCompactSummary } from "./WithdrawalCompactSummary";
 import { formatAdminDateTime, formatVnd, statusPresentation } from "./withdrawalViewModel";
 import { WithdrawalRiskPanel } from "./WithdrawalRiskPanel";
 import { WithdrawalTimeline } from "./WithdrawalTimeline";
+import { WithdrawalWizardStepper } from "./WithdrawalWizardStepper";
 
 const IDLE_WORKFLOW: PaymentStepState = { dirty: false, busy: false };
 
@@ -132,6 +134,8 @@ export function WithdrawalReviewModal({
           <button type="button" aria-label="Close review" onClick={requestClose} disabled={workflow.busy} className="flex h-11 w-11 shrink-0 items-center justify-center border border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:opacity-40"><X className="h-5 w-5" aria-hidden="true" /></button>
         </header>
 
+        {review ? <WithdrawalWizardStepper status={review.status} /> : null}
+
         <div className="min-h-0 flex-1 overflow-y-auto">
           {loading ? (
             <div role="status" className="flex min-h-80 items-center justify-center gap-3 font-bold text-slate-500"><LoaderCircle className="h-5 w-5 animate-spin motion-reduce:animate-none" aria-hidden="true" /> Loading review…</div>
@@ -174,38 +178,75 @@ function ReviewWorkspace({
   onConflict: () => Promise<void>;
   onStateChange: (state: PaymentStepState) => void;
 }) {
-  const terminal = ["PAID", "REJECTED", "CANCELLED"].includes(review.status);
+  if (review.status === "REQUESTED") {
+    return (
+      <RequestedReviewWorkspace
+        review={review}
+        onUpdated={onUpdated}
+        onConflict={onConflict}
+        onStateChange={onStateChange}
+      />
+    );
+  }
 
-  return (
-    <div className="space-y-6 p-5 sm:p-7">
-      <main className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
-        <div className="space-y-6">
-          <WithdrawalOverview review={review} />
-          <WithdrawalRiskPanel risk={review.risk} />
-          <UserContext review={review} />
-        </div>
-        <aside className="space-y-6">
-          {review.status === "REQUESTED" ? (
-            <WithdrawalDecisionPanel review={review} onUpdated={onUpdated} onConflict={onConflict} onStateChange={onStateChange} />
-          ) : terminal ? (
-            <CompletedPanel review={review} />
-          ) : (
-            <section className="border border-blue-200 bg-blue-50 p-5">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-700">Next step</p>
-              <h3 className="mt-2 font-black text-[#070f4f]">Transfer and attach proof</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Scan the trusted QR, then upload the successful bank receipt below.</p>
-            </section>
-          )}
-          <div className="border border-slate-200 bg-white p-5"><WithdrawalTimeline actions={review.actions} /></div>
-        </aside>
+  if (review.status === "APPROVED") {
+    return (
+      <main className="space-y-5 p-5 sm:p-7">
+        <WithdrawalCompactSummary review={review} />
+        <WithdrawalPaymentStep
+          review={review}
+          onPaid={onUpdated}
+          onStateChange={onStateChange}
+          onConflict={onConflict}
+        />
       </main>
+    );
+  }
 
-      {review.status === "APPROVED" ? (
-        <section aria-label="Withdrawal payment workspace" className="rounded-2xl bg-[#03130f] p-4 shadow-xl sm:p-6">
-          <WithdrawalPaymentStep review={review} onPaid={onUpdated} onStateChange={onStateChange} onConflict={onConflict} />
-        </section>
-      ) : null}
-    </div>
+  return <CompletedWithdrawalWorkspace review={review} />;
+}
+
+function RequestedReviewWorkspace({
+  review,
+  onUpdated,
+  onConflict,
+  onStateChange,
+}: {
+  review: AdminWithdrawalReview;
+  onUpdated: (review: AdminWithdrawalReview) => void;
+  onConflict: () => Promise<void>;
+  onStateChange: (state: PaymentStepState) => void;
+}) {
+  return (
+    <main className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
+      <div className="space-y-6">
+        <WithdrawalOverview review={review} />
+        <WithdrawalRiskPanel risk={review.risk} />
+        <UserContext review={review} />
+      </div>
+      <aside className="space-y-6">
+        <WithdrawalDecisionPanel
+          review={review}
+          onUpdated={onUpdated}
+          onConflict={onConflict}
+          onStateChange={onStateChange}
+        />
+        <div className="border border-slate-200 bg-white p-5">
+          <WithdrawalTimeline actions={review.actions} />
+        </div>
+      </aside>
+    </main>
+  );
+}
+
+function CompletedWithdrawalWorkspace({ review }: { review: AdminWithdrawalReview }) {
+  return (
+    <main className="grid gap-6 p-5 sm:p-7 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <CompletedPanel review={review} />
+      <div className="border border-slate-200 bg-white p-5">
+        <WithdrawalTimeline actions={review.actions} />
+      </div>
+    </main>
   );
 }
 
@@ -244,8 +285,9 @@ function CompletedPanel({ review }: { review: AdminWithdrawalReview }) {
   return (
     <section className={`border p-5 ${paid ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-slate-50"}`}>
       <CheckCircle2 className={`h-6 w-6 ${paid ? "text-emerald-700" : "text-slate-600"}`} aria-hidden="true" />
-      <h3 className="mt-3 font-black text-slate-950">Lifecycle complete</h3>
+      <h3 className="mt-3 text-xl font-black text-slate-950">{paid ? "Payment complete" : "Request closed"}</h3>
       <p className="mt-1 text-sm text-slate-700">This request is read-only. Its full history remains in the audit timeline.</p>
+      <p className="mt-5 text-3xl font-black tabular-nums text-[#070f4f]">{formatVnd(review.amount)}</p>
       {review.paymentEvidence ? (
         <div className="mt-5 border-t border-emerald-200 pt-4">
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">Private payment receipt</p>

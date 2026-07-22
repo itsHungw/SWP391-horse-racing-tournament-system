@@ -5,6 +5,9 @@ import type { AdminWithdrawalReview } from "../../../types/wallet";
 import { WithdrawalReviewModal } from "./WithdrawalReviewModal";
 
 vi.mock("../../../api/adminWalletApi", () => ({ adminWalletApi: { getReview: vi.fn(), approve: vi.fn(), reject: vi.fn(), markPaid: vi.fn() } }));
+vi.mock("../../../components/AuthenticatedImage", () => ({
+  AuthenticatedImage: ({ alt }: { alt: string }) => <img alt={alt} />,
+}));
 vi.mock("qrcode.react", () => ({
   QRCodeCanvas: ({ value, ...props }: { value: string; "aria-label": string }) => (
     <canvas data-value={value} aria-label={props["aria-label"]} />
@@ -40,6 +43,19 @@ const approvedReview: AdminWithdrawalReview = {
   },
 };
 
+const paidReview: AdminWithdrawalReview = {
+  ...approvedReview,
+  status: "PAID",
+  paidAt: "2026-07-21T12:15:00",
+  paymentInstruction: null,
+  paymentEvidence: {
+    transferReference: "FT-20260721-001",
+    receiptUrl: "/api/v1/files/private/receipt.png",
+    checksum: "abc",
+    paidAt: "2026-07-21T12:15:00",
+  },
+};
+
 describe("WithdrawalReviewModal", () => {
   beforeEach(() => {
     vi.mocked(adminWalletApi.getReview).mockResolvedValue(highRiskReview);
@@ -67,6 +83,10 @@ describe("WithdrawalReviewModal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /approve & continue to payment/i }));
 
     expect(await within(dialog).findByLabelText(/vietqr for withdrawal 22/i)).toBeInTheDocument();
+    const progress = within(dialog).getByRole("navigation", { name: /withdrawal progress/i });
+    expect(within(progress).getByRole("listitem", { current: "step" })).toHaveTextContent("Transfer & receipt");
+    expect(within(dialog).getByRole("button", { name: /view review details/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("heading", { name: /risk evidence/i })).not.toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -75,8 +95,20 @@ describe("WithdrawalReviewModal", () => {
     render(<WithdrawalReviewModal id={22} onClose={vi.fn()} onUpdated={vi.fn()} />);
 
     const dialog = await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
-    expect(await within(dialog).findByText(/payment details/i)).toBeInTheDocument();
+    expect(await within(dialog).findByRole("heading", { name: /transfer details/i })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /view review details/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("heading", { name: /risk evidence/i })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /^approve/i })).not.toBeInTheDocument();
+  });
+
+  it("opens a paid withdrawal on the completed step", async () => {
+    vi.mocked(adminWalletApi.getReview).mockResolvedValue(paidReview);
+    render(<WithdrawalReviewModal id={22} onClose={vi.fn()} onUpdated={vi.fn()} />);
+
+    const dialog = await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
+    const progress = within(dialog).getByRole("navigation", { name: /withdrawal progress/i });
+    expect(within(progress).getByRole("listitem", { current: "step" })).toHaveTextContent("Completed");
+    expect(within(dialog).getByRole("heading", { name: "Payment complete" })).toBeInTheDocument();
   });
 
   it("asks before backdrop dismissal when action fields are dirty", async () => {
