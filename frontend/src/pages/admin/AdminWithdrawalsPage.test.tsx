@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { adminWalletApi } from "../../api/adminWalletApi";
@@ -118,8 +118,14 @@ const review: AdminWithdrawalReview = {
   paymentEvidence: null,
 };
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location-search">{location.search}</output>;
+}
+
 describe("AdminWithdrawalsPage", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(adminWalletApi.listWithdrawals).mockResolvedValue({
       content: rows,
       totalElements: 2,
@@ -175,6 +181,51 @@ describe("AdminWithdrawalsPage", () => {
     expect(within(dialog).getByText("Destination is shared by multiple users")).toBeInTheDocument();
     expect(within(dialog).getByText("2 distinct users")).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/internal note/i)).toBeInTheDocument();
+  });
+
+  it("opens a review from the URL and removes only that deep-link when closed", async () => {
+    render(
+      <MemoryRouter initialEntries={["/admin/withdrawals?status=APPROVED&review=22"]}>
+        <AdminWithdrawalsPage />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+
+    const dialog = await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
+    expect(adminWalletApi.getReview).toHaveBeenCalledWith(22);
+    fireEvent.click(within(dialog).getByRole("button", { name: /close review/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-search")).toHaveTextContent("status=APPROVED");
+      expect(screen.getByTestId("location-search")).not.toHaveTextContent("review=");
+    });
+  });
+
+  it("preserves the open review while filters change and ignores invalid review IDs", async () => {
+    const { unmount } = render(
+      <MemoryRouter initialEntries={["/admin/withdrawals?status=REQUESTED&review=22"]}>
+        <AdminWithdrawalsPage />
+        <LocationProbe />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
+    fireEvent.click(await screen.findByRole("button", { name: /ready to pay/i }));
+    await waitFor(() => {
+      const search = screen.getByTestId("location-search").textContent ?? "";
+      expect(search).toContain("status=APPROVED");
+      expect(search).toContain("review=22");
+    });
+
+    unmount();
+    vi.mocked(adminWalletApi.getReview).mockClear();
+    render(
+      <MemoryRouter initialEntries={["/admin/withdrawals?review=22x"]}>
+        <AdminWithdrawalsPage />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: /withdrawal operations/i, level: 1 });
+    expect(adminWalletApi.getReview).not.toHaveBeenCalled();
   });
 
   it("previews and confirms a sensitive two-sheet export", async () => {

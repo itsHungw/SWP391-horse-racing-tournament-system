@@ -17,6 +17,12 @@ const EMPTY_PAGE: PageResponse<AdminWithdrawalRow> = {
   content: [], totalElements: 0, totalPages: 0, number: 0, size: 20,
 };
 
+function parseReviewId(value: string | null) {
+  if (!value || !/^[1-9]\d*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
+}
+
 export function AdminWithdrawalsPage() {
   useDocumentTitle("Withdrawal operations");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,14 +32,26 @@ export function AdminWithdrawalsPage() {
   const [listLoading, setListLoading] = useState(true);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const selectedId = useMemo(() => parseReviewId(searchParams.get("review")), [searchParams]);
   const [exportOpen, setExportOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
   const patchFilters = useCallback((patch: Partial<WithdrawalAdminFilters>) => {
-    setSearchParams(writeWithdrawalFilters({ ...filters, ...patch }));
-  }, [filters, setSearchParams]);
+    const next = writeWithdrawalFilters({ ...filters, ...patch });
+    if (selectedId !== null) next.set("review", String(selectedId));
+    setSearchParams(next);
+  }, [filters, selectedId, setSearchParams]);
+  const openReview = useCallback((id: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("review", String(id));
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+  const closeReview = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("review");
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     let current = true;
@@ -91,7 +109,7 @@ export function AdminWithdrawalsPage() {
         <WithdrawalSummaryCards summary={summary} loading={summaryLoading} onFilter={patchFilters} />
         <WithdrawalFilters filters={filters} onChange={patchFilters} />
         {listError ? <div role="alert" className="flex items-center gap-3 border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800"><ShieldCheck className="h-5 w-5" aria-hidden="true" />{listError}</div> : null}
-        <WithdrawalOperationsTable rows={page.content} loading={listLoading} total={page.totalElements} page={filters.page} totalPages={page.totalPages} onPage={(next) => patchFilters({ page: next })} onReview={(id) => setSelectedId(id)} />
+        <WithdrawalOperationsTable rows={page.content} loading={listLoading} total={page.totalElements} page={filters.page} totalPages={page.totalPages} onPage={(next) => patchFilters({ page: next })} onReview={openReview} />
 
         <footer className="flex flex-col gap-2 border-t border-slate-300 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p className="flex items-center gap-2"><Landmark className="h-4 w-4" aria-hidden="true" /> Full account numbers appear only inside review and reconciliation export.</p>
@@ -99,7 +117,7 @@ export function AdminWithdrawalsPage() {
         </footer>
       </div>
 
-      <WithdrawalReviewModal id={selectedId} onClose={() => setSelectedId(null)} onUpdated={refresh} />
+      <WithdrawalReviewModal id={selectedId} onClose={closeReview} onUpdated={refresh} />
       <WithdrawalExportDialog open={exportOpen} filters={exportFilters} onClose={() => setExportOpen(false)} />
     </AdminLayout>
   );
