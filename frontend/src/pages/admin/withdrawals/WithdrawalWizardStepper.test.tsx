@@ -1,5 +1,5 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import type { WithdrawalStatus } from "../../../types/wallet";
 import { WithdrawalWizardStepper } from "./WithdrawalWizardStepper";
@@ -22,12 +22,30 @@ describe("WithdrawalWizardStepper", () => {
     expect(progress.querySelectorAll('[aria-current="step"]')).toHaveLength(1);
   });
 
-  it("marks earlier stages complete without turning them into navigation controls", () => {
-    render(<WithdrawalWizardStepper status="APPROVED" />);
+  it("offers completed Review as an inspection control without changing the current stage", () => {
+    const onInspectReview = vi.fn();
+    render(
+      <WithdrawalWizardStepper
+        status="APPROVED"
+        inspectingReview={false}
+        onInspectReview={onInspectReview}
+      />,
+    );
 
     const progress = screen.getByRole("navigation", { name: /withdrawal progress/i });
-    expect(within(progress).getByLabelText("Review complete")).toBeInTheDocument();
-    expect(within(progress).queryByRole("button")).not.toBeInTheDocument();
-    expect(within(progress).queryByRole("link")).not.toBeInTheDocument();
+    expect(within(progress).getByRole("listitem", { current: "step" }))
+      .toHaveTextContent("Transfer & receipt");
+
+    const review = within(progress).getByRole("button", { name: /view approved review/i });
+    expect(review).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(review);
+    expect(onInspectReview).toHaveBeenCalledOnce();
+  });
+
+  it("keeps Review static while it is the authoritative current stage", () => {
+    render(<WithdrawalWizardStepper status="REQUESTED" />);
+
+    const progress = screen.getByRole("navigation", { name: /withdrawal progress/i });
+    expect(within(progress).queryByRole("button", { name: /review/i })).not.toBeInTheDocument();
   });
 });
