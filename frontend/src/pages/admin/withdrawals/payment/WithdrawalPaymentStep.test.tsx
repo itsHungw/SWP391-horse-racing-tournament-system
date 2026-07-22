@@ -87,6 +87,15 @@ describe("WithdrawalPaymentStep", () => {
     });
   });
 
+  it("presents VietQR and receipt work as one admin payment workspace", () => {
+    render(<WithdrawalPaymentStep review={approvedReview} onPaid={vi.fn()} onStateChange={vi.fn()} />);
+
+    expect(screen.getByRole("heading", { name: "Transfer details" })).toBeInTheDocument();
+    expect(screen.getByText("VietQR · NAPAS 247")).toBeInTheDocument();
+    expect(screen.getByLabelText(/vietqr for withdrawal 123/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Receipt and confirmation" })).toBeInTheDocument();
+  });
+
   it("renders trusted QR, OCRs locally and confirms a matched receipt", async () => {
     const onPaid = vi.fn();
     render(<WithdrawalPaymentStep review={approvedReview} onPaid={onPaid} onStateChange={vi.fn()} />);

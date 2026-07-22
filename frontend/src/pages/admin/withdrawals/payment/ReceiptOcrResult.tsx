@@ -22,13 +22,13 @@ export function ReceiptOcrResult({
   const mismatch = comparison.amount === false || comparison.transferContent === false;
 
   return (
-    <div className="mt-4 space-y-4 rounded-xl border border-white/10 bg-black/10 p-4">
+    <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-ivory">OCR result</p>
-        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${
+        <p className="text-sm font-bold text-slate-900">OCR result</p>
+        <span className={`border px-2.5 py-1 text-xs font-bold ${
           extraction.confidence === "HIGH"
-            ? "bg-emerald-400/10 text-emerald-200"
-            : "bg-amber-300/10 text-amber-100"
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : "border-amber-200 bg-amber-50 text-amber-800"
         }`}>
           {extraction.confidence.toLowerCase()} confidence
         </span>
@@ -36,14 +36,14 @@ export function ReceiptOcrResult({
 
       {extraction.referenceCandidates.length > 1 ? (
         <div>
-          <p className="text-xs text-ivory-faint">Detected references</p>
+          <p className="text-xs text-slate-500">Detected references</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {extraction.referenceCandidates.map((candidate) => (
               <button
                 key={candidate.value}
                 type="button"
                 onClick={() => onReferenceChange(candidate.value)}
-                className="min-h-11 rounded-lg border border-white/10 px-3 font-data text-xs text-ivory hover:border-gold-400/50"
+                className="min-h-11 border border-slate-300 px-3 font-mono text-xs text-slate-800 hover:border-[#070f4f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#070f4f]"
               >
                 {candidate.value}
               </button>
@@ -53,12 +53,12 @@ export function ReceiptOcrResult({
       ) : null}
 
       <label className="block">
-        <span className="text-xs font-semibold text-ivory-dim">Transaction reference</span>
+        <span className="text-xs font-semibold text-slate-600">Transaction reference</span>
         <input
           value={transferReference}
           onChange={(event) => onReferenceChange(event.target.value.toUpperCase())}
           maxLength={120}
-          className="mt-1.5 min-h-11 w-full rounded-lg border border-white/10 bg-turf-950 px-3 font-data text-sm text-ivory focus:border-gold-400 focus:outline-none"
+          className="mt-1.5 min-h-11 w-full border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:border-[#070f4f] focus:outline-none focus:ring-2 focus:ring-[#070f4f]/15"
         />
       </label>
 
@@ -68,24 +68,24 @@ export function ReceiptOcrResult({
       </dl>
 
       {mismatch ? (
-        <div className="rounded-lg border border-amber-300/20 bg-amber-300/5 p-3">
-          <label className="flex min-h-11 items-start gap-3 text-sm text-amber-50">
+        <div className="border border-amber-200 bg-amber-50 p-3">
+          <label className="flex min-h-11 items-start gap-3 text-sm text-amber-950">
             <input
               type="checkbox"
               checked={mismatchAcknowledged}
               onChange={(event) => onMismatchAcknowledged(event.target.checked)}
-              className="mt-1 h-4 w-4 accent-amber-300"
+              className="mt-1 h-4 w-4 accent-amber-700"
             />
             <span>I reviewed the mismatch and still want to confirm this payment.</span>
           </label>
           <label className="mt-3 block">
-            <span className="text-xs font-semibold text-amber-100">Internal mismatch note</span>
+            <span className="text-xs font-semibold text-amber-900">Internal mismatch note</span>
             <textarea
               value={internalNote}
               onChange={(event) => onInternalNoteChange(event.target.value)}
               rows={3}
               maxLength={1000}
-              className="mt-1.5 w-full rounded-lg border border-amber-200/20 bg-turf-950 px-3 py-2 text-sm text-ivory focus:border-amber-300 focus:outline-none"
+              className="mt-1.5 w-full border border-amber-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-700/15"
             />
           </label>
         </div>
@@ -96,11 +96,11 @@ export function ReceiptOcrResult({
 
 function MatchField({ label, value, match }: { label: string; value: string; match: boolean | null }) {
   return (
-    <div className="rounded-lg border border-white/8 px-3 py-2.5">
-      <dt className="text-xs text-ivory-faint">{label}</dt>
-      <dd className="mt-1 flex items-center justify-between gap-2 text-sm font-semibold text-ivory">
+    <div className="border border-slate-200 px-3 py-2.5">
+      <dt className="text-xs text-slate-500">{label}</dt>
+      <dd className="mt-1 flex items-center justify-between gap-2 text-sm font-semibold text-slate-900">
         <span className="truncate">{value}</span>
-        <span className={match === false ? "text-rose-300" : match === true ? "text-emerald-200" : "text-ivory-faint"}>
+        <span className={match === false ? "text-rose-700" : match === true ? "text-emerald-700" : "text-slate-500"}>
           {match === false ? "Mismatch" : match === true ? "Match" : "Check manually"}
         </span>
       </dd>

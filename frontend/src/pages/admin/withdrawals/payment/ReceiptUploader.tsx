@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 const RECEIPT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const RECEIPT_MAX_BYTES = 5 * 1024 * 1024;
@@ -37,29 +37,29 @@ export function ReceiptUploader({
   }
 
   return (
-    <section aria-labelledby="receipt-heading" className="rounded-2xl border border-white/10 bg-[#071a15] p-5">
-      <h3 id="receipt-heading" className="font-semibold text-ivory">Transfer receipt</h3>
-      <p className="mt-1 text-xs text-ivory-faint">The image stays private. OCR runs in this browser.</p>
+    <section aria-labelledby="receipt-heading">
+      <h4 id="receipt-heading" className="font-bold text-slate-900">Transfer receipt</h4>
+      <p className="mt-1 text-xs text-slate-500">The image stays private. OCR runs in this browser.</p>
 
       {receipt ? (
-        <div className="relative mt-4 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-3">
-          {preview ? <img src={preview} alt="Selected transfer receipt" className="max-h-52 w-full rounded-lg object-contain" /> : null}
-          <p className="mt-2 truncate text-sm text-ivory-dim">{receipt.name}</p>
+        <div className="relative mt-4 overflow-hidden border border-slate-200 bg-slate-50 p-3">
+          {preview ? <img src={preview} alt="Selected transfer receipt" className="max-h-52 w-full object-contain" /> : null}
+          <p className="mt-2 truncate text-sm text-slate-600">{receipt.name}</p>
           <button
             type="button"
             disabled={disabled}
             onClick={() => onChange(null)}
             aria-label="Remove receipt image"
-            className="absolute right-2 top-2 grid h-11 w-11 place-items-center rounded-full bg-black/70 text-white"
+            className="absolute right-2 top-2 grid h-11 w-11 place-items-center bg-slate-950/80 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           >
             <X size={17} aria-hidden="true" />
           </button>
         </div>
       ) : (
-        <label className="mt-4 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/[0.02] px-4 text-center hover:border-gold-400/50">
-          <ImagePlus className="h-6 w-6 text-gold-300" aria-hidden="true" />
-          <span className="mt-2 text-sm font-semibold text-ivory">Choose receipt image</span>
-          <span className="mt-1 text-xs text-ivory-faint">JPG, PNG or WebP · max 5 MB</span>
+        <label className="mt-4 flex min-h-32 cursor-pointer flex-col items-center justify-center border border-dashed border-slate-300 bg-slate-50 px-4 text-center hover:border-[#070f4f] focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[#070f4f]">
+          <ImagePlus className="h-6 w-6 text-[#070f4f]" aria-hidden="true" />
+          <span className="mt-2 text-sm font-bold text-slate-900">Choose receipt image</span>
+          <span className="mt-1 text-xs text-slate-500">JPG, PNG or WebP · max 5 MB</span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -70,7 +70,7 @@ export function ReceiptUploader({
           />
         </label>
       )}
-      {error ? <p role="alert" className="mt-3 text-sm text-rose-300">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 text-sm text-rose-700">{error}</p> : null}
     </section>
   );
 }

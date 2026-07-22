@@ -22,7 +22,7 @@ export function WithdrawalPaymentStep({
 
   if (!instruction) {
     return (
-      <div role="alert" className="rounded-2xl border border-rose-400/20 bg-rose-400/5 p-5 text-rose-200">
+      <div role="alert" className="border border-rose-200 bg-rose-50 p-5 text-rose-800">
         Payment instructions are unavailable. Reload this withdrawal before continuing.
       </div>
     );
@@ -38,14 +38,14 @@ export function WithdrawalPaymentStep({
       <div className="grid gap-5 xl:grid-cols-[minmax(280px,0.8fr)_minmax(360px,1.2fr)]">
         <VietQrCard instruction={instruction} withdrawalId={review.id} />
 
-        <section className="rounded-2xl border border-white/10 bg-[#071a15] p-5">
+        <section aria-labelledby="receipt-confirmation-heading" className="border border-slate-200 bg-white p-5">
           <div className="flex items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-400/10 text-emerald-200">
+            <span className="grid h-10 w-10 place-items-center bg-emerald-50 text-emerald-700">
               <CheckCircle2 className="h-5 w-5" aria-hidden="true" />
             </span>
             <div>
-              <h3 className="font-semibold text-ivory">Confirm transfer</h3>
-              <p className="text-xs text-ivory-faint">Upload the successful receipt before marking this request paid.</p>
+              <h3 id="receipt-confirmation-heading" className="font-black text-[#070f4f]">Receipt and confirmation</h3>
+              <p className="mt-0.5 text-xs text-slate-500">Upload the successful receipt before marking this request paid.</p>
             </div>
           </div>
 
@@ -58,13 +58,13 @@ export function WithdrawalPaymentStep({
           </div>
 
           {ocrBusy ? (
-            <div role="status" aria-live="polite" className="mt-4 rounded-xl border border-gold-400/20 bg-gold-400/5 p-4">
-              <div className="flex items-center justify-between text-sm text-gold-100">
+            <div role="status" aria-live="polite" className="mt-4 border border-blue-200 bg-blue-50 p-4">
+              <div className="flex items-center justify-between text-sm text-blue-900">
                 <span>Reading receipt locally...</span>
-                <span className="font-data">{Math.round(payment.progress * 100)}%</span>
+                <span className="font-mono">{Math.round(payment.progress * 100)}%</span>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                <div className="h-full bg-gold-300 transition-[width] motion-reduce:transition-none" style={{ width: `${payment.progress * 100}%` }} />
+              <div className="mt-2 h-1.5 overflow-hidden bg-blue-100">
+                <div className="h-full bg-[#070f4f] transition-[width] motion-reduce:transition-none" style={{ width: `${payment.progress * 100}%` }} />
               </div>
             </div>
           ) : null}
@@ -82,51 +82,51 @@ export function WithdrawalPaymentStep({
             />
           ) : null}
 
-          {payment.error ? <p role="alert" className="mt-4 text-sm text-rose-300">{payment.error}</p> : null}
+          {payment.error ? <p role="alert" className="mt-4 text-sm text-rose-700">{payment.error}</p> : null}
 
           <button
             type="button"
             disabled={!canConfirm || payment.busy !== "IDLE"}
             onClick={payment.confirmPaid}
-            className="mt-5 inline-flex min-h-12 w-full items-center justify-center rounded-lg bg-emerald-300 px-5 text-xs font-black uppercase tracking-[0.14em] text-turf-950 hover:bg-emerald-200 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-ivory-faint"
+            className="mt-5 inline-flex min-h-12 w-full items-center justify-center bg-[#070f4f] px-5 text-sm font-black text-white hover:bg-[#111d69] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#070f4f] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
           >
             {confirming ? "Confirming..." : "Confirm paid"}
           </button>
         </section>
       </div>
 
-      <section className="rounded-2xl border border-white/10 bg-[#071a15] p-5">
+      <section className="border border-slate-200 bg-white px-5 py-3">
         <button
           type="button"
           aria-expanded={payment.rejectOpen}
           onClick={() => payment.setRejectOpen(!payment.rejectOpen)}
-          className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-semibold text-ivory-dim hover:text-ivory"
+          className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm font-bold text-slate-700 hover:text-[#070f4f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#070f4f]"
         >
           <span className="flex items-center gap-2"><AlertTriangle size={17} aria-hidden="true" /> Cannot complete payment</span>
           <span aria-hidden="true">{payment.rejectOpen ? "−" : "+"}</span>
         </button>
 
         {payment.rejectOpen ? (
-          <div className="mt-4 space-y-4 border-t border-white/8 pt-4">
-            <p className="text-sm text-ivory-faint">
+          <div className="mt-3 space-y-4 border-t border-slate-200 pt-4">
+            <p className="text-sm text-slate-600">
               Use this only when the destination is permanently invalid and no bank transfer was made.
             </p>
             <label className="block">
-              <span className="text-xs font-semibold text-ivory-dim">Reason shown to user</span>
+              <span className="text-xs font-semibold text-slate-600">Reason shown to user</span>
               <textarea
                 value={payment.publicReason}
                 onChange={(event) => payment.setPublicReason(event.target.value)}
                 rows={3}
                 maxLength={500}
-                className="mt-1.5 w-full rounded-lg border border-white/10 bg-turf-950 px-3 py-2 text-sm text-ivory focus:border-rose-300 focus:outline-none"
+                className="mt-1.5 w-full border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-rose-700 focus:outline-none focus:ring-2 focus:ring-rose-700/15"
               />
             </label>
-            <label className="flex min-h-11 items-start gap-3 text-sm text-ivory-dim">
+            <label className="flex min-h-11 items-start gap-3 text-sm text-slate-700">
               <input
                 type="checkbox"
                 checked={payment.noTransferConfirmed}
                 onChange={(event) => payment.setNoTransferConfirmed(event.target.checked)}
-                className="mt-1 h-4 w-4 accent-rose-300"
+                className="mt-1 h-4 w-4 accent-rose-700"
               />
               <span>No transfer was made for this withdrawal.</span>
             </label>
@@ -134,7 +134,7 @@ export function WithdrawalPaymentStep({
               type="button"
               disabled={!payment.publicReason.trim() || !payment.noTransferConfirmed || payment.busy !== "IDLE"}
               onClick={payment.rejectAndRefund}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-rose-300/40 px-4 text-xs font-bold uppercase tracking-[0.12em] text-rose-200 hover:bg-rose-300/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-11 items-center gap-2 border border-rose-300 px-4 text-sm font-bold text-rose-700 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <RotateCcw size={15} aria-hidden="true" /> Reject & refund
             </button>
