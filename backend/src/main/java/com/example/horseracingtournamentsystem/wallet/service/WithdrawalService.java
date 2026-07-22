@@ -10,6 +10,7 @@ import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionTyp
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRiskLevel;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
+import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalRiskAssessmentResponse;
 import com.example.horseracingtournamentsystem.wallet.repository.UserBankAccountRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalActionHistoryRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
@@ -20,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Rút tiền theo mô hình "yêu cầu rút → Admin duyệt → chi". Tạo yêu cầu HOLD tiền ngay
@@ -34,6 +36,8 @@ public class WithdrawalService {
     private final WithdrawalActionHistoryRepository actionHistoryRepository;
     private final WalletService walletService;
     private final UserRepository userRepository;
+    private final WithdrawalRiskAssessmentService riskService;
+    private final ObjectMapper objectMapper;
     private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
     @Value("${wallet.withdrawal.enabled:true}")
@@ -96,9 +100,26 @@ public class WithdrawalService {
     }
 
     @Transactional
-    public WithdrawalRequest approve(Long id, String reviewerEmail) {
-        WithdrawalRequest request = get(id);
-        request.approve(reviewer(reviewerEmail));
+    public WithdrawalRequest approve(
+            Long id,
+            String reviewerEmail,
+            boolean riskAcknowledged,
+            String internalNote
+    ) {
+        WithdrawalRequest request = getForUpdate(id);
+        User actor = reviewer(reviewerEmail);
+        WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
+        if (risk.level() == WithdrawalRiskLevel.HIGH
+                && (!riskAcknowledged || internalNote == null || internalNote.isBlank())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "High-risk approvals require acknowledgement and an internal note");
+        }
+        WithdrawalStatus oldStatus = request.getStatus();
+        request.approve(actor);
+        recordAction(
+                request, WithdrawalActionType.APPROVED, oldStatus, actor,
+                null, internalNote, null, risk);
         
         notificationService.notify(
                 request.getUser(),
@@ -112,10 +133,25 @@ public class WithdrawalService {
         return request;
     }
 
+    public WithdrawalRequest approve(Long id, String reviewerEmail) {
+        return approve(id, reviewerEmail, true, "Approved through legacy service call");
+    }
+
     @Transactional
-    public WithdrawalRequest reject(Long id, String reviewerEmail, String note) {
-        WithdrawalRequest request = get(id);
-        request.reject(reviewer(reviewerEmail), note);
+    public WithdrawalRequest reject(
+            Long id,
+            String reviewerEmail,
+            String publicReason,
+            String internalNote
+    ) {
+        WithdrawalRequest request = getForUpdate(id);
+        User actor = reviewer(reviewerEmail);
+        WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
+        WithdrawalStatus oldStatus = request.getStatus();
+        request.reject(actor, publicReason);
+        recordAction(
+                request, WithdrawalActionType.REJECTED, oldStatus, actor,
+                publicReason, internalNote, null, risk);
         // Hoàn tiền đã HOLD về ví.
         walletService.adjust(
                 request.getUser(), request.getAmount(), WalletTransactionType.WITHDRAWAL_REFUND,
@@ -127,7 +163,7 @@ public class WithdrawalService {
                 request.getUser(),
                 "WITHDRAWAL_REJECTED",
                 "Withdrawal rejected",
-                "Your withdrawal request #" + request.getId() + " was rejected: " + note,
+                "Your withdrawal request #" + request.getId() + " was rejected: " + publicReason,
                 "WITHDRAWAL",
                 request.getId()
         );
@@ -135,10 +171,25 @@ public class WithdrawalService {
         return request;
     }
 
+    public WithdrawalRequest reject(Long id, String reviewerEmail, String note) {
+        return reject(id, reviewerEmail, note, null);
+    }
+
     @Transactional
-    public WithdrawalRequest markPaid(Long id, String reviewerEmail) {
-        WithdrawalRequest request = get(id);
-        request.markPaid(reviewer(reviewerEmail));
+    public WithdrawalRequest markPaid(
+            Long id,
+            String reviewerEmail,
+            String transferReference,
+            String internalNote
+    ) {
+        WithdrawalRequest request = getForUpdate(id);
+        User actor = reviewer(reviewerEmail);
+        WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
+        WithdrawalStatus oldStatus = request.getStatus();
+        request.markPaid();
+        recordAction(
+                request, WithdrawalActionType.MARKED_PAID, oldStatus, actor,
+                null, internalNote, transferReference, risk);
         
         notificationService.notify(
                 request.getUser(),
@@ -152,13 +203,22 @@ public class WithdrawalService {
         return request;
     }
 
+    public WithdrawalRequest markPaid(Long id, String reviewerEmail) {
+        return markPaid(id, reviewerEmail, "LEGACY-" + id, "Paid through legacy service call");
+    }
+
     @Transactional
     public WithdrawalRequest cancel(Long id, String userEmail) {
-        WithdrawalRequest request = get(id);
+        WithdrawalRequest request = getForUpdate(id);
         if (!request.getUser().getEmail().equalsIgnoreCase(userEmail)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You can only cancel your own request");
         }
+        WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
+        WithdrawalStatus oldStatus = request.getStatus();
         request.cancelByUser();
+        recordAction(
+                request, WithdrawalActionType.CANCELLED, oldStatus, request.getUser(),
+                null, null, null, risk);
         walletService.adjust(
                 request.getUser(), request.getAmount(), WalletTransactionType.WITHDRAWAL_REFUND,
                 WalletTransaction.REF_WITHDRAWAL, request.getId(),
@@ -170,6 +230,35 @@ public class WithdrawalService {
     private WithdrawalRequest get(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Withdrawal request not found"));
+    }
+
+    private WithdrawalRequest getForUpdate(Long id) {
+        return repository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Withdrawal request not found"));
+    }
+
+    private void recordAction(
+            WithdrawalRequest request,
+            WithdrawalActionType action,
+            WithdrawalStatus oldStatus,
+            User actor,
+            String publicReason,
+            String internalNote,
+            String transferReference,
+            WithdrawalRiskAssessmentResponse risk
+    ) {
+        actionHistoryRepository.save(WithdrawalActionHistory.record(
+                request,
+                action,
+                oldStatus,
+                request.getStatus(),
+                actor,
+                publicReason,
+                internalNote,
+                transferReference,
+                risk.level(),
+                objectMapper.writeValueAsString(risk)));
     }
 
     private User reviewer(String email) {

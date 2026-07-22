@@ -1,13 +1,17 @@
 package com.example.horseracingtournamentsystem.wallet.controller;
 
 import com.example.horseracingtournamentsystem.wallet.dto.RejectWithdrawalRequest;
+import com.example.horseracingtournamentsystem.wallet.dto.ApproveWithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalRowResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalReviewResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalSummaryResponse;
-import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.MarkWithdrawalPaidRequest;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRiskLevel;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus;
 import com.example.horseracingtournamentsystem.wallet.service.WithdrawalService;
 import com.example.horseracingtournamentsystem.wallet.service.AdminWithdrawalQueryService;
+import com.example.horseracingtournamentsystem.wallet.service.AdminWithdrawalReviewService;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +33,7 @@ public class AdminWithdrawalController {
 
     private final WithdrawalService withdrawalService;
     private final AdminWithdrawalQueryService queryService;
+    private final AdminWithdrawalReviewService reviewService;
 
     @GetMapping
     public ResponseEntity<Page<AdminWithdrawalRowResponse>> list(
@@ -51,23 +56,44 @@ public class AdminWithdrawalController {
         return ResponseEntity.ok(queryService.summary());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<AdminWithdrawalReviewResponse> review(@PathVariable Long id) {
+        return ResponseEntity.ok(reviewService.get(id));
+    }
+
     @PostMapping("/{id}/approve")
-    public ResponseEntity<WithdrawalResponse> approve(@PathVariable Long id, Authentication authentication) {
-        return ResponseEntity.ok(WithdrawalResponse.from(withdrawalService.approve(id, authentication.getName())));
+    public ResponseEntity<AdminWithdrawalReviewResponse> approve(
+            @PathVariable Long id,
+            @Valid @RequestBody ApproveWithdrawalRequest request,
+            Authentication authentication
+    ) {
+        withdrawalService.approve(
+                id, authentication.getName(), request.riskAcknowledged(), request.internalNote());
+        return ResponseEntity.ok(reviewService.get(id));
     }
 
     @PostMapping("/{id}/reject")
-    public ResponseEntity<WithdrawalResponse> reject(
+    public ResponseEntity<AdminWithdrawalReviewResponse> reject(
             @PathVariable Long id,
-            @RequestBody RejectWithdrawalRequest request,
+            @Valid @RequestBody RejectWithdrawalRequest request,
             Authentication authentication
     ) {
-        return ResponseEntity.ok(
-                WithdrawalResponse.from(withdrawalService.reject(id, authentication.getName(), request.note())));
+        withdrawalService.reject(
+                id,
+                authentication.getName(),
+                request.publicReason(),
+                request.internalNote());
+        return ResponseEntity.ok(reviewService.get(id));
     }
 
     @PostMapping("/{id}/mark-paid")
-    public ResponseEntity<WithdrawalResponse> markPaid(@PathVariable Long id, Authentication authentication) {
-        return ResponseEntity.ok(WithdrawalResponse.from(withdrawalService.markPaid(id, authentication.getName())));
+    public ResponseEntity<AdminWithdrawalReviewResponse> markPaid(
+            @PathVariable Long id,
+            @Valid @RequestBody MarkWithdrawalPaidRequest request,
+            Authentication authentication
+    ) {
+        withdrawalService.markPaid(
+                id, authentication.getName(), request.transferReference(), request.internalNote());
+        return ResponseEntity.ok(reviewService.get(id));
     }
 }

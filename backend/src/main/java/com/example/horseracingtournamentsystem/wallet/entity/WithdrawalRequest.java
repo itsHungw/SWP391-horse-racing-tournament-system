@@ -126,10 +126,9 @@ public class WithdrawalRequest {
         this.reviewedAt = LocalDateTime.now();
     }
 
-    public void markPaid(User reviewer) {
+    public void markPaid() {
         ensureStatus(WithdrawalStatus.APPROVED);
         this.status = WithdrawalStatus.PAID;
-        this.reviewedBy = reviewer;
         this.paidAt = LocalDateTime.now();
     }
 

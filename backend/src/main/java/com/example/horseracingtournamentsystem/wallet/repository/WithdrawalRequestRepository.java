@@ -17,6 +17,8 @@ public interface WithdrawalRequestRepository
         extends JpaRepository<WithdrawalRequest, Long>, JpaSpecificationExecutor<WithdrawalRequest> {
     List<WithdrawalRequest> findByUserIdOrderByRequestedAtDesc(Long userId);
 
+    List<WithdrawalRequest> findTop5ByUserIdOrderByRequestedAtDesc(Long userId);
+
     List<WithdrawalRequest> findByStatusOrderByRequestedAtAsc(WithdrawalStatus status);
 
     List<WithdrawalRequest> findAllByOrderByRequestedAtDesc();
@@ -67,6 +69,12 @@ public interface WithdrawalRequestRepository
 
     long countByStatus(WithdrawalStatus status);
 
+    long countByUserId(Long userId);
+
+    long countByUserIdAndStatus(Long userId, WithdrawalStatus status);
+
+    long countByUserIdAndStatusIn(Long userId, Collection<WithdrawalStatus> statuses);
+
     List<WithdrawalRequest> findByStatusInOrderByRequestedAtDesc(Collection<WithdrawalStatus> statuses);
 
     @Query("""
@@ -85,4 +93,7 @@ public interface WithdrawalRequestRepository
     long sumAmountByUserAndStatusIn(
             @org.springframework.data.repository.query.Param("userId") Long userId,
             @org.springframework.data.repository.query.Param("statuses") java.util.Collection<WithdrawalStatus> statuses);
+
+    @Query("select coalesce(sum(w.amount), 0) from WithdrawalRequest w where w.user.id = :userId")
+    long sumAmountByUser(@Param("userId") Long userId);
 }
