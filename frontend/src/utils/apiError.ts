@@ -9,7 +9,7 @@ type ApiErrorPayload = {
 const ERROR_MESSAGES: Record<string, string> = {
   "USER_ACCOUNT_DISABLED": "Your account has been disabled. Please contact support for assistance.",
   "INVALID_CREDENTIALS": "The email or password you entered is incorrect.",
-  "EMAIL_NOT_VERIFIED": "Please verify your email address before logging in.",
+  //"EMAIL_NOT_VERIFIED": "Please verify your email address before logging in.",
   "EMAIL_ALREADY_EXISTS": "An account with this email address already exists.",
   "PASSWORD_CONFIRMATION_MISMATCH": "The passwords you entered do not match.",
   "INVALID_PASSWORD_RESET_TOKEN": "The password reset link is invalid or has expired.",
