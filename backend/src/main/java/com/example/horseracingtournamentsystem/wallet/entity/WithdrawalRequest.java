@@ -87,13 +87,13 @@ public class WithdrawalRequest {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
-    @Column(name = "transfer_reference", length = 120)
+    @Column(name = "transfer_reference", unique = true, length = 120)
     private String transferReference;
 
     @Column(name = "payment_receipt_filename", length = 120)
     private String paymentReceiptFilename;
 
-    @Column(name = "payment_receipt_checksum", length = 64)
+    @Column(name = "payment_receipt_checksum", unique = true, length = 64)
     private String paymentReceiptChecksum;
 
     @Column(name = "payment_idempotency_key", unique = true, length = 36)

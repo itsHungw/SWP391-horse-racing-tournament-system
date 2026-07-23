@@ -91,15 +91,44 @@ public class AdminWithdrawalQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<AdminWithdrawalRowResponse> findAllForExport(WithdrawalExportFilter filter) {
+    public List<AdminWithdrawalRowResponse> findAllForExport(
+            WithdrawalExportFilter filter,
+            int maxRows,
+            int maxScanRows
+    ) {
         String query = filter.query() == null ? "" : filter.query().trim().toLowerCase();
-        List<AdminWithdrawalRowResponse> rows = repository.findAll(
-                        specification(query, filter.status(), filter.from(), filter.to()),
-                        databaseSort(filter.sort())).stream()
-                .map(withdrawal -> AdminWithdrawalRowResponse.from(
-                        withdrawal, riskService.assess(withdrawal)))
-                .filter(row -> filter.risk() == null || row.risk().level() == filter.risk())
-                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+        Specification<WithdrawalRequest> specification =
+                specification(query, filter.status(), filter.from(), filter.to());
+        Sort sort = databaseSort(filter.sort()).and(Sort.by(Sort.Direction.DESC, "id"));
+        int scanLimit = filter.risk() == null ? maxRows + 1 : maxScanRows;
+        List<AdminWithdrawalRowResponse> rows = new ArrayList<>();
+        int pageNumber = 0;
+        int scanned = 0;
+
+        while (true) {
+            Page<WithdrawalRequest> page = repository.findAll(
+                    specification, PageRequest.of(pageNumber++, 500, sort));
+            for (WithdrawalRequest withdrawal : page.getContent()) {
+                if (++scanned > scanLimit) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Withdrawal export filter is too broad; narrow the filters");
+                }
+                AdminWithdrawalRowResponse row = AdminWithdrawalRowResponse.from(
+                        withdrawal, riskService.assess(withdrawal));
+                if (filter.risk() == null || row.risk().level() == filter.risk()) {
+                    rows.add(row);
+                    if (rows.size() > maxRows) {
+                        throw new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Withdrawal export exceeds the configured row limit");
+                    }
+                }
+            }
+            if (!page.hasNext()) {
+                break;
+            }
+        }
         if (isRiskSort(filter.sort())) {
             rows.sort(riskComparator());
         }

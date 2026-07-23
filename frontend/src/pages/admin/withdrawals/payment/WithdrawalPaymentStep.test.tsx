@@ -173,6 +173,7 @@ describe("WithdrawalPaymentStep", () => {
       expect(adminWalletApi.reject).toHaveBeenCalledWith(123, {
         publicReason: "The destination account is invalid",
         internalNote: "No transfer was made; payout rejected from the payment step.",
+        noTransferConfirmed: true,
       });
       expect(onPaid).toHaveBeenCalled();
     });

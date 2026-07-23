@@ -75,6 +75,7 @@ public record AdminWithdrawalReviewResponse(
             String internalNote,
             String transferReference,
             WithdrawalRiskLevel riskLevel,
+            WithdrawalRiskAssessmentResponse riskSnapshot,
             LocalDateTime createdAt
     ) {
     }

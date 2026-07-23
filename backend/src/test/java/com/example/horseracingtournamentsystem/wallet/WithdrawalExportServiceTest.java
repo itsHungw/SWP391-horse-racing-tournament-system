@@ -13,6 +13,7 @@ import com.example.horseracingtournamentsystem.wallet.entity.UserBankAccount;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
+import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRiskLevel;
 import com.example.horseracingtournamentsystem.wallet.repository.UserBankAccountRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalExportAuditRepository;
 import com.example.horseracingtournamentsystem.wallet.service.WalletService;
@@ -28,10 +29,13 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @SpringBootTest(properties = {
         "wallet.withdrawal.export.max-rows=1",
+        "wallet.withdrawal.export.max-scan-rows=50000",
         "app.frontend-base-url=https://admin.example.test"
 })
 class WithdrawalExportServiceTest {
@@ -52,6 +56,7 @@ class WithdrawalExportServiceTest {
     void setUp() {
         TestDatabaseCleaner.clean(jdbcTemplate);
         org.springframework.test.util.ReflectionTestUtils.setField(service, "maxRows", 50_000);
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxScanRows", 50_000);
         admin = activeUser("Export Admin", "export-admin@example.com");
         target = activeUser("Export Target", "export-target@example.com");
         bankAccount = bankAccountRepository.save(UserBankAccount.create(
@@ -119,7 +124,10 @@ class WithdrawalExportServiceTest {
         }
 
         assertEquals(1, auditRepository.count());
-        String filters = auditRepository.findAll().getFirst().getNormalizedFilters();
+        var audit = auditRepository.findAll().getFirst();
+        assertEquals(1, audit.getPaymentQueueRows());
+        assertEquals(1, audit.getReconciliationRows());
+        String filters = audit.getNormalizedFilters();
         assertTrue(!filters.contains("0123456789"));
     }
 
@@ -158,6 +166,55 @@ class WithdrawalExportServiceTest {
 
         assertEquals(400, exception.getStatusCode().value());
         assertEquals(0, auditRepository.count());
+    }
+
+    @Test
+    void previewRejectsMoreThanConfiguredMaximumRows() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxRows", 1);
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.preview(WithdrawalExportFilter.empty()));
+
+        assertEquals(400, exception.getStatusCode().value());
+    }
+
+    @Test
+    void previewLimitCountsOnlyRowsMatchingTheRiskFilter() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxRows", 1);
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+
+        var preview = service.preview(new WithdrawalExportFilter(
+                null, null, WithdrawalRiskLevel.MEDIUM, null, null, "newest"));
+
+        assertEquals(0, preview.operationsRows());
+    }
+
+    @Test
+    void riskFilteredPreviewRejectsAFilterThatExceedsTheScanLimit() {
+        org.springframework.test.util.ReflectionTestUtils.setField(service, "maxScanRows", 1);
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+        withdrawalService.createRequest(target, 100_000L, bankAccount.getId());
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> service.preview(new WithdrawalExportFilter(
+                        null, null, WithdrawalRiskLevel.MEDIUM, null, null, "newest")));
+
+        assertEquals(400, exception.getStatusCode().value());
+    }
+
+    @Test
+    void exportScansUseAStableDatabaseSnapshot() throws Exception {
+        assertEquals(Isolation.REPEATABLE_READ, WithdrawalExportService.class
+                .getMethod("preview", WithdrawalExportFilter.class)
+                .getAnnotation(Transactional.class).isolation());
+        assertEquals(Isolation.REPEATABLE_READ, WithdrawalExportService.class
+                .getMethod("export", WithdrawalExportFilter.class, User.class)
+                .getAnnotation(Transactional.class).isolation());
     }
 
     private User activeUser(String name, String email) {

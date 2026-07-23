@@ -25,6 +25,10 @@ public interface WithdrawalRequestRepository
 
     Optional<WithdrawalRequest> findByPaymentIdempotencyKey(String paymentIdempotencyKey);
 
+    boolean existsByTransferReference(String transferReference);
+
+    boolean existsByPaymentReceiptChecksum(String paymentReceiptChecksum);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select w from WithdrawalRequest w join fetch w.user where w.id = :id")
     Optional<WithdrawalRequest> findByIdForUpdate(@Param("id") Long id);

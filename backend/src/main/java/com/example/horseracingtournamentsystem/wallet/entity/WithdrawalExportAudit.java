@@ -38,6 +38,9 @@ public class WithdrawalExportAudit {
     @Column(name = "operations_rows", nullable = false)
     private int operationsRows;
 
+    @Column(name = "payment_queue_rows", nullable = false)
+    private int paymentQueueRows;
+
     @Column(name = "reconciliation_rows", nullable = false)
     private int reconciliationRows;
 
@@ -48,6 +51,7 @@ public class WithdrawalExportAudit {
             User actor,
             String normalizedFilters,
             int operationsRows,
+            int paymentQueueRows,
             int reconciliationRows
     ) {
         WithdrawalExportAudit audit = new WithdrawalExportAudit();
@@ -55,6 +59,7 @@ public class WithdrawalExportAudit {
         audit.actorName = actor.getFullName();
         audit.normalizedFilters = normalizedFilters;
         audit.operationsRows = operationsRows;
+        audit.paymentQueueRows = paymentQueueRows;
         audit.reconciliationRows = reconciliationRows;
         audit.exportedAt = LocalDateTime.now();
         return audit;

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Size;
 
 public record RejectWithdrawalRequest(
         @NotBlank @Size(max = 500) String publicReason,
-        @Size(max = 1000) String internalNote
+        @Size(max = 1000) String internalNote,
+        Boolean noTransferConfirmed
 ) {
 }

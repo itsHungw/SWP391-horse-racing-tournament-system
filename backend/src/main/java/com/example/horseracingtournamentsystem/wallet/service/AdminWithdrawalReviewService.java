@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.wallet.service;
 
 import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalReviewResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalPaymentEvidenceResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.WithdrawalRiskAssessmentResponse;
 import com.example.horseracingtournamentsystem.wallet.entity.Wallet;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalActionHistory;
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
@@ -11,6 +12,7 @@ import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalActio
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ public class AdminWithdrawalReviewService {
     private final WalletRepository walletRepository;
     private final WithdrawalRiskAssessmentService riskService;
     private final VietQrService vietQrService;
+    private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
     public AdminWithdrawalReviewResponse get(Long id) {
@@ -110,6 +113,19 @@ public class AdminWithdrawalReviewService {
                 history.getInternalNote(),
                 history.getTransferReference(),
                 history.getRiskLevel(),
+                riskSnapshot(history),
                 history.getCreatedAt());
+    }
+
+    private WithdrawalRiskAssessmentResponse riskSnapshot(WithdrawalActionHistory history) {
+        String snapshot = history.getRiskFindings();
+        if (snapshot != null && snapshot.stripLeading().startsWith("{")) {
+            try {
+                return objectMapper.readValue(snapshot, WithdrawalRiskAssessmentResponse.class);
+            } catch (RuntimeException ignored) {
+                // Preserve access to older audit rows if their snapshot cannot be decoded.
+            }
+        }
+        return new WithdrawalRiskAssessmentResponse(history.getRiskLevel(), List.of(), List.of());
     }
 }

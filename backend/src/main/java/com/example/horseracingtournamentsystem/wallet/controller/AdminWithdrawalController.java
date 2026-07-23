@@ -138,7 +138,8 @@ public class AdminWithdrawalController {
                 id,
                 authentication.getName(),
                 request.publicReason(),
-                request.internalNote());
+                request.internalNote(),
+                Boolean.TRUE.equals(request.noTransferConfirmed()));
         return ResponseEntity.ok(reviewService.get(id));
     }
 

@@ -4,8 +4,10 @@ import com.example.horseracingtournamentsystem.wallet.dto.AdminWithdrawalReviewR
 import com.example.horseracingtournamentsystem.wallet.entity.WithdrawalRequest;
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
 import java.util.UUID;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,17 +44,28 @@ public class WithdrawalPaymentService {
         }
 
         validateReferenceAndMismatch(transferReference, internalNote, mismatchAcknowledged);
+        String normalizedReference = transferReference.trim().toUpperCase(Locale.ROOT);
+        if (withdrawalRepository.existsByTransferReference(normalizedReference)) {
+            throw duplicateEvidence();
+        }
         WithdrawalReceiptService.StoredReceipt stored = receiptService.store(receipt, adminEmail);
+        if (withdrawalRepository.existsByPaymentReceiptChecksum(stored.checksum())) {
+            receiptService.delete(stored.filename());
+            throw duplicateEvidence();
+        }
         WithdrawalRequest result;
         try {
             result = withdrawalService.markPaid(
                     id,
                     adminEmail,
-                    transferReference.trim(),
+                    normalizedReference,
                     internalNote,
                     stored.filename(),
                     stored.checksum(),
                     idempotencyKey);
+        } catch (DataIntegrityViolationException exception) {
+            receiptService.delete(stored.filename());
+            throw duplicateEvidence();
         } catch (RuntimeException exception) {
             receiptService.delete(stored.filename());
             throw exception;
@@ -62,6 +75,12 @@ public class WithdrawalPaymentService {
             receiptService.delete(stored.filename());
         }
         return reviewService.get(id);
+    }
+
+    private ResponseStatusException duplicateEvidence() {
+        return new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "This transfer reference or receipt is already attached to another withdrawal");
     }
 
     private void validateIdempotencyKey(String idempotencyKey) {

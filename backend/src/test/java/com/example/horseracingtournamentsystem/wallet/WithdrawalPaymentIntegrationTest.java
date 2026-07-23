@@ -42,6 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import org.springframework.web.server.ResponseStatusException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -213,6 +214,14 @@ class WithdrawalPaymentIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"publicReason\":\"Destination is invalid\","
                                 + "\"internalNote\":\"No transfer was made\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/admin/withdrawals/{id}/reject", approved.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"publicReason\":\"Destination is invalid\","
+                                + "\"internalNote\":\"Bank rejected the destination\","
+                                + "\"noTransferConfirmed\":true}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("REJECTED"));
         mockMvc.perform(post("/api/v1/admin/withdrawals/{id}/reject", approved.getId())
@@ -225,6 +234,76 @@ class WithdrawalPaymentIntegrationTest {
         assertEquals(1, walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(target.getId()).stream()
                 .filter(item -> item.getTransactionType() == WalletTransactionType.WITHDRAWAL_REFUND)
                 .count());
+    }
+
+    @Test
+    void duplicateTransferReferenceCannotPayAnotherWithdrawal() throws Exception {
+        WithdrawalRequest first = approvedWithdrawal(100_000L);
+        WithdrawalRequest second = approvedWithdrawal(100_000L);
+
+        mockMvc.perform(paymentRequest(first, UUID.randomUUID().toString(), "FT-DUPLICATE"))
+                .andExpect(status().isOk());
+        mockMvc.perform(paymentRequest(
+                        second,
+                        UUID.randomUUID().toString(),
+                        "FT-DUPLICATE",
+                        receiptWithSuffix((byte) 1)))
+                .andExpect(status().isConflict());
+
+        assertEquals(WithdrawalStatus.APPROVED,
+                withdrawalRepository.findById(second.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void duplicateReceiptCannotPayAnotherWithdrawal() throws Exception {
+        WithdrawalRequest first = approvedWithdrawal(100_000L);
+        WithdrawalRequest second = approvedWithdrawal(100_000L);
+
+        mockMvc.perform(paymentRequest(first, UUID.randomUUID().toString(), "FT-FIRST"))
+                .andExpect(status().isOk());
+        mockMvc.perform(paymentRequest(second, UUID.randomUUID().toString(), "FT-SECOND"))
+                .andExpect(status().isConflict());
+
+        assertEquals(WithdrawalStatus.APPROVED,
+                withdrawalRepository.findById(second.getId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void concurrentPaymentsCannotReuseEvidenceAcrossWithdrawals() throws Exception {
+        WithdrawalRequest first = approvedWithdrawal(100_000L);
+        WithdrawalRequest second = approvedWithdrawal(100_000L);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            var firstResult = executor.submit(() -> confirmSharedEvidence(first.getId(), ready, start));
+            var secondResult = executor.submit(() -> confirmSharedEvidence(second.getId(), ready, start));
+            ready.await(5, TimeUnit.SECONDS);
+            start.countDown();
+
+            assertEquals(Set.of(200, 409), Set.of(
+                    firstResult.get(15, TimeUnit.SECONDS),
+                    secondResult.get(15, TimeUnit.SECONDS)));
+        }
+    }
+
+    private int confirmSharedEvidence(Long withdrawalId, CountDownLatch ready, CountDownLatch start)
+            throws Exception {
+        ready.countDown();
+        start.await(5, TimeUnit.SECONDS);
+        try {
+            paymentService.confirm(
+                    withdrawalId,
+                    admin.getEmail(),
+                    "ft-race",
+                    "Receipt checked",
+                    false,
+                    UUID.randomUUID().toString(),
+                    receipt());
+            return 200;
+        } catch (ResponseStatusException exception) {
+            return exception.getStatusCode().value();
+        }
     }
 
     private void confirmWhenReleased(
@@ -250,8 +329,17 @@ class WithdrawalPaymentIntegrationTest {
             String key,
             String reference
     ) {
+        return paymentRequest(withdrawal, key, reference, receipt());
+    }
+
+    private org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder paymentRequest(
+            WithdrawalRequest withdrawal,
+            String key,
+            String reference,
+            MockMultipartFile receipt
+    ) {
         return multipart("/api/v1/admin/withdrawals/{id}/mark-paid", withdrawal.getId())
-                .file(receipt())
+                .file(receipt)
                 .param("transferReference", reference)
                 .param("internalNote", "Receipt checked")
                 .param("mismatchAcknowledged", "false")
@@ -268,6 +356,14 @@ class WithdrawalPaymentIntegrationTest {
     private MockMultipartFile receipt() {
         return new MockMultipartFile(
                 "receipt", "receipt.png", MediaType.IMAGE_PNG_VALUE, syntheticPng());
+    }
+
+    private MockMultipartFile receiptWithSuffix(byte suffix) {
+        byte[] original = syntheticPng();
+        byte[] distinct = java.util.Arrays.copyOf(original, original.length + 1);
+        distinct[distinct.length - 1] = suffix;
+        return new MockMultipartFile(
+                "receipt", "receipt-distinct.png", MediaType.IMAGE_PNG_VALUE, distinct);
     }
 
     private byte[] syntheticPng() {

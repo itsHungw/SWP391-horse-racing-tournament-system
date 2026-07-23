@@ -39,7 +39,7 @@ public class BankAccountService {
         BankDirectory bank = bankDirectoryRepository.findByCodeIgnoreCaseAndActiveTrue(bankCode)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Bank is not supported"));
-        if (accountNumber.length() < 6) {
+        if (!accountNumber.matches("\\d{6,40}")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter a valid account number");
         }
         if (accountHolder.length() < 2) {

@@ -142,16 +142,26 @@ public class WithdrawalService {
             Long id,
             String reviewerEmail,
             String publicReason,
-            String internalNote
+            String internalNote,
+            boolean noTransferConfirmed
     ) {
         WithdrawalRequest request = getForUpdate(id);
+        if (request.getStatus() == WithdrawalStatus.APPROVED && !noTransferConfirmed) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Confirm that no bank transfer was made before refunding an approved withdrawal");
+        }
         User actor = reviewer(reviewerEmail);
         WithdrawalRiskAssessmentResponse risk = riskService.assess(request);
         WithdrawalStatus oldStatus = request.getStatus();
         request.reject(actor, publicReason);
+        String auditedInternalNote = request.getStatus() == WithdrawalStatus.REJECTED
+                && oldStatus == WithdrawalStatus.APPROVED
+                ? noTransferConfirmationNote(internalNote)
+                : internalNote;
         recordAction(
                 request, WithdrawalActionType.REJECTED, oldStatus, actor,
-                publicReason, internalNote, null, risk);
+                publicReason, auditedInternalNote, null, risk);
         // Hoàn tiền đã HOLD về ví.
         walletService.adjust(
                 request.getUser(), request.getAmount(), WalletTransactionType.WITHDRAWAL_REFUND,
@@ -172,7 +182,16 @@ public class WithdrawalService {
     }
 
     public WithdrawalRequest reject(Long id, String reviewerEmail, String note) {
-        return reject(id, reviewerEmail, note, null);
+        return reject(id, reviewerEmail, note, null, false);
+    }
+
+    public WithdrawalRequest reject(
+            Long id,
+            String reviewerEmail,
+            String publicReason,
+            String internalNote
+    ) {
+        return reject(id, reviewerEmail, publicReason, internalNote, false);
     }
 
     @Transactional
@@ -275,5 +294,15 @@ public class WithdrawalService {
     private User reviewer(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Reviewer not found"));
+    }
+
+    private String noTransferConfirmationNote(String note) {
+        String marker = "[Admin confirmed no bank transfer was made]";
+        if (note == null || note.isBlank()) {
+            return marker;
+        }
+        int available = 1000 - marker.length() - 1;
+        String normalized = note.trim();
+        return marker + " " + normalized.substring(0, Math.min(normalized.length(), available));
     }
 }

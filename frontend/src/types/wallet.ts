@@ -161,6 +161,7 @@ export interface AdminWithdrawalAction {
   internalNote: string | null;
   transferReference: string | null;
   riskLevel: WithdrawalRiskLevel;
+  riskSnapshot: WithdrawalRiskAssessment;
   createdAt: string;
 }
 
@@ -236,6 +237,7 @@ export interface ApproveWithdrawalBody {
 export interface RejectWithdrawalBody {
   publicReason: string;
   internalNote: string;
+  noTransferConfirmed: boolean;
 }
 
 export interface ConfirmWithdrawalPayment {

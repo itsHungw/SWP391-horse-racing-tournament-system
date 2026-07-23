@@ -32,6 +32,24 @@ const approvedReview: AdminWithdrawalReview = {
   ...highRiskReview,
   status: "APPROVED",
   reviewedAt: "2026-07-21T12:05:00",
+  actions: [{
+    id: 2,
+    action: "APPROVED",
+    oldStatus: "REQUESTED",
+    newStatus: "APPROVED",
+    actorId: 1,
+    actorName: "Admin",
+    publicReason: null,
+    internalNote: "Reviewed",
+    transferReference: null,
+    riskLevel: "LOW",
+    riskSnapshot: {
+      level: "LOW",
+      findings: [{ code: "CAPTURED", severity: "LOW", title: "Captured review finding", explanation: "Recorded at decision time.", evidence: "Snapshot", suggestedCheck: "None" }],
+      contextMarkers: [],
+    },
+    createdAt: "2026-07-21T12:05:00",
+  }],
   paymentInstruction: {
     available: true,
     unavailableReason: null,
@@ -128,12 +146,25 @@ describe("WithdrawalReviewModal", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /view approved review/i }));
     expect(within(dialog).getByRole("heading", { name: /approved review record/i })).toBeInTheDocument();
     expect(within(dialog).getByRole("heading", { name: /risk evidence/i })).toBeInTheDocument();
+    expect(within(dialog).getByText("Captured review finding")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Shared destination")).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /approve & continue|reject withdrawal/i })).not.toBeInTheDocument();
     expect(within(dialog).getByText("Receipt and confirmation")).not.toBeVisible();
 
     fireEvent.click(within(dialog).getByRole("button", { name: /return to transfer/i }));
     expect(within(dialog).getByRole("heading", { name: /receipt and confirmation/i })).toBeVisible();
     expect(within(dialog).getByText("receipt.png")).toBeInTheDocument();
+  });
+
+  it("does not present current risk as captured evidence for a legacy decision", async () => {
+    vi.mocked(adminWalletApi.getReview).mockResolvedValue({ ...approvedReview, actions: [] });
+    render(<WithdrawalReviewModal id={22} onClose={vi.fn()} onUpdated={vi.fn()} />);
+
+    const dialog = await screen.findByRole("dialog", { name: /withdrawal #22 review/i });
+    fireEvent.click(within(dialog).getByRole("button", { name: /view approved review/i }));
+
+    expect(within(dialog).getByText(/captured risk evidence is unavailable/i)).toBeInTheDocument();
+    expect(within(dialog).queryByText("Shared destination")).not.toBeInTheDocument();
   });
 
   it("opens a paid withdrawal on the completed step", async () => {

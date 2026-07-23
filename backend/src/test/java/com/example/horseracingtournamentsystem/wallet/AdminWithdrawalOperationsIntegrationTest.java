@@ -204,6 +204,18 @@ class AdminWithdrawalOperationsIntegrationTest {
     }
 
     @Test
+    void rejectsNonNumericBankAccountNumber() throws Exception {
+        mockMvc.perform(post("/api/v1/wallet/bank-accounts")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"bankCode":"VCB","accountNumber":"1122-ABCD",
+                                 "accountHolder":"MAI TRAN","label":"Payout"}
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void userCannotWithdrawToAnotherUsersSavedAccount() throws Exception {
         mockMvc.perform(post("/api/v1/wallet/withdrawals")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken)
@@ -352,7 +364,8 @@ class AdminWithdrawalOperationsIntegrationTest {
                 .andExpect(jsonPath("$.paymentInstruction.available").value(true))
                 .andExpect(jsonPath("$.paymentInstruction.payload").isNotEmpty())
                 .andExpect(jsonPath("$.paymentInstruction.transferContent")
-                        .value(org.hamcrest.Matchers.matchesPattern("WD\\d{6,}")));
+                        .value(org.hamcrest.Matchers.matchesPattern("WD\\d{6,}")))
+                .andExpect(jsonPath("$.actions[1].riskSnapshot.level").value("LOW"));
     }
 
     @Test

@@ -33,10 +33,9 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.util.CellRangeAddress;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -44,9 +43,6 @@ public class WithdrawalExportService {
 
     private static final int HEADER_ROW = 2;
     private static final int FIRST_DATA_ROW = 3;
-    private static final List<WithdrawalStatus> RECONCILIATION_STATUSES =
-            List.of(WithdrawalStatus.APPROVED, WithdrawalStatus.PAID);
-
     private final AdminWithdrawalQueryService queryService;
     private final WithdrawalRequestRepository withdrawalRepository;
     private final WithdrawalActionHistoryRepository actionHistoryRepository;
@@ -56,12 +52,16 @@ public class WithdrawalExportService {
     @Value("${wallet.withdrawal.export.max-rows:50000}")
     private int maxRows;
 
+    @Value("${wallet.withdrawal.export.max-scan-rows:50000}")
+    private int maxScanRows;
+
     @Value("${app.frontend-base-url:}")
     private String frontendBaseUrl;
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public WithdrawalExportPreviewResponse preview(WithdrawalExportFilter filter) {
-        List<AdminWithdrawalRowResponse> rows = queryService.findAllForExport(filter);
+        List<AdminWithdrawalRowResponse> rows =
+                queryService.findAllForExport(filter, maxRows, maxScanRows);
         int paymentQueueRows = (int) rows.stream()
                 .filter(row -> row.status() == WithdrawalStatus.APPROVED)
                 .count();
@@ -75,22 +75,25 @@ public class WithdrawalExportService {
                 paymentQueueRows + paidReconciliationRows > 0);
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.REPEATABLE_READ)
     public byte[] export(WithdrawalExportFilter filter, User actor) {
-        List<AdminWithdrawalRowResponse> rows = queryService.findAllForExport(filter);
-        validateRowLimit(rows.size());
+        List<AdminWithdrawalRowResponse> rows =
+                queryService.findAllForExport(filter, maxRows, maxScanRows);
 
         List<Long> ids = rows.stream().map(AdminWithdrawalRowResponse::id).toList();
         Map<Long, WithdrawalRequest> withdrawals = withdrawalRepository.findAllById(ids).stream()
                 .collect(Collectors.toMap(WithdrawalRequest::getId, Function.identity()));
         Map<Long, String> paidActors = paidActors(ids);
+        int paymentQueueRows = (int) rows.stream()
+                .filter(row -> row.status() == WithdrawalStatus.APPROVED)
+                .count();
         int reconciliationRows = (int) rows.stream()
-                .filter(row -> RECONCILIATION_STATUSES.contains(row.status()))
+                .filter(row -> row.status() == WithdrawalStatus.PAID)
                 .count();
 
         byte[] bytes = buildWorkbook(rows, withdrawals, paidActors, filter.normalized());
         auditRepository.save(com.example.horseracingtournamentsystem.wallet.entity.WithdrawalExportAudit.record(
-                actor, filter.normalized(), rows.size(), reconciliationRows));
+                actor, filter.normalized(), rows.size(), paymentQueueRows, reconciliationRows));
         return bytes;
     }
 
@@ -296,14 +299,6 @@ public class WithdrawalExportService {
                         history -> history.getWithdrawal().getId(),
                         WithdrawalActionHistory::getActorName,
                         (first, latest) -> latest));
-    }
-
-    private void validateRowLimit(int rowCount) {
-        if (rowCount > maxRows) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Export contains " + rowCount + " rows; narrow the filters to " + maxRows + " or fewer");
-        }
     }
 
     private String bankLabel(String bankName, String bankCode) {

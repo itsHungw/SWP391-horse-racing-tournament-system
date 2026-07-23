@@ -249,6 +249,9 @@ function ReadOnlyReviewWorkspace({
   onReturn: () => void;
 }) {
   const approved = review.status === "APPROVED" || review.status === "PAID";
+  const recordedAction = [...review.actions].reverse().find((action) => (
+    approved ? action.action === "APPROVED" : action.action === "REJECTED" || action.action === "CANCELLED"
+  ));
 
   return (
     <main className="withdrawal-stage-panel p-5 sm:p-7">
@@ -274,7 +277,17 @@ function ReadOnlyReviewWorkspace({
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(300px,.8fr)]">
         <div className="space-y-6">
           <WithdrawalOverview review={review} />
-          <WithdrawalRiskPanel risk={review.risk} />
+          {recordedAction ? (
+            <WithdrawalRiskPanel risk={recordedAction.riskSnapshot} />
+          ) : (
+            <section className="border border-amber-200 bg-amber-50 p-5" role="status">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-700">Legacy decision</p>
+              <h3 className="mt-1 text-lg font-black text-slate-950">Captured risk evidence is unavailable</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-700">
+                This withdrawal was decided before review snapshots were recorded. Current risk is intentionally not shown as historical evidence.
+              </p>
+            </section>
+          )}
           <UserContext review={review} />
         </div>
         <aside>

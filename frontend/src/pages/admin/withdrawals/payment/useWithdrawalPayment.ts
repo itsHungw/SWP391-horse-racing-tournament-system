@@ -132,6 +132,7 @@ export function useWithdrawalPayment(
       const updated = await adminWalletApi.reject(review.id, {
         publicReason: publicReason.trim(),
         internalNote: "No transfer was made; payout rejected from the payment step.",
+        noTransferConfirmed: true,
       });
       onUpdated(updated);
     } catch (caught) {

@@ -39,6 +39,7 @@ export function WithdrawalDecisionPanel({
         : await adminWalletApi.reject(review.id, {
             publicReason: publicReason.trim(),
             internalNote: internalNote.trim(),
+            noTransferConfirmed: false,
           });
       onUpdated(updated);
     } catch (caught) {

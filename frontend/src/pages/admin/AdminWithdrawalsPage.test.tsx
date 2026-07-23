@@ -111,6 +111,7 @@ const review: AdminWithdrawalReview = {
       internalNote: null,
       transferReference: null,
       riskLevel: "LOW",
+      riskSnapshot: { level: "LOW", findings: [], contextMarkers: [] },
       createdAt: "2026-07-21T12:00:00",
     },
   ],
