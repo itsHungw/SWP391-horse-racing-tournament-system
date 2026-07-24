@@ -102,4 +102,11 @@ public interface WithdrawalRequestRepository
 
     @Query("select coalesce(sum(w.amount), 0) from WithdrawalRequest w where w.user.id = :userId")
     long sumAmountByUser(@Param("userId") Long userId);
+
+    @Query("""
+            select coalesce(sum(w.amount), 0) from WithdrawalRequest w
+            where w.status = com.example.horseracingtournamentsystem.wallet.entity.WithdrawalStatus.PAID
+              and w.paidAt >= :from and w.paidAt < :to
+            """)
+    long sumPaidBetween(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

@@ -4,13 +4,15 @@ import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { disputeApi, DisputeResponse, DisputeStatus } from "../../api/disputeApi";
 import { AdminDisputeDetailModal } from "./components/AdminDisputeDetailModal";
+import { useSearchParams } from "react-router-dom";
 
 export function AdminDisputesWorkspace() {
   useDocumentTitle("Disputes Workspace | Admin");
   
   const [disputes, setDisputes] = useState<DisputeResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [params] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(params.get("transactionId") ?? "");
   const [statusFilter, setStatusFilter] = useState<DisputeStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [selectedDispute, setSelectedDispute] = useState<DisputeResponse | null>(null);
