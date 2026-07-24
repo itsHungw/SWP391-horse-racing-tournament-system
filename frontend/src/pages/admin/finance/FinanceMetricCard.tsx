@@ -16,16 +16,14 @@ const toneClass = {
 
 export function FinanceMetricCard({ label, value, detail, icon: Icon, tone = "neutral" }: FinanceMetricCardProps) {
   return (
-    <article className={`border border-slate-200 border-t-4 bg-white p-5 shadow-sm ${toneClass[tone]}`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">{label}</p>
-          <p className="mt-3 font-mono text-3xl font-black tracking-tight tabular-nums">{value}</p>
-        </div>
+    <article className={`overflow-hidden border border-slate-200 border-t-4 bg-white p-5 shadow-sm ${toneClass[tone]}`}>
+      <div className="flex min-w-0 items-start justify-between gap-3">
+        <p className="min-w-0 text-[10px] font-black uppercase leading-5 tracking-[0.18em] text-slate-500">{label}</p>
         <span className="grid h-10 w-10 shrink-0 place-items-center border border-current/20 bg-current/5">
           <Icon className="h-5 w-5" aria-hidden="true" />
         </span>
       </div>
+      <p className="mt-4 break-words font-mono text-[clamp(1.35rem,1.5vw,1.875rem)] font-black leading-tight tracking-tight tabular-nums">{value}</p>
       <p className="mt-4 border-t border-slate-100 pt-3 text-xs font-semibold leading-5 text-slate-500">{detail}</p>
     </article>
   );
