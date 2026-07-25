@@ -67,6 +67,21 @@ wallet:
   withdrawal:
     enabled: ${WALLET_WITHDRAWAL_ENABLED:true}
     min-amount: ${WALLET_WITHDRAWAL_MIN_AMOUNT:50000}
+    payment:
+      transfer-content-template: ${WALLET_WITHDRAWAL_TRANSFER_TEMPLATE:WD{withdrawalId}}
+      receipt-max-bytes: ${WALLET_WITHDRAWAL_RECEIPT_MAX_BYTES:5242880}
+      allowed-receipt-types: image/jpeg,image/png,image/webp
+      orphan-receipt-expiry: ${WALLET_WITHDRAWAL_ORPHAN_RECEIPT_EXPIRY:24h}
+      orphan-cleanup-cron: "${WALLET_WITHDRAWAL_ORPHAN_CLEANUP_CRON:0 30 3 * * *}"
+    risk:
+      velocity-count: ${WALLET_WITHDRAWAL_RISK_VELOCITY_COUNT:3}
+      velocity-window: ${WALLET_WITHDRAWAL_RISK_VELOCITY_WINDOW:24h}
+      anomaly-multiplier: ${WALLET_WITHDRAWAL_RISK_ANOMALY_MULTIPLIER:2.0}
+      anomaly-min-history: ${WALLET_WITHDRAWAL_RISK_ANOMALY_MIN_HISTORY:3}
+      recent-terminal-window: ${WALLET_WITHDRAWAL_RISK_RECENT_TERMINAL_WINDOW:7d}
+      history-window: ${WALLET_WITHDRAWAL_RISK_HISTORY_WINDOW:90d}
+    export:
+      max-rows: ${WALLET_WITHDRAWAL_EXPORT_MAX_ROWS:50000}
 
 app:
   cors:

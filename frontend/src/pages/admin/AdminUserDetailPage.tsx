@@ -6,19 +6,25 @@ import {
   getAdminUserRoleHistory,
   updateAdminUserProfile,
   updateAdminUserRoles,
-  deleteAdminUser,
 } from "../../api/adminUserApi";
 import { AdminUserDetail, UserRoleHistoryItem } from "../../types/adminUser";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
+import { AccountEnforcementPanel } from "./components/AccountEnforcementPanel";
 
 const AVAILABLE_ROLES = [
   { name: "ADMIN", label: "Admin" },
   { name: "HORSE_OWNER", label: "Horse Owner" },
   { name: "JOCKEY", label: "Jockey" },
   { name: "REFEREE", label: "Referee" },
-  { name: "SPECTATOR", label: "Spectator" },
+  {
+    name: "ORGANIZER",
+    label: "Organizer",
+    managed: true,
+    description: "Managed through organization approval",
+  },
+  { name: "SPECTATOR", label: "Spectator", managed: true },
 ];
 
 export function AdminUserDetailPage() {
@@ -42,7 +48,6 @@ export function AdminUserDetailPage() {
     gender: "",
     dateOfBirth: "",
     address: "",
-    status: "",
   });
 
   // Roles Form State
@@ -52,8 +57,6 @@ export function AdminUserDetailPage() {
   // Submitting States
   const [submittingProfile, setSubmittingProfile] = useState(false);
   const [submittingRoles, setSubmittingRoles] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -74,7 +77,6 @@ export function AdminUserDetailPage() {
         gender: userDetail.gender || "MALE",
         dateOfBirth: userDetail.dateOfBirth || "",
         address: userDetail.address || "",
-        status: userDetail.status,
       });
 
       setSelectedRoleNames(AVAILABLE_ROLES.filter((r) => userDetail.roles.includes(r.name)).map((r) => r.name));
@@ -128,21 +130,6 @@ export function AdminUserDetailPage() {
       showToast(err.response?.data?.message || "Failed to update roles", "error");
     } finally {
       setSubmittingRoles(false);
-    }
-  };
-
-  const handleDeleteConfirm = async () => {
-    setDeleting(true);
-    try {
-      await deleteAdminUser(userId);
-      showToast("User deleted successfully!");
-      navigate("/admin/users");
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.response?.data?.message || "Failed to delete user", "error");
-    } finally {
-      setDeleting(false);
-      setShowConfirmDelete(false);
     }
   };
 
@@ -213,6 +200,8 @@ export function AdminUserDetailPage() {
             &larr; Back to users
           </button>
         </div>
+
+        <AccountEnforcementPanel user={user} isSelf={isSelf} onChanged={() => void loadData()} />
 
         {/* Tab Headers */}
         <div className="border-b border-[#d8d8d8]">
@@ -287,6 +276,7 @@ export function AdminUserDetailPage() {
                   <label className="block text-xs font-bold text-slate-700">Date of Birth</label>
                   <input
                     type="date"
+                    max={new Date().toISOString().split("T")[0]}
                     value={profileForm.dateOfBirth}
                     onChange={(e) => setProfileForm({ ...profileForm, dateOfBirth: e.target.value })}
                     className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
@@ -304,32 +294,7 @@ export function AdminUserDetailPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700">Account Status</label>
-                <select
-                  value={profileForm.status}
-                  disabled={isSelf}
-                  onChange={(e) => setProfileForm({ ...profileForm, status: e.target.value })}
-                  className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm disabled:opacity-50"
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="PENDING_EMAIL_VERIFY">Pending Email Verification</option>
-                  <option value="LOCKED">Banned</option>
-                </select>
-                {isSelf && (
-                  <p className="mt-1 text-xs text-rose-500">You cannot modify your own account status.</p>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-                <button
-                  type="button"
-                  disabled={isSelf}
-                  onClick={() => setShowConfirmDelete(true)}
-                  className="rounded border border-rose-300 bg-white px-4 py-2 text-sm font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                >
-                  Ban Account
-                </button>
+              <div className="flex items-center justify-end border-t border-slate-100 pt-4">
                 <button
                   type="submit"
                   disabled={submittingProfile}
@@ -350,12 +315,12 @@ export function AdminUserDetailPage() {
                     const isChecked = selectedRoleNames.includes(role.name);
                     return (
                       <label key={role.name} className={`flex items-center gap-3 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 ${
-                        role.name === "SPECTATOR" ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
+                        role.managed ? "opacity-50 cursor-not-allowed bg-slate-50" : "cursor-pointer"
                       }`}>
                         <input
                           type="checkbox"
                           checked={isChecked}
-                          disabled={role.name === "SPECTATOR"}
+                          disabled={role.managed}
                           onChange={() => {
                             if (isChecked) {
                               setSelectedRoleNames(selectedRoleNames.filter((name) => name !== role.name));
@@ -367,6 +332,9 @@ export function AdminUserDetailPage() {
                         />
                         <div>
                           <span className="font-bold text-slate-800">{role.label}</span>
+                          {role.description && (
+                            <p className="text-xs text-slate-600">{role.description}</p>
+                          )}
                         </div>
                       </label>
                     );
@@ -481,34 +449,6 @@ export function AdminUserDetailPage() {
           )}
         </div>
 
-        {/* Soft Delete Confirm Modal */}
-        {showConfirmDelete && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <h2 className="text-xl font-black text-rose-600">Ban User Account</h2>
-              <p className="mt-3 text-sm text-slate-600">
-                Are you sure you want to ban <strong>{user.fullName}</strong>? Banned users will not be able to log in or operate on the system.
-              </p>
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmDelete(false)}
-                  className="rounded border border-slate-300 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={deleting}
-                  onClick={handleDeleteConfirm}
-                  className="rounded bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 disabled:opacity-50"
-                >
-                  {deleting ? "Banning..." : "Confirm Ban"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </AdminLayout>
   );

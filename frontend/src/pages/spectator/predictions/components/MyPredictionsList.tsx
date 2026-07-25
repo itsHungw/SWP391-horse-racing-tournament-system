@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Calendar, Tag, TrendingUp } from "lucide-react";
+import { Calendar, Tag, TrendingUp, Flag } from "lucide-react";
 import { UserPrediction, predictionStatusLabel, PredictionStatus, PredictionType } from "../types/prediction.types";
 import { PredictionResultCard } from "./PredictionResultCard";
 import { computePayout, formatVnd } from "../predictionCockpitUtils";
+import { CreateDisputeModal } from "../../disputes/components/CreateDisputeModal";
 
 const TYPE_LABEL: Record<PredictionType, string> = {
   WINNER: "Winner",
@@ -26,6 +27,7 @@ type FilterStatus = "ALL" | "PENDING" | "LOCKED" | "CORRECT" | "INCORRECT" | "RE
 
 export function MyPredictionsList({ predictions }: MyPredictionsListProps) {
   const [filter, setFilter] = useState<FilterStatus>("ALL");
+  const [reportingPredictionId, setReportingPredictionId] = useState<number | null>(null);
 
   const filtered = predictions.filter((p) => {
     if (filter === "ALL") return true;
@@ -174,23 +176,37 @@ export function MyPredictionsList({ predictions }: MyPredictionsListProps) {
                   />
                 )}
 
-                {pred.status === "PENDING" && (
-                  <div className="mt-4 flex items-center justify-between text-xs font-semibold">
-                    <p className="flex items-center gap-1.5 text-ivory-faint">
-                      <Calendar className="h-4 w-4" />
-                      {new Date(pred.createdAt).toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}{" "}
-                      - {new Date(pred.createdAt).toLocaleDateString("en-US")}
-                    </p>
-                  </div>
-                )}
+                <div className="mt-4 flex items-center justify-between text-xs font-semibold border-t border-white/8 pt-3">
+                  <p className="flex items-center gap-1.5 text-ivory-faint">
+                    <Calendar className="h-4 w-4" />
+                    {new Date(pred.createdAt).toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}{" "}
+                    - {new Date(pred.createdAt).toLocaleDateString("en-US")}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setReportingPredictionId(pred.id)}
+                    className="inline-flex items-center gap-1.5 rounded bg-rose-500/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500/20"
+                    title="Report an issue with this prediction"
+                  >
+                    <Flag size={12} />
+                    Report
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <CreateDisputeModal
+        isOpen={reportingPredictionId !== null}
+        onClose={() => setReportingPredictionId(null)}
+        referenceType="RACE_PREDICTION"
+        referenceId={reportingPredictionId ?? 0}
+      />
     </div>
   );
 }

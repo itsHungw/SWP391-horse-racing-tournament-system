@@ -12,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -48,6 +49,29 @@ public class WithdrawalRequest {
     private String bankInfo;
 
     @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_account_id")
+    private UserBankAccount bankAccount;
+
+    @Column(name = "bank_code", length = 20)
+    private String bankCode;
+
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "bank_bin", length = 12)
+    private String bankBin;
+
+    @Column(name = "account_number", length = 40)
+    private String accountNumber;
+
+    @Column(name = "account_holder", length = 150)
+    private String accountHolder;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewed_by")
     private User reviewedBy;
 
@@ -63,6 +87,18 @@ public class WithdrawalRequest {
     @Column(name = "paid_at")
     private LocalDateTime paidAt;
 
+    @Column(name = "transfer_reference", unique = true, length = 120)
+    private String transferReference;
+
+    @Column(name = "payment_receipt_filename", length = 120)
+    private String paymentReceiptFilename;
+
+    @Column(name = "payment_receipt_checksum", unique = true, length = 64)
+    private String paymentReceiptChecksum;
+
+    @Column(name = "payment_idempotency_key", unique = true, length = 36)
+    private String paymentIdempotencyKey;
+
     public static WithdrawalRequest create(User user, long amount, String bankInfo) {
         WithdrawalRequest request = new WithdrawalRequest();
         request.user = user;
@@ -70,6 +106,22 @@ public class WithdrawalRequest {
         request.bankInfo = bankInfo;
         request.status = WithdrawalStatus.REQUESTED;
         request.requestedAt = LocalDateTime.now();
+        return request;
+    }
+
+    public static WithdrawalRequest create(
+            User user,
+            long amount,
+            UserBankAccount bankAccount,
+            String bankInfo
+    ) {
+        WithdrawalRequest request = create(user, amount, bankInfo);
+        request.bankAccount = bankAccount;
+        request.bankCode = bankAccount.getBankCode();
+        request.bankName = bankAccount.getBankName();
+        request.bankBin = bankAccount.getBankBin();
+        request.accountNumber = bankAccount.getAccountNumber();
+        request.accountHolder = bankAccount.getAccountHolder();
         return request;
     }
 
@@ -90,10 +142,18 @@ public class WithdrawalRequest {
         this.reviewedAt = LocalDateTime.now();
     }
 
-    public void markPaid(User reviewer) {
+    public void markPaid(
+            String transferReference,
+            String receiptFilename,
+            String receiptChecksum,
+            String idempotencyKey
+    ) {
         ensureStatus(WithdrawalStatus.APPROVED);
         this.status = WithdrawalStatus.PAID;
-        this.reviewedBy = reviewer;
+        this.transferReference = transferReference;
+        this.paymentReceiptFilename = receiptFilename;
+        this.paymentReceiptChecksum = receiptChecksum;
+        this.paymentIdempotencyKey = idempotencyKey;
         this.paidAt = LocalDateTime.now();
     }
 

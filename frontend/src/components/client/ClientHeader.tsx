@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareWarning,
   ShieldCheck,
   Ticket,
   Trophy,
@@ -540,6 +541,13 @@ export function ClientHeader() {
                         >
                           <Ticket size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
                           My predictions
+                        </Link>
+                        <Link
+                          to="/spectator/disputes"
+                          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory"
+                        >
+                          <MessageSquareWarning size={17} className="shrink-0 text-ivory-faint" aria-hidden="true" />
+                          My disputes
                         </Link>
                         <div className="my-1 h-px bg-white/10" />
                         <button

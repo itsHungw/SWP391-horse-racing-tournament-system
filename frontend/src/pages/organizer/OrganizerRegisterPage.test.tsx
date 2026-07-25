@@ -88,4 +88,21 @@ describe("OrganizerRegisterPage", () => {
       expect(screen.getByRole("button", { name: /resubmit application/i })).toBeEnabled();
     });
   });
+
+  it("tells a recovered active organizer to sign in again when the current session lacks the role", async () => {
+    vi.mocked(getMyOrganization).mockResolvedValue({
+      id: 5,
+      code: "SGR",
+      name: "Sai gon racing club",
+      status: "ACTIVE",
+    });
+
+    render(
+      <MemoryRouter>
+        <OrganizerRegisterPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText(/sign out and sign in again/i)).toBeInTheDocument();
+  });
 });

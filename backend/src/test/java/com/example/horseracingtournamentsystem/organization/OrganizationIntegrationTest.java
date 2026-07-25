@@ -71,12 +71,14 @@ class OrganizationIntegrationTest {
         Role jockeyRole = roleRepository.save(Role.of("JOCKEY", "Jockey"));
         roleRepository.save(Role.of("ORGANIZER", "Organizer"));
 
-        admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
+        admin = User.pending("Admin User", "admin@example.com", "hash");
         admin.verifyEmail();
+        admin = userRepository.save(admin);
         userRoleRepository.save(UserRole.active(admin, adminRole, admin));
 
-        participant = userRepository.save(User.pending("Minh Quan", "quan@example.com", "hash", "0909123456"));
+        participant = User.pending("Minh Quan", "quan@example.com", "hash", "0909123456");
         participant.verifyEmail();
+        participant = userRepository.save(participant);
         userRoleRepository.save(UserRole.active(participant, spectatorRole, admin));
         userRoleRepository.save(UserRole.active(participant, jockeyRole, admin));
 

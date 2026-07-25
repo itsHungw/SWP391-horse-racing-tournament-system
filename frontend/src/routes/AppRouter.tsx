@@ -5,6 +5,7 @@ import { AppLayout } from "../layouts/AppLayout";
 import { RequireAdminRoute } from "./RequireAdminRoute";
 import { RequireAuthRoute } from "./RequireAuthRoute";
 import { RequireRoleRoute } from "./RequireRoleRoute";
+import { RequireAccountAccessRoute } from "./RequireAccountAccessRoute";
 
 // Public + auth pages stay eagerly imported: they are the first-paint surfaces, so
 // code-splitting them would only add a Suspense flash on the most common entry points.
@@ -21,6 +22,8 @@ import { LoginPage } from "../pages/auth/LoginPage";
 import { RegisterPage } from "../pages/auth/RegisterPage";
 import { VerifyEmailPage } from "../pages/auth/VerifyEmailPage";
 import { ForgotPasswordPage } from "../pages/auth/ForgotPasswordPage";
+import { NotFoundPage } from "../pages/errors/NotFoundPage";
+import { AccountRestrictedPage } from "../pages/account/AccountRestrictedPage";
 
 // Authenticated / role-gated workspaces are lazy-loaded so a public visitor never downloads
 // the admin / organizer / owner / jockey / referee bundles (or heavy deps like lightweight-charts).
@@ -28,6 +31,7 @@ const ProfilePage = lazy(() => import("../pages/user/ProfilePage").then((m) => (
 const WalletPage = lazy(() => import("../pages/wallet/WalletPage").then((m) => ({ default: m.WalletPage })));
 const MyRoleRequestsPage = lazy(() => import("../pages/user/MyRoleRequestsPage").then((m) => ({ default: m.MyRoleRequestsPage })));
 const SpectatorPredictionsPage = lazy(() => import("../pages/spectator/predictions/SpectatorPredictionsPage").then((m) => ({ default: m.SpectatorPredictionsPage })));
+const SpectatorDisputesPage = lazy(() => import("../pages/spectator/disputes/SpectatorDisputesPage").then((m) => ({ default: m.SpectatorDisputesPage })));
 
 const OrganizerLayout = lazy(() => import("../layouts/OrganizerLayout").then((m) => ({ default: m.OrganizerLayout })));
 const OrganizerRegisterPage = lazy(() => import("../pages/organizer/OrganizerRegisterPage").then((m) => ({ default: m.OrganizerRegisterPage })));
@@ -45,7 +49,6 @@ const OrganizerOrganizationPage = lazy(() => import("../pages/organizer/Organize
 const AdminOverviewPage = lazy(() => import("../pages/admin/AdminOverviewPage").then((m) => ({ default: m.AdminOverviewPage })));
 const AdminRoleRequestsWorkspace = lazy(() => import("../pages/admin/AdminRoleRequestsWorkspace").then((m) => ({ default: m.AdminRoleRequestsWorkspace })));
 const AdminOrganizationsPage = lazy(() => import("../pages/admin/AdminOrganizationsPage").then((m) => ({ default: m.AdminOrganizationsPage })));
-const AdminPlaceholderPage = lazy(() => import("../pages/admin/AdminPlaceholderPage").then((m) => ({ default: m.AdminPlaceholderPage })));
 const AdminUserListPage = lazy(() => import("../pages/admin/AdminUserListPage").then((m) => ({ default: m.AdminUserListPage })));
 const AdminUserDetailPage = lazy(() => import("../pages/admin/AdminUserDetailPage").then((m) => ({ default: m.AdminUserDetailPage })));
 const AdminHorsesPage = lazy(() => import("../pages/admin/AdminHorsesPage").then((m) => ({ default: m.AdminHorsesPage })));
@@ -57,6 +60,10 @@ const AdminBlogFormPage = lazy(() => import("../pages/admin/AdminBlogFormPage").
 const AdminPredictionsWorkspace = lazy(() => import("../pages/admin/AdminPredictionsWorkspace").then((m) => ({ default: m.AdminPredictionsWorkspace })));
 const AdminRacePredictionDetailPage = lazy(() => import("../pages/admin/AdminRacePredictionDetailPage").then((m) => ({ default: m.AdminRacePredictionDetailPage })));
 const AdminWithdrawalsPage = lazy(() => import("../pages/admin/AdminWithdrawalsPage").then((m) => ({ default: m.AdminWithdrawalsPage })));
+const AdminDisputesWorkspace = lazy(() => import("../pages/admin/AdminDisputesWorkspace").then((m) => ({ default: m.AdminDisputesWorkspace })));
+const AdminFinanceOverviewPage = lazy(() => import("../pages/admin/finance/AdminFinanceOverviewPage").then((m) => ({ default: m.AdminFinanceOverviewPage })));
+const AdminFinanceTransactionsPage = lazy(() => import("../pages/admin/finance/AdminFinanceTransactionsPage").then((m) => ({ default: m.AdminFinanceTransactionsPage })));
+const AdminFinanceTopUpsPage = lazy(() => import("../pages/admin/finance/AdminFinanceTopUpsPage").then((m) => ({ default: m.AdminFinanceTopUpsPage })));
 
 const OwnerDashboardPage = lazy(() => import("../pages/owner/OwnerDashboardPage").then((m) => ({ default: m.OwnerDashboardPage })));
 const OwnerHorseProfilePage = lazy(() => import("../pages/owner/OwnerHorseProfilePage").then((m) => ({ default: m.OwnerHorseProfilePage })));
@@ -91,42 +98,42 @@ function RouteFallback() {
 }
 
 function adminRoute(element: ReactNode) {
-  return <RequireAdminRoute>{element}</RequireAdminRoute>;
+  return <RequireAccountAccessRoute><RequireAdminRoute>{element}</RequireAdminRoute></RequireAccountAccessRoute>;
 }
 
 function authRoute(element: ReactNode) {
-  return <RequireAuthRoute>{element}</RequireAuthRoute>;
+  return <RequireAuthRoute><RequireAccountAccessRoute>{element}</RequireAccountAccessRoute></RequireAuthRoute>;
 }
 
 function jockeyRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="JOCKEY" workspaceName="Jockey Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="JOCKEY" workspaceName="Jockey Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function refereeRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="REFEREE" workspaceName="Referee Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function organizerRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="ORGANIZER" workspaceName="Organizer Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="ORGANIZER" workspaceName="Organizer Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
 function ownerRoute(element: ReactNode) {
   return (
-    <RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
+    <RequireAccountAccessRoute><RequireRoleRoute role="HORSE_OWNER" workspaceName="Owner Workspace">
       {element}
-    </RequireRoleRoute>
+    </RequireRoleRoute></RequireAccountAccessRoute>
   );
 }
 
@@ -153,7 +160,8 @@ export function AppRouter() {
 
         {/* User profile & roles routes */}
         <Route path="profile" element={authRoute(<ProfilePage />)} />
-        <Route path="wallet" element={authRoute(<WalletPage />)} />
+        <Route path="wallet" element={<RequireAuthRoute><WalletPage /></RequireAuthRoute>} />
+        <Route path="account-restricted" element={<RequireAuthRoute><AccountRestrictedPage /></RequireAuthRoute>} />
         <Route path="my-role-requests" element={authRoute(<MyRoleRequestsPage />)} />
         <Route path="organizer/register" element={authRoute(<OrganizerRegisterPage />)} />
         <Route path="organizer" element={organizerRoute(<OrganizerLayout />)}>
@@ -203,6 +211,7 @@ export function AppRouter() {
         <Route path="spectator" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/dashboard" element={<Navigate to="/spectator/predictions" replace />} />
         <Route path="spectator/predictions" element={authRoute(<SpectatorPredictionsPage />)} />
+        <Route path="spectator/disputes" element={authRoute(<SpectatorDisputesPage />)} />
 
         <Route path="admin" element={adminRoute(<AdminOverviewPage />)} />
         <Route path="admin/role-requests" element={adminRoute(<AdminRoleRequestsWorkspace />)} />
@@ -213,34 +222,6 @@ export function AppRouter() {
         <Route path="admin/tournament-registrations" element={adminRoute(<AdminTournamentRegistrationsPage />)} />
         <Route path="admin/tournaments" element={adminRoute(<AdminTournamentListPage />)} />
         <Route path="admin/tournaments/:id" element={adminRoute(<AdminTournamentDetailPage />)} />
-        <Route
-          path="admin/participants"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Participants"
-              description="Review horse and jockey pairings after registration, pool approval, and assignment contracts."
-            />
-          )}
-        />
-        <Route
-          path="admin/standings"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Standings"
-              description="Monitor championship points after round results are published."
-            />
-          )}
-        />
-        <Route
-          path="admin/races"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Races"
-              description="Review race cards, results, participant readiness, and race-day operations."
-            />
-          )}
-        />
-
         <Route path="admin/blog" element={adminRoute(<AdminBlogListPage />)} />
         <Route path="admin/blog/new" element={adminRoute(<AdminBlogFormPage />)} />
         <Route path="admin/blog/edit/:id" element={adminRoute(<AdminBlogFormPage />)} />
@@ -248,19 +229,13 @@ export function AppRouter() {
         <Route path="admin/predictions" element={adminRoute(<AdminPredictionsWorkspace />)} />
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
+        <Route path="admin/disputes" element={adminRoute(<AdminDisputesWorkspace />)} />
+        <Route path="admin/finance" element={adminRoute(<AdminFinanceOverviewPage />)} />
+        <Route path="admin/finance/transactions" element={adminRoute(<AdminFinanceTransactionsPage />)} />
+        <Route path="admin/finance/topups" element={adminRoute(<AdminFinanceTopUpsPage />)} />
 
-
-        <Route
-          path="admin/settings"
-          element={adminRoute(
-            <AdminPlaceholderPage
-              title="Settings"
-              description="Configure admin workspace preferences and operational defaults."
-            />
-          )}
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
     </Suspense>
   );
