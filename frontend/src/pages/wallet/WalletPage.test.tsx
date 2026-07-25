@@ -9,10 +9,12 @@ vi.mock("../../api/walletApi", () => ({
   walletApi: {
     getMyWallet: vi.fn(),
     getSummary: vi.fn(),
+    getTopUpReceipt: vi.fn(),
     getMyTransactions: vi.fn(),
     getMyWithdrawals: vi.fn(),
     createTopUp: vi.fn(),
     getBankAccounts: vi.fn(),
+    getBankDirectory: vi.fn(),
     addBankAccount: vi.fn(),
     deleteBankAccount: vi.fn(),
     createWithdrawal: vi.fn(),
@@ -28,6 +30,15 @@ describe("WalletPage", () => {
       status: "ACTIVE",
       inPlay: 125000,
       pendingWithdrawal: 150000,
+    });
+    vi.mocked(walletApi.getTopUpReceipt).mockResolvedValue({
+      txnRef: "TOPUP-21",
+      status: "SUCCESS",
+      amount: 50000,
+      balanceAfter: 1295875,
+      walletTransactionId: 5,
+      processedAt: "2026-06-22T09:30:00Z",
+      failureReason: null,
     });
     vi.mocked(walletApi.getMyTransactions).mockResolvedValue([
       {
@@ -93,13 +104,18 @@ describe("WalletPage", () => {
     ]);
     vi.mocked(walletApi.getBankAccounts).mockResolvedValue([
       {
-        id: 11,
+        id: 41,
         bankCode: "VCB",
         bankName: "Vietcombank",
+        bankBin: "970436",
         accountNumber: "123456789",
         accountHolder: "RACING FAN",
         label: "Main account",
       },
+    ]);
+    vi.mocked(walletApi.getBankDirectory).mockResolvedValue([
+      { code: "VCB", bin: "970436", name: "Vietcombank", qrSupported: true },
+      { code: "TCB", bin: "970407", name: "Techcombank", qrSupported: true },
     ]);
     vi.mocked(walletApi.createWithdrawal).mockResolvedValue({
       id: 12,
@@ -133,13 +149,16 @@ describe("WalletPage", () => {
 
   it("renders money states, performance, ledger, and the active payout request", async () => {
     render(
-      <MemoryRouter initialEntries={["/wallet?topup=success"]}>
+      <MemoryRouter initialEntries={["/wallet?topup=success&txnRef=TOPUP-21"]}>
         <WalletPage />
       </MemoryRouter>,
     );
 
     expect(await screen.findByRole("heading", { name: /available balance/i })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent(/top-up successful/i);
+    const resultDialog = await screen.findByRole("dialog", { name: /top-up result/i });
+    expect(within(resultDialog).getByRole("heading", { name: /money added/i })).toBeInTheDocument();
+    expect(within(resultDialog).getByText("50,000 VND")).toBeInTheDocument();
+    expect(walletApi.getTopUpReceipt).toHaveBeenCalledWith("TOPUP-21");
 
     expect(screen.getByText("125,000 VND")).toBeInTheDocument();
     expect(screen.getAllByText("150,000 VND")[0]).toBeInTheDocument();
@@ -190,7 +209,7 @@ describe("WalletPage", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /withdraw 100,000 vnd/i }));
 
     await waitFor(() => {
-      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(100000, "RACING FAN · 123456789 · Vietcombank (VCB)");
+      expect(walletApi.createWithdrawal).toHaveBeenCalledWith(100000, 41);
     });
   });
 
@@ -218,5 +237,46 @@ describe("WalletPage", () => {
 
     await screen.findByRole("heading", { name: /available balance/i });
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
+  });
+
+  it("loads trusted bank options and submits only the selected bank code", async () => {
+    vi.mocked(walletApi.getBankDirectory).mockResolvedValue([
+      { code: "SVR", bin: "999999", name: "Server Bank", qrSupported: true },
+    ]);
+    vi.mocked(walletApi.addBankAccount).mockResolvedValue({
+      id: 42,
+      bankCode: "SVR",
+      bankName: "Server Bank",
+      bankBin: "999999",
+      accountNumber: "0123456789",
+      accountHolder: "RACING FAN",
+      label: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /add bank account/i }));
+    fireEvent.click(screen.getByRole("button", { name: /select your bank/i }));
+    fireEvent.click(await screen.findByText("Server Bank"));
+    fireEvent.change(screen.getByLabelText("Account number"), {
+      target: { value: "0123456789" },
+    });
+    fireEvent.change(screen.getByLabelText("Account holder"), {
+      target: { value: "RACING FAN" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save account/i }));
+
+    await waitFor(() => {
+      expect(walletApi.addBankAccount).toHaveBeenCalledWith({
+        bankCode: "SVR",
+        accountNumber: "0123456789",
+        accountHolder: "RACING FAN",
+        label: null,
+      });
+    });
   });
 });

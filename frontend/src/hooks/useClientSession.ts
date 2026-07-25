@@ -3,12 +3,14 @@ import { logoutRemote } from "../api/authApi";
 import { AUTH_SESSION_CHANGED_EVENT, clearClientSession, getClientSession, setClientSession } from "../utils/authSession";
 import { getRolesFromAccessToken } from "../utils/authRoles";
 import axios from "axios";
+import type { AccountStatus } from "../types/auth";
 
 type ClientSession = {
   accessToken: string;
   email: string | null;
   fullName: string | null;
   roles: string[];
+  accountStatus?: AccountStatus;
 };
 
 function readClientSession(): ClientSession | null {
@@ -24,6 +26,7 @@ function readClientSession(): ClientSession | null {
     email: session.email,
     fullName: session.fullName,
     roles: getRolesFromAccessToken(accessToken),
+    accountStatus: session.accountStatus ?? "ACTIVE",
   };
 }
 
@@ -47,7 +50,8 @@ export function useClientSession() {
           setClientSession(
             res.data.accessToken,
             res.data.fullName || localStorage.getItem("fullName"),
-            res.data.email || localStorage.getItem("email")
+            res.data.email || localStorage.getItem("email"),
+            res.data.accountStatus
           );
           setSession(readClientSession());
           setIsInitializing(false);

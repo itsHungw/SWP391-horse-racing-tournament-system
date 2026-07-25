@@ -59,6 +59,32 @@ export interface AdminAuditPrediction {
   evaluatedAt: string | null;
 }
 
+export interface AdminStreakPredictionLeg {
+  id: number;
+  raceId: number;
+  raceName: string;
+  predictedWinnerId: number;
+  predictedWinnerName: string;
+  lockedOdds: number;
+  status: string;
+}
+
+export interface AdminStreakPrediction {
+  id: number;
+  spectatorId: number;
+  spectatorName: string;
+  spectatorEmail: string;
+  tournamentId: number;
+  tournamentName: string;
+  wagerAmount: number;
+  totalOdds: number;
+  status: string;
+  rewardPoints: number;
+  createdAt: string;
+  evaluatedAt: string | null;
+  legs: AdminStreakPredictionLeg[];
+}
+
 export async function getAdminPredictionRaces(): Promise<AdminRaceSummary[]> {
   const response = await httpClient.get<AdminRaceSummary[]>("/admin/predictions/races");
   return response.data;
@@ -71,6 +97,11 @@ export async function getAdminPredictionRaceDetail(raceId: number): Promise<Admi
 
 export async function getAdminRacePredictions(raceId: number): Promise<AdminAuditPrediction[]> {
   const response = await httpClient.get<AdminAuditPrediction[]>(`/admin/predictions/races/${raceId}/predictions`);
+  return response.data;
+}
+
+export async function getAdminStreakPredictions(): Promise<AdminStreakPrediction[]> {
+  const response = await httpClient.get<AdminStreakPrediction[]>(`/admin/predictions/streaks`);
   return response.data;
 }
 

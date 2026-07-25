@@ -23,6 +23,26 @@ storage:
     region: ap-southeast-1
     presigned-url-ttl: 5m
 
+wallet:
+  withdrawal:
+    enabled: true
+    min-amount: 50000
+    payment:
+      transfer-content-template: WD{withdrawalId}
+      receipt-max-bytes: 5242880
+      allowed-receipt-types: image/jpeg,image/png,image/webp
+      orphan-receipt-expiry: 24h
+      orphan-cleanup-cron: "0 30 3 * * *"
+    risk:
+      velocity-count: 3
+      velocity-window: 24h
+      anomaly-multiplier: 2.0
+      anomaly-min-history: 3
+      recent-terminal-window: 7d
+      history-window: 90d
+    export:
+      max-rows: 100
+
 app:
   cors:
     allowed-origins: http://localhost:5173

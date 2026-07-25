@@ -12,6 +12,7 @@ import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -53,7 +54,9 @@ public class FileStorageService {
             Map.entry("HORSE_EVIDENCE", new UploadPolicy(true, "private/horses/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
             Map.entry("HORSE_DOCUMENT", new UploadPolicy(true, "private/horses/documents", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
             Map.entry("ORGANIZER_LICENSE", new UploadPolicy(true, "private/organizer-licenses", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
-            Map.entry("ORGANIZER_LOGO", new UploadPolicy(false, "public/organizer-logos", IMAGE_MAX_BYTES, IMAGE_TYPES))
+            Map.entry("ORGANIZER_LOGO", new UploadPolicy(false, "public/organizer-logos", IMAGE_MAX_BYTES, IMAGE_TYPES)),
+            Map.entry("DISPUTE_EVIDENCE", new UploadPolicy(true, "private/disputes/evidence", EVIDENCE_MAX_BYTES, EVIDENCE_TYPES)),
+            Map.entry("WITHDRAWAL_RECEIPT", new UploadPolicy(true, "private/withdrawal-receipts", IMAGE_MAX_BYTES, IMAGE_TYPES))
     );
 
     private final ObjectStorage objectStorage;
@@ -156,6 +159,13 @@ public class FileStorageService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not allowed to access this file");
         }
         return createPresignedUrl(metadata);
+    }
+
+    @Transactional
+    public void deleteStoredFile(String filename) {
+        StoredFileMetadata metadata = findMetadata(filename);
+        objectStorage.delete(metadata.getObjectKey());
+        storedFileMetadataRepository.delete(metadata);
     }
 
     private StoredFileMetadata findMetadata(String filename) {

@@ -6,6 +6,17 @@ import { SpectatorPredictionsPage } from "./SpectatorPredictionsPage";
 import { spectatorPredictionApi } from "./services/spectatorPredictionApi";
 import type { OpenRacePrediction, PredictionOptions } from "./types/prediction.types";
 
+const authState = vi.hoisted(() => ({ accountStatus: "ACTIVE" as "ACTIVE" | "SUSPENDED" }));
+
+vi.mock("../../../hooks/useClientSession", () => ({
+  useClientSession: () => ({
+    session: { accountStatus: authState.accountStatus },
+    isAuthenticated: true,
+    isInitializing: false,
+    logout: vi.fn(),
+  }),
+}));
+
 vi.mock("./services/spectatorPredictionApi", () => ({
   spectatorPredictionApi: {
     getOpenRaces: vi.fn(),
@@ -15,6 +26,7 @@ vi.mock("./services/spectatorPredictionApi", () => ({
     getMyPredictions: vi.fn(),
     getPointAccount: vi.fn(),
     getSpectatorStreaks: vi.fn(),
+    submitStreakPrediction: vi.fn(),
   },
 }));
 
@@ -70,6 +82,7 @@ async function clickFirstButton(name: RegExp) {
 describe("SpectatorPredictionsPage cockpit", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    authState.accountStatus = "ACTIVE";
     vi.mocked(spectatorPredictionApi.getPointAccount).mockResolvedValue({ userId: 1, pointBalance: 50000 });
     vi.mocked(spectatorPredictionApi.getOpenRaces).mockResolvedValue([openRace]);
     vi.mocked(spectatorPredictionApi.getMyPredictions).mockResolvedValue([]);
@@ -96,6 +109,7 @@ describe("SpectatorPredictionsPage cockpit", () => {
       houseFeePercent: 15,
     } as never);
     vi.mocked(spectatorPredictionApi.getSpectatorStreaks).mockResolvedValue([]);
+    vi.mocked(spectatorPredictionApi.submitStreakPrediction).mockResolvedValue({} as never);
   });
 
   it("selects a race, mirrors the winner pick in the right slip, and submits the prediction", async () => {
@@ -157,5 +171,42 @@ describe("SpectatorPredictionsPage cockpit", () => {
     expect(await screen.findByText(/leg odds/i)).toBeInTheDocument();
     expect(screen.getAllByText("x7.77").length).toBeGreaterThan(0);
     expect(screen.queryByText("x2.50")).not.toBeInTheDocument();
+  });
+
+  it("shows account review context while preserving read-only arena data", async () => {
+    authState.accountStatus = "SUSPENDED";
+    renderArena();
+
+    expect(await screen.findByText(/predictions are temporarily paused/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /review account status/i })).toHaveAttribute(
+      "href",
+      "/account-restricted",
+    );
+    expect(await screen.findByRole("button", { name: /twilight sprint/i })).toBeEnabled();
+    expect(screen.getByRole("tab", { name: /my positions/i })).toBeEnabled();
+  });
+
+  it("does not select, quote, or submit a standard prediction while suspended", async () => {
+    authState.accountStatus = "SUSPENDED";
+    renderArena();
+
+    fireEvent.click(await screen.findByRole("button", { name: /twilight sprint/i }));
+    const oddsButton = (await screen.findAllByRole("button", { name: /2\.50/i }))[0];
+    expect(oddsButton).toBeDisabled();
+    fireEvent.click(oddsButton);
+
+    expect(screen.getByText(/unavailable while suspended/i)).toBeInTheDocument();
+    expect(spectatorPredictionApi.quotePrediction).not.toHaveBeenCalled();
+    expect(spectatorPredictionApi.submitPrediction).not.toHaveBeenCalled();
+  });
+
+  it("keeps streak history available without allowing suspended streak mutations", async () => {
+    authState.accountStatus = "SUSPENDED";
+    renderArena();
+
+    fireEvent.click(await screen.findByRole("button", { name: /winning streak pick/i }));
+    expect(screen.getByRole("button", { name: /my streaks/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /unavailable while suspended/i })).toBeDisabled();
+    expect(spectatorPredictionApi.submitStreakPrediction).not.toHaveBeenCalled();
   });
 });

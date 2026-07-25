@@ -8,6 +8,7 @@ import {
   getAdminRacePredictions,
   retrySettlementJob,
 } from "../../api/adminPredictionApi";
+import { formatVnd } from "../spectator/predictions/predictionCockpitUtils";
 
 export function AdminRacePredictionDetailPage() {
   const { raceId: paramRaceId } = useParams();
@@ -59,6 +60,19 @@ export function AdminRacePredictionDetailPage() {
       setError("Unable to retry the settlement job. Check the API connection and try again.");
     } finally {
       setRetrying(false);
+    }
+  };
+
+  const getPredictionTypeStyle = (type: string) => {
+    switch (type) {
+      case "EXACT_POSITION":
+        return "bg-indigo-100 text-indigo-800 border-indigo-200";
+      case "HEAD_TO_HEAD":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "WINNING_STREAK":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-slate-100 text-slate-800 border-slate-200";
     }
   };
 
@@ -124,6 +138,11 @@ export function AdminRacePredictionDetailPage() {
     const matchesType = !filterType || p.predictionType === filterType;
     return matchesSearch && matchesType;
   });
+
+  const totalStake = predictions.reduce((sum, p) => sum + (p.entryCostPoints || 0), 0);
+  const totalRefunded = predictions
+    .filter(p => p.displayStatus === "Refunded")
+    .reduce((sum, p) => sum + (p.rewardPoints || p.entryCostPoints || 0), 0);
 
   return (
     <AdminLayout>
@@ -231,51 +250,44 @@ export function AdminRacePredictionDetailPage() {
         {/* Summary metrics cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Predictions</p>
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Tickets</p>
             <p className="mt-2 text-3xl font-black text-[#070f4f]">{raceDetail.summary.totalPredictions}</p>
             <p className="mt-1 text-xs text-slate-500 font-bold">
-              {raceDetail.summary.winnerPickCount} Winner
+              Across all markets
             </p>
           </div>
 
           {!isCompleted && !isRefunded && (
-            <>
-              <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Winner Predictions</p>
-                <p className="mt-2 text-3xl font-black text-slate-800">{raceDetail.summary.winnerPickCount}</p>
-                <p className="mt-1 text-xs text-slate-500 font-bold">Cost: 5 pts / entry</p>
-              </div>
-              <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Participation Points</p>
-                <p className="mt-2 text-3xl font-black text-[#b3193a]">
-                  {raceDetail.summary.winnerPickCount * 5} pts
-                </p>
-                <p className="mt-1 text-xs text-slate-500 font-bold">Participation fees deducted</p>
-              </div>
-            </>
+            <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Wagered Amount</p>
+              <p className="mt-2 text-3xl font-black text-[#b3193a]">
+                {formatVnd(totalStake)} ₫
+              </p>
+              <p className="mt-1 text-xs text-slate-500 font-bold">Participation fees deducted</p>
+            </div>
           )}
 
           {isCompleted && (
             <>
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Correct Predictions</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Correct Tickets</p>
                 <p className="mt-2 text-3xl font-black text-emerald-700">
                   {raceDetail.summary.winnerCorrectCount}
                 </p>
                 <p className="mt-1 text-xs text-slate-500 font-bold">
-                  {raceDetail.summary.winnerCorrectCount} Winner
+                  {raceDetail.summary.winnerCorrectCount} Tickets Won
                 </p>
               </div>
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Incorrect Predictions</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Incorrect Tickets</p>
                 <p className="mt-2 text-3xl font-black text-rose-700">{raceDetail.summary.incorrectCount}</p>
-                <p className="mt-1 text-xs text-slate-500 font-bold">No correct matches</p>
+                <p className="mt-1 text-xs text-slate-500 font-bold">Lost tickets</p>
               </div>
               <div className="rounded-lg border border-[#d8d8d8] bg-white p-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Reward Points Paid</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Payout Amount</p>
                 <p className="mt-2 text-3xl font-black text-indigo-700 flex items-center gap-1">
                   <Award className="h-7 w-7 text-indigo-600" />
-                  {raceDetail.summary.rewardedPoints} pts
+                  {formatVnd(raceDetail.summary.rewardedPoints)} ₫
                 </p>
                 <p className="mt-1 text-xs text-slate-500 font-bold">Credited to user balances</p>
               </div>
@@ -284,12 +296,12 @@ export function AdminRacePredictionDetailPage() {
 
           {isRefunded && (
             <div className="rounded-lg border border-[#d8d8d8] bg-white p-5 col-span-3">
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Refunded Points</p>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Total Refunded Amount</p>
               <p className="mt-2 text-3xl font-black text-orange-600">
-                {raceDetail.summary.totalPredictions * 5} - {raceDetail.summary.totalPredictions * 10} pts
+                {formatVnd(totalRefunded)} ₫
               </p>
               <p className="mt-1 text-sm text-orange-700 font-bold">
-                Refunded 100% entry points for {raceDetail.summary.refundedCount} predictions due to race cancellation.
+                Refunded 100% entry amounts for {raceDetail.summary.refundedCount} predictions due to race cancellation.
               </p>
             </div>
           )}
@@ -311,14 +323,14 @@ export function AdminRacePredictionDetailPage() {
 
             <div className="flex gap-3 w-full md:w-auto">
               <select
-                className="h-10 px-3 rounded-md border border-[#ccc] bg-white text-xs font-medium outline-none focus:border-[#b3193a]"
-                value={filterType}
+                className="min-h-11 w-full rounded-lg border border-[#ececec] bg-[#fafafa] px-3 text-[10px] font-black uppercase tracking-wider text-slate-700 outline-none transition focus:border-[#070f4f] focus:ring-2 focus:ring-[#070f4f]/10"
                 onChange={(e) => setFilterType(e.target.value)}
+                value={filterType}
               >
                 <option value="">All Prediction Types</option>
                 <option value="EXACT_POSITION">Exact Position</option>
                 <option value="HEAD_TO_HEAD">Head-to-Head</option>
-                <option value="WINNER">Winner (legacy)</option>
+                <option value="WINNING_STREAK">Winning Streak</option>
               </select>
 
               <div className="relative flex-1 md:w-60">
@@ -344,7 +356,7 @@ export function AdminRacePredictionDetailPage() {
                   {isCompleted && <th className="px-6 py-3.5">Result Classification</th>}
                   <th className="px-6 py-3.5 text-center">Status</th>
                   <th className="px-6 py-3.5 text-right">Entry Cost</th>
-                  <th className="px-6 py-3.5 text-right">Reward Points</th>
+                  <th className="px-6 py-3.5 text-right">Payout Amount</th>
                   <th className="px-6 py-3.5">Submission Time</th>
                 </tr>
               </thead>
@@ -363,8 +375,8 @@ export function AdminRacePredictionDetailPage() {
                         <p className="text-[10px] text-slate-400 font-bold">{p.spectatorEmail}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-bold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[10px]">
-                          {p.predictionType}
+                        <span className={`font-black uppercase tracking-wider px-2.5 py-1 rounded text-[10px] border ${getPredictionTypeStyle(p.predictionType)}`}>
+                          {p.predictionType.replace(/_/g, " ")}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -408,12 +420,12 @@ export function AdminRacePredictionDetailPage() {
                           {p.displayStatus}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right font-black text-slate-700">{p.entryCostPoints} pts</td>
+                      <td className="px-6 py-4 text-right font-black text-slate-700">{formatVnd(p.entryCostPoints)} ₫</td>
                       <td className="px-6 py-4 text-right font-black">
                         {p.displayStatus === "Won" ? (
-                          <span className="text-emerald-700">+{p.rewardPoints} pts</span>
+                          <span className="text-emerald-700">+{formatVnd(p.rewardPoints)} ₫</span>
                         ) : p.displayStatus === "Refunded" ? (
-                          <span className="text-orange-600">+{p.rewardPoints} pts</span>
+                          <span className="text-orange-600">+{formatVnd(p.rewardPoints)} ₫</span>
                         ) : (
                           <span className="text-slate-400">-</span>
                         )}

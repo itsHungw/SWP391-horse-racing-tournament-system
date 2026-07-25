@@ -2,13 +2,31 @@ package com.example.horseracingtournamentsystem.prediction.repository;
 
 import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
+import com.example.horseracingtournamentsystem.finance.dto.FinanceTotalsProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Collection;
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Repository
 public interface RacePredictionRepository extends JpaRepository<RacePrediction, Long> {
+
+    @org.springframework.data.jpa.repository.Query("""
+            select coalesce(sum(coalesce(p.wagerAmount, p.entryCostPoints)), 0) as wagers,
+                   coalesce(sum(case when p.status = com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.CORRECT then p.rewardPoints else 0 end), 0) as payouts,
+                   coalesce(sum(case when p.status = com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED then coalesce(p.wagerAmount, p.entryCostPoints) else 0 end), 0) as refunds
+            from RacePrediction p
+            where p.evaluatedAt >= :from and p.evaluatedAt < :to
+              and p.status in (
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.CORRECT,
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.INCORRECT,
+                com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED
+              )
+            """)
+    FinanceTotalsProjection aggregateFinanceTotalsBetween(
+            @org.springframework.data.repository.query.Param("from") LocalDateTime from,
+            @org.springframework.data.repository.query.Param("to") LocalDateTime to);
 
     List<RacePrediction> findByStatusIn(Collection<PredictionStatus> statuses);
 

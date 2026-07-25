@@ -36,6 +36,13 @@ public class UserBankAccount {
     @Column(name = "bank_name", nullable = false, length = 100)
     private String bankName;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "bank_directory_id")
+    private BankDirectory bankDirectory;
+
+    @Column(name = "bank_bin", length = 12)
+    private String bankBin;
+
     @Column(name = "account_number", nullable = false, length = 40)
     private String accountNumber;
 
@@ -58,6 +65,20 @@ public class UserBankAccount {
         account.accountHolder = accountHolder;
         account.label = label;
         account.createdAt = LocalDateTime.now();
+        return account;
+    }
+
+    public static UserBankAccount create(
+            User user,
+            BankDirectory bank,
+            String accountNumber,
+            String accountHolder,
+            String label
+    ) {
+        UserBankAccount account = create(
+                user, bank.getCode(), bank.getDisplayName(), accountNumber, accountHolder, label);
+        account.bankDirectory = bank;
+        account.bankBin = bank.getBin();
         return account;
     }
 

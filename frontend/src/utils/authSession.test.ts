@@ -13,10 +13,12 @@ describe("authSession", () => {
       accessToken: "access-token",
       fullName: "Official User",
       email: "official@example.com",
+      accountStatus: "ACTIVE",
     });
     expect(localStorage.getItem("accessToken")).toBeNull();
     expect(localStorage.getItem("fullName")).toBe("Official User");
     expect(localStorage.getItem("email")).toBe("official@example.com");
+    expect(localStorage.getItem("accountStatus")).toBe("ACTIVE");
   });
 
   it("removes legacy stored access tokens when setting or clearing a session", () => {

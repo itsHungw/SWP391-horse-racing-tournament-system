@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface WalletRepository extends JpaRepository<Wallet, Long> {
 
+    @Query("select coalesce(sum(w.balance), 0) from Wallet w")
+    long sumAllBalances();
+
     /**
      * Khóa row ví (SELECT ... FOR UPDATE) để chống lost-update khi 2 thao tác tiền
      * tranh cùng một ví. Dùng trong {@code WalletService.adjust}.

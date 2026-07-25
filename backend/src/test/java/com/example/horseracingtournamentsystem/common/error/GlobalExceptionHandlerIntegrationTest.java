@@ -57,8 +57,9 @@ class GlobalExceptionHandlerIntegrationTest {
         TestDatabaseCleaner.clean(jdbcTemplate);
 
         Role adminRole = roleRepository.save(Role.of("ADMIN", "Administrator"));
-        User admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
+        User admin = User.pending("Admin User", "admin@example.com", "hash");
         admin.verifyEmail();
+        admin = userRepository.save(admin);
         userRoleRepository.save(UserRole.active(admin, adminRole, admin));
 
         adminToken = jwtService.generateToken(admin.getEmail(), Set.of("ADMIN"));

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, ReceiptText, WalletCards } from "lucide-react";
+import { ChevronDown, ReceiptText, WalletCards, Flag } from "lucide-react";
 import {
   type OpenRacePrediction,
   predictionStatusLabel,
@@ -8,6 +8,7 @@ import {
   type UserPrediction,
 } from "../types/prediction.types";
 import { computePayout, filterSlipPredictions, formatBib, formatVnd, getBibClass } from "../predictionCockpitUtils";
+import { CreateDisputeModal } from "../../disputes/components/CreateDisputeModal";
 
 interface MyPredictionsPanelProps {
   predictions: UserPrediction[];
@@ -321,6 +322,7 @@ export function MyPredictionsPanel({
   onViewAll,
 }: MyPredictionsPanelProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [reportingPredictionId, setReportingPredictionId] = useState<number | null>(null);
   const filteredPredictions = useMemo(() => filterSlipPredictions(predictions, selectedRace), [predictions, selectedRace]);
   const groups = useMemo(
     () => buildPositionGroups(filteredPredictions, selectedRace, options),
@@ -457,9 +459,23 @@ export function MyPredictionsPanel({
                           </div>
                           <div className="text-right">
                             <p className="font-data font-bold text-ivory">{formatVnd(stakeOf(prediction))} VND</p>
-                            <p className="mt-0.5 font-semibold text-ivory-faint">
-                              {prediction.lockedOdds != null ? prediction.lockedOdds.toFixed(2) : oddsSourceLabel(group.oddsSource)}
-                            </p>
+                            <div className="mt-0.5 flex items-center justify-end gap-2">
+                              <p className="font-semibold text-ivory-faint">
+                                {prediction.lockedOdds != null ? prediction.lockedOdds.toFixed(2) : oddsSourceLabel(group.oddsSource)}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setReportingPredictionId(prediction.id);
+                                }}
+                                className="mt-1 inline-flex items-center gap-1 rounded bg-rose-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-rose-300 transition-colors hover:bg-rose-500/20"
+                                title="Report an issue with this prediction"
+                              >
+                                <Flag size={10} />
+                                Report
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -486,6 +502,16 @@ export function MyPredictionsPanel({
           View All Predictions
         </button>
       </div>
+
+      <CreateDisputeModal
+        isOpen={reportingPredictionId !== null}
+        onClose={() => setReportingPredictionId(null)}
+        referenceType="RACE_PREDICTION"
+        referenceId={reportingPredictionId ?? 0}
+        onSuccess={() => {
+          // Could show a toast notification here
+        }}
+      />
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-import { BANKS } from "./banks";
+import { bankColor } from "./banks";
 
 // Logos live at `public/banks/<CODE>.<ext>` and the set uses mixed formats
 // (VCB.png, ACB.svg, BIDV.jpeg, HDB.jpg…), so we probe these in priority order.
@@ -23,8 +23,7 @@ export function BankLogo({ code, size = 36 }: { code: string; size?: number }) {
   }
   const extIndex = probe.code === code ? probe.extIndex : 0;
 
-  const bank = BANKS.find((item) => item.code === code);
-  const color = bank?.color ?? "#3a4a44";
+  const color = bankColor(code);
   const dimension = { width: size, height: size };
 
   if (extIndex < EXTENSIONS.length) {

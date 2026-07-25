@@ -12,7 +12,6 @@ import {
   ChevronRight
 } from "lucide-react";
 
-import logo from "../assets/logo.png";
 import { useClientSession } from "../hooks/useClientSession";
 import { NotificationBell } from "../components/NotificationBell";
 
@@ -54,7 +53,7 @@ export function OwnerLayout({ children }: OwnerLayoutProps) {
       <header aria-label="Owner workspace header" className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur-md" role="banner">
         <div className="mx-auto flex min-h-20 max-w-[1680px] items-center justify-between px-5">
           <Link
-            aria-label="EquinePro owner dashboard"
+            aria-label="Aqueduct owner dashboard"
             className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             to="/"
           >

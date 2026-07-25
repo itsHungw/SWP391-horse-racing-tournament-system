@@ -88,7 +88,14 @@ class NotificationIntegrationTest {
         WithdrawalRequest request3 = withdrawalRequestRepository.save(WithdrawalRequest.create(user, 100000L, "Bank Info"));
         withdrawalService.approve(request3.getId(), "testwallet@example.com");
         notificationRepository.deleteAll();
-        withdrawalService.markPaid(request3.getId(), "testwallet@example.com");
+        withdrawalService.markPaid(
+                request3.getId(),
+                "testwallet@example.com",
+                "NOTIFICATION-TEST",
+                "Notification integration test",
+                "notification-test.png",
+                "0".repeat(64),
+                java.util.UUID.randomUUID().toString());
         assertEquals(1, notificationRepository.countByRecipient_EmailAndReadAtIsNull("testwallet@example.com"));
         var notifPaid = notificationRepository.findAll().stream().filter(n -> "WITHDRAWAL_PAID".equals(n.getType())).findFirst().orElseThrow();
         assertEquals("WITHDRAWAL", notifPaid.getReferenceType());

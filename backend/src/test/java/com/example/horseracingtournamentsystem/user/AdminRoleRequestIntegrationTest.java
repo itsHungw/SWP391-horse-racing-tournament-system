@@ -77,8 +77,9 @@ class AdminRoleRequestIntegrationTest {
         roleRepository.save(Role.of("JOCKEY", "Jockey"));
         roleRepository.save(Role.of("ORGANIZER", "Organizer"));
 
-        admin = userRepository.save(User.pending("Admin User", "admin@example.com", "hash"));
+        admin = User.pending("Admin User", "admin@example.com", "hash");
         admin.verifyEmail();
+        admin = userRepository.save(admin);
         userRoleRepository.save(UserRole.active(admin, adminRole, admin));
 
         applicant = User.pending("Minh Quan", "quan@example.com", "hash", "0909123456");

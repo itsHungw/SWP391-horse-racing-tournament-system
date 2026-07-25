@@ -20,6 +20,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.email = :email")
     Optional<User> findByEmailForUpdate(String email);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.id = :id")
+    Optional<User> findByIdForUpdate(Long id);
+
    
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "refereeProfile"})
 
@@ -48,6 +52,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             JOIN u.userRoles ur
             JOIN ur.role r
             WHERE u.deletedAt IS NULL
+              AND u.status = com.example.horseracingtournamentsystem.user.enums.UserStatus.ACTIVE
               AND r.name = 'ADMIN'
               AND ur.status = com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.ACTIVE
             """)

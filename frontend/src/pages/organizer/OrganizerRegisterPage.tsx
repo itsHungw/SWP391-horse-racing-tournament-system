@@ -121,6 +121,8 @@ export function OrganizerRegisterPage() {
   const formDisabled = submitting || busyUploading || !profileCompleted;
   const pageEyebrow = canResubmit ? "Corrections Requested" : "Join The Elite";
   const pageTitle = canResubmit ? "Resubmission Workspace" : "Organizer Application";
+  const organizerRoleMissing = org?.status === "ACTIVE"
+    && !profile?.roles?.some((role) => role.toUpperCase() === "ORGANIZER");
   const pageDescription = canResubmit
     ? "Your application is still in play. Review the admin note, update the fields below, and send a cleaner submission back through Gate 1."
     : "Apply for platform clearance to host professional tournaments. We run a secure KYB review — once verified, your account receives full ORGANIZER access to our suite of tools.";
@@ -235,6 +237,15 @@ export function OrganizerRegisterPage() {
       <p className="mt-5 text-base leading-relaxed text-ivory-dim bg-white/5 p-4 rounded-xl border border-white/5">
         {statusCopy[org.status].note}
       </p>
+
+      {organizerRoleMissing && (
+        <p
+          className="mt-4 rounded-xl border border-gold-400/25 bg-gold-400/10 p-4 text-sm text-gold-200"
+          role="status"
+        >
+          Your organizer access was restored. Please sign out and sign in again to refresh your session roles.
+        </p>
+      )}
       
       {org.rejectionReason && (
         <div className="mt-5 flex items-start gap-3 rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-200">

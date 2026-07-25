@@ -9,6 +9,10 @@ import {
   FileText,
   Building2,
   Wallet,
+  MessageSquareWarning,
+  Landmark,
+  ReceiptText,
+  RefreshCw,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -25,6 +29,7 @@ const adminNavGroups = [
     items: [
       { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
       { label: "Championships", href: "/admin/tournaments", icon: Trophy },
+      { label: "Disputes", href: "/admin/disputes", icon: MessageSquareWarning },
     ],
   },
   {
@@ -46,6 +51,9 @@ const adminNavGroups = [
   {
     label: "FINANCE",
     items: [
+      { label: "Overview", href: "/admin/finance", icon: Landmark, end: true },
+      { label: "Transactions", href: "/admin/finance/transactions", icon: ReceiptText },
+      { label: "Top-up Reconciliation", href: "/admin/finance/topups", icon: RefreshCw },
       { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
     ],
   },
@@ -69,11 +77,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           role="banner"
         >
           <div className="flex min-h-20 flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-            <a className="flex items-center gap-3" href="/admin" aria-label="EquinePro admin home">
+            <a className="flex items-center gap-3" href="/admin" aria-label="Aqueduct admin home">
               <img alt="" className="h-10 w-10 object-contain" src={logo} />
               <div>
                 <p className="text-3xl font-black lowercase italic tracking-tight text-[#b3193a]">
-                  equinepro
+                  aqueduct
                 </p>
                 <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">
                   tournament control
@@ -132,7 +140,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                               : "text-[#171717] hover:bg-white",
                           ].join(" ")
                         }
-                        end={item.href === "/admin"}
+                        end={("end" in item && item.end) || item.href === "/admin"}
                         key={item.href}
                         to={item.href}
                       >

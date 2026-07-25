@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 export type StatusTone =
   | "amber"
+  | "orange"
   | "emerald"
   | "rose"
   | "sky"
@@ -12,6 +13,7 @@ export type StatusTone =
 
 const TONE_CLASS: Record<StatusTone, string> = {
   amber: "bg-amber-100 text-amber-800",
+  orange: "bg-orange-100 text-orange-800",
   emerald: "bg-emerald-100 text-emerald-800",
   rose: "bg-rose-100 text-rose-700",
   sky: "bg-sky-100 text-sky-800",
@@ -32,6 +34,10 @@ const STATUS_TONE: Record<string, StatusTone> = {
   APPROVED: "emerald",
   APPROVED_FOR_POOL: "emerald",
   ACTIVE: "emerald",
+  SUSPENDED: "orange",
+  BANNED: "rose",
+  PENDING_EMAIL_VERIFY: "amber",
+  INACTIVE: "neutral",
   OPEN_REGISTRATION: "emerald",
   REJECTED: "rose",
   DECLINED: "rose",
@@ -63,6 +69,7 @@ export function statusTone(status: string): StatusTone {
 }
 
 export function prettyStatus(status: string): string {
+  if (status === "PENDING_EMAIL_VERIFY") return "Unverified";
   return status.replace(/_/g, " ").toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 }
 

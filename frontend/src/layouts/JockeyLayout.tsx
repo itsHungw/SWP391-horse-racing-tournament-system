@@ -14,7 +14,6 @@ import {
   ChevronRight
 } from "lucide-react";
 
-import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
 import { useClientSession } from "../hooks/useClientSession";
 import { NotificationBell } from "../components/NotificationBell";
@@ -70,7 +69,7 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
       >
         <div className="mx-auto flex min-h-20 max-w-[1720px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
           <Link
-            aria-label="EquinePro jockey dashboard"
+            aria-label="Aqueduct jockey dashboard"
             className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
             to="/"
           >
