@@ -11,6 +11,7 @@ import com.example.horseracingtournamentsystem.blog.entity.Blog;
 import com.example.horseracingtournamentsystem.blog.entity.BlogStatus;
 import com.example.horseracingtournamentsystem.blog.repository.BlogRepository;
 import com.example.horseracingtournamentsystem.security.JwtService;
+import com.example.horseracingtournamentsystem.testsupport.TestDatabaseCleaner;
 import com.example.horseracingtournamentsystem.user.entity.Role;
 import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.entity.UserRole;
@@ -25,6 +26,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -49,11 +51,15 @@ class AdminBlogIntegrationTest {
     @Autowired
     private UserRoleRepository userRoleRepository;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private User admin;
     private String adminToken;
 
     @BeforeEach
     void setUp() {
+        TestDatabaseCleaner.clean(jdbcTemplate);
         blogRepository.deleteAll();
         userRoleRepository.deleteAll();
         roleRepository.deleteAll();
