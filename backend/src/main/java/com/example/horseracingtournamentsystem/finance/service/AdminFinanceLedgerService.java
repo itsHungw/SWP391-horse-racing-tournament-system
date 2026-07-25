@@ -44,7 +44,8 @@ public class AdminFinanceLedgerService {
 
     private static final int MAX_PAGE_SIZE = 100;
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
-    private static final DateTimeFormatter CSV_TIMESTAMP = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final DateTimeFormatter CSV_TIMESTAMP = DateTimeFormatter.ISO_OFFSET_DATE_TIME
+            .withZone(VIETNAM_ZONE);
 
     private final WalletTransactionRepository transactions;
     private final TopUpOrderRepository topUps;
@@ -54,9 +55,10 @@ public class AdminFinanceLedgerService {
 
     public AdminFinanceReconciliationSummary reconciliationSummary(LocalDate from, LocalDate to) {
         validateRange(from, to);
-        LocalDateTime start = from.atStartOfDay();
-        LocalDateTime end = to.plusDays(1).atStartOfDay();
-        LocalDateTime staleBefore = LocalDateTime.now(VIETNAM_ZONE).minusMinutes(30);
+        FinanceTimeRange range = FinanceTimeRange.between(from, to);
+        LocalDateTime start = range.start();
+        LocalDateTime end = range.endExclusive();
+        LocalDateTime staleBefore = LocalDateTime.now().minusMinutes(30);
         return new AdminFinanceReconciliationSummary(
                 topUps.countMissingWalletCredits(start, end),
                 topUps.countAmountMismatches(start, end),
@@ -133,21 +135,20 @@ public class AdminFinanceLedgerService {
         Specification<WalletTransaction> specification = transactionSpec(
                 from, to, query, type, referenceType, referenceId,
                 userId, minAmount, maxAmount, matchingTopUpIds(query));
-        long rowCount = transactions.count(specification);
-        if (rowCount > 10_000) {
+        PageRequest exportPage = PageRequest.of(0, 10_001, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<WalletTransaction> exportResult = transactions.findAll(specification, exportPage);
+        if (exportResult.getNumberOfElements() > 10_000 || exportResult.getTotalElements() > 10_000) {
             throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE,
                     "Filtered export contains more than 10,000 rows; narrow the filters");
         }
-        PageRequest exportPage = PageRequest.of(0, 10_000, Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<AdminFinanceTransactionResponse> rows = transactions
-                .findAll(specification, exportPage)
+        List<AdminFinanceTransactionResponse> rows = exportResult
                 .map(AdminFinanceTransactionResponse::from)
                 .getContent();
         StringBuilder csv = new StringBuilder(
                 "Transaction ID,Created At,User Email,User Name,Type,Amount,Balance Before,Balance After,Reference Type,Reference ID,Description\n");
         for (AdminFinanceTransactionResponse row : rows) {
             csv.append(row.id()).append(',')
-                    .append(row.createdAt().format(CSV_TIMESTAMP)).append(',')
+                    .append(CSV_TIMESTAMP.format(row.createdAt())).append(',')
                     .append(csv(row.userEmail())).append(',')
                     .append(csv(row.userName())).append(',')
                     .append(row.transactionType()).append(',')
@@ -201,7 +202,8 @@ public class AdminFinanceLedgerService {
             LocalDate from, LocalDate to, int page, int size) {
         validateRange(from, to);
         PageRequest pageable = PageRequest.of(safePage(page), safeSize(size), Sort.by(Sort.Direction.DESC, "createdAt"));
-        return transactions.findOrphanTopUpCredits(from.atStartOfDay(), to.plusDays(1).atStartOfDay(), pageable)
+        FinanceTimeRange range = FinanceTimeRange.between(from, to);
+        return transactions.findOrphanTopUpCredits(range.start(), range.endExclusive(), pageable)
                 .map(transaction -> AdminFinanceTransactionResponse.from(transaction)
                         .withSource("MISSING_TOPUP_ORDER", "Missing TopUpOrder -> TOPUP -> wallet balance"));
     }
@@ -233,8 +235,8 @@ public class AdminFinanceLedgerService {
                 order.getVnpayTxnRef(),
                 order.getVnpayTransactionNo(),
                 order.getVnpayResponseCode(),
-                order.getCreatedAt(),
-                order.getPaidAt(),
+                FinanceTimeRange.toInstant(order.getCreatedAt()),
+                FinanceTimeRange.toInstant(order.getPaidAt()),
                 credit == null ? null : credit.getId(),
                 credit == null ? null : credit.getAmount(),
                 reconciliationStatus
@@ -255,8 +257,9 @@ public class AdminFinanceLedgerService {
     ) {
         return (root, criteria, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), from.atStartOfDay()));
-            predicates.add(builder.lessThan(root.get("createdAt"), to.plusDays(1).atStartOfDay()));
+            FinanceTimeRange range = FinanceTimeRange.between(from, to);
+            predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), range.start()));
+            predicates.add(builder.lessThan(root.get("createdAt"), range.endExclusive()));
             if (query != null && !query.isBlank()) {
                 String value = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
                 List<Predicate> queryPredicates = new ArrayList<>();
@@ -310,8 +313,9 @@ public class AdminFinanceLedgerService {
     ) {
         return (root, criteria, builder) -> {
             List<Predicate> predicates = new ArrayList<>();
-            predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), from.atStartOfDay()));
-            predicates.add(builder.lessThan(root.get("createdAt"), to.plusDays(1).atStartOfDay()));
+            FinanceTimeRange range = FinanceTimeRange.between(from, to);
+            predicates.add(builder.greaterThanOrEqualTo(root.get("createdAt"), range.start()));
+            predicates.add(builder.lessThan(root.get("createdAt"), range.endExclusive()));
             if (query != null && !query.isBlank()) {
                 String value = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
                 predicates.add(builder.or(
@@ -351,7 +355,7 @@ public class AdminFinanceLedgerService {
                     case STALE_PENDING -> {
                         predicates.add(root.get("status").in(TopUpStatus.INITIATED, TopUpStatus.PENDING));
                         predicates.add(builder.lessThan(
-                                root.get("createdAt"), LocalDateTime.now(VIETNAM_ZONE).minusMinutes(30)));
+                                root.get("createdAt"), LocalDateTime.now().minusMinutes(30)));
                     }
                     case ORPHAN_WALLET_CREDIT -> predicates.add(builder.disjunction());
                 }
@@ -423,10 +427,30 @@ public class AdminFinanceLedgerService {
         if (value == null) {
             return "";
         }
+        if (isSpreadsheetFormula(value)) {
+            value = "'" + value;
+        }
         if (value.indexOf(',') < 0 && value.indexOf('\"') < 0
                 && value.indexOf('\n') < 0 && value.indexOf('\r') < 0) {
             return value;
         }
         return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
+    private boolean isSpreadsheetFormula(String value) {
+        if (value.isEmpty()) {
+            return false;
+        }
+        char first = value.charAt(0);
+        if (first == '\t' || first == '\r' || first == '\n') {
+            return true;
+        }
+        int index = 0;
+        while (index < value.length()
+                && (Character.isWhitespace(value.charAt(index))
+                || Character.isISOControl(value.charAt(index)))) {
+            index++;
+        }
+        return index < value.length() && "=+-@".indexOf(value.charAt(index)) >= 0;
     }
 }

@@ -213,8 +213,10 @@ public class PredictionService {
         List<RacePrediction> predictions = predictionRepo.findByRace_Id(raceId);
         for (RacePrediction p : predictions) {
             if (com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING == p.getStatus() || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED == p.getStatus()) {
+                LocalDateTime refundedAt = LocalDateTime.now();
                 p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
-                p.setUpdatedAt(LocalDateTime.now());
+                p.setEvaluatedAt(refundedAt);
+                p.setUpdatedAt(refundedAt);
                 predictionRepo.save(p);
 
                 // Hoàn tiền cược (idempotent theo prediction id)

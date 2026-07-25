@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.horseracingtournamentsystem.finance.dto.AdminFinanceTransactionResponse;
@@ -25,6 +26,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -161,20 +164,61 @@ class AdminFinanceLedgerServiceTest {
 
         assertThat(new String(csv, java.nio.charset.StandardCharsets.UTF_8))
                 .contains("Transaction ID,Created At,User Email")
-                .contains("91,2026-07-15T10:30:00,spectator@example.com")
+                .contains("91,2026-07-15T10:30:00+07:00,spectator@example.com")
                 .contains("-120000,500000,380000");
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void rejectsAnOversizedExportInsteadOfSilentlyTruncatingIt() {
-        when(transactions.count(any(Specification.class))).thenReturn(10_001L);
+        List<WalletTransaction> oversized = java.util.Collections.nCopies(
+                10_001, transaction(91L, -1L, 1L));
+        when(transactions.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(oversized));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.exportTransactions(
                         LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
                         null, null, null, null))
                 .isInstanceOf(org.springframework.web.server.ResponseStatusException.class)
                 .hasMessageContaining("10,000");
+        verify(transactions, org.mockito.Mockito.never()).count(any(Specification.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void neutralizesSpreadsheetFormulasInCsvTextFields() {
+        WalletTransaction transaction = transaction(91L, -120_000L, 380_000L);
+        when(transaction.getDescription()).thenReturn("=HYPERLINK(\"https://example.test\")");
+        when(transactions.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(transaction)));
+
+        String csv = new String(service.exportTransactions(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                null, null, null, null), java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(csv).contains("\"'=HYPERLINK(\"\"https://example.test\"\")\"");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "\t=HYPERLINK(\"https://example.test\")",
+            "\r=HYPERLINK(\"https://example.test\")",
+            "\n=HYPERLINK(\"https://example.test\")",
+            "  =HYPERLINK(\"https://example.test\")",
+            " \t@SUM(1+1)"
+    })
+    @SuppressWarnings("unchecked")
+    void neutralizesSpreadsheetFormulasHiddenBehindWhitespace(String dangerousValue) {
+        WalletTransaction transaction = transaction(91L, -120_000L, 380_000L);
+        when(transaction.getDescription()).thenReturn(dangerousValue);
+        when(transactions.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(transaction)));
+
+        String csv = new String(service.exportTransactions(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                null, null, null, null), java.nio.charset.StandardCharsets.UTF_8);
+
+        assertThat(csv).contains("'" + dangerousValue.replace("\"", "\"\""));
     }
 
     private WalletTransaction transaction(long id, long amount, long balanceAfter) {

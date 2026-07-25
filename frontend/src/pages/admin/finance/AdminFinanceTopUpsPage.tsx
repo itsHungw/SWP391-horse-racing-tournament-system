@@ -63,7 +63,7 @@ export function AdminFinanceTopUpsPage() {
   const requestKey = JSON.stringify(filters);
   const orphanMode = filters.reconciliationStatus === "ORPHAN_WALLET_CREDIT";
   const [result, setResult] = useState<PageResponse<AdminTopUpReconciliation> | null>(null);
-  const [orphanCredits, setOrphanCredits] = useState<AdminFinanceTransaction[]>([]);
+  const [orphanCredits, setOrphanCredits] = useState<PageResponse<AdminFinanceTransaction> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -72,14 +72,19 @@ export function AdminFinanceTopUpsPage() {
     setLoading(true);
     setError(false);
     setResult(null);
-    setOrphanCredits([]);
+    setOrphanCredits(null);
     const request = orphanMode
-      ? adminFinanceApi.listOrphanTopUpCredits({ from: filters.from, to: filters.to })
+      ? adminFinanceApi.listOrphanTopUpCredits({
+          from: filters.from,
+          to: filters.to,
+          page: filters.page,
+          size: filters.size,
+        })
       : adminFinanceApi.listTopUps(filters);
     request
       .then((page) => {
         if (ignore) return;
-        if (orphanMode) setOrphanCredits(page.content as AdminFinanceTransaction[]);
+        if (orphanMode) setOrphanCredits(page as PageResponse<AdminFinanceTransaction>);
         else setResult(page as PageResponse<AdminTopUpReconciliation>);
       })
       .catch(() => { if (!ignore) setError(true); })
@@ -114,7 +119,15 @@ export function AdminFinanceTopUpsPage() {
         {error ? <p className="border-l-4 border-[#b3193a] bg-red-50 p-4 text-sm font-semibold text-red-900" role="alert">Top-up reconciliation could not be loaded.</p> : null}
 
         {orphanMode ? (
-          <OrphanCreditsSection loading={loading} rows={orphanCredits} />
+          <OrphanCreditsSection
+            loading={loading}
+            page={orphanCredits}
+            onPageChange={(page) => setParams((current) => {
+              const next = new URLSearchParams(current);
+              next.set("page", String(page));
+              return next;
+            })}
+          />
         ) : (
           <section aria-busy={loading} aria-label="Top-up reconciliation results" className="border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto"><table className="min-w-full text-left text-sm"><thead className="border-b border-slate-200 bg-slate-50 text-[10px] font-black uppercase tracking-[0.14em] text-slate-500"><tr><th className="px-4 py-3">Order</th><th className="px-4 py-3">User</th><th className="px-4 py-3">VNPay reference</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3">Order status</th><th className="px-4 py-3">Reconciliation</th></tr></thead><tbody className="divide-y divide-slate-100">
@@ -134,6 +147,7 @@ function TopUpRow({ row }: { row: AdminTopUpReconciliation }) {
   return <tr className="hover:bg-slate-50"><td className="px-4 py-4"><p className="font-mono font-black text-[#070f4f]">#{row.id}</p><p className="mt-1 text-xs text-slate-500">{new Date(row.createdAt).toLocaleString("vi-VN")}</p></td><td className="px-4 py-4"><p className="font-black text-slate-900">{row.userName}</p><p className="text-xs text-slate-500">{row.userEmail}</p></td><td className="px-4 py-4"><p className="font-mono font-bold">{row.vnpayTxnRef}</p><p className="mt-1 text-xs text-slate-500">{row.vnpayTransactionNo ?? "No gateway transaction number"}</p></td><td className="px-4 py-4 text-right font-mono font-black text-emerald-700 tabular-nums">+{vnd.format(row.amount)}</td><td className="px-4 py-4"><span className="border border-slate-300 px-2 py-1 text-xs font-black">{row.status}</span></td><td className="px-4 py-4"><span className={`inline-flex items-center gap-2 text-xs font-black ${row.reconciliationStatus === "MATCHED" ? "text-emerald-700" : issue ? "text-[#b3193a]" : "text-amber-700"}`}><Icon className="h-4 w-4" aria-hidden="true" />{statusLabels[row.reconciliationStatus]}</span></td></tr>;
 }
 
-function OrphanCreditsSection({ loading, rows }: { loading: boolean; rows: AdminFinanceTransaction[] }) {
-  return <section aria-busy={loading} aria-labelledby="orphan-credits-title" className="border border-red-200 bg-white shadow-sm"><div className="border-l-4 border-[#b3193a] bg-red-50 p-4"><h2 className="font-black text-red-950" id="orphan-credits-title">Orphan wallet credits</h2><p className="mt-1 text-sm text-red-800">TOPUP ledger entries with no matching TopUpOrder require manual investigation.</p></div>{loading ? <p className="p-10 text-center text-sm font-semibold text-slate-500">Loading orphan credits…</p> : rows.length ? <ul className="divide-y divide-slate-200">{rows.map((credit) => <li className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm" key={credit.id}><span><span className="block font-mono font-black text-[#070f4f]">Transaction #{credit.id}</span><span className="mt-1 block text-xs text-slate-500">{credit.userEmail} · {new Date(credit.createdAt).toLocaleString("vi-VN")}</span></span><span className="font-mono font-black text-emerald-700">+{vnd.format(credit.amount)}</span></li>)}</ul> : <p className="p-10 text-center text-sm font-semibold text-slate-500">No orphan wallet credits in this period.</p>}</section>;
+function OrphanCreditsSection({ loading, page, onPageChange }: { loading: boolean; page: PageResponse<AdminFinanceTransaction> | null; onPageChange: (page: number) => void }) {
+  const rows = page?.content ?? [];
+  return <section aria-busy={loading} aria-labelledby="orphan-credits-title" className="border border-red-200 bg-white shadow-sm"><div className="border-l-4 border-[#b3193a] bg-red-50 p-4"><h2 className="font-black text-red-950" id="orphan-credits-title">Orphan wallet credits</h2><p className="mt-1 text-sm text-red-800">TOPUP ledger entries with no matching TopUpOrder require manual investigation.</p></div>{loading ? <p className="p-10 text-center text-sm font-semibold text-slate-500">Loading orphan credits…</p> : rows.length ? <ul className="divide-y divide-slate-200">{rows.map((credit) => <li className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm" key={credit.id}><span><span className="block font-mono font-black text-[#070f4f]">Transaction #{credit.id}</span><span className="mt-1 block text-xs text-slate-500">{credit.userEmail} · {new Date(credit.createdAt).toLocaleString("vi-VN")}</span></span><span className="font-mono font-black text-emerald-700">+{vnd.format(credit.amount)}</span></li>)}</ul> : <p className="p-10 text-center text-sm font-semibold text-slate-500">No orphan wallet credits in this period.</p>}{page && page.totalPages > 1 ? <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3"><button className="min-h-11 px-4 font-bold disabled:opacity-40" disabled={page.number === 0} onClick={() => onPageChange(page.number - 1)} type="button">Previous</button><p className="text-xs font-bold text-slate-500">Page {page.number + 1} of {page.totalPages}</p><button className="min-h-11 px-4 font-bold disabled:opacity-40" disabled={page.number + 1 >= page.totalPages} onClick={() => onPageChange(page.number + 1)} type="button">Next</button></div> : null}</section>;
 }

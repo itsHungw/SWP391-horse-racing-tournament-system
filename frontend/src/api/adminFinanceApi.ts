@@ -50,10 +50,10 @@ export const adminFinanceApi = {
       })
     ).data,
 
-  listOrphanTopUpCredits: async (range: FinanceRange) =>
+  listOrphanTopUpCredits: async (filters: FinanceRange & { page: number; size: number }) =>
     (
       await httpClient.get<PageResponse<AdminFinanceTransaction>>("/admin/finance/topups/orphan-credits", {
-        params: compactParams({ ...range, page: 0, size: 20 }),
+        params: compactParams(filters),
       })
     ).data,
 

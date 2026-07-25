@@ -55,6 +55,21 @@ describe("adminFinanceApi", () => {
     });
   });
 
+  it("sends orphan-credit pagination", async () => {
+    vi.mocked(httpClient.get).mockResolvedValue({ data: { content: [], totalElements: 0, totalPages: 0 } });
+
+    await adminFinanceApi.listOrphanTopUpCredits({
+      from: "2026-07-01",
+      to: "2026-07-31",
+      page: 2,
+      size: 20,
+    });
+
+    expect(httpClient.get).toHaveBeenCalledWith("/admin/finance/topups/orphan-credits", {
+      params: { from: "2026-07-01", to: "2026-07-31", page: 2, size: 20 },
+    });
+  });
+
   it("keeps active reconciliation filters and removes empty values", async () => {
     vi.mocked(httpClient.get).mockResolvedValue({ data: { content: [] } });
 

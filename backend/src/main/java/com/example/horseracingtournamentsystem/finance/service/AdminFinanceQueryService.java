@@ -111,7 +111,8 @@ public class AdminFinanceQueryService {
 
     private record Period(LocalDateTime start, LocalDateTime endExclusive) {
         static Period of(LocalDate from, LocalDate to) {
-            return new Period(from.atStartOfDay(), to.plusDays(1).atStartOfDay());
+            FinanceTimeRange range = FinanceTimeRange.between(from, to);
+            return new Period(range.start(), range.endExclusive());
         }
     }
 }

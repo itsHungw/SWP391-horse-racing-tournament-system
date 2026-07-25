@@ -114,4 +114,32 @@ describe("admin finance reconciliation pages", () => {
     expect(screen.getByText(/transaction #99/i)).toBeInTheDocument();
     expect(adminFinanceApi.listTopUps).not.toHaveBeenCalled();
   });
+
+  it("paginates through every orphan wallet credit", async () => {
+    vi.mocked(adminFinanceApi.listOrphanTopUpCredits)
+      .mockResolvedValueOnce({
+        content: [{ ...transaction, id: 99, amount: 250_000, transactionType: "TOPUP" }],
+        totalElements: 21,
+        totalPages: 2,
+        number: 0,
+        size: 20,
+      })
+      .mockResolvedValueOnce({
+        content: [{ ...transaction, id: 100, amount: 300_000, transactionType: "TOPUP" }],
+        totalElements: 21,
+        totalPages: 2,
+        number: 1,
+        size: 20,
+      });
+
+    render(
+      <MemoryRouter initialEntries={["/admin/finance/topups?reconciliationStatus=ORPHAN_WALLET_CREDIT"]}>
+        <AdminFinanceTopUpsPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /next/i }));
+    expect(await screen.findByText(/transaction #100/i)).toBeInTheDocument();
+    expect(adminFinanceApi.listOrphanTopUpCredits).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, size: 20 }));
+  });
 });

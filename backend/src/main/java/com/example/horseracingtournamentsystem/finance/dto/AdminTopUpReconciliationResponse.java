@@ -1,7 +1,7 @@
 package com.example.horseracingtournamentsystem.finance.dto;
 
 import com.example.horseracingtournamentsystem.wallet.entity.TopUpStatus;
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 public record AdminTopUpReconciliationResponse(
         Long id,
@@ -13,8 +13,8 @@ public record AdminTopUpReconciliationResponse(
         String vnpayTxnRef,
         String vnpayTransactionNo,
         String vnpayResponseCode,
-        LocalDateTime createdAt,
-        LocalDateTime paidAt,
+        Instant createdAt,
+        Instant paidAt,
         Long walletTransactionId,
         Long walletCreditAmount,
         String reconciliationStatus

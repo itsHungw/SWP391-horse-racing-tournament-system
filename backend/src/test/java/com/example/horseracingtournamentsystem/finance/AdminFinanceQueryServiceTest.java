@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verify;
 
 import com.example.horseracingtournamentsystem.finance.dto.AdminFinanceResponse;
 import com.example.horseracingtournamentsystem.finance.dto.FinanceTotalsProjection;
@@ -15,6 +16,8 @@ import com.example.horseracingtournamentsystem.wallet.repository.WalletRepositor
 import com.example.horseracingtournamentsystem.wallet.repository.WithdrawalRequestRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.TimeZone;
+import org.mockito.ArgumentCaptor;
 import org.junit.jupiter.api.Test;
 
 class AdminFinanceQueryServiceTest {
@@ -60,6 +63,25 @@ class AdminFinanceQueryServiceTest {
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 7));
 
         assertThat(response.ggrMargin()).isEqualByComparingTo("0.0000");
+    }
+
+    @Test
+    void convertsVietnamBusinessDatesToTheDatabaseTimezone() {
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+
+            service.summary(LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+            ArgumentCaptor<LocalDateTime> from = ArgumentCaptor.forClass(LocalDateTime.class);
+            ArgumentCaptor<LocalDateTime> to = ArgumentCaptor.forClass(LocalDateTime.class);
+            verify(racePredictions, org.mockito.Mockito.times(2))
+                    .aggregateFinanceTotalsBetween(from.capture(), to.capture());
+            assertThat(from.getAllValues().getFirst()).isEqualTo(LocalDateTime.of(2026, 6, 30, 17, 0));
+            assertThat(to.getAllValues().getFirst()).isEqualTo(LocalDateTime.of(2026, 7, 31, 17, 0));
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     private FinanceTotalsProjection totals(long wagers, long payouts, long refunds) {

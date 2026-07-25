@@ -2,7 +2,8 @@ package com.example.horseracingtournamentsystem.finance.dto;
 
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.time.ZoneId;
 
 public record AdminFinanceTransactionResponse(
         Long id,
@@ -16,7 +17,7 @@ public record AdminFinanceTransactionResponse(
         String referenceType,
         Long referenceId,
         String description,
-        LocalDateTime createdAt,
+        Instant createdAt,
         String sourceStatus,
         String sourceTrace
 ) {
@@ -35,7 +36,7 @@ public record AdminFinanceTransactionResponse(
                 transaction.getReferenceType(),
                 transaction.getReferenceId(),
                 transaction.getDescription(),
-                transaction.getCreatedAt(),
+                transaction.getCreatedAt().atZone(ZoneId.systemDefault()).toInstant(),
                 null,
                 null
         );
