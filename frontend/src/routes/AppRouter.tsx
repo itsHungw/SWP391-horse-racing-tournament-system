@@ -61,6 +61,9 @@ const AdminPredictionsWorkspace = lazy(() => import("../pages/admin/AdminPredict
 const AdminRacePredictionDetailPage = lazy(() => import("../pages/admin/AdminRacePredictionDetailPage").then((m) => ({ default: m.AdminRacePredictionDetailPage })));
 const AdminWithdrawalsPage = lazy(() => import("../pages/admin/AdminWithdrawalsPage").then((m) => ({ default: m.AdminWithdrawalsPage })));
 const AdminDisputesWorkspace = lazy(() => import("../pages/admin/AdminDisputesWorkspace").then((m) => ({ default: m.AdminDisputesWorkspace })));
+const AdminFinanceOverviewPage = lazy(() => import("../pages/admin/finance/AdminFinanceOverviewPage").then((m) => ({ default: m.AdminFinanceOverviewPage })));
+const AdminFinanceTransactionsPage = lazy(() => import("../pages/admin/finance/AdminFinanceTransactionsPage").then((m) => ({ default: m.AdminFinanceTransactionsPage })));
+const AdminFinanceTopUpsPage = lazy(() => import("../pages/admin/finance/AdminFinanceTopUpsPage").then((m) => ({ default: m.AdminFinanceTopUpsPage })));
 
 const OwnerDashboardPage = lazy(() => import("../pages/owner/OwnerDashboardPage").then((m) => ({ default: m.OwnerDashboardPage })));
 const OwnerHorseProfilePage = lazy(() => import("../pages/owner/OwnerHorseProfilePage").then((m) => ({ default: m.OwnerHorseProfilePage })));
@@ -227,6 +230,9 @@ export function AppRouter() {
         <Route path="admin/predictions/races/:raceId" element={adminRoute(<AdminRacePredictionDetailPage />)} />
         <Route path="admin/withdrawals" element={adminRoute(<AdminWithdrawalsPage />)} />
         <Route path="admin/disputes" element={adminRoute(<AdminDisputesWorkspace />)} />
+        <Route path="admin/finance" element={adminRoute(<AdminFinanceOverviewPage />)} />
+        <Route path="admin/finance/transactions" element={adminRoute(<AdminFinanceTransactionsPage />)} />
+        <Route path="admin/finance/topups" element={adminRoute(<AdminFinanceTopUpsPage />)} />
 
       </Route>
       <Route path="*" element={<NotFoundPage />} />

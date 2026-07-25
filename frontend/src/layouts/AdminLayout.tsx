@@ -10,6 +10,9 @@ import {
   Building2,
   Wallet,
   MessageSquareWarning,
+  Landmark,
+  ReceiptText,
+  RefreshCw,
 } from "lucide-react";
 
 import logo from "../assets/logo.png";
@@ -48,6 +51,9 @@ const adminNavGroups = [
   {
     label: "FINANCE",
     items: [
+      { label: "Overview", href: "/admin/finance", icon: Landmark, end: true },
+      { label: "Transactions", href: "/admin/finance/transactions", icon: ReceiptText },
+      { label: "Top-up Reconciliation", href: "/admin/finance/topups", icon: RefreshCw },
       { label: "Withdrawals", href: "/admin/withdrawals", icon: Wallet },
     ],
   },
@@ -134,7 +140,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                               : "text-[#171717] hover:bg-white",
                           ].join(" ")
                         }
-                        end={item.href === "/admin"}
+                        end={("end" in item && item.end) || item.href === "/admin"}
                         key={item.href}
                         to={item.href}
                       >

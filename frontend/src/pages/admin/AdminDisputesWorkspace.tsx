@@ -4,13 +4,16 @@ import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { disputeApi, DisputeResponse, DisputeStatus } from "../../api/disputeApi";
 import { AdminDisputeDetailModal } from "./components/AdminDisputeDetailModal";
+import { useSearchParams } from "react-router-dom";
 
 export function AdminDisputesWorkspace() {
   useDocumentTitle("Disputes Workspace | Admin");
   
   const [disputes, setDisputes] = useState<DisputeResponse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [params] = useSearchParams();
+  const linkedTransactionId = params.get("transactionId") ?? "";
+  const [searchTerm, setSearchTerm] = useState(linkedTransactionId);
   const [statusFilter, setStatusFilter] = useState<DisputeStatus | "ALL">("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
   const [selectedDispute, setSelectedDispute] = useState<DisputeResponse | null>(null);
@@ -43,9 +46,13 @@ export function AdminDisputesWorkspace() {
   };
 
   const filteredDisputes = disputes.filter(d => {
-    const matchesSearch = d.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          d.id.toString().includes(searchTerm) ||
-                          d.referenceType.toLowerCase().includes(searchTerm.toLowerCase());
+    const linkedTransactionSearch = linkedTransactionId !== "" && searchTerm === linkedTransactionId;
+    const matchesSearch = linkedTransactionSearch
+      ? d.referenceType === "WALLET_TRANSACTION" && d.referenceId.toString() === linkedTransactionId
+      : d.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.id.toString().includes(searchTerm) ||
+        d.referenceType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        d.referenceId.toString().includes(searchTerm);
     const matchesStatus = statusFilter === "ALL" || d.status === statusFilter;
     const matchesPriority = priorityFilter === "ALL" || d.priority === priorityFilter;
     return matchesSearch && matchesStatus && matchesPriority;
