@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.TimeZone;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -153,19 +154,25 @@ class AdminFinanceLedgerServiceTest {
     @Test
     @SuppressWarnings("unchecked")
     void exportsTheFilteredLedgerAsCsv() {
-        WalletTransaction transaction = transaction(91L, -120_000L, 380_000L);
-        when(transactions.findAll(any(Specification.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(transaction)));
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            WalletTransaction transaction = transaction(91L, -120_000L, 380_000L);
+            when(transactions.findAll(any(Specification.class), any(Pageable.class)))
+                    .thenReturn(new PageImpl<>(List.of(transaction)));
 
-        byte[] csv = service.exportTransactions(
-                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
-                "spectator@example.com", WalletTransactionType.BET_PLACED,
-                "RACE_PREDICTION", 44L);
+            byte[] csv = service.exportTransactions(
+                    LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31),
+                    "spectator@example.com", WalletTransactionType.BET_PLACED,
+                    "RACE_PREDICTION", 44L);
 
-        assertThat(new String(csv, java.nio.charset.StandardCharsets.UTF_8))
-                .contains("Transaction ID,Created At,User Email")
-                .contains("91,2026-07-15T10:30:00+07:00,spectator@example.com")
-                .contains("-120000,500000,380000");
+            assertThat(new String(csv, java.nio.charset.StandardCharsets.UTF_8))
+                    .contains("Transaction ID,Created At,User Email")
+                    .contains("91,2026-07-15T17:30:00+07:00,spectator@example.com")
+                    .contains("-120000,500000,380000");
+        } finally {
+            TimeZone.setDefault(original);
+        }
     }
 
     @Test
