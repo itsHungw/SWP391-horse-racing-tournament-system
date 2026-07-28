@@ -433,6 +433,25 @@ describe("SubmitResultsPage", () => {
     expect(screen.getByPlaceholderText("1")).toHaveValue(1);
   });
 
+  it("shows the organizer's reason when the package was sent back", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+      returnedReason: "Objection handling looks wrong",
+    });
+
+    renderPage();
+
+    const banner = await screen.findByRole("alert");
+    expect(banner).toHaveTextContent("Returned by the organizer");
+    expect(banner).toHaveTextContent("Objection handling looks wrong");
+  });
+
   it("explains that the race has not finished instead of claiming results were submitted", async () => {
     vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
     vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);

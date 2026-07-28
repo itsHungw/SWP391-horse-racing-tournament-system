@@ -279,6 +279,16 @@ export function SubmitResultsPage() {
         </p>
       </header>
 
+      {race?.returnedReason ? (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 p-4" role="alert">
+          <p className="font-black text-amber-900">Returned by the organizer</p>
+          <p className="mt-1 text-sm font-semibold text-amber-900">Reason: {race.returnedReason}</p>
+          <p className="mt-2 text-sm font-semibold text-amber-900">
+            Your previous entries are loaded below. Fix what the organizer flagged and submit again.
+          </p>
+        </div>
+      ) : null}
+
       {isReadOnly ? (
         <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4" role="status">
           <p className="font-black text-emerald-800">{readOnlyMessage}</p>
