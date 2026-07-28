@@ -15,6 +15,8 @@ public record RefereeRaceResponse(
         Long refereeId,
         String refereeName,
         int participantCount,
-        String nextAction
+        String nextAction,
+        /** Khác null khi Ban tổ chức đã trả hồ sơ về cho trọng tài sửa (BR-16). */
+        String returnedReason
 ) {
 }

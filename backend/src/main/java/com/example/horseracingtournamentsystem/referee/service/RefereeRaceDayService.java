@@ -350,7 +350,10 @@ public class RefereeRaceDayService {
                 referee == null ? null : referee.getId(),
                 referee == null ? null : referee.getFullName(),
                 participantCount,
-                nextAction(race.getStatus())
+                nextAction(race.getStatus()),
+                refereeReportRepository.findFirstByRace_IdOrderByIdDesc(race.getId())
+                        .map(RefereeReport::getRejectionReason)
+                        .orElse(null)
         );
     }
 

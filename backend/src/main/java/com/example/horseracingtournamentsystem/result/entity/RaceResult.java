@@ -174,11 +174,6 @@ public class RaceResult {
      * Trả về để referee sửa (chỉ khi CHƯA confirm): ghi lý do vào note để referee biết vì sao
      * bị trả lại, giữ nguyên trạng thái SUBMITTED. KHÔNG đụng điểm/settlement vì chưa phát sinh.
      */
-    public void markReopened(String reason) {
-        this.note = reason;
-        this.updatedAt = LocalDateTime.now();
-    }
-
     public Long getRaceId() {
         return race.getId();
     }

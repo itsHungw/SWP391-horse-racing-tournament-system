@@ -404,10 +404,10 @@ public class RaceService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "A reason is required when sending results back for correction");
         }
-        for (RaceResult result : raceResultRepository.findByRace_Id(id)) {
-            result.markReopened(trimmed);
-            raceResultRepository.save(result);
-        }
+        // Lý do thuộc về cả gói kết quả -> lưu trên tường trình. Trước đây nó ghi đè
+        // RaceResult.note của TỪNG ngựa, xoá mất ghi chú trọng tài đã nhập lúc nộp.
+        refereeReportRepository.findFirstByRace_IdOrderByIdDesc(id)
+                .ifPresent(report -> report.markReturned(trimmed));
         race.updateStatus(RaceStatus.FINISHED);
         raceRepository.save(race);
         notificationService.notify(race.getReferee(), "RESULT_REOPENED", "Result sent back for correction",
