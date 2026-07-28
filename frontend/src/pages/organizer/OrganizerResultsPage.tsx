@@ -13,6 +13,7 @@ import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { useSelectedTournamentId } from "../../hooks/useSelectedTournamentId";
 import type { PublicRaceResult, Race, Tournament } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
+import { RaceReviewPackagePanel } from "./RaceReviewPackagePanel";
 
 function formatDateTime(value?: string) {
   if (!value) return "—";
@@ -432,6 +433,12 @@ function RaceResultModal({ race, busy, onClose, onConfirm, onPublish, onReopen }
               </p>
             </div>
           )}
+
+          {race.status === "RESULT_SUBMITTED" ? (
+            <div className="mt-5">
+              <RaceReviewPackagePanel raceId={race.id} />
+            </div>
+          ) : null}
         </div>
 
         {/* Footer actions */}
