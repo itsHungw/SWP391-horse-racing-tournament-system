@@ -596,6 +596,31 @@ export async function publishOrganizerRaceResults(id: number): Promise<Race> {
   return response.data;
 }
 
+export type RaceIncident = {
+  id: number;
+  violationType: string | null;
+  participantId: number | null;
+  horseName: string | null;
+  jockeyName: string | null;
+  description: string;
+  penalty: string | null;
+  severity: string | null;
+  occurredAt: string | null;
+};
+
+export type RaceReviewPackage = {
+  reportTitle: string | null;
+  reportSummary: string | null;
+  returnedReason: string | null;
+  incidents: RaceIncident[];
+};
+
+/** BR-16: hồ sơ trọng tài nộp lên (tường trình + sự cố/khiếu nại) để BTC đọc trước khi chốt. */
+export async function getOrganizerReviewPackage(id: number): Promise<RaceReviewPackage> {
+  const response = await httpClient.get<RaceReviewPackage>(`/organizer/races/${id}/review-package`);
+  return response.data;
+}
+
 export async function reopenOrganizerRaceResults(id: number, reason: string): Promise<Race> {
   const response = await httpClient.post<Race>(`/organizer/races/${id}/reopen-results`, { reason });
   return response.data;
