@@ -95,6 +95,12 @@ class RaceIntegrationTest {
     private OrganizationRepository organizationRepository;
 
     @Autowired
+    private com.example.horseracingtournamentsystem.referee.repository.ViolationRepository violationRepository;
+
+    @Autowired
+    private com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository refereeReportRepository;
+
+    @Autowired
     private UserRepository userRepository;
 
     @Autowired
@@ -382,6 +388,68 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.entries[0].finishTimeSeconds").value(72.341))
                 .andExpect(jsonPath("$.entries[0].note").doesNotExist())
                 .andExpect(jsonPath("$.entries[0].submittedBy").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "organizer-package@example.com", roles = "ORGANIZER")
+    void organizerReviewPackageExposesIncidentsAndRefereeReport() throws Exception {
+        User organizer = User.pending("Organizer Package", "organizer-package@example.com", "hash");
+        organizer.verifyEmail();
+        organizer = userRepository.save(organizer);
+        Organization organization = Organization.application(
+                organizer,
+                "ORG_PACKAGE",
+                "Organizer Package Club",
+                "LIC-PACKAGE",
+                "ops-package@example.com",
+                "0900000001",
+                "Package operations",
+                "evidence.pdf",
+                null,
+                "Ready"
+        );
+        organization.approve(adminUser);
+        organization = organizationRepository.save(organization);
+        Tournament ownedTournament = Tournament.create(
+                "Organizer Package Cup", "ORG_PACKAGE_CUP", "Package Cup", "Package Track",
+                LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1),
+                20, organizer
+        );
+        ownedTournament.assignOrganization(organization);
+        ownedTournament = tournamentRepository.save(ownedTournament);
+
+        Race race = Race.create(
+                ownedTournament, "Package Round", "ORG_PACKAGE_R1",
+                LocalDateTime.now().minusHours(2), 1200, 12, organizer
+        );
+        race.updateStatus(RaceStatus.RESULT_SUBMITTED);
+        race = raceRepository.save(race);
+        RaceParticipant participant = createParticipant(race, "Package Runner", "PACKAGE-RUNNER");
+
+        violationRepository.save(com.example.horseracingtournamentsystem.referee.entity.Violation.create(
+                race,
+                participant,
+                organizer,
+                "OBJECTION_INTERFERENCE",
+                "[Objection] Emma Collins (Aurora Belle) vs Liam Carter (Package Runner)",
+                "RIDER_PENALTY",
+                "HIGH"
+        ));
+
+        com.example.horseracingtournamentsystem.referee.entity.RefereeReport report =
+                com.example.horseracingtournamentsystem.referee.entity.RefereeReport.create(race, organizer);
+        report.submit("Package Round report", "Track clear, one objection upheld.", "SUBMITTED");
+        refereeReportRepository.save(report);
+
+        mockMvc.perform(get("/api/v1/organizer/races/{id}/review-package", race.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reportSummary").value("Track clear, one objection upheld."))
+                .andExpect(jsonPath("$.incidents.length()").value(1))
+                .andExpect(jsonPath("$.incidents[0].violationType").value("OBJECTION_INTERFERENCE"))
+                .andExpect(jsonPath("$.incidents[0].penalty").value("RIDER_PENALTY"))
+                .andExpect(jsonPath("$.incidents[0].severity").value("HIGH"))
+                .andExpect(jsonPath("$.incidents[0].horseName").value("Package Runner"));
     }
 
     @Test

@@ -83,9 +83,10 @@ The referee then lands on the fallback card, which does not display the reason a
   DNS and DNF are not interchangeable: a scratched horse never started.
 - F2. Both arrays in `confirmResultPackage` send `jockeyName: ""`.
 
-**G. Incidents and reports are write-only.** `ViolationRepository` declares no query methods,
-nothing reads `Violation` back, and no endpoint exposes violations or the referee report to the
-organizer. Whatever the referee records today cannot be seen by anyone.
+**G. Incidents and reports are write-only in practice.** `ViolationRepository` does declare
+`findAllByRace_IdOrderByOccurredAtAsc`, but it has no callers anywhere in the codebase, and no
+endpoint exposes violations or the referee report to the organizer. Whatever the referee records
+today cannot be seen by anyone.
 
 ## Goals
 

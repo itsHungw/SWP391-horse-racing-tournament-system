@@ -85,6 +85,15 @@ public class OrganizerRaceController {
         return raceService.assignRefereeForOrganizer(id, refereeId, authentication.getName());
     }
 
+    /** BR-16: BTC đọc tường trình + sự cố/khiếu nại của trọng tài trước khi chốt kết quả. */
+    @GetMapping("/{id}/review-package")
+    public com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse reviewPackage(
+            @PathVariable Long id,
+            Authentication authentication
+    ) {
+        return raceService.getOrganizerReviewPackage(id, authentication.getName());
+    }
+
     @PostMapping("/{id}/confirm-results")
     public RaceResponse confirmResults(@PathVariable Long id, Authentication authentication) {
         return raceService.confirmRaceResults(id, authentication.getName());

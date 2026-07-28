@@ -59,6 +59,8 @@ public class RaceService {
     private final TournamentParticipantRepository tournamentParticipantRepository;
     private final RefereeContractRepository refereeContractRepository;
     private final NotificationService notificationService;
+    private final com.example.horseracingtournamentsystem.referee.repository.ViolationRepository violationRepository;
+    private final com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository refereeReportRepository;
 
     private static final Map<RaceStatus, Set<RaceStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             RaceStatus.SCHEDULED, Set.of(RaceStatus.CHECKING, RaceStatus.CANCELLED),
@@ -193,6 +195,42 @@ public class RaceService {
         applyPredictionLifecycle(race, previousStatus, targetStatus);
         applyResultGovernance(race, targetStatus, confirmer);
         return mapToResponse(race);
+    }
+
+    /**
+     * BR-16: gom hồ sơ trọng tài đã nộp (tường trình + sự cố/khiếu nại) để BTC đọc trước khi chốt.
+     * Chỉ đọc — không chặn nút Confirm, vì khiếu nại đã được trọng tài xử lý xong tại chỗ.
+     */
+    @Transactional(readOnly = true)
+    public com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse
+            getOrganizerReviewPackage(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+
+        List<com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse> incidents =
+                violationRepository.findAllByRace_IdOrderByOccurredAtAsc(race.getId()).stream()
+                        .map(violation -> {
+                            RaceParticipant participant = violation.getParticipant();
+                            return new com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse(
+                                    violation.getId(),
+                                    violation.getViolationType(),
+                                    participant == null ? null : participant.getId(),
+                                    participant == null ? null : participant.getHorse().getName(),
+                                    participant == null || participant.getJockey() == null
+                                            ? null
+                                            : participant.getJockey().getFullName(),
+                                    violation.getDescription(),
+                                    violation.getPenalty(),
+                                    violation.getSeverity(),
+                                    violation.getOccurredAt()
+                            );
+                        })
+                        .toList();
+
+        return refereeReportRepository.findFirstByRace_IdOrderByIdDesc(race.getId())
+                .map(report -> new com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse(
+                        report.getTitle(), report.getSummary(), report.getRejectionReason(), incidents))
+                .orElseGet(() -> new com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse(
+                        null, null, null, incidents));
     }
 
     /** Đồng bộ trạng thái các dòng RaceResult theo trạng thái race khi chốt/công bố. */
