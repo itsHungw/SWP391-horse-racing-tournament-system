@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, ShieldAlert } from "lucide-react";
 import {
@@ -21,6 +21,9 @@ const LOCKED_STATUS_MESSAGES: Record<string, string> = {
   RESULT_CONFIRMED: "Results confirmed by the organizer.",
   PUBLISHED: "Results published.",
 };
+
+/** Khiếu nại đã ghi, kèm id phía client để biết cái nào đã gửi lên server rồi. */
+type RecordedObjection = RaceObjectionDraft & { clientId: number };
 
 const DECISION_LABELS: Record<string, string> = {
   NO_CHANGE: "No change to result",
@@ -104,7 +107,9 @@ export function SubmitResultsPage() {
   const [entries, setEntries] = useState<ParticipantResultEntry[]>([]);
   const [race, setRace] = useState<RaceSummary>();
   const [participants, setParticipants] = useState<ParticipantVerification[]>([]);
-  const [objections, setObjections] = useState<RaceObjectionDraft[]>([]);
+  const [objections, setObjections] = useState<RecordedObjection[]>([]);
+  const nextObjectionId = useRef(1);
+  const sentObjectionIds = useRef(new Set<number>());
   const [reportTitle, setReportTitle] = useState(`Race Report: R-${raceId}`);
   const [reportSummary, setReportSummary] = useState("");
   const [requiresAdminReview, setRequiresAdminReview] = useState(false);
@@ -210,14 +215,28 @@ export function SubmitResultsPage() {
       setSubmitting(true);
       setMessage(null);
 
-      const mappedEntries = entries.map((entry) => ({
-        ...entry,
-        position: entry.position === "" ? null : entry.position,
-        finishTimeSeconds: entry.finishTimeSeconds === "" ? null : Number(entry.finishTimeSeconds),
-      }));
+      const mappedEntries = entries.map((entry) => {
+        const finishTimeSeconds = entry.finishTimeSeconds === "" ? null : Number(entry.finishTimeSeconds);
+        const penaltySeconds = typeof entry.penaltySeconds === "number" ? entry.penaltySeconds : 0;
+
+        return {
+          ...entry,
+          position: entry.position === "" ? null : entry.position,
+          finishTimeSeconds,
+          // This screen only exposes the total. Shipping the raw time loaded earlier would
+          // no longer add up once the referee edits the total, and the backend rejects any
+          // entry where finish != raw + penalty. Derive the split from what was typed.
+          rawFinishTimeSeconds:
+            finishTimeSeconds == null ? null : Number((finishTimeSeconds - penaltySeconds).toFixed(3)),
+        };
+      });
 
       // Khiếu nại đi trước để chúng đã nằm trong sổ khi BTC mở gói ra duyệt.
+      // Bỏ qua cái đã gửi thành công: nếu gói kết quả bị backend từ chối, trọng tài sửa
+      // rồi nộp lại — không được ghi trùng khiếu nại một lần nữa.
       for (const objection of objections) {
+        if (sentObjectionIds.current.has(objection.clientId)) continue;
+
         await submitViolation(raceId, {
           offenderId:
             objection.kind === "OBJECTION_INTERFERENCE"
@@ -228,6 +247,7 @@ export function SubmitResultsPage() {
           violationType: objection.kind,
           penalty: objection.decision,
         });
+        sentObjectionIds.current.add(objection.clientId);
       }
 
       await submitRaceResultPackage(raceId, {
@@ -275,7 +295,8 @@ export function SubmitResultsPage() {
           Submit race results
         </h1>
         <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-500">
-          Record finish order and elapsed times. Normal submissions are confirmed by the referee. Escalate only when there is a dispute or serious incident.
+          Record the finish order, anything raised at weigh-in, and your report. Submitting hands the whole package to the
+          organizer, who confirms it — results are not official until then.
         </p>
       </header>
 
@@ -349,7 +370,9 @@ export function SubmitResultsPage() {
 
             {otherEntries.length > 0 ? (
               <>
-                <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Did not finish / disqualified</h3>
+                <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">
+                  Did not start / did not finish / disqualified
+                </h3>
                 <div className="space-y-3">
                   {otherEntries.map(({ entry, index }) => (
                     <EntryRow
@@ -387,8 +410,8 @@ export function SubmitResultsPage() {
                 {objections.length} objection{objections.length === 1 ? "" : "s"} recorded
               </p>
               <ul className="mt-3 space-y-2">
-                {objections.map((objection, index) => (
-                  <li className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" key={index}>
+                {objections.map((objection) => (
+                  <li className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" key={objection.clientId}>
                     <p className="whitespace-pre-line text-sm font-semibold text-amber-900">
                       {buildObjectionDescription(objection)}
                     </p>
@@ -404,7 +427,9 @@ export function SubmitResultsPage() {
           {!isReadOnly ? (
             <div className="mt-5">
               <ObjectionForm
-                onRecord={(draft) => setObjections((current) => [...current, draft])}
+                onRecord={(draft) =>
+                  setObjections((current) => [...current, { ...draft, clientId: nextObjectionId.current++ }])
+                }
                 participants={participants}
               />
             </div>

@@ -52,6 +52,7 @@ describe("SubmitResultsPage", () => {
           ...mockEntries[0],
           position: 1,
           finishTimeSeconds: 94.5,
+          rawFinishTimeSeconds: 94.5,
         },
       ],
       requiresAdminReview: false,
@@ -91,6 +92,7 @@ describe("SubmitResultsPage", () => {
           jockeyName: "Julian Sterling",
           position: 1,
           finishTimeSeconds: 94.25,
+          rawFinishTimeSeconds: 94.25,
           status: "FINISHED",
         },
       ],
@@ -240,7 +242,7 @@ describe("SubmitResultsPage", () => {
     renderPage();
 
     expect(await screen.findByText("Submit race results")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Did not finish / disqualified" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Did not start / did not finish / disqualified" })).toBeInTheDocument();
 
     const thunderstrikeRow = screen.getByText("Thunderstrike").closest("article") as HTMLElement;
     expect(within(thunderstrikeRow).getByRole("combobox")).toBeEnabled();
@@ -431,6 +433,74 @@ describe("SubmitResultsPage", () => {
     // Live-measured time survives the handoff instead of forcing the referee to retype it.
     expect(screen.getByPlaceholderText("94.25")).toHaveValue("62.345");
     expect(screen.getByPlaceholderText("1")).toHaveValue(1);
+  });
+
+  it("re-derives the raw finish time so an edited total still satisfies raw + penalty", async () => {
+    // Reproduces a 400 from the live backend: after a send-back the entries carry the raw
+    // time and penalty from the previous submission, but this screen only lets the referee
+    // edit the total. Shipping the stale raw makes finish != raw + penalty.
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: 1,
+        rawFinishTimeSeconds: 62.345,
+        penaltySeconds: 5,
+        finishTimeSeconds: 67.345,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "70" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    const entry = submitSpy.mock.calls[0][1].results[0];
+    expect(entry.finishTimeSeconds).toBe(70);
+    expect(entry.rawFinishTimeSeconds).toBe(65);
+    expect(Number(entry.rawFinishTimeSeconds) + Number(entry.penaltySeconds)).toBe(entry.finishTimeSeconds);
+  });
+
+  it("does not re-post an objection when a rejected package is submitted again", async () => {
+    // Objections are posted before the package. If the backend rejects the package, the
+    // referee fixes it and submits again — the objection must not be written twice.
+    mockFinishedRace();
+    const violationSpy = vi.spyOn(refereeApi, "submitViolation").mockResolvedValue();
+    const submitSpy = vi
+      .spyOn(refereeApi, "submitRaceResultPackage")
+      .mockRejectedValueOnce(new Error("400"))
+      .mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+    await waitFor(() => expect(screen.getByText("Failed to submit result package.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+    await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(2));
+
+    expect(violationSpy).toHaveBeenCalledTimes(1);
   });
 
   it("shows the organizer's reason when the package was sent back", async () => {
