@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -44,7 +44,7 @@ describe("SubmitResultsPage", () => {
 
     fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
     fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
-    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: [
@@ -56,6 +56,8 @@ describe("SubmitResultsPage", () => {
       ],
       requiresAdminReview: false,
       reviewReason: null,
+      reportTitle: "Race Report: R-1",
+      reportSummary: "",
     });
   });
 
@@ -79,7 +81,7 @@ describe("SubmitResultsPage", () => {
     fireEvent.change(timeInput, { target: { value: "94.25" } });
     expect(timeInput).toHaveValue("94.25");
 
-    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: [
@@ -94,6 +96,8 @@ describe("SubmitResultsPage", () => {
       ],
       requiresAdminReview: false,
       reviewReason: null,
+      reportTitle: "Race Report: R-1",
+      reportSummary: "",
     });
   });
 
@@ -125,7 +129,7 @@ describe("SubmitResultsPage", () => {
     expect(screen.getByPlaceholderText("1")).toBeDisabled();
     expect(screen.getByPlaceholderText("94.25")).toBeDisabled();
     expect(screen.getByRole("combobox")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /confirm result package/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit package to organizer/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
   });
 
@@ -294,9 +298,109 @@ describe("SubmitResultsPage", () => {
 
     fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
     fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
-    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
 
     expect(await screen.findByText("Results submitted — awaiting organizer confirmation.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /confirm result package/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit package to organizer/i })).not.toBeInTheDocument();
+  });
+
+  function mockFinishedRace() {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        jockeyWeight: 55,
+        gearOk: true,
+        healthOk: true,
+        status: "PASSED",
+      },
+    ]);
+  }
+
+  it("submits recorded objections as violations before submitting the package", async () => {
+    mockFinishedRace();
+    const violationSpy = vi.spyOn(refereeApi, "submitViolation").mockResolvedValue();
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    expect(violationSpy).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        offenderId: 1,
+        violationType: "OBJECTION_GENERAL",
+        penalty: "NO_CHANGE",
+        severity: "LOW",
+      })
+    );
+  });
+
+  it("sends the official report together with the result package", async () => {
+    mockFinishedRace();
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+    fireEvent.change(screen.getByLabelText("Race summary and observations"), {
+      target: { value: "Track clear, one objection dismissed." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    expect(submitSpy.mock.calls[0][1].reportSummary).toBe("Track clear, one objection dismissed.");
+  });
+
+  it("keeps a recorded objection visible with no way to delete it", async () => {
+    mockFinishedRace();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    expect(screen.getByText(/1 objection recorded/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove objection/i })).not.toBeInTheDocument();
+  });
+
+  it("explains that the race has not finished instead of claiming results were submitted", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "ONGOING",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("This race has not finished yet — results cannot be submitted.")).toBeInTheDocument();
+    expect(screen.queryByText("Results already submitted.")).not.toBeInTheDocument();
   });
 });

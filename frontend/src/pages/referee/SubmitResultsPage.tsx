@@ -1,18 +1,31 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, ClipboardCheck, ShieldAlert } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, ShieldAlert } from "lucide-react";
 import {
+  buildObjectionDescription,
   getAssignedRace,
+  getRaceParticipants,
   getRaceResultEntries,
   ParticipantResultEntry,
+  ParticipantVerification,
+  RaceObjectionDraft,
   RaceSummary,
   submitRaceResultPackage,
+  submitViolation,
 } from "../../api/refereeApi";
+import { ObjectionForm } from "./race-day/ObjectionForm";
 
-const READ_ONLY_STATUS_MESSAGES: Record<string, string> = {
+/** Race đã rời FINISHED theo hướng đã nộp — form khoá lại vì BR-16 chỉ cho nộp một lần. */
+const LOCKED_STATUS_MESSAGES: Record<string, string> = {
   RESULT_SUBMITTED: "Results submitted — awaiting organizer confirmation.",
   RESULT_CONFIRMED: "Results confirmed by the organizer.",
   PUBLISHED: "Results published.",
+};
+
+const DECISION_LABELS: Record<string, string> = {
+  NO_CHANGE: "No change to result",
+  RIDER_PENALTY: "Rider penalty, result stands",
+  RESULT_AMENDED: "Result amended",
 };
 
 function EntryRow({
@@ -90,6 +103,10 @@ export function SubmitResultsPage() {
   const raceId = Number(id);
   const [entries, setEntries] = useState<ParticipantResultEntry[]>([]);
   const [race, setRace] = useState<RaceSummary>();
+  const [participants, setParticipants] = useState<ParticipantVerification[]>([]);
+  const [objections, setObjections] = useState<RaceObjectionDraft[]>([]);
+  const [reportTitle, setReportTitle] = useState(`Race Report: R-${raceId}`);
+  const [reportSummary, setReportSummary] = useState("");
   const [requiresAdminReview, setRequiresAdminReview] = useState(false);
   const [reviewReason, setReviewReason] = useState("");
   const [loading, setLoading] = useState(true);
@@ -97,19 +114,26 @@ export function SubmitResultsPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([getRaceResultEntries(raceId), getAssignedRace(raceId)])
-      .then(([resultEntries, raceRow]) => {
+    Promise.all([getRaceResultEntries(raceId), getAssignedRace(raceId), getRaceParticipants(raceId)])
+      .then(([resultEntries, raceRow, participantRows]) => {
         setEntries(resultEntries);
         setRace(raceRow);
+        setParticipants(participantRows ?? []);
       })
       .catch(() => setMessage("Unable to load result entries."))
       .finally(() => setLoading(false));
   }, [raceId]);
 
-  const isReadOnly = race != null && race.status !== "FINISHED";
-  const readOnlyMessage = race
-    ? READ_ONLY_STATUS_MESSAGES[race.status] ?? "Results already submitted."
-    : "";
+  // Hai khái niệm khác nhau, trước đây bị gộp làm một: "đã nộp rồi" và "chưa tới lúc nộp".
+  const isLocked = race != null && race.status in LOCKED_STATUS_MESSAGES;
+  const isNotReady = race != null && !isLocked && race.status !== "FINISHED";
+  const isReadOnly = isLocked || isNotReady;
+  const readOnlyMessage = !race
+    ? ""
+    : LOCKED_STATUS_MESSAGES[race.status] ??
+      (race.status === "CANCELLED"
+        ? "This race was cancelled."
+        : "This race has not finished yet — results cannot be submitted.");
 
   const handleNumberChange = (index: number, field: "position" | "finishTimeSeconds", value: string) => {
     const updated = [...entries];
@@ -184,16 +208,33 @@ export function SubmitResultsPage() {
         finishTimeSeconds: entry.finishTimeSeconds === "" ? null : Number(entry.finishTimeSeconds),
       }));
 
+      // Khiếu nại đi trước để chúng đã nằm trong sổ khi BTC mở gói ra duyệt.
+      for (const objection of objections) {
+        await submitViolation(raceId, {
+          offenderId:
+            objection.kind === "OBJECTION_INTERFERENCE"
+              ? (objection.againstParticipantId as number)
+              : objection.raisedByParticipantId,
+          severity: objection.severity,
+          description: buildObjectionDescription(objection),
+          violationType: objection.kind,
+          penalty: objection.decision,
+        });
+      }
+
       await submitRaceResultPackage(raceId, {
         results: mappedEntries as ParticipantResultEntry[],
         requiresAdminReview,
         reviewReason: requiresAdminReview ? reviewReason.trim() : null,
+        reportTitle: reportTitle.trim(),
+        reportSummary: reportSummary.trim(),
       });
       setRace((current) => (current ? { ...current, status: "RESULT_SUBMITTED" } : current));
+      // BR-16: trọng tài chỉ NỘP. Không được nói "confirmed" — BTC mới là người chốt.
       setMessage(
         requiresAdminReview
-          ? "Result package submitted for admin review."
-          : "Result package confirmed. Standings can now update."
+          ? "Package submitted for admin review. Awaiting organizer confirmation."
+          : "Package submitted. Awaiting organizer confirmation."
       );
     } catch {
       setMessage("Failed to submit result package.");
@@ -243,6 +284,7 @@ export function SubmitResultsPage() {
       ) : null}
 
       <div className={isReadOnly ? "grid gap-5" : "grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]"}>
+        <div className="space-y-5">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
             <ClipboardCheck aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
@@ -308,6 +350,94 @@ export function SubmitResultsPage() {
           </div>
         </div>
 
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="objections-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <ShieldAlert aria-hidden="true" className="h-6 w-6 text-amber-600" />
+            <div>
+              <h2 className="text-2xl font-black text-slate-950" id="objections-title">
+                Incidents and objections
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Riders object in person at weigh-in. Record what was raised and how you ruled — it goes to the organizer with the result.
+              </p>
+            </div>
+          </div>
+
+          {objections.length > 0 ? (
+            <div className="mt-5">
+              <p className="text-sm font-black text-slate-800">
+                {objections.length} objection{objections.length === 1 ? "" : "s"} recorded
+              </p>
+              <ul className="mt-3 space-y-2">
+                {objections.map((objection, index) => (
+                  <li className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2" key={index}>
+                    <p className="whitespace-pre-line text-sm font-semibold text-amber-900">
+                      {buildObjectionDescription(objection)}
+                    </p>
+                    <p className="mt-1 text-xs font-black uppercase tracking-wider text-amber-800">
+                      {DECISION_LABELS[objection.decision]}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {!isReadOnly ? (
+            <div className="mt-5">
+              <ObjectionForm
+                onRecord={(draft) => setObjections((current) => [...current, draft])}
+                participants={participants}
+              />
+            </div>
+          ) : null}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="official-report-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+            <FileText aria-hidden="true" className="h-6 w-6 text-[#007a68]" />
+            <div>
+              <h2 className="text-2xl font-black text-slate-950" id="official-report-title">
+                Official report
+              </h2>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                Track conditions, notable decisions, and result confidence.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-4">
+            <div>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500" htmlFor="report-title">
+                Report title
+              </label>
+              <input
+                className="mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                disabled={isReadOnly}
+                id="report-title"
+                onChange={(event) => setReportTitle(event.target.value)}
+                type="text"
+                value={reportTitle}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-black uppercase tracking-[0.16em] text-slate-500" htmlFor="report-summary">
+                Race summary and observations
+              </label>
+              <textarea
+                className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white p-3 text-sm font-semibold text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                disabled={isReadOnly}
+                id="report-summary"
+                onChange={(event) => setReportSummary(event.target.value)}
+                placeholder="Example: Track condition was clear. One objection raised at weigh-in and dismissed after replay."
+                rows={6}
+                value={reportSummary}
+              />
+            </div>
+          </div>
+        </section>
+        </div>
+
         {!isReadOnly ? (
           <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
             <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-[#007a68]">
@@ -354,7 +484,7 @@ export function SubmitResultsPage() {
               onClick={() => void handleSave()}
               type="button"
             >
-              {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Confirm result package"}
+              {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Submit package to organizer"}
             </button>
           </aside>
         ) : null}
@@ -368,7 +498,7 @@ export function SubmitResultsPage() {
             onClick={() => void handleSave()}
             type="button"
           >
-            {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Confirm result package"}
+            {submitting ? "Submitting..." : requiresAdminReview ? "Submit for review" : "Submit package to organizer"}
           </button>
         </div>
       ) : null}
