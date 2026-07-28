@@ -419,11 +419,7 @@ export function RefereeOfficiatePage() {
 
       {stage === "FINISHED_DRAFT" ? (
         snapshot ? (
-          <RaceSummary
-            raceId={raceId}
-            snapshot={snapshot}
-            onConfirmed={() => void load()}
-          />
+          <RaceSummary raceId={raceId} snapshot={snapshot} />
         ) : (
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">

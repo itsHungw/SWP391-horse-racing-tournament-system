@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, ClipboardCheck, FileText, ShieldAlert } from "lucide-react";
 import {
   buildObjectionDescription,
@@ -113,15 +113,23 @@ export function SubmitResultsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  // Thời gian, án phạt và DSQ được đo trên màn điều khiển live và chỉ nằm trong bộ nhớ trình duyệt.
+  // Nếu trọng tài vừa bấm "Continue to submit results" thì ưu tiên dữ liệu đó, vì server chỉ trả về
+  // danh sách participant rỗng khi chưa có RaceResult nào — bắt gõ tay lại toàn bộ là vô lý.
+  const handoffEntries = (useLocation().state as { draftEntries?: ParticipantResultEntry[] } | null)
+    ?.draftEntries;
+
   useEffect(() => {
     Promise.all([getRaceResultEntries(raceId), getAssignedRace(raceId), getRaceParticipants(raceId)])
       .then(([resultEntries, raceRow, participantRows]) => {
-        setEntries(resultEntries);
+        setEntries(handoffEntries?.length ? handoffEntries : resultEntries);
         setRace(raceRow);
         setParticipants(participantRows ?? []);
       })
       .catch(() => setMessage("Unable to load result entries."))
       .finally(() => setLoading(false));
+    // handoffEntries đến từ navigation state, cố định trong suốt vòng đời màn hình.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [raceId]);
 
   // Hai khái niệm khác nhau, trước đây bị gộp làm một: "đã nộp rồi" và "chưa tới lúc nộp".

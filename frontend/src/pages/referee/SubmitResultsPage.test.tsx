@@ -387,6 +387,52 @@ describe("SubmitResultsPage", () => {
     expect(screen.queryByRole("button", { name: /remove objection/i })).not.toBeInTheDocument();
   });
 
+  it("pre-fills from the live draft handed over by the race control screen", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/referee/races/1/results",
+            state: {
+              draftEntries: [
+                {
+                  participantId: 1,
+                  horseName: "Thunderstrike",
+                  jockeyName: "Julian Sterling",
+                  position: 1,
+                  rawFinishTimeSeconds: 62.345,
+                  penaltySeconds: 0,
+                  finishTimeSeconds: 62.345,
+                  status: "FINISHED",
+                  note: null,
+                },
+              ],
+            },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/referee/races/:id/results" element={<SubmitResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    // Live-measured time survives the handoff instead of forcing the referee to retype it.
+    expect(screen.getByPlaceholderText("94.25")).toHaveValue("62.345");
+    expect(screen.getByPlaceholderText("1")).toHaveValue(1);
+  });
+
   it("explains that the race has not finished instead of claiming results were submitted", async () => {
     vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
     vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
