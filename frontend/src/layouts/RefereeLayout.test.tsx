@@ -27,7 +27,7 @@ describe("RefereeLayout", () => {
     expect(screen.getByRole("banner", { name: /Referee workspace header/i })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: /Referee workspace/i })).toBeInTheDocument();
     expect(screen.getAllByText("Race Control").length).toBeGreaterThan(0);
-    expect(screen.getByText("Referee Workspace")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "AQUEDUCT" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: /Search referee workspace/i })).toBeInTheDocument();
     expect(screen.getAllByText("Julian Sterling").length).toBeGreaterThan(0);
     expect(screen.getByText("Logout")).toBeInTheDocument();

@@ -1,5 +1,5 @@
 import { FormEvent, useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, HelpCircle } from "lucide-react";
 
@@ -18,6 +18,20 @@ import { setClientSession } from "../../utils/authSession";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 type AuthMode = "login" | "register";
+
+function getSafeReturnTo(state: unknown) {
+  if (!state || typeof state !== "object" || !("returnTo" in state)) {
+    return null;
+  }
+
+  const returnTo = (state as { returnTo?: unknown }).returnTo;
+  return typeof returnTo === "string" &&
+    returnTo.startsWith("/") &&
+    !returnTo.startsWith("//") &&
+    !returnTo.startsWith("/\\")
+    ? returnTo
+    : null;
+}
 
 function Field({
   autoComplete,
@@ -58,9 +72,11 @@ function Field({
 }
 
 export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
-  useDocumentTitle(initialMode === "login" ? "Login | EquinePro Elite" : "Create Account | EquinePro Elite");
+  useDocumentTitle(initialMode === "login" ? "Login | Aqueduct" : "Create Account | Aqueduct");
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo = getSafeReturnTo(location.state);
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -81,9 +97,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       setError(null);
       setLoading(true);
       const apiResponse = await oauthLogin("GOOGLE", response.credential);
-      setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email);
+      setClientSession(apiResponse.accessToken, apiResponse.fullName, apiResponse.email, apiResponse.accountStatus);
       const roles = getRolesFromAccessToken(apiResponse.accessToken);
-      if (roles.includes("ADMIN")) {
+      if (apiResponse.accountStatus === "BANNED") {
+        navigate("/account-restricted", { replace: true });
+      } else if (returnTo) {
+        navigate(returnTo, { replace: true });
+      } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
       } else if (roles.includes("REFEREE")) {
         navigate("/referee", { replace: true });
@@ -153,9 +173,13 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       setError(null);
       setLoading(true);
       const response = await login({ email: loginEmail, password: loginPassword });
-      setClientSession(response.accessToken, response.fullName, response.email);
+      setClientSession(response.accessToken, response.fullName, response.email, response.accountStatus);
       const roles = getRolesFromAccessToken(response.accessToken);
-      if (roles.includes("ADMIN")) {
+      if (response.accountStatus === "BANNED") {
+        navigate("/account-restricted", { replace: true });
+      } else if (returnTo) {
+        navigate(returnTo, { replace: true });
+      } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
       } else if (roles.includes("REFEREE")) {
         navigate("/referee", { replace: true });
@@ -560,7 +584,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
             </div>
             <div className="flex items-center justify-between">
               <img alt="" className="h-8 opacity-40 grayscale transition-all hover:opacity-100 hover:grayscale-0" src={logo} />
-              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 EquinePro Elite</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-gray-400">2026 Aqueduct</span>
             </div>
           </footer>
         </motion.div>

@@ -74,10 +74,15 @@ public class OrganizationService {
         return OrganizationResponse.from(organizationRepository.save(organization));
     }
 
+    @Transactional
     public OrganizationResponse getMine(String email) {
-        return organizationRepository.findByOwner_EmailAndDeletedAtIsNull(email.trim().toLowerCase())
-                .map(OrganizationResponse::from)
+        Organization organization = organizationRepository
+                .findByOwner_EmailAndDeletedAtIsNull(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No organization found"));
+        if (organization.isActive()) {
+            restoreRemovedOrganizerRole(organization);
+        }
+        return OrganizationResponse.from(organization);
     }
 
     public List<OrganizationResponse> listForAdmin(String status) {
@@ -133,6 +138,23 @@ public class OrganizationService {
         if (!alreadyAssigned) {
             userRoleRepository.save(UserRole.active(owner, role, reviewer));
         }
+    }
+
+    private void restoreRemovedOrganizerRole(Organization organization) {
+        User owner = userRepository.findWithUserRolesByEmail(organization.getOwner().getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Organization owner not found"));
+        if (owner.getActiveRoleNames().contains(ORGANIZER_ROLE)) {
+            return;
+        }
+        owner.getUserRoles().stream()
+                .filter(userRole -> ORGANIZER_ROLE.equals(userRole.getRole().getName()))
+                .filter(userRole -> userRole.getStatus()
+                        == com.example.horseracingtournamentsystem.user.enums.UserRoleStatus.REMOVED)
+                .findFirst()
+                .ifPresent(userRole -> {
+                    userRole.reactivate(organization.getApprovedBy());
+                    userRoleRepository.save(userRole);
+                });
     }
 
     private Organization getOrganization(Long id) {

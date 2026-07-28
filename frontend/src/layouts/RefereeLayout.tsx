@@ -87,20 +87,24 @@ export function RefereeLayout() {
       >
         <div className="mx-auto grid max-w-[1560px] gap-3 md:grid-cols-[minmax(240px,300px)_minmax(320px,760px)_auto] md:items-center">
           <Link
+            aria-label="EquinePro referee dashboard"
+            className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007a68]"
             to="/"
-            className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#007a68]"
           >
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-black text-[#005f51] shrink-0 sm:h-12 sm:w-12">
-              RC
+            <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#007a68]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#007a68]"></span>
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
+                  Race Control
+                </span>
+              </div>
             </div>
-            <div>
-              <p className="text-lg font-black leading-none tracking-tight text-slate-950 sm:text-xl">
-                Race Control
-              </p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#007a68] sm:text-[11px] sm:tracking-[0.28em]">
-                Referee Workspace
-              </p>
-            </div>
+            <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 drop-shadow-sm">
+              AQUEDUCT
+            </h1>
           </Link>
 
           <form className="relative hidden md:block" role="search">

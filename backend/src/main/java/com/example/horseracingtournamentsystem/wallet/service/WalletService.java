@@ -66,6 +66,20 @@ public class WalletService {
         return walletTransactionRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    /**
+     * Locks the wallet row for the surrounding user-action transaction and rejects
+     * starting new money movement while financial access is frozen.
+     */
+    @Transactional
+    public void requireActiveForUserAction(User user) {
+        getOrCreateAccount(user);
+        Wallet wallet = walletRepository.lockByUserId(user.getId())
+                .orElseThrow(() -> new IllegalStateException("Wallet missing after create for user " + user.getId()));
+        if (wallet.isLocked()) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wallet is locked");
+        }
+    }
+
     @Transactional
     public long credit(
             User user,
@@ -101,7 +115,8 @@ public class WalletService {
                 .orElseThrow(() -> new IllegalStateException("Wallet missing after create for user " + user.getId()));
 
         // 4. Chặn ví bị khóa.
-        if (wallet.isLocked()) {
+        // Enforcement must never swallow money already owed by the platform.
+        if (wallet.isLocked() && !isAllowedLockedWalletCredit(amount, transactionType)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Wallet is locked");
         }
 
@@ -136,5 +151,12 @@ public class WalletService {
                         referenceId,
                         transactionType
                 );
+    }
+
+    private boolean isAllowedLockedWalletCredit(long amount, WalletTransactionType transactionType) {
+        return amount > 0 && (transactionType == WalletTransactionType.BET_PAYOUT
+                || transactionType == WalletTransactionType.BET_REFUND
+                || transactionType == WalletTransactionType.WITHDRAWAL_REFUND
+                || transactionType == WalletTransactionType.TOPUP);
     }
 }

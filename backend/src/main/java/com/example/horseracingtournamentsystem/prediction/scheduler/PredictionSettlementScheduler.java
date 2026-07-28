@@ -404,8 +404,10 @@ public class PredictionSettlementScheduler {
             List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
             for (RacePrediction p : predictions) {
                 if (com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus())) {
+                    LocalDateTime refundedAt = LocalDateTime.now();
                     p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
-                    p.setUpdatedAt(LocalDateTime.now());
+                    p.setEvaluatedAt(refundedAt);
+                    p.setUpdatedAt(refundedAt);
                     predictionRepo.save(p);
                     long refundAmount = p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
                     walletService.adjust(

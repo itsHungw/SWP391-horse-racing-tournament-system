@@ -6,7 +6,10 @@ import com.example.horseracingtournamentsystem.wallet.entity.TopUpOrder;
 import com.example.horseracingtournamentsystem.wallet.entity.TopUpStatus;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
+import com.example.horseracingtournamentsystem.wallet.dto.TopUpReceiptResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.TopUpReceiptResponse.ReceiptStatus;
 import com.example.horseracingtournamentsystem.wallet.repository.TopUpOrderRepository;
+import com.example.horseracingtournamentsystem.wallet.repository.WalletTransactionRepository;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +36,7 @@ public class TopUpService {
     private final VNPayService vnPayService;
     private final VNPayProperties props;
     private final WalletService walletService;
+    private final WalletTransactionRepository transactionRepository;
     private final com.example.horseracingtournamentsystem.notification.service.NotificationService notificationService;
 
     public enum TopUpResult {
@@ -48,6 +52,7 @@ public class TopUpService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Top-up amount must be between " + props.getMinAmount() + " and " + props.getMaxAmount() + " VND");
         }
+        walletService.requireActiveForUserAction(user);
         String txnRef = generateTxnRef();
         TopUpOrder order = orderRepository.save(TopUpOrder.initiate(user, amount, txnRef));
         return vnPayService.buildPaymentUrl(txnRef, amount, "Wallet top-up #" + order.getId(), ipAddr);
@@ -107,6 +112,36 @@ public class TopUpService {
         );
 
         return TopUpResult.SUCCESS;
+    }
+
+    @Transactional(readOnly = true)
+    public TopUpReceiptResponse receipt(User user, String txnRef) {
+        TopUpOrder order = orderRepository.findByVnpayTxnRefAndUserId(txnRef, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Top-up receipt not found"));
+        WalletTransaction transaction = transactionRepository
+                .findByReferenceTypeAndReferenceIdAndTransactionType(
+                        WalletTransaction.REF_TOPUP_ORDER, order.getId(), WalletTransactionType.TOPUP)
+                .orElse(null);
+        ReceiptStatus status = switch (order.getStatus()) {
+            case SUCCESS -> ReceiptStatus.SUCCESS;
+            case FAILED, EXPIRED -> ReceiptStatus.FAILED;
+            case INITIATED, PENDING -> ReceiptStatus.PENDING;
+        };
+        return new TopUpReceiptResponse(order.getVnpayTxnRef(), status, order.getAmount(),
+                transaction == null ? null : transaction.getBalanceAfter(),
+                transaction == null ? null : transaction.getId(),
+                order.getPaidAt() != null ? order.getPaidAt() : order.getCreatedAt(),
+                status == ReceiptStatus.FAILED ? safeFailureReason(order.getVnpayResponseCode()) : null);
+    }
+
+    private String safeFailureReason(String code) {
+        if (code == null || code.isBlank()) return "The payment was not completed.";
+        return switch (code) {
+            case "24" -> "The payment was cancelled.";
+            case "51" -> "The payment account had insufficient funds.";
+            case "AMOUNT_MISMATCH" -> "The payment amount could not be verified.";
+            default -> "The payment was declined or could not be completed.";
+        };
     }
 
     private String generateTxnRef() {

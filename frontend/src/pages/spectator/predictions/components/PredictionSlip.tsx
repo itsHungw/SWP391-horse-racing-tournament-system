@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, HelpCircle, RefreshCw, Trash2 } from "lucide-react";
+import { CheckCircle2, HelpCircle, LockKeyhole, RefreshCw, Trash2 } from "lucide-react";
 import { Countdown } from "../../../../components/client/Countdown";
 import type { OpenRacePrediction, PredictionOptions, PredictionQuote, PredictionType, UserPrediction } from "../types/prediction.types";
 import {
@@ -23,6 +23,8 @@ interface PredictionSlipProps {
   onClear: () => void;
   onConfirm: () => Promise<void>;
   onViewAll: () => void;
+  readOnly?: boolean;
+  readOnlyReason?: string;
 }
 
 function selectionRows(
@@ -84,6 +86,8 @@ export function PredictionSlip({
   onClear,
   onConfirm,
   onViewAll,
+  readOnly = false,
+  readOnlyReason,
 }: PredictionSlipProps) {
   const [activeTab, setActiveTab] = useState<"BET" | "POSITIONS">("BET");
   const [submitting, setSubmitting] = useState(false);
@@ -116,8 +120,10 @@ export function PredictionSlip({
   );
 
   const rows = selectionRows(options, predType, picks);
-  const canConfirm = validation.canConfirm && !submitting && success == null;
-  const visibleValidation = validationDisplay(validation.message);
+  const canConfirm = !readOnly && validation.canConfirm && !submitting && success == null;
+  const visibleValidation = readOnly
+    ? (readOnlyReason ?? "Predictions are currently unavailable.")
+    : validationDisplay(validation.message);
 
   useEffect(() => {
     setSuccess(null);
@@ -137,6 +143,7 @@ export function PredictionSlip({
 
   useEffect(() => {
     if (
+      readOnly ||
       !race ||
       !options?.predictionOpen ||
       !picks.winnerId ||
@@ -182,10 +189,10 @@ export function PredictionSlip({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [options?.predictionOpen, picks.predictedPosition, picks.winnerId, predType, race, wagerAmount]);
+  }, [options?.predictionOpen, picks.predictedPosition, picks.winnerId, predType, race, readOnly, wagerAmount]);
 
   const handleConfirm = async () => {
-    if (!validation.canConfirm || submitting || success) return;
+    if (readOnly || !validation.canConfirm || submitting || success) return;
 
     setSubmitting(true);
     setError(null);
@@ -362,7 +369,7 @@ export function PredictionSlip({
             <button
               type="button"
               onClick={handleClear}
-              disabled={submitting}
+              disabled={readOnly || submitting}
               className="inline-flex min-h-11 items-center justify-center rounded-md border border-turf-600 text-ivory-dim transition-colors hover:bg-white/5 hover:text-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-900 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Clear selections"
             >
@@ -375,8 +382,9 @@ export function PredictionSlip({
               disabled={!canConfirm}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-gold-400 px-4 text-[12px] font-extrabold text-turf-900 shadow-[0_16px_34px_-18px_rgba(212,175,55,0.9)] transition-colors hover:bg-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300 focus-visible:ring-offset-2 focus-visible:ring-offset-turf-900 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-ivory-faint disabled:shadow-none"
             >
-              {submitting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
-              {submitting ? "Processing" : "Confirm Prediction"}
+              {readOnly ? <LockKeyhole className="h-4 w-4" aria-hidden="true" /> : null}
+              {!readOnly && submitting ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : null}
+              {readOnly ? "Unavailable while suspended" : submitting ? "Processing" : "Confirm Prediction"}
             </button>
           </div>
         </section>

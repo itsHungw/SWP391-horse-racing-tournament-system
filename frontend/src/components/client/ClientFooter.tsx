@@ -1,5 +1,9 @@
 import { Link } from "react-router-dom";
 
+import facebookIcon from "../../assets/icons/social/facebook.svg";
+import instagramIcon from "../../assets/icons/social/instagram.svg";
+import xIcon from "../../assets/icons/social/x.svg";
+import youtubeIcon from "../../assets/icons/social/youtube.svg";
 import logo from "../../assets/logo.png";
 import { Eyebrow, GoldRule } from "./primitives";
 
@@ -25,10 +29,10 @@ const columns = [
 ];
 
 const socials = [
-  { label: "Instagram", short: "IG" },
-  { label: "YouTube", short: "YT" },
-  { label: "Facebook", short: "FB" },
-  { label: "X", short: "X" },
+  { label: "Instagram", icon: instagramIcon },
+  { label: "YouTube", icon: youtubeIcon },
+  { label: "Facebook", icon: facebookIcon },
+  { label: "X", icon: xIcon },
 ];
 
 export function ClientFooter() {
@@ -45,14 +49,14 @@ export function ClientFooter() {
               Prediction Arena.
             </p>
             <div className="mt-7 flex gap-3">
-              {socials.map(({ label, short }) => (
+              {socials.map(({ label, icon }) => (
                 <a
                   key={label}
                   href="#"
                   aria-label={label}
-                  className="font-data flex h-10 w-10 items-center justify-center rounded-full border border-white/12 text-[11px] font-semibold tracking-wide text-ivory-dim transition-colors hover:border-gold-400/60 hover:text-gold-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/95 transition-transform hover:scale-105 hover:border-gold-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
                 >
-                  {short}
+                  <img src={icon} alt="" aria-hidden="true" className="h-6 w-6 object-contain" />
                 </a>
               ))}
             </div>

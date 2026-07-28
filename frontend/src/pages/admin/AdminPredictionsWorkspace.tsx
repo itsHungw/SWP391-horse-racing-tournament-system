@@ -2,18 +2,33 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
-import { Calendar, ChevronRight, Search, Compass, Settings, Save, Check } from "lucide-react";
-import { getAdminPredictionRaces, getPredictionSettings, updatePredictionSettings } from "../../api/adminPredictionApi";
+import { Calendar, ChevronRight, Search, Compass, Settings, Save, Check, RotateCw, ChevronDown, Trophy, Layers } from "lucide-react";
+import {
+  getAdminPredictionRaces,
+  getPredictionSettings,
+  updatePredictionSettings,
+  getAdminStreakPredictions,
+  type AdminRaceSummary,
+  type AdminStreakPrediction,
+} from "../../api/adminPredictionApi";
+import { formatVnd } from "../spectator/predictions/predictionCockpitUtils";
+import { AdminStreakKanbanBoard } from "./components/AdminStreakKanbanBoard";
 
 export function AdminPredictionsWorkspace() {
   useDocumentTitle("Race predictions monitor");
 
-  const [races, setRaces] = useState<any[]>([]);
+  const [races, setRaces] = useState<AdminRaceSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filterChampionship, setFilterChampionship] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTournament, setSelectedTournament] = useState<string | null>(null);
+
+  // Kanban Board state
+  const [streaks, setStreaks] = useState<AdminStreakPrediction[]>([]);
+  const [showKanban, setShowKanban] = useState(false);
+  const [kanbanLoading, setKanbanLoading] = useState(false);
 
   // Settings states
   const [displaySeedInput, setDisplaySeedInput] = useState<number | "">(40000000);
@@ -36,6 +51,20 @@ export function AdminPredictionsWorkspace() {
         setRaces([]);
         setError("Unable to load prediction races. Check the API connection and try again.");
         setLoading(false);
+      });
+  };
+
+  const handleOpenKanban = () => {
+    setShowKanban(true);
+    setKanbanLoading(true);
+    getAdminStreakPredictions()
+      .then((data) => {
+        setStreaks(data);
+        setKanbanLoading(false);
+      })
+      .catch(() => {
+        setKanbanLoading(false);
+        // Handle error if needed
       });
   };
 
@@ -142,11 +171,24 @@ export function AdminPredictionsWorkspace() {
   };
 
   const filteredRaces = races.filter((race) => {
-    const matchesChampionship = !filterChampionship || race.tournamentName.toLowerCase().includes(filterChampionship.toLowerCase());
+    const matchesChampionship = !filterChampionship || 
+      (race.tournamentName && race.tournamentName.toLowerCase().includes(filterChampionship.toLowerCase()));
     const matchesStatus = !filterStatus || race.predictionStatus === filterStatus;
-    const matchesSearch = !searchQuery || race.raceName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = !searchQuery || 
+      (race.raceName && race.raceName.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesChampionship && matchesStatus && matchesSearch;
   });
+
+  const groupedRaces = filteredRaces.reduce<Record<string, AdminRaceSummary[]>>((acc, race) => {
+    const tName = race.tournamentName || "Other Races";
+    if (!acc[tName]) acc[tName] = [];
+    acc[tName].push(race);
+    return acc;
+  }, {});
+
+  const toggleTournament = (tName: string) => {
+    setSelectedTournament(tName);
+  };
 
   return (
     <AdminLayout>
@@ -163,6 +205,16 @@ export function AdminPredictionsWorkspace() {
           <p className="mt-2 max-w-3xl text-sm text-slate-500">
             Manage and monitor spectator predictions for each race. Audit point reward transactions and handle resolution jobs.
           </p>
+          <div className="mt-4 flex">
+            <button 
+              onClick={loadRaces} 
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-200 transition disabled:opacity-50"
+            >
+              <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </button>
+          </div>
         </div>
 
         {/* Dynamic Settings Panel */}
@@ -307,14 +359,14 @@ export function AdminPredictionsWorkspace() {
           </div>
         </div>
 
-        {/* Races table */}
-        <div className="rounded-xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+        {/* Grouped Races */}
+        <div className="space-y-4">
           {loading ? (
-            <div className="flex justify-center items-center py-12">
+            <div className="flex justify-center items-center py-12 rounded-xl border border-slate-200 bg-white">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#b3193a]"></div>
             </div>
           ) : error ? (
-            <div className="px-6 py-10 text-center">
+            <div className="px-6 py-10 text-center rounded-xl border border-slate-200 bg-white">
               <p className="text-sm font-bold text-rose-700">{error}</p>
               <button
                 className="mt-4 rounded bg-[#070f4f] px-4 py-2 text-xs font-bold text-white hover:bg-[#101a70]"
@@ -324,92 +376,125 @@ export function AdminPredictionsWorkspace() {
                 Retry
               </button>
             </div>
+          ) : Object.keys(groupedRaces).length === 0 ? (
+            <div className="px-6 py-12 text-center rounded-xl border border-slate-200 bg-white text-slate-500 font-medium">
+              No tournaments or races found matching filter criteria.
+            </div>
+          ) : selectedTournament === null ? (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {Object.entries(groupedRaces).map(([tName, tRaces]) => {
+                const openRacesCount = tRaces.filter(r => r.predictionStatus === "OPEN").length;
+                return (
+                  <button
+                    key={tName}
+                    onClick={() => toggleTournament(tName)}
+                    className="flex flex-col items-start p-6 rounded-xl border border-slate-200 bg-white hover:border-[#b3193a] hover:shadow-md transition-all text-left group"
+                  >
+                    <div className="h-12 w-12 rounded-lg bg-[#070f4f] text-white flex items-center justify-center shadow-inner mb-4 group-hover:scale-105 transition-transform">
+                      <Trophy className="h-6 w-6 text-gold-400" />
+                    </div>
+                    <h3 className="font-black text-lg text-[#171717] line-clamp-2">{tName}</h3>
+                    <div className="mt-3 w-full pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-xs text-slate-500 font-bold">{tRaces.length} total races</span>
+                      {openRacesCount > 0 ? (
+                        <span className="text-xs text-emerald-600 font-black px-2 py-1 bg-emerald-50 rounded-full">{openRacesCount} OPEN</span>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-bold">Closed</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-[#f7f7f7] text-xs uppercase tracking-[0.14em] text-slate-500 border-b border-[#ececec]">
-                  <tr>
-                    <th className="px-6 py-4">Race & Tournament</th>
-                    <th className="px-6 py-4">Race Time</th>
-                    <th className="px-6 py-4 text-center">Prediction Status</th>
-                    <th className="px-6 py-4 text-right">Total Predictions</th>
-                    <th className="px-6 py-4 text-right">Results Stats (Won / Lost)</th>
-                    <th className="px-6 py-4"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#ececec]">
-                  {filteredRaces.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="px-6 py-8 text-center text-slate-500 font-medium">
-                        No races found matching filter criteria.
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredRaces.map((race) => (
-                      <tr className="hover:bg-[#fafafa] transition-colors" key={race.raceId}>
-                        <td className="px-6 py-4">
-                          <p className="font-bold text-[#171717]">{race.raceName}</p>
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-black uppercase text-[10px]">
-                              {race.roundName}
-                            </span>
-                            {race.tournamentName}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4 text-slate-600">
-                          <p className="font-semibold text-xs flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 opacity-60" />
-                            {new Date(race.raceAt).toLocaleString("en-US", {
-                              dateStyle: "short",
-                              timeStyle: "short"
-                            })}
-                          </p>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${getStatusStyle(race.predictionStatus)}`}>
-                            {getStatusLabel(race.predictionStatus)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right font-black text-[#070f4f]">
-                          <p>{race.totalPredictions}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            {race.winnerPickCount} Win
-                          </p>
-                        </td>
-                        <td className="px-6 py-4 text-right font-semibold">
-                          {race.predictionStatus === "COMPLETED" ? (
-                            <div>
-                              <p className="text-emerald-700 font-bold">
-                                +{race.correctWinnerCount} correct
-                              </p>
-                              <p className="text-slate-400 text-xs mt-0.5">
-                                {race.incorrectCount} incorrect
-                              </p>
-                            </div>
-                          ) : race.predictionStatus === "REFUNDED" ? (
-                            <span className="text-orange-600 text-xs font-bold">Refunded</span>
-                          ) : (
-                            <span className="text-slate-400 text-xs italic">Unsettled</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <Link
-                            className="inline-flex items-center gap-1 rounded bg-[#070f4f] px-3.5 py-2 text-xs font-bold text-white hover:bg-[#101a70] transition"
-                            to={`/admin/predictions/races/${race.raceId}`}
-                          >
-                            Details
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </td>
-                      </tr>
-                    ))
+            <div>
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-[#070f4f] text-white flex items-center justify-center flex-shrink-0 shadow-inner">
+                    <Trophy className="h-5 w-5 text-gold-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-lg text-[#171717]">{selectedTournament}</h3>
+                    <p className="text-xs text-slate-500 font-bold mt-0.5">
+                      {groupedRaces[selectedTournament]?.length || 0} races found
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedTournament(null)}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-white border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100 transition shadow-sm"
+                >
+                  <ChevronRight className="h-4 w-4 rotate-180" />
+                  Back to Tournaments
+                </button>
+              </div>
+
+              <div className="mb-6 flex">
+                <button
+                  onClick={handleOpenKanban}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-[#070f4f] to-[#1a237e] text-white px-6 py-3 rounded-xl font-black text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all"
+                >
+                  <Layers className="h-5 w-5 text-indigo-200" />
+                  🏆 Open Tournament Streak Ledger
+                  {kanbanLoading && (
+                    <span className="ml-2 h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span>
                   )}
-                </tbody>
-              </table>
+                </button>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {groupedRaces[selectedTournament]?.map((race) => (
+                  <Link
+                    key={race.raceId}
+                    to={`/admin/predictions/races/${race.raceId}`}
+                    className="flex flex-col p-5 rounded-xl border border-slate-200 bg-white hover:border-[#b3193a] hover:shadow-md transition-all text-left group relative overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-16 h-16 bg-slate-50 rounded-bl-full -z-10 group-hover:bg-rose-50 transition-colors"></div>
+                    <div className="flex justify-between items-start mb-3 gap-2">
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider font-black whitespace-nowrap ${getStatusStyle(race.predictionStatus)}`}>
+                        {getStatusLabel(race.predictionStatus)}
+                      </span>
+                      <p className="font-bold text-[10px] flex items-center gap-1 text-slate-400 whitespace-nowrap">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(race.raceAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                    
+                    <h4 className="font-black text-[#171717] leading-tight mb-1">{race.raceName}</h4>
+                    <p className="text-[10px] text-slate-500 font-black uppercase mb-4">{race.roundName}</p>
+                    
+                    <div className="mt-auto w-full flex items-center justify-between pt-3 border-t border-slate-100">
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Total Tickets</p>
+                        <p className="font-black text-[#070f4f]">{race.totalPredictions}</p>
+                      </div>
+                      
+                      <div className="text-right">
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">Results</p>
+                        {race.predictionStatus === "COMPLETED" ? (
+                          <p className="text-emerald-700 font-black text-xs">+{race.correctWinnerCount} <span className="text-slate-300 font-normal">|</span> <span className="text-rose-600">{race.incorrectCount}</span></p>
+                        ) : race.predictionStatus === "REFUNDED" ? (
+                          <p className="text-orange-600 font-black text-[10px] uppercase tracking-wider">Refunded</p>
+                        ) : (
+                          <p className="text-slate-400 font-bold text-xs">-</p>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
             </div>
           )}
         </div>
       </section>
+
+      {showKanban && selectedTournament && (
+        <AdminStreakKanbanBoard
+          streaks={streaks.filter((s) => s.tournamentName === selectedTournament)}
+          tournamentName={selectedTournament}
+          onClose={() => setShowKanban(false)}
+        />
+      )}
     </AdminLayout>
   );
 }

@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, Link, useNavigate } from "react-router-dom";
 import { 
   CalendarDays, 
   CheckCircle2, 
@@ -14,7 +14,6 @@ import {
   ChevronRight
 } from "lucide-react";
 
-import logo from "../assets/logo.png";
 import racingImage from "../assets/slide.jpg";
 import { useClientSession } from "../hooks/useClientSession";
 import { NotificationBell } from "../components/NotificationBell";
@@ -69,19 +68,26 @@ export function JockeyLayout({ children, sidebarPanel }: JockeyLayoutProps) {
         role="banner"
       >
         <div className="mx-auto flex min-h-20 max-w-[1720px] flex-col gap-4 px-5 py-4 xl:flex-row xl:items-center xl:justify-between">
-          <a
-            aria-label="EquinePro jockey dashboard"
-            className="flex w-fit items-center gap-3 rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
-            href="/"
+          <Link
+            aria-label="Aqueduct jockey dashboard"
+            className="group flex w-fit flex-col justify-center rounded-xl p-2 transition-colors hover:bg-emerald-950/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#006d5b]"
+            to="/"
           >
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-emerald-900/10 bg-emerald-50">
-              <img alt="" className="h-12 w-12 object-contain brightness-0" src={logo} />
-            </span>
-            <div>
-              <p className="text-xl font-black tracking-tight text-slate-950">Aqueduct Racetrack</p>
-              <p className="text-xs font-black uppercase tracking-[0.16em] text-[#006d5b]">Racing Cockpit</p>
+            <div className="mb-1 flex items-center gap-2">
+              <div className="flex items-center gap-1.5 rounded-full bg-emerald-100/80 px-2 py-0.5 text-[#006d5b]">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75"></span>
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#006d5b]"></span>
+                </span>
+                <span className="text-[9px] font-black uppercase tracking-[0.2em]">
+                  Racing Cockpit
+                </span>
+              </div>
             </div>
-          </a>
+            <h1 className="text-3xl font-black leading-none tracking-tight text-slate-950 drop-shadow-sm">
+              AQUEDUCT
+            </h1>
+          </Link>
 
           <label className="relative w-full max-w-xl text-sm font-bold text-slate-700">
             <span className="sr-only">Search jockey workspace</span>

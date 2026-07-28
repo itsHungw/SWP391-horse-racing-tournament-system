@@ -1,222 +1,124 @@
-import { useCallback, useEffect, useState } from "react";
+import { FileSpreadsheet, Landmark, RefreshCw, ShieldCheck } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
-import { AdminLayout } from "../../layouts/AdminLayout";
-import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { adminWalletApi } from "../../api/adminWalletApi";
-import type { Withdrawal, WithdrawalStatus } from "../../types/wallet";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { AdminLayout } from "../../layouts/AdminLayout";
+import type { AdminWithdrawalRow, AdminWithdrawalSummary, PageResponse, WithdrawalAdminFilters } from "../../types/wallet";
+import { WithdrawalExportDialog } from "./withdrawals/WithdrawalExportDialog";
+import { WithdrawalFilters } from "./withdrawals/WithdrawalFilters";
+import { WithdrawalOperationsTable } from "./withdrawals/WithdrawalOperationsTable";
+import { WithdrawalReviewModal } from "./withdrawals/WithdrawalReviewModal";
+import { WithdrawalSummaryCards } from "./withdrawals/WithdrawalSummaryCards";
+import { parseWithdrawalFilters, writeWithdrawalFilters } from "./withdrawals/withdrawalViewModel";
 
-const vnd = new Intl.NumberFormat("en-US");
-
-const FILTERS: Array<{ label: string; value: WithdrawalStatus | "" }> = [
-  { label: "All", value: "" },
-  { label: "Requested", value: "REQUESTED" },
-  { label: "Approved", value: "APPROVED" },
-  { label: "Paid", value: "PAID" },
-  { label: "Rejected", value: "REJECTED" },
-];
-
-const STATUS_STYLE: Record<WithdrawalStatus, string> = {
-  REQUESTED: "bg-amber-100 text-amber-800 border-amber-200",
-  APPROVED: "bg-sky-100 text-sky-800 border-sky-200",
-  REJECTED: "bg-rose-100 text-rose-800 border-rose-200",
-  PAID: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  CANCELLED: "bg-slate-100 text-slate-600 border-slate-200",
+const EMPTY_PAGE: PageResponse<AdminWithdrawalRow> = {
+  content: [], totalElements: 0, totalPages: 0, number: 0, size: 20,
 };
 
-function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
+function parseReviewId(value: string | null) {
+  if (!value || !/^[1-9]\d*$/.test(value)) return null;
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? id : null;
 }
 
 export function AdminWithdrawalsPage() {
-  useDocumentTitle("Withdrawal requests");
+  useDocumentTitle("Withdrawal operations");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filters = useMemo(() => parseWithdrawalFilters(searchParams), [searchParams]);
+  const [page, setPage] = useState<PageResponse<AdminWithdrawalRow>>(EMPTY_PAGE);
+  const [summary, setSummary] = useState<AdminWithdrawalSummary | null>(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const selectedId = useMemo(() => parseReviewId(searchParams.get("review")), [searchParams]);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
-  const [rows, setRows] = useState<Withdrawal[]>([]);
-  const [filter, setFilter] = useState<WithdrawalStatus | "">("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<number | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      setRows(await adminWalletApi.listWithdrawals(filter || undefined));
-    } catch {
-      setRows([]);
-      setError("Unable to load withdrawal requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
+  const refresh = useCallback(() => setRefreshKey((value) => value + 1), []);
+  const patchFilters = useCallback((patch: Partial<WithdrawalAdminFilters>) => {
+    const next = writeWithdrawalFilters({ ...filters, ...patch });
+    if (selectedId !== null) next.set("review", String(selectedId));
+    setSearchParams(next);
+  }, [filters, selectedId, setSearchParams]);
+  const openReview = useCallback((id: number) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("review", String(id));
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
+  const closeReview = useCallback(() => {
+    const next = new URLSearchParams(searchParams);
+    next.delete("review");
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    let current = true;
+    setListLoading(true);
+    setListError(null);
+    adminWalletApi.listWithdrawals(filters)
+      .then((result) => { if (current) setPage(result); })
+      .catch(() => {
+        if (current) {
+          setPage(EMPTY_PAGE);
+          setListError("The withdrawal queue could not be loaded.");
+        }
+      })
+      .finally(() => { if (current) setListLoading(false); });
+    return () => { current = false; };
+  }, [filters, refreshKey]);
 
-  async function act(action: "approve" | "reject" | "markPaid", row: Withdrawal) {
-    let note = "";
-    if (action === "reject") {
-      note = window.prompt("Reason for rejection:") ?? "";
-      if (!note.trim()) return;
-    }
-    setBusyId(row.id);
-    try {
-      if (action === "approve") await adminWalletApi.approve(row.id);
-      else if (action === "reject") await adminWalletApi.reject(row.id, note.trim());
-      else await adminWalletApi.markPaid(row.id);
-      await load();
-    } catch {
-      setError("Action failed. Please try again.");
-    } finally {
-      setBusyId(null);
-    }
-  }
+  useEffect(() => {
+    let current = true;
+    setSummaryLoading(true);
+    adminWalletApi.getSummary()
+      .then((result) => { if (current) setSummary(result); })
+      .catch(() => { if (current) setSummary(null); })
+      .finally(() => { if (current) setSummaryLoading(false); });
+    return () => { current = false; };
+  }, [refreshKey]);
+
+  const exportFilters = useMemo(() => ({
+    query: filters.query,
+    status: filters.status,
+    risk: filters.risk,
+    from: filters.from,
+    to: filters.to,
+    sort: filters.sort,
+  }), [filters.from, filters.query, filters.risk, filters.sort, filters.status]);
 
   return (
     <AdminLayout>
-      <div className="relative space-y-6">
-        {/* Title Header Card */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-[#b3193a]">Finance Operations</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-[#070f4f]">Withdrawal Requests</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Review and settle wallet withdrawals. Approving holds the request; mark as paid after the bank transfer.
-          </p>
-        </div>
-
-        {/* Operations Filter Bar */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#b3193a]" />
-            <span className="text-xs font-black uppercase tracking-wider text-slate-800">
-              Filter by status
-            </span>
+      <div className="mx-auto max-w-[1440px] space-y-5">
+        <header className="relative overflow-hidden border border-[#070f4f] bg-[#070f4f] px-6 py-6 text-white shadow-sm sm:px-8">
+          <div className="absolute right-0 top-0 h-full w-1.5 bg-[#b3193a]" />
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.24em] text-rose-300">Finance control / settlement desk</p>
+              <h1 className="mt-2 text-3xl font-black tracking-tight sm:text-4xl">Withdrawal operations</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-blue-100/75">Review, transfer and reconcile every payout from one focused workspace.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={refresh} className="inline-flex min-h-11 items-center gap-2 border border-white/25 px-4 text-xs font-black uppercase tracking-wider hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><RefreshCw className="h-4 w-4" aria-hidden="true" /> Refresh</button>
+              <button type="button" onClick={() => setExportOpen(true)} className="inline-flex min-h-11 items-center gap-2 bg-white px-4 text-xs font-black uppercase tracking-wider text-[#070f4f] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"><FileSpreadsheet className="h-4 w-4" aria-hidden="true" /> Export Excel</button>
+            </div>
           </div>
+        </header>
 
-          <div className="flex flex-wrap gap-2">
-            {FILTERS.map((f) => (
-              <button
-                key={f.label}
-                type="button"
-                onClick={() => setFilter(f.value)}
-                className={`rounded-full border px-4 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors outline-none ${
-                  filter === f.value
-                    ? "border-[#b3193a] bg-[#b3193a] text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <WithdrawalSummaryCards summary={summary} loading={summaryLoading} onFilter={patchFilters} />
+        <WithdrawalFilters filters={filters} onChange={patchFilters} />
+        {listError ? <div role="alert" className="flex items-center gap-3 border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800"><ShieldCheck className="h-5 w-5" aria-hidden="true" />{listError}</div> : null}
+        <WithdrawalOperationsTable rows={page.content} loading={listLoading} total={page.totalElements} page={filters.page} totalPages={page.totalPages} onPage={(next) => patchFilters({ page: next })} onReview={openReview} />
 
-        {error ? (
-          <p className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700">
-            {error}
-          </p>
-        ) : null}
-
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-4 py-3">User</th>
-                <th className="px-4 py-3">Amount</th>
-                <th className="px-4 py-3">Bank info</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Requested</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400 font-bold">
-                    Loading…
-                  </td>
-                </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-slate-400 font-bold">
-                    No withdrawal requests.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((w) => (
-                  <tr key={w.id} className="align-top hover:bg-slate-50/50">
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-900">{w.userName ?? "—"}</p>
-                      <p className="text-xs text-slate-500">{w.userEmail}</p>
-                    </td>
-                    <td className="px-4 py-3 font-bold text-slate-900">{vnd.format(w.amount)} VND</td>
-                    <td className="px-4 py-3 max-w-[220px] text-slate-600 font-medium">{w.bankInfo}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full border px-2.5 py-0.5 text-xs font-bold ${STATUS_STYLE[w.status]}`}
-                      >
-                        {w.status}
-                      </span>
-                      {w.reviewNote ? <p className="mt-1 text-xs text-rose-600 font-semibold">{w.reviewNote}</p> : null}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{formatDateTime(w.requestedAt)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {w.status === "REQUESTED" ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={busyId === w.id}
-                              onClick={() => act("approve", w)}
-                              className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-black text-white hover:bg-sky-700 shadow-sm transition disabled:opacity-50"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busyId === w.id}
-                              onClick={() => act("reject", w)}
-                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : w.status === "APPROVED" ? (
-                          <>
-                            <button
-                              type="button"
-                              disabled={busyId === w.id}
-                              onClick={() => act("markPaid", w)}
-                              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white hover:bg-emerald-700 shadow-sm transition disabled:opacity-50"
-                            >
-                              Mark paid
-                            </button>
-                            <button
-                              type="button"
-                              disabled={busyId === w.id}
-                              onClick={() => act("reject", w)}
-                              className="rounded-lg border border-rose-200 px-3 py-1.5 text-xs font-black text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
-                            >
-                              Reject
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs text-slate-400 font-bold">—</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <footer className="flex flex-col gap-2 border-t border-slate-300 py-4 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2"><Landmark className="h-4 w-4" aria-hidden="true" /> Full account numbers appear only inside review and reconciliation export.</p>
+          <p>All decisions are written to the immutable audit timeline.</p>
+        </footer>
       </div>
+
+      <WithdrawalReviewModal id={selectedId} onClose={closeReview} onUpdated={refresh} />
+      <WithdrawalExportDialog open={exportOpen} filters={exportFilters} onClose={() => setExportOpen(false)} />
     </AdminLayout>
   );
 }

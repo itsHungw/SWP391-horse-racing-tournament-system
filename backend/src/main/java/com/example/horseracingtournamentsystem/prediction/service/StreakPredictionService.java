@@ -95,9 +95,10 @@ public class StreakPredictionService {
             .status(StreakPredictionStatus.PENDING)
             .build();
 
-        // True parlay: each leg priced as fair decimal odds (1/p), multiplied together, with a
-        // SINGLE end-margin applied once (not compounded per leg) and a hard cap on the total.
-        BigDecimal product = BigDecimal.ONE;
+        // True parlay modified: each leg priced as fair decimal odds (1/p).
+        // The commission (parlayTakeout) is applied directly to each leg's odds.
+        // Then the odds are summed together, with a hard cap on the total.
+        BigDecimal sumOdds = BigDecimal.ZERO;
 
         for (StreakPredictionLegRequest legReq : request.getLegs()) {
             Race race = raceRepository.findById(legReq.getRaceId())
@@ -114,21 +115,20 @@ public class StreakPredictionService {
                 throw new IllegalArgumentException("Participant is withdrawn: " + participant.getHorse().getName());
             }
 
-            // Fair win probability for this leg's pick (position 1), then fair odds = 1 / p.
+            // Tỉ lệ động Pari-mutuel lấy trực tiếp từ quỹ tiền Cược Chuỗi
             List<RaceParticipant> allParticipants = raceParticipantRepository
                     .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
                             race.getId(),
                             ParticipantStatus.WITHDRAWN
                     );
-            Map<Long, BigDecimal> winProbs = oddsCalculationService.getWinProbabilities(allParticipants);
-            BigDecimal p = winProbs.get(participant.getId());
-            if (p == null || p.compareTo(BigDecimal.ZERO) <= 0) {
+            Map<Long, BigDecimal> streakOddsMatrix = oddsCalculationService.calculateStreakOddsMatrix(race.getId(), allParticipants);
+            BigDecimal legOdds = streakOddsMatrix.get(participant.getId());
+            if (legOdds == null || legOdds.compareTo(BigDecimal.ZERO) <= 0) {
                 throw new IllegalStateException(
                     "Cannot price streak leg for participant " + participant.getId() + " in race " + race.getId());
             }
 
-            BigDecimal legOdds = BigDecimal.ONE.divide(p, 4, RoundingMode.HALF_UP);
-            product = product.multiply(legOdds);
+            sumOdds = sumOdds.add(legOdds);
 
             StreakPredictionLeg leg = StreakPredictionLeg.builder()
                 .race(race)
@@ -140,7 +140,8 @@ public class StreakPredictionService {
             streakPrediction.addLeg(leg);
         }
 
-        BigDecimal totalOdds = product.multiply(BigDecimal.ONE.subtract(parlayTakeout));
+        // Just use the sum directly, no further commission applied here
+        BigDecimal totalOdds = sumOdds;
         if (totalOdds.compareTo(maxTotalOdds) > 0) {
             totalOdds = maxTotalOdds;
         }

@@ -1,12 +1,16 @@
 package com.example.horseracingtournamentsystem.user.controller;
 
 import com.example.horseracingtournamentsystem.user.dto.request.CreateUserAdminRequest;
+import com.example.horseracingtournamentsystem.user.dto.request.AccountStatusTransitionRequest;
+import com.example.horseracingtournamentsystem.user.dto.request.SuspendAccountRequest;
 import com.example.horseracingtournamentsystem.user.dto.request.UpdateUserProfileAdminRequest;
 import com.example.horseracingtournamentsystem.user.dto.request.UpdateUserRolesAdminRequest;
 import com.example.horseracingtournamentsystem.user.dto.response.AdminUserDetailResponse;
 import com.example.horseracingtournamentsystem.user.dto.response.UserRoleHistoryResponse;
+import com.example.horseracingtournamentsystem.user.dto.response.UserStatusHistoryResponse;
 import com.example.horseracingtournamentsystem.user.entity.UserRoleHistory;
 import com.example.horseracingtournamentsystem.user.service.UserService;
+import com.example.horseracingtournamentsystem.user.service.AccountEnforcementService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 public class AdminUserController {
 
     private final UserService userService;
+    private final AccountEnforcementService accountEnforcementService;
 
     @GetMapping
     public ResponseEntity<Page<AdminUserDetailResponse>> searchUsers(
@@ -81,12 +86,36 @@ public class AdminUserController {
         return ResponseEntity.ok(response);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(
-            @PathVariable("id") Long id,
-            Authentication authentication
-    ) {
-        userService.softDeleteUser(id, authentication.getName());
-        return ResponseEntity.noContent().build();
+    @PostMapping("/{id}/suspend")
+    public ResponseEntity<AdminUserDetailResponse> suspend(
+            @PathVariable("id") Long id, @Valid @RequestBody SuspendAccountRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(accountEnforcementService.suspend(id, request, authentication.getName()));
+    }
+
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<AdminUserDetailResponse> restore(
+            @PathVariable("id") Long id, @Valid @RequestBody AccountStatusTransitionRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(accountEnforcementService.restore(id, request, authentication.getName()));
+    }
+
+    @PostMapping("/{id}/ban")
+    public ResponseEntity<AdminUserDetailResponse> ban(
+            @PathVariable("id") Long id, @Valid @RequestBody AccountStatusTransitionRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(accountEnforcementService.ban(id, request, authentication.getName()));
+    }
+
+    @PostMapping("/{id}/reopen")
+    public ResponseEntity<AdminUserDetailResponse> reopen(
+            @PathVariable("id") Long id, @Valid @RequestBody AccountStatusTransitionRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(accountEnforcementService.reopen(id, request, authentication.getName()));
+    }
+
+    @GetMapping("/{id}/status-history")
+    public ResponseEntity<List<UserStatusHistoryResponse>> statusHistory(@PathVariable("id") Long id) {
+        return ResponseEntity.ok(accountEnforcementService.history(id));
     }
 }

@@ -103,7 +103,9 @@ export function BankSelect({
                       <BankLogo code={bank.code} size={32} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-ivory">{bank.name}</span>
-                        <span className="block truncate font-data text-[11px] text-ivory-faint">{bank.fullName}</span>
+                        <span className="block truncate font-data text-[11px] text-ivory-faint">
+                          {bank.code} · BIN {bank.bin}
+                        </span>
                       </span>
                       {active ? <Check size={16} className="shrink-0 text-gold-300" /> : null}
                     </button>

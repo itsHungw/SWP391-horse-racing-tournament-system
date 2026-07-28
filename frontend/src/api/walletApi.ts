@@ -1,5 +1,13 @@
 import { httpClient } from "./httpClient";
-import type { BankAccount, Wallet, WalletSummary, WalletTransaction, Withdrawal } from "../types/wallet";
+import type {
+  BankAccount,
+  BankDirectoryItem,
+  TopUpReceipt,
+  Wallet,
+  WalletSummary,
+  WalletTransaction,
+  Withdrawal,
+} from "../types/wallet";
 
 export const walletApi = {
   getMyWallet: async () => {
@@ -17,6 +25,9 @@ export const walletApi = {
     return response.data;
   },
 
+  getTopUpReceipt: async (txnRef: string) =>
+    (await httpClient.get<TopUpReceipt>(`/wallet/topups/${encodeURIComponent(txnRef)}/receipt`)).data,
+
   getSummary: async () => {
     const response = await httpClient.get<WalletSummary>("/wallet/me/summary");
     return response.data;
@@ -27,8 +38,8 @@ export const walletApi = {
     return response.data;
   },
 
-  createWithdrawal: async (amount: number, bankInfo: string) => {
-    const response = await httpClient.post<Withdrawal>("/wallet/withdrawals", { amount, bankInfo });
+  createWithdrawal: async (amount: number, bankAccountId: number) => {
+    const response = await httpClient.post<Withdrawal>("/wallet/withdrawals", { amount, bankAccountId });
     return response.data;
   },
 
@@ -42,9 +53,13 @@ export const walletApi = {
     return response.data;
   },
 
+  getBankDirectory: async () => {
+    const response = await httpClient.get<BankDirectoryItem[]>("/wallet/bank-accounts/directory");
+    return response.data;
+  },
+
   addBankAccount: async (data: {
     bankCode: string;
-    bankName: string;
     accountNumber: string;
     accountHolder: string;
     label?: string | null;

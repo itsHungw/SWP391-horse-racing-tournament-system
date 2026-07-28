@@ -530,3 +530,87 @@ html {
 .no-spinners {
   -moz-appearance: textfield;
 }
+
+/* Branded error-page motion. Kept page-scoped so application workspaces are unaffected. */
+.error-cinematic-bg {
+  transform: scale(1.03);
+  transform-origin: center;
+  animation: error-cinematic-drift 18s ease-in-out infinite alternate;
+}
+
+.error-light-sweep {
+  animation: error-light-sweep-pass 9s ease infinite;
+}
+
+.error-hero-enter {
+  animation: error-hero-arrival 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes error-cinematic-drift {
+  from {
+    transform: scale(1.03);
+  }
+
+  to {
+    transform: scale(1.08);
+  }
+}
+
+@keyframes error-light-sweep-pass {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateX(-380%) skewX(-10deg);
+  }
+
+  48% {
+    opacity: 0.8;
+  }
+
+  76%,
+  100% {
+    opacity: 0;
+    transform: translateX(360%) skewX(-10deg);
+  }
+}
+
+@keyframes error-hero-arrival {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .error-cinematic-bg,
+  .error-light-sweep,
+  .error-hero-enter {
+    animation: none;
+    transform: none;
+  }
+}
+@keyframes withdrawal-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.withdrawal-stage-panel {
+  animation: withdrawal-stage-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .withdrawal-stage-panel {
+    animation: none;
+  }
+}

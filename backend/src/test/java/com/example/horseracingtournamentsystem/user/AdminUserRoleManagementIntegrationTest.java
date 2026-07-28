@@ -2,6 +2,7 @@ package com.example.horseracingtournamentsystem.user;
 
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -71,10 +72,14 @@ class AdminUserRoleManagementIntegrationTest {
 
         admin = userRepository.save(User.pending("Admin User", "admin-role@example.com", "hash"));
         admin.verifyEmail();
+        userRepository.save(admin);
+        admin = userRepository.findWithUserRolesByEmail(admin.getEmail()).orElseThrow();
         userRoleRepository.save(UserRole.active(admin, adminRole, admin));
 
         applicant = userRepository.save(User.pending("Role Applicant", "applicant-role@example.com", "hash"));
         applicant.verifyEmail();
+        userRepository.save(applicant);
+        applicant = userRepository.findWithUserRolesByEmail(applicant.getEmail()).orElseThrow();
         userRoleRepository.save(UserRole.active(applicant, spectatorRole, admin));
 
         adminToken = jwtService.generateToken(admin.getEmail(), Set.of("ADMIN"));
@@ -95,5 +100,47 @@ class AdminUserRoleManagementIntegrationTest {
                         .content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles", containsInAnyOrder("SPECTATOR", "HORSE_OWNER", "JOCKEY")));
+    }
+
+    @Test
+    void genericRoleManagementCannotRemoveOrganizerRole() throws Exception {
+        Role organizerRole = roleRepository.findByName("ORGANIZER").orElseThrow();
+        userRoleRepository.save(UserRole.active(applicant, organizerRole, admin));
+
+        String body = """
+                {
+                    "roleNames": ["SPECTATOR"],
+                    "reason": "Update an unrelated role."
+                }
+                """;
+
+        mockMvc.perform(put("/api/v1/admin/users/{id}/roles", applicant.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "ORGANIZER role is managed through organization approval and cannot be changed here"));
+    }
+
+    @Test
+    void genericUserCreationCannotAssignOrganizerRole() throws Exception {
+        Long organizerRoleId = roleRepository.findByName("ORGANIZER").orElseThrow().getId();
+        String body = """
+                {
+                    "fullName": "Invalid Organizer",
+                    "email": "invalid-organizer@example.com",
+                    "password": "secret123",
+                    "roleIds": [%d]
+                }
+                """.formatted(organizerRoleId);
+
+        mockMvc.perform(post("/api/v1/admin/users")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(
+                        "ORGANIZER role is managed through organization approval and cannot be assigned here"));
     }
 }

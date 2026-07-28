@@ -14,6 +14,8 @@ import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.prediction.entity.PredictionSettlementJob;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction;
 import com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg;
+import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
+import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettingRepository;
@@ -95,6 +97,25 @@ class PredictionSettlementSchedulerTest {
                 eq(WalletTransactionType.BET_PAYOUT),
                 eq(WalletTransaction.REF_STREAK_PREDICTION),
                 eq(51L), anyString());
+    }
+
+    @Test
+    void failedSettlementRecordsRefundAsEvaluatedFinanceEvent() {
+        Race race = mock(Race.class);
+        when(race.getId()).thenReturn(202L);
+        PredictionSettlementJob job = PredictionSettlementJob.create(race);
+        RacePrediction prediction = mock(RacePrediction.class);
+        User spectator = mock(User.class);
+        when(prediction.getStatus()).thenReturn(PredictionStatus.LOCKED);
+        when(prediction.getWagerAmount()).thenReturn(10_000L);
+        when(prediction.getSpectator()).thenReturn(spectator);
+        when(prediction.getId()).thenReturn(71L);
+        when(jobRepository.findById(9L)).thenReturn(Optional.of(job));
+        when(predictionRepository.findByRace_Id(202L)).thenReturn(List.of(prediction));
+
+        scheduler.markJobAsFailed(9L, "settlement failed");
+
+        verify(prediction).setEvaluatedAt(org.mockito.ArgumentMatchers.any(java.time.LocalDateTime.class));
     }
 
     private Fixture fixture(ResultFinishStatus finishStatus, Integer position) {
