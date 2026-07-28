@@ -75,6 +75,7 @@ export function buildLiveRunners(participants: PreRaceParticipant[]): LiveRunner
     .map((participant, index) => ({
       participantId: participant.participantId,
       horseName: participant.horseName,
+      jockeyName: participant.jockeyName,
       gateNumber: index + 1,
       progressPercent: 0,
       speedMultiplier: 1 - index * 0.025,
@@ -88,6 +89,7 @@ export function buildScratchedRunners(participants: PreRaceParticipant[]): LiveR
     .map((participant, index) => ({
       participantId: participant.participantId,
       horseName: participant.horseName,
+      jockeyName: participant.jockeyName,
       gateNumber: index + 1,
       progressPercent: 0,
       speedMultiplier: 1,

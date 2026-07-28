@@ -422,7 +422,7 @@ export function RefereeOfficiatePage() {
           <RaceSummary
             raceId={raceId}
             snapshot={snapshot}
-            onConfirmed={() => setRace((current) => (current ? { ...current, status: "RESULT_CONFIRMED" } : current))}
+            onConfirmed={() => void load()}
           />
         ) : (
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">

@@ -19,6 +19,24 @@ function penaltyFor(snapshot: RaceSnapshot, participantId: number) {
     .reduce((total, incident) => total + (incident.penaltySeconds ?? 0), 0);
 }
 
+export function outOfRaceStatusLabel(status: LiveRunner["status"]): string {
+  if (status === "DSQ") return "DSQ";
+  if (status === "DNS") return "DNS";
+  return "DNF";
+}
+
+export function outOfRaceResultStatus(status: LiveRunner["status"]): ParticipantResultEntry["status"] {
+  if (status === "DSQ") return "DISQUALIFIED";
+  if (status === "DNS") return "WITHDRAWN";
+  return "DID_NOT_FINISH";
+}
+
+function outOfRaceNote(status: LiveRunner["status"]): string {
+  if (status === "DSQ") return "Disqualified during live race control.";
+  if (status === "DNS") return "Scratched at pre-race check; did not start.";
+  return "Removed during live race control.";
+}
+
 type ResultRowData = {
   runner: LiveRunner;
   physicalPosition: number;
@@ -155,7 +173,7 @@ export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: Rac
       const finishedEntries: ParticipantResultEntry[] = rows.map((row, index) => ({
         participantId: row.runner.participantId,
         horseName: row.runner.horseName,
-        jockeyName: "",
+        jockeyName: row.runner.jockeyName ?? "",
         position: index + 1,
         rawFinishTimeSeconds: row.hasManualOverride ? "" : Number(row.actualSeconds.toFixed(3)),
         penaltySeconds: Number(row.penaltySeconds.toFixed(3)),
@@ -167,13 +185,13 @@ export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: Rac
       const removedEntries: ParticipantResultEntry[] = snapshot.outOfRace.map((runner) => ({
         participantId: runner.participantId,
         horseName: runner.horseName,
-        jockeyName: "",
+        jockeyName: runner.jockeyName ?? "",
         position: "",
         rawFinishTimeSeconds: "",
         penaltySeconds: 0,
         finishTimeSeconds: "",
-        status: runner.status === "DSQ" ? "DISQUALIFIED" : "DID_NOT_FINISH",
-        note: runner.status === "DSQ" ? "Disqualified during live race control." : "Removed during live race control.",
+        status: outOfRaceResultStatus(runner.status),
+        note: outOfRaceNote(runner.status),
       }));
 
       await submitRaceResultPackage(raceId, {
@@ -312,7 +330,7 @@ export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: Rac
 
           {snapshot.outOfRace.length > 0 ? (
             <>
-              <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Did not finish / disqualified</h3>
+              <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Did not start / did not finish / disqualified</h3>
               <ol className="mt-3 space-y-2">
                 {snapshot.outOfRace.map((runner) => (
                   <li
@@ -321,7 +339,7 @@ export function RaceSummary({ raceId, snapshot, appeals = [], onConfirmed }: Rac
                   >
                     <strong className="text-sm font-black text-slate-800">{runner.horseName}</strong>
                     <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-rose-700">
-                      {runner.status === "DSQ" ? "DSQ" : "DNF"}
+                      {outOfRaceStatusLabel(runner.status)}
                     </span>
                   </li>
                 ))}

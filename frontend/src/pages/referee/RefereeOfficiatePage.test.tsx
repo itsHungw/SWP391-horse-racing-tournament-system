@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
@@ -315,13 +315,63 @@ describe("RefereeOfficiatePage", () => {
       />
     );
 
-    expect(screen.getByRole("heading", { name: "Did not finish / disqualified" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Did not start / did not finish / disqualified" })).toBeInTheDocument();
     expect(screen.getByText("Thunderstrike")).toBeInTheDocument();
     expect(screen.getByText("Night Bloom")).toBeInTheDocument();
-    expect(screen.getByText("DNF")).toBeInTheDocument();
+    expect(screen.getByText("DNS")).toBeInTheDocument();
     expect(screen.getByText("DSQ")).toBeInTheDocument();
     expect(screen.queryByLabelText("Override total time for Thunderstrike")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Override total time for Night Bloom")).not.toBeInTheDocument();
+  });
+
+  it("submits a scratched runner as WITHDRAWN, not DID_NOT_FINISH", async () => {
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    render(
+      <RaceSummary
+        raceId={9}
+        snapshot={{
+          elapsedMilliseconds: 62_345,
+          leaderboard: [
+            {
+              participantId: 7,
+              horseName: "Golden Arrow",
+              jockeyName: "Mina Park",
+              gateNumber: 1,
+              progressPercent: 100,
+              speedMultiplier: 1,
+              status: "RUNNING",
+              finishMilliseconds: 62_345,
+            },
+          ],
+          outOfRace: [
+            {
+              participantId: 5,
+              horseName: "Thunderstrike",
+              jockeyName: "Julian Sterling",
+              gateNumber: 2,
+              progressPercent: 0,
+              speedMultiplier: 1,
+              status: "DNS",
+            },
+          ],
+          incidents: [],
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /update finish order/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm official result/i }));
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+
+    const payload = submitSpy.mock.calls[0][1];
+    const scratched = payload.results.find((entry) => entry.participantId === 5);
+    expect(scratched?.status).toBe("WITHDRAWN");
+    expect(scratched?.note).toBe("Scratched at pre-race check; did not start.");
+
+    const finisher = payload.results.find((entry) => entry.participantId === 7);
+    expect(finisher?.jockeyName).toBe("Mina Park");
   });
 
   it("requires Update Time before applying a manual total time override", () => {
