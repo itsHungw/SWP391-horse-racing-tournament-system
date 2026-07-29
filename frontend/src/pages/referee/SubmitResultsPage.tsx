@@ -257,13 +257,10 @@ export function SubmitResultsPage() {
         reportTitle: reportTitle.trim(),
         reportSummary: reportSummary.trim(),
       });
-      setRace((current) => (current ? { ...current, status: "RESULT_SUBMITTED" } : current));
       // BR-16: trọng tài chỉ NỘP. Không được nói "confirmed" — BTC mới là người chốt.
-      setMessage(
-        requiresAdminReview
-          ? "Package submitted for admin review. Awaiting organizer confirmation."
-          : "Package submitted. Awaiting organizer confirmation."
-      );
+      // Không setMessage ở đây: chuyển race sang RESULT_SUBMITTED đã tự bật banner xanh
+      // isReadOnly bên dưới — thêm message nữa sẽ hiện trùng 2 banner cùng nội dung.
+      setRace((current) => (current ? { ...current, status: "RESULT_SUBMITTED" } : current));
     } catch {
       setMessage("Failed to submit result package.");
     } finally {

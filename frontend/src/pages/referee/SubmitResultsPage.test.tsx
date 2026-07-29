@@ -304,6 +304,7 @@ describe("SubmitResultsPage", () => {
 
     expect(await screen.findByText("Results submitted — awaiting organizer confirmation.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /submit package to organizer/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Package submitted. Awaiting organizer confirmation.")).not.toBeInTheDocument();
   });
 
   function mockFinishedRace() {
