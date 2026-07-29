@@ -301,7 +301,7 @@ public class RaceService {
 
     public List<RaceParticipantResponse> getOrganizerRaceParticipants(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream().map(this::mapParticipantToResponse).collect(Collectors.toList());
     }
 
@@ -550,7 +550,7 @@ public class RaceService {
     public List<RaceParticipantResponse> getRaceParticipants(Long raceId) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream()
                 .map(this::mapParticipantToResponse)
                 .collect(Collectors.toList());

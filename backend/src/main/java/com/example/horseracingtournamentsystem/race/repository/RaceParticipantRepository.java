@@ -11,9 +11,36 @@ import org.springframework.data.repository.query.Param;
 
 public interface RaceParticipantRepository extends JpaRepository<RaceParticipant, Long> {
 
-    List<RaceParticipant> findAllByRace_IdOrderByCreatedAtAsc(Long raceId);
+    /*
+     * Sắp theo lane_number — số áo trên bảng đua, thứ tự nghiệp vụ mà khán giả, chủ ngựa
+     * và trọng tài đều thấy.
+     *
+     * Trước đây hai method này sắp theo created_at và điều đó sai theo hai cách:
+     * 1. Participant của một race thường được tạo trong cùng một transaction, nên mọi
+     *    created_at bằng nhau. ORDER BY khi đó là no-op và Postgres trả về theo thứ tự
+     *    heap, tức thứ tự tùy ý của planner (đo được: lane 8→1 với dữ liệu seed).
+     * 2. Postgres UPDATE ghi dòng mới ở vị trí heap khác, nên mỗi lần trọng tài cập nhật
+     *    check_status là runner table đổi thứ tự — lộn xộn dần theo thời gian.
+     *
+     * lane_number nullable (Integer) nên cần NULLS LAST, và cần tiebreak id để thứ tự
+     * xác định tuyệt đối kể cả khi lane trùng hoặc chưa gán.
+     */
+    @Query("""
+            select p from RaceParticipant p
+            where p.race.id = :raceId
+            order by p.laneNumber asc nulls last, p.id asc
+            """)
+    List<RaceParticipant> findAllByRaceOrderByLane(@Param("raceId") Long raceId);
 
-    List<RaceParticipant> findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(Long raceId, ParticipantStatus status);
+    @Query("""
+            select p from RaceParticipant p
+            where p.race.id = :raceId
+              and p.status <> :excludedStatus
+            order by p.laneNumber asc nulls last, p.id asc
+            """)
+    List<RaceParticipant> findAllByRaceAndStatusNotOrderByLane(
+            @Param("raceId") Long raceId,
+            @Param("excludedStatus") ParticipantStatus excludedStatus);
 
     Optional<RaceParticipant> findByIdAndRace_Id(Long id, Long raceId);
 

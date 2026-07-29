@@ -83,14 +83,14 @@ public class PredictionService {
             if (request.getPredictedPosition() == null) {
                 throw new IllegalArgumentException("Predicted position is required for EXACT_POSITION");
             }
-            List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
             Map<Long, Map<Integer, java.math.BigDecimal>> oddsMatrix = oddsCalculationService.calculatePositionOddsMatrix(race.getId(), participants);
             Map<Integer, java.math.BigDecimal> horseOdds = oddsMatrix.get(request.getPredictedWinnerId());
             if (horseOdds == null || !horseOdds.containsKey(request.getPredictedPosition())) {
                 throw new IllegalArgumentException("Invalid prediction parameters or participant is withdrawn");
             }
         } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(request.getPredictionType())) {
-            List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
             List<HeadToHeadMatchup> h2hMatchups = oddsCalculationService.calculateH2HMatchups(race.getId(), participants);
 
             HeadToHeadMatchup selectedMatchup = h2hMatchups.stream()
@@ -140,7 +140,7 @@ public class PredictionService {
             throw new IllegalArgumentException("Minimum wager is " + minWager + " VND");
         }
 
-        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(
                 race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
 
         if (RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType())) {
@@ -171,7 +171,7 @@ public class PredictionService {
     @Transactional
     public void lockPredictionsForRace(Long raceId) {
         List<RacePrediction> pendingPredictions = predictionRepo.findByRace_IdAndStatus(raceId, com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING);
-        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(
             raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
         Map<Long, Map<Integer, java.math.BigDecimal>> positionOdds = oddsCalculationService.calculatePositionOddsMatrix(raceId, participants);
         List<HeadToHeadMatchup> h2hMatchups = oddsCalculationService.calculateH2HMatchups(raceId, participants);
