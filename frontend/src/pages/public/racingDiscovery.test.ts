@@ -49,15 +49,48 @@ describe("public racing discovery helpers", () => {
     expect(focus?.name).toBe("Live Cup");
   });
 
+  it("keeps a running championship without a published next race ahead of closed registration", () => {
+    const focus = selectChampionshipInFocus([
+      {
+        id: 1,
+        name: "Closed Registration Cup",
+        status: "CLOSED_REGISTRATION",
+        raceCount: 0,
+        participantCount: 0,
+      },
+      {
+        id: 2,
+        name: "Running Cup",
+        status: "ONGOING",
+        raceCount: 8,
+        participantCount: 8,
+        nextRace: null,
+      },
+    ]);
+
+    expect(focus?.name).toBe("Running Cup");
+  });
+
   it("selects the nearest upcoming race and falls back to the latest result", () => {
     expect(
       selectNextToPost(
         [race(2, "2026-06-13T14:00:00"), race(1, "2026-06-12T14:00:00")],
         [race(3, "2026-06-10T14:00:00", "RESULT_CONFIRMED")],
+        new Date("2026-06-11T12:00:00"),
       )?.id,
     ).toBe(1);
 
     expect(selectNextToPost([], [race(3, "2026-06-10T14:00:00", "RESULT_CONFIRMED")])?.id).toBe(3);
+  });
+
+  it("does not label a stale scheduled race as next to post", () => {
+    expect(
+      selectNextToPost(
+        [race(1, "2026-07-25T14:00:00"), race(2, "2026-08-01T14:00:00")],
+        [],
+        new Date("2026-07-29T12:00:00"),
+      )?.id,
+    ).toBe(2);
   });
 
   it("groups agenda races by live, today, tomorrow, this week, and later", () => {

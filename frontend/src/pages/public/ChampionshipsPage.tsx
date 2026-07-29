@@ -3,7 +3,6 @@ import { ArrowRight, CalendarDays, Flag, MapPin, Search, Trophy, Users } from "l
 import { Link, useSearchParams } from "react-router-dom";
 
 import { searchPublicTournaments } from "../../api/racingApi";
-import { BannerCarousel } from "../../components/client/BannerCarousel";
 import { ClientFooter } from "../../components/client/ClientFooter";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { Countdown } from "../../components/client/Countdown";
@@ -15,7 +14,9 @@ import type { PageResponse, TournamentSummary } from "../../types/racing";
 import { formatVndCompact } from "../../utils/money";
 import { championshipStatus, formatDateRange, formatPostTime } from "./publicRacingData";
 import { parseChampionshipDiscoveryQuery, rankChampionshipsInFocus } from "./racingDiscovery";
+import { MetaDot } from "./components/MetaDot";
 import { PublicPagination } from "./components/PublicPagination";
+import { SegmentedControl } from "./components/SegmentedControl";
 import { StatusPill } from "./components/StatusPill";
 
 const EMPTY_PAGE: PageResponse<TournamentSummary> = {
@@ -25,6 +26,17 @@ const EMPTY_PAGE: PageResponse<TournamentSummary> = {
   totalElements: 0,
   totalPages: 0,
 };
+
+// Nhãn ngắn: ở 375px lưới 2 cột chỉ cho mỗi nút ~159px, "All championships" bị cắt
+// thành "All championsh…" — mà nó lại đúng là option mặc định đang chọn. Trong một
+// radiogroup đã có nhãn "Championship status filters" thì "All" không hề mơ hồ.
+const STATUS_FILTERS = [
+  { label: "All", value: "" },
+  { label: "Running now", value: "ONGOING" },
+  { label: "Registration", value: "OPEN_REGISTRATION" },
+  { label: "Upcoming", value: "SCHEDULE_PUBLISHED" },
+  { label: "Completed", value: "COMPLETED" },
+] as const;
 
 /** Mùa giải cho ô chọn — thay <input type="number"> (mũi tên tăng/giảm cho một cái năm là vô nghĩa). */
 function seasonOptions(): number[] {
@@ -87,14 +99,16 @@ function FocusCard({ championship, owner }: { championship: TournamentSummary; o
           </dl>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link to={primary.to} className="inline-flex min-h-11 items-center gap-2 bg-emerald-glow px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-emerald-soft">
+            <Link to={primary.to} className="inline-flex min-h-11 items-center gap-2 rounded-sm bg-emerald-glow px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 transition-colors hover:bg-emerald-soft">
               {primary.label} <ArrowRight size={14} />
             </Link>
-            <Link to={`/championships/${championship.id}`} className="inline-flex min-h-11 items-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60">
-              Programme
-            </Link>
+            {primary.to !== `/championships/${championship.id}` ? (
+              <Link to={`/championships/${championship.id}`} className="inline-flex min-h-11 items-center rounded-sm border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60">
+                Full Programme
+              </Link>
+            ) : null}
             {championship.status === "OPEN_REGISTRATION" && owner ? (
-              <Link to={`/owner/tournament-registrations?tournamentId=${championship.id}`} className="inline-flex min-h-11 items-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory-dim transition-colors hover:border-gold-400/60 hover:text-ivory">
+              <Link to={`/owner/tournament-registrations?tournamentId=${championship.id}`} className="inline-flex min-h-11 items-center rounded-sm border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory-dim transition-colors hover:border-gold-400/60 hover:text-ivory">
                 Register Horse
               </Link>
             ) : null}
@@ -109,6 +123,20 @@ function FocusCard({ championship, owner }: { championship: TournamentSummary; o
               <div className="mt-4"><Countdown target={nextRace.raceDateTime} doneLabel="Underway" /></div>
               <p className="mt-4 font-display text-xl font-medium text-ivory">{nextRace.name}</p>
               <p className="mt-1 text-sm text-ivory-dim">{formatPostTime(nextRace.raceDateTime)}</p>
+            </>
+          ) : championship.status.toUpperCase() === "ONGOING" ? (
+            <>
+              <p className="font-data text-[10px] uppercase tracking-[0.22em] text-gold-300">Championship underway</p>
+              <p className="mt-4 font-display text-2xl font-medium text-ivory">Standings in motion</p>
+              <p className="mt-3 text-sm leading-relaxed text-ivory-dim">Open the championship to follow completed rounds, current points, and the next published card.</p>
+            </>
+          ) : championship.status === "OPEN_REGISTRATION" ? (
+            <>
+              <p className="font-data text-[10px] uppercase tracking-[0.22em] text-emerald-soft">Registration window</p>
+              <p className="mt-4 font-display text-2xl font-medium text-ivory">
+                {championship.registrationEndAt ? formatPostTime(championship.registrationEndAt) : "Open now"}
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-ivory-dim">Owners can review eligibility and submit a horse from the championship programme.</p>
             </>
           ) : (
             <p className="text-sm leading-relaxed text-ivory-dim">
@@ -126,20 +154,40 @@ function FocusCard({ championship, owner }: { championship: TournamentSummary; o
 function ChampionshipRow({ championship }: { championship: TournamentSummary }) {
   const status = championshipStatus(championship.status);
   return (
-    <article className="group border-t border-white/10 py-7 transition-colors hover:border-gold-400/40">
+    // Kẻ phân cách nâng từ white/10 lên white/[0.18]: trên nền turf-950, 10% chỉ cho
+    // contrast 1.28:1 (đo bằng canvas) — mắt thường không thấy nên các row trôi thành
+    // một khối chữ liền. 18% lên 1.69:1; không đẩy tới mốc 3:1 vì rule sáng như vậy
+    // biến list thành lưới bảng, phá tông tối của theme. Phần tách còn lại do mỏ neo
+    // giờ-đua căn thẳng đỉnh row và row thấp bớt đảm nhiệm.
+    <article className="group border-t border-white/[0.18] py-7 transition-colors hover:border-gold-400/50">
       <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
         <div className="min-w-0">
           {/* Trạng thái đứng trước tên: câu hỏi đầu tiên khi quét danh sách là
               "giải này đang chạy / mở đăng ký / hay đã xong", không phải nó tên gì. */}
           <StatusPill tone={status.tone} label={status.label} />
-          <h3 className="mt-3 text-balance font-display text-2xl font-medium tracking-tight text-ivory transition-colors group-hover:text-gold-200 md:text-3xl">
+          <h3 className="mt-2.5 text-balance font-display text-2xl font-medium tracking-tight text-ivory transition-colors group-hover:text-gold-200 md:text-3xl">
             {championship.name}
           </h3>
-          <p className="mt-2 text-sm text-ivory-dim">
-            {championship.location || "Circuit venue TBA"} · {formatDateRange(championship.startDate, championship.endDate)}
-          </p>
 
-          <div className="mt-4">
+          {/* Địa điểm/thời gian và ba con số gộp thành MỘT dòng meta chạy chữ, thay vì
+              hai khối xếp chồng. Wrap tự nhiên nên tiền VND không bao giờ tràn ô. */}
+          <dl className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ivory-dim">
+            <span>{championship.location || "Circuit venue TBA"}</span>
+            <MetaDot />
+            <span>{formatDateRange(championship.startDate, championship.endDate)}</span>
+            <MetaDot />
+            <div><dd className="inline font-semibold text-ivory">{championship.raceCount}</dd> rounds</div>
+            <MetaDot />
+            <div><dd className="inline font-semibold text-ivory">{championship.participantCount}</dd> horses</div>
+            {championship.totalPrizePool != null ? (
+              <>
+                <MetaDot />
+                <div><dd className="inline font-semibold text-gold-300">{formatVndCompact(championship.totalPrizePool)}</dd> prize</div>
+              </>
+            ) : null}
+          </dl>
+
+          <div className="mt-3">
             {championship.nextRace ? (
               <NextRaceLine championship={championship} />
             ) : (
@@ -148,20 +196,10 @@ function ChampionshipRow({ championship }: { championship: TournamentSummary }) 
               </p>
             )}
           </div>
-
-          {/* Danh sách chạy chữ thay cho lưới 3 cột cứng — đó là chỗ tiền VND từng
-              tràn ô, buộc phải hạ cỡ chữ. Wrap tự nhiên thì không bao giờ vỡ. */}
-          <dl className="mt-4 flex flex-wrap gap-x-6 gap-y-2 font-data text-xs uppercase tracking-[0.14em] text-ivory-faint">
-            <div><dd className="inline text-sm text-ivory">{championship.raceCount}</dd> rounds</div>
-            <div><dd className="inline text-sm text-ivory">{championship.participantCount}</dd> horses</div>
-            {championship.totalPrizePool != null ? (
-              <div><dd className="inline text-sm text-gold-300">{formatVndCompact(championship.totalPrizePool)}</dd> prize</div>
-            ) : null}
-          </dl>
         </div>
 
-        <Link to={`/championships/${championship.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 self-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60 hover:text-gold-200">
-          View <ArrowRight size={14} />
+        <Link to={`/championships/${championship.id}`} className="inline-flex min-h-11 shrink-0 items-center gap-2 self-center rounded-sm border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60 hover:text-gold-200">
+          Open championship <ArrowRight size={14} />
         </Link>
       </div>
     </article>
@@ -200,7 +238,7 @@ export function ChampionshipsPage() {
   };
   // Lấy tối đa 5 giải đáng chú ý nhất cho banner lật, thay vì chỉ hiện đúng một.
   // Xếp hạng đã ưu tiên ONGOING (có race kế) trước, rồi mở đăng ký, rồi sắp tới.
-  const focusList = rankChampionshipsInFocus(focusPool).slice(0, 5);
+  const focusChampionship = rankChampionshipsInFocus(focusPool)[0] ?? null;
 
   // Search chạy trễ 350ms thay vì đợi bấm nút. Trước đây status/year/sort áp dụng
   // ngay còn search phải submit — người dùng gõ xong ngồi đợi mà không có gì xảy ra.
@@ -225,7 +263,7 @@ export function ChampionshipsPage() {
               <h1 className="font-display text-4xl font-light tracking-tight md:text-5xl">
                 Championships<span className="text-foil">.</span>
               </h1>
-              <p className="mt-2 max-w-xl text-ivory-dim">The programmes shaping the 2026 season.</p>
+              <p className="mt-2 max-w-xl text-ivory-dim">Follow each programme from registration to the final result.</p>
             </div>
             <p role="status" aria-live="polite" className="font-data text-xs uppercase tracking-[0.18em] text-ivory-faint">
               {pageData.totalElements} championships
@@ -233,57 +271,64 @@ export function ChampionshipsPage() {
           </div>
         </section>
 
-        <section className="bg-turf-900 pb-14 pt-2 md:pb-16" aria-labelledby="focus-title">
+        <section className="border-b border-white/8 bg-turf-900 pb-14 pt-8 md:pb-16 md:pt-10" aria-labelledby="focus-title">
           <div className="mx-auto max-w-[1400px] px-6 md:px-12">
-            <div className="mb-6 flex items-end justify-between gap-5">
+            <div className="mb-6 flex flex-col gap-3 border-b border-white/10 pb-6 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="eyebrow text-gold-300">In Focus</p>
-                <h2 id="focus-title" className="mt-3 font-display text-3xl font-light md:text-4xl">The championship that matters now.</h2>
+                <p className="eyebrow text-gold-300">Season Priority</p>
+                <h2 id="focus-title" className="mt-3 font-display text-3xl font-light tracking-tight md:text-4xl">The programme to follow now.</h2>
               </div>
-              <Trophy size={30} className="text-gold-400/60" aria-hidden="true" />
+              <Link to="/races" className="inline-flex min-h-11 items-center gap-2 self-start text-[11px] font-bold uppercase tracking-[0.16em] text-ivory-dim transition-colors hover:text-gold-200 sm:self-auto">
+                Open race desk <ArrowRight size={14} />
+              </Link>
             </div>
-            {focusQuery.loading ? <div className="h-72 animate-pulse border border-white/10 bg-turf-950" aria-label="Loading focused championship" /> : focusList.length > 0 ? (
-              <BannerCarousel
-                label="Championships in focus"
-                slides={focusList.map((championship) => ({
-                  key: championship.id,
-                  node: <FocusCard championship={championship} owner={owner} />,
-                }))}
-              />
+            {focusQuery.loading ? (
+              <div className="h-72 animate-pulse border border-white/10 bg-turf-950" aria-label="Loading season priority" />
+            ) : focusChampionship ? (
+              <FocusCard championship={focusChampionship} owner={owner} />
             ) : focusQuery.error ? (
-              <div role="alert" className="border border-nyraRed/50 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">The featured championship could not be loaded.</h3><p className="mt-3 text-ivory-dim">Check your connection and try again in a moment.</p></div>
+              <div role="alert" className="border border-nyraRed/50 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">The season priority could not be loaded.</h3><p className="mt-3 text-ivory-dim">Check your connection and try again in a moment.</p></div>
             ) : (
-              <div className="border border-gold-400/40 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">No active championship right now.</h3><p className="mt-3 text-ivory-dim">Explore completed championships or check back later.</p></div>
+              <div className="border border-gold-400/40 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">No active championship right now.</h3><p className="mt-3 text-ivory-dim">Explore completed championships or check back when the next programme opens.</p></div>
             )}
           </div>
         </section>
 
         <section className="bg-turf-950 pb-24" aria-labelledby="discovery-title">
-          <div className="sticky top-[var(--client-header-h)] z-30 border-y border-white/10 bg-turf-950/95 backdrop-blur-xl">
-            <form
-              className="mx-auto grid max-w-[1400px] gap-3 px-6 py-4 md:grid-cols-[1fr_190px_170px_230px] md:px-12"
-              onSubmit={(event) => { event.preventDefault(); updateParams({ search: draftSearch, page: 0 }); }}
-            >
-              <label className="relative">
-                <span className="sr-only">Search championships</span>
-                <Search size={16} className="pointer-events-none absolute left-4 top-3.5 text-ivory-faint" />
-                <input type="search" aria-label="Search championships" value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search championships..." className="h-11 w-full border border-white/15 bg-turf-900 pl-11 pr-4 text-sm text-ivory outline-none placeholder:text-ivory-faint focus:border-gold-400/70" />
-              </label>
-              <select aria-label="Championship status" value={state.status} onChange={(event) => updateParams({ status: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70">
-                <option value="">All statuses</option><option value="ONGOING">Ongoing</option><option value="OPEN_REGISTRATION">Registration open</option><option value="SCHEDULE_PUBLISHED">Upcoming</option><option value="COMPLETED">Completed</option>
-              </select>
-              <select aria-label="Season year" value={state.year ?? ""} onChange={(event) => updateParams({ year: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70">
-                <option value="">All seasons</option>
-                {seasonOptions().map((year) => <option key={year} value={year}>{year} season</option>)}
-              </select>
-              <select aria-label="Sort championships" value={state.sortBy} onChange={(event) => updateParams({ sortBy: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70">
-                <option value="ONGOING_FIRST">Ongoing first</option><option value="REGISTRATION_CLOSING_SOON">Registration closing soon</option><option value="LATEST">Latest season</option>
-              </select>
-            </form>
+          <div className="border-y border-white/10 bg-turf-950/95 backdrop-blur-xl lg:sticky lg:top-[var(--client-header-h)] lg:z-30">
+            <div className="mx-auto max-w-[1400px] px-6 py-4 md:px-12">
+              <div className="grid gap-4">
+                <SegmentedControl
+                  label="Championship status filters"
+                  value={state.status}
+                  options={STATUS_FILTERS}
+                  onChange={(status) => updateParams({ status, page: 0 })}
+                  className="grid-cols-2 [&>button:last-child]:col-span-2 sm:grid-cols-5 sm:[&>button:last-child]:col-span-1"
+                />
+
+                <form
+                  className="grid min-w-0 gap-3 border-t border-white/8 pt-4 sm:grid-cols-2 xl:grid-cols-[minmax(300px,1fr)_180px_250px]"
+                  onSubmit={(event) => { event.preventDefault(); updateParams({ search: draftSearch, page: 0 }); }}
+                >
+                  <label className="relative sm:col-span-2 xl:col-span-1">
+                    <span className="sr-only">Search championships</span>
+                    <Search size={16} className="pointer-events-none absolute left-4 top-3.5 text-ivory-dim" />
+                    <input type="search" aria-label="Search championships" value={draftSearch} onChange={(event) => setDraftSearch(event.target.value)} placeholder="Search by name or venue" className="h-11 w-full rounded-lg border border-white/15 bg-turf-900 pl-11 pr-4 text-sm text-ivory outline-none placeholder:text-ivory-dim focus:border-gold-400/70" />
+                  </label>
+                  <select aria-label="Season year" value={state.year ?? ""} onChange={(event) => updateParams({ year: event.target.value, page: 0 })} className="h-11 rounded-lg border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70">
+                    <option value="">All seasons</option>
+                    {seasonOptions().map((year) => <option key={year} value={year}>{year} season</option>)}
+                  </select>
+                  <select aria-label="Sort championships" value={state.sortBy} onChange={(event) => updateParams({ sortBy: event.target.value, page: 0 })} className="h-11 rounded-lg border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70">
+                    <option value="ONGOING_FIRST">Most relevant</option><option value="REGISTRATION_CLOSING_SOON">Registration closing soon</option><option value="LATEST">Latest season</option>
+                  </select>
+                </form>
+              </div>
+            </div>
           </div>
           <div className="mx-auto max-w-[1400px] px-6 pt-12 md:px-12">
             <MotionReveal className="flex items-end justify-between gap-5 border-b border-white/10 pb-6">
-              <div><h2 id="discovery-title" className="font-display text-4xl font-light tracking-tight">Discover the season.</h2><GoldRule className="mt-5 w-20" /></div>
+              <div><p className="eyebrow text-gold-300">Championship archive</p><h2 id="discovery-title" className="mt-3 font-display text-4xl font-light tracking-tight">All championships.</h2><GoldRule className="mt-5 w-20" /></div>
             </MotionReveal>
             <div className="mt-3">
               {listQuery.loading ? [0, 1, 2, 3].map((item) => <div key={item} className="h-32 animate-pulse border-t border-white/10 bg-white/[0.02]" />) : listQuery.error && !listQuery.data ? (

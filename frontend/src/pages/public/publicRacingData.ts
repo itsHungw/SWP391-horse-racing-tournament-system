@@ -93,6 +93,28 @@ export function isRaceConcluded(status: string | undefined): boolean {
   return raceStatus(status).tone === "done";
 }
 
+export function formatDateInput(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Thời gian về đích theo cách giới đua ghi: dưới một phút thì đọc thẳng bằng giây
+ * (`58.412s`), từ một phút trở lên đổi sang `m:ss.SSS` — không ai đọc "117.340s".
+ *
+ * Chặn luôn giá trị vô lý: cự ly ngắn nhất trên hệ thống cũng mất vài giây, nên
+ * một con số dưới `MIN_PLAUSIBLE_FINISH_SECONDS` là dữ liệu rác (seed/nhập nhầm)
+ * chứ không phải kỷ lục — thà trả "TBA" còn hơn in "1.000s" lên trang chủ.
+ */
+const MIN_PLAUSIBLE_FINISH_SECONDS = 5;
+
+export function formatResultTime(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < MIN_PLAUSIBLE_FINISH_SECONDS) return "TBA";
+  if (seconds < 60) return `${seconds.toFixed(3)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+  return `${minutes}:${remainder.toFixed(3).padStart(6, "0")}`;
+}
+
 export function formatPostTime(value?: string): string {
   if (!value) return "Post time TBA";
   const d = new Date(value);

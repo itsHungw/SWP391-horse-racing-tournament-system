@@ -152,7 +152,8 @@ describe("RaceDetailPage", () => {
     );
     expect(screen.queryByRole("link", { name: /enter the arena/i })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /official result/i })).toBeInTheDocument();
-    expect(screen.getAllByText("72.341s").length).toBeGreaterThan(0);
+    // Từ một phút trở lên hiển thị kiểu đua ngựa `m:ss.SSS`, không phải "72.341s".
+    expect(screen.getAllByText("1:12.341").length).toBeGreaterThan(0);
   });
 
   it("does not expose a submitted finish order before the result is official", async () => {
@@ -171,6 +172,6 @@ describe("RaceDetailPage", () => {
 
     expect(await screen.findByRole("heading", { name: /awaiting official result/i })).toBeInTheDocument();
     expect(screen.getByText(/results are being reviewed/i)).toBeInTheDocument();
-    expect(screen.queryByText("72.341s")).not.toBeInTheDocument();
+    expect(screen.queryByText("1:12.341")).not.toBeInTheDocument();
   });
 });

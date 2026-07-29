@@ -5,9 +5,11 @@ import { motion, useReducedMotion, useScroll, useTransform } from "framer-motion
 import { ArrowRight, ArrowUpRight, Play, Trophy, MapPin, BarChart3 } from "lucide-react";
 
 import { blogApi } from "../../api/blogApi";
-import { getPublicRacingSummary, searchPublicRaces } from "../../api/racingApi";
+import { getPublicRaceHighlights } from "../../api/raceMediaApi";
+import { getPublicRaceResults, getPublicRacingSummary, searchPublicRaces } from "../../api/racingApi";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { ClientFooter } from "../../components/client/ClientFooter";
+import { YouTubeEmbed } from "../../components/race-media/YouTubeEmbed";
 import {
   Eyebrow,
   FoilStat,
@@ -17,11 +19,13 @@ import {
   MotionStaggerItem,
 } from "../../components/client/primitives";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
+import { usePublicQuery } from "../../hooks/usePublicQuery";
 import type { Blog } from "../../types/blog";
-import type { PublicRacingSummary, RaceSummary } from "../../types/racing";
+import type { PublicRaceResult, PublicRacingSummary, RaceMediaPublicResponse, RaceSummary } from "../../types/racing";
 import heroImage from "../../assets/slide.jpg";
+import { SilkChip } from "./components/SilkChip";
 import { StatusPill } from "./components/StatusPill";
-import { formatDistance, formatPostTime, raceStatus } from "./publicRacingData";
+import { formatDateInput, formatDistance, formatPostTime, formatResultTime, isRaceConcluded, raceStatus } from "./publicRacingData";
 import { selectNextToPost } from "./racingDiscovery";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -70,16 +74,69 @@ function formatFinaleDate(value?: string) {
   }).format(date);
 }
 
+type FeaturedRaceData = {
+  race: RaceSummary | null;
+  highlight: RaceMediaPublicResponse | null;
+  result: PublicRaceResult | null;
+  summary: PublicRacingSummary | null;
+};
+
+/**
+ * Trang chủ dẫn bằng replay của race vừa xong, và chỉ rơi về race sắp chạy khi
+ * mùa giải chưa có kết quả nào. Vì vậy `scope=UPCOMING` chỉ được gọi ở đúng nhánh
+ * cần nó, thay vì fetch mỗi lần load rồi vứt đi.
+ *
+ * Highlight lấy một lượt bằng batch endpoint: hỏi lẻ từng race tốn N request mà
+ * phần lớn trả 204.
+ */
+async function loadFeaturedRace(): Promise<FeaturedRaceData> {
+  const [results, summary] = await Promise.all([
+    searchPublicRaces({ scope: "RESULTS", sortBy: "LATEST_RESULT", page: 0, size: 5 }),
+    getPublicRacingSummary(),
+  ]);
+
+  let race: RaceSummary | null = null;
+  let highlight: RaceMediaPublicResponse | null = null;
+
+  if (results.content.length > 0) {
+    const highlights = await getPublicRaceHighlights(results.content.map((item) => item.id));
+    const byRaceId = new Map(highlights.map((item) => [item.raceId, item]));
+    const replayRace = results.content.find((item) => byRaceId.has(item.id)) ?? null;
+    race = replayRace ?? results.content[0];
+    highlight = replayRace ? byRaceId.get(replayRace.id) ?? null : null;
+  } else {
+    const upcoming = await searchPublicRaces({
+      scope: "UPCOMING",
+      sortBy: "NEXT_RACE",
+      from: formatDateInput(),
+      page: 0,
+      size: 3,
+    });
+    race = selectNextToPost(upcoming.content, []);
+  }
+
+  let result: PublicRaceResult | null = null;
+  if (race && isRaceConcluded(race.status)) {
+    // Chỉ dùng để lấy draw + silk seed của người thắng; thiếu thì hero vẫn dựng được.
+    result = await getPublicRaceResults(race.id).catch(() => null);
+  }
+
+  return { race, highlight, result, summary };
+}
+
 export function HomePage() {
   useDocumentTitle("Aqueduct — Night at the Races | Championship Horse Racing");
   const reduce = useReducedMotion();
   const [latestBlogs, setLatestBlogs] = useState<Blog[]>([]);
   const [blogsLoading, setBlogsLoading] = useState(true);
   const [blogsError, setBlogsError] = useState<string | null>(null);
-  const [featuredRace, setFeaturedRace] = useState<RaceSummary | null>(null);
-  const [featuredRaceLoading, setFeaturedRaceLoading] = useState(true);
-  const [featuredRaceError, setFeaturedRaceError] = useState<string | null>(null);
-  const [publicSummary, setPublicSummary] = useState<PublicRacingSummary | null>(null);
+  const featuredQuery = usePublicQuery("home:featured", loadFeaturedRace);
+  const featuredRace = featuredQuery.data?.race ?? null;
+  const featuredHighlight = featuredQuery.data?.highlight ?? null;
+  const featuredResult = featuredQuery.data?.result ?? null;
+  const publicSummary = featuredQuery.data?.summary ?? null;
+  const featuredRaceLoading = featuredQuery.loading;
+  const featuredRaceError = featuredQuery.error ? "Could not load the featured race right now." : null;
 
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.3], ["0%", "18%"]);
@@ -109,42 +166,16 @@ export function HomePage() {
     };
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadFeaturedRace() {
-      setFeaturedRaceLoading(true);
-      setFeaturedRaceError(null);
-      try {
-        const [upcoming, results, summary] = await Promise.all([
-          searchPublicRaces({ scope: "UPCOMING", sortBy: "NEXT_RACE", page: 0, size: 3 }),
-          searchPublicRaces({ scope: "RESULTS", sortBy: "LATEST_RESULT", page: 0, size: 1 }),
-          getPublicRacingSummary(),
-        ]);
-        if (isMounted) {
-          setFeaturedRace(selectNextToPost(upcoming.content, results.content));
-          setPublicSummary(summary);
-        }
-      } catch (err) {
-        console.error("Public featured race unavailable.", err);
-        if (isMounted) {
-          setFeaturedRace(null);
-          setPublicSummary(null);
-          setFeaturedRaceError("Could not load the featured race right now.");
-        }
-      } finally {
-        if (isMounted) setFeaturedRaceLoading(false);
-      }
-    }
-
-    loadFeaturedRace();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
   const featuredStatus = featuredRace ? raceStatus(featuredRace.status) : null;
   const featuredDistance = featuredRace ? formatDistance(featuredRace.distanceMeters) : null;
+  const featuredConcluded = featuredRace ? isRaceConcluded(featuredRace.status) : false;
+  const featuredMediaTitle = featuredHighlight?.title || featuredHighlight?.providerTitle || `${featuredRace?.name ?? "Race"} highlight`;
+  const featuredWinnerEntry = featuredResult?.entries.find((entry) => entry.position === 1)
+    ?? featuredResult?.entries.find((entry) => entry.horseName === featuredRace?.winner?.horseName)
+    ?? null;
+  const featuredWinner = featuredWinnerEntry ?? featuredRace?.winner ?? null;
+  const featuredDraw = featuredWinnerEntry?.laneNumber ?? featuredWinnerEntry?.startNumber ?? null;
+  const featuredWinnerTime = featuredWinnerEntry?.finishTimeSeconds ?? featuredRace?.winner?.finishTimeSeconds ?? null;
   const homeStats = [
     { value: publicSummary ? String(publicSummary.raceCount) : "—", label: "Races on Calendar" },
     { value: publicSummary ? String(publicSummary.raceDayCount) : "—", label: "Race Days" },
@@ -245,6 +276,160 @@ export function HomePage() {
         <style>{`@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-33.33%)}}`}</style>
       </div>
 
+      {/* ───────────────────────  FEATURED RACE  ─────────────────────── */}
+      <section id="races" className="relative overflow-hidden border-y border-white/8 bg-turf-900 py-20 md:py-28">
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold-400/45 to-transparent" />
+        <div className="mx-auto grid max-w-[1400px] items-center gap-12 px-6 md:px-12 lg:grid-cols-[0.82fr_1.18fr] lg:gap-16">
+          <MotionReveal>
+            {featuredRaceLoading ? (
+              <div aria-label="Loading featured race" className="animate-pulse">
+                <div className="h-3 w-40 rounded-full bg-white/10" />
+                <div className="mt-6 h-14 w-4/5 rounded bg-white/10" />
+                <div className="mt-3 h-14 w-3/5 rounded bg-white/10" />
+                <div className="mt-10 h-28 rounded-xl bg-white/10" />
+              </div>
+            ) : featuredRace && featuredStatus ? (
+              <>
+                <div className="flex flex-wrap items-center gap-4">
+                  <Eyebrow tone="gold">
+                    {featuredHighlight ? "Latest Race Replay" : featuredConcluded ? "Latest Result" : "Next To Post"}
+                  </Eyebrow>
+                  <StatusPill
+                    label={featuredConcluded && featuredRace.resultOfficial ? "Official result" : featuredStatus.label}
+                    tone={featuredStatus.tone}
+                  />
+                </div>
+                <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-ivory-faint">
+                  {featuredRace.tournamentName}
+                </p>
+                <h2 className="mt-3 max-w-2xl text-balance font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
+                  {featuredRace.name}
+                </h2>
+                <p className="mt-7 max-w-xl text-lg font-light leading-relaxed text-ivory-dim">
+                  {featuredHighlight
+                    ? "See the winner, then watch the decisive moments from the official replay."
+                    : featuredConcluded
+                      ? "Review the official finish order and the race that shaped the standings."
+                      : "Post time, field details, and prediction access — everything needed before the gates open."}
+                </p>
+
+                {featuredConcluded && featuredWinner ? (
+                  <div className="mt-9 overflow-hidden rounded-2xl border border-gold-400/25 bg-gradient-to-br from-turf-800 to-turf-950 shadow-[0_24px_70px_-45px_rgba(212,175,55,0.65)]">
+                    <div className="p-5 sm:p-6">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gold-400 font-data text-sm font-black text-turf-950">
+                          1
+                        </span>
+                        <SilkChip seed={`${featuredWinnerEntry?.raceParticipantId ?? featuredRace.id}-${featuredWinner.horseName}`} className="h-10 w-10" />
+                        <span className="font-data text-[11px] uppercase tracking-[0.18em] text-gold-300">
+                          {featuredRace.resultOfficial ? "Official winner" : "Winner under review"}
+                        </span>
+                        <span className="ml-auto rounded-full border border-white/10 px-3 py-1 font-data text-[10px] uppercase tracking-[0.14em] text-ivory-faint">
+                          Draw {featuredDraw ?? "TBA"}
+                        </span>
+                      </div>
+                      <h3 className="mt-5 text-balance font-display text-4xl font-medium leading-none text-ivory">
+                        {featuredWinner.horseName}
+                      </h3>
+                      <p className="mt-3 text-base text-ivory-dim">{featuredWinner.jockeyName || "Jockey TBA"}</p>
+                    </div>
+                    <dl className="grid grid-cols-3 divide-x divide-white/8 border-t border-white/8 bg-turf-950/55">
+                      {([
+                        ["Distance", featuredDistance ?? "TBA"],
+                        ["Field", `${featuredRace.participantCount} runners`],
+                        ["Final time", formatResultTime(featuredWinnerTime)],
+                      ] as const).map(([label, value]) => (
+                        <div key={label} className="min-w-0 px-3 py-4 sm:px-5">
+                          <dt className="font-data text-[9px] uppercase tracking-[0.14em] text-ivory-faint">{label}</dt>
+                          <dd className="mt-1 truncate font-data text-sm font-semibold text-ivory sm:text-base">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </div>
+                ) : (
+                  <dl className="mt-9 grid gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5 sm:grid-cols-3">
+                    {([
+                      ["Post Time", formatPostTime(featuredRace.raceDateTime)],
+                      ["Distance", featuredDistance ?? "TBA"],
+                      ["Max Field", `${featuredRace.maxParticipants} max`],
+                    ] as const).map(([label, value]) => (
+                      <div key={label} className="bg-turf-950 px-5 py-5">
+                        <dt className="eyebrow text-ivory-faint">{label}</dt>
+                        <dd className="font-data mt-2 text-xl font-semibold text-ivory md:text-2xl">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
+
+                <div className="mt-9 flex flex-wrap items-center gap-5">
+                  <Link
+                    to={`/races/${featuredRace.id}`}
+                    aria-label={
+                      featuredConcluded
+                        ? `View official result for ${featuredRace.name}`
+                        : `Open ${featuredRace.name} race card`
+                    }
+                    className="group inline-flex min-h-12 items-center gap-2.5 rounded-sm bg-gold-400 px-6 text-[12px] font-bold uppercase tracking-[0.16em] text-turf-950 transition-colors hover:bg-gold-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ivory"
+                  >
+                    {featuredConcluded ? "View Official Result" : "Open Race Card"}
+                    <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                  </Link>
+                  <Link
+                    to={featuredConcluded ? "/races?scope=RESULTS" : "/races"}
+                    className="inline-flex min-h-12 items-center text-[12px] font-bold uppercase tracking-[0.16em] text-ivory-dim transition-colors hover:text-gold-200"
+                  >
+                    {featuredConcluded ? "More results" : "Full programme"}
+                  </Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <Eyebrow tone="gold">Race Desk</Eyebrow>
+                <h2 className="mt-5 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
+                  Follow the card.
+                </h2>
+                <p role={featuredRaceError ? "alert" : undefined} className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim">
+                  {featuredRaceError ?? "No races are on the card yet."}
+                </p>
+                <Link to="/races" className="group mt-9 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200">
+                  View the Full Programme
+                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </>
+            )}
+          </MotionReveal>
+
+          <MotionReveal delay={0.12}>
+            <article className="overflow-hidden rounded-2xl border border-gold-400/20 bg-turf-950 shadow-[0_34px_90px_-55px_rgba(0,0,0,0.95)]">
+              {featuredHighlight ? (
+                <YouTubeEmbed
+                  embedUrl={featuredHighlight.embedUrl}
+                  title={featuredMediaTitle}
+                  thumbnailUrl={featuredHighlight.thumbnailUrl}
+                  playLabel="Play highlight"
+                />
+              ) : (
+                <div className="group relative aspect-video overflow-hidden">
+                  <img src={heroImage} alt="Thoroughbreds rounding the turn at Aqueduct" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-turf-950 via-turf-950/15 to-transparent" />
+                </div>
+              )}
+              <div className="flex flex-col gap-4 border-t border-white/8 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="min-w-0">
+                  <p className="font-data text-[10px] uppercase tracking-[0.28em] text-gold-300">
+                    {featuredRace?.code ?? "Race programme"}
+                  </p>
+                  <p className="mt-2 truncate font-display text-xl font-medium text-ivory md:text-2xl">
+                    {featuredHighlight ? featuredMediaTitle : featuredRace?.name ?? "Full race programme"}
+                  </p>
+                </div>
+                {featuredStatus ? <StatusPill label={featuredStatus.label} tone={featuredStatus.tone} /> : null}
+              </div>
+            </article>
+          </MotionReveal>
+        </div>
+      </section>
+
       {/* ─────────────────────  CHAMPIONSHIP PILLARS  ───────────────────── */}
       <section id="championships" className="relative bg-turf-950 py-24 md:py-32">
         <div className="mx-auto max-w-[1400px] px-6 md:px-12">
@@ -279,101 +464,6 @@ export function HomePage() {
               </MotionStaggerItem>
             ))}
           </MotionStagger>
-        </div>
-      </section>
-
-      {/* ───────────────────────  FEATURED RACE  ─────────────────────── */}
-      <section id="races" className="relative overflow-hidden bg-turf-900 py-24 md:py-32">
-        <div className="mx-auto grid max-w-[1400px] items-center gap-14 px-6 md:px-12 lg:grid-cols-2">
-          <MotionReveal>
-            {featuredRaceLoading ? (
-              <div aria-label="Loading featured race" className="animate-pulse">
-                <div className="h-3 w-36 rounded-full bg-white/10" />
-                <div className="mt-6 h-14 w-4/5 rounded bg-white/10" />
-                <div className="mt-3 h-14 w-3/5 rounded bg-white/10" />
-                <div className="mt-10 h-28 rounded-xl bg-white/10" />
-              </div>
-            ) : featuredRace && featuredStatus ? (
-              <>
-                <Eyebrow tone="gold">Featured Race</Eyebrow>
-                <p className="mt-5 text-xs font-bold uppercase tracking-[0.18em] text-ivory-faint">
-                  {featuredRace.tournamentName}
-                </p>
-                <h2 className="mt-3 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
-                  {featuredRace.name}
-                </h2>
-                <p className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim">
-                  Open the race card for post time, distance, and the latest field details.
-                </p>
-
-                <dl className="mt-10 grid grid-cols-3 gap-px overflow-hidden rounded-xl border border-white/10 bg-white/5">
-                  {[
-                    ["Post Time", formatPostTime(featuredRace.raceDateTime)],
-                    ["Distance", featuredDistance ?? "TBA"],
-                    ["Max Field", `${featuredRace.maxParticipants} max`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="bg-turf-950 px-5 py-6">
-                      <dt className="eyebrow text-ivory-faint">{label}</dt>
-                      <dd className="font-data mt-2 text-2xl font-semibold text-ivory">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-
-                <Link
-                  to={`/races/${featuredRace.id}`}
-                  aria-label={`Open ${featuredRace.name} race card`}
-                  className="group mt-10 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200"
-                >
-                  Open Race Card
-                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              </>
-            ) : (
-              <>
-                <Eyebrow tone="gold">Featured Race</Eyebrow>
-                <h2 className="mt-5 font-display text-4xl font-light leading-[1.02] tracking-tight text-ivory md:text-6xl">
-                  Race Calendar
-                </h2>
-                <p
-                  role={featuredRaceError ? "alert" : undefined}
-                  className="mt-7 max-w-md text-lg font-light leading-relaxed text-ivory-dim"
-                >
-                  {featuredRaceError ?? "No races are on the card yet."}
-                </p>
-                <Link
-                  to="/races"
-                  className="group mt-10 inline-flex items-center gap-2.5 text-[13px] font-bold uppercase tracking-[0.16em] text-gold-300 transition-colors hover:text-gold-200"
-                >
-                  View the Full Calendar
-                  <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              </>
-            )}
-          </MotionReveal>
-
-          <MotionReveal delay={0.15}>
-            <div className="group relative aspect-[4/5] overflow-hidden rounded-2xl border border-white/10">
-              <img
-                src={heroImage}
-                alt="Thoroughbreds rounding the turn at Aqueduct"
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-turf-950 via-turf-950/20 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between p-7">
-                <div>
-                  <p className="font-data text-[11px] uppercase tracking-[0.3em] text-gold-300">
-                    {featuredRace?.code ?? "Race card"}
-                  </p>
-                  <p className="mt-2 font-display text-2xl font-medium text-ivory">
-                    {featuredRace?.name ?? "Full calendar"}
-                  </p>
-                </div>
-                {featuredStatus ? (
-                  <StatusPill label={featuredStatus.label} tone={featuredStatus.tone} />
-                ) : null}
-              </div>
-            </div>
-          </MotionReveal>
         </div>
       </section>
 
@@ -461,11 +551,11 @@ export function HomePage() {
               ))}
             </div>
           ) : blogsError ? (
-            <div className="rounded-2xl border-l-4 border-nyraRed bg-turf-950 px-6 py-5 text-sm font-semibold text-rose-300" role="alert">
+            <div className="rounded-2xl border border-nyraRed/50 bg-nyraRed/5 px-6 py-5 text-sm font-semibold text-rose-300" role="alert">
               {blogsError}
             </div>
           ) : latestBlogs.length === 0 ? (
-            <div className="rounded-2xl border-l-4 border-gold-400 bg-turf-950 px-6 py-5 text-sm font-semibold text-ivory-dim">
+            <div className="rounded-2xl border border-gold-400/35 bg-gold-400/5 px-6 py-5 text-sm font-semibold text-ivory-dim">
               No published stories yet — the newsroom opens with the season.
             </div>
           ) : (
