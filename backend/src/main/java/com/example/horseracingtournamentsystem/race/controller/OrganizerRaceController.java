@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.race.dto.request.ReopenResultsReq
 import com.example.horseracingtournamentsystem.race.dto.response.PublicRaceResultResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse;
 import com.example.horseracingtournamentsystem.race.service.RaceService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -87,7 +88,7 @@ public class OrganizerRaceController {
 
     /** BR-16: BTC đọc tường trình + sự cố/khiếu nại của trọng tài trước khi chốt kết quả. */
     @GetMapping("/{id}/review-package")
-    public com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse reviewPackage(
+    public RaceReviewPackageResponse reviewPackage(
             @PathVariable Long id,
             Authentication authentication
     ) {

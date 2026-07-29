@@ -94,6 +94,13 @@ export type ViolationEntry = {
 export type ObjectionKind = "OBJECTION_INTERFERENCE" | "OBJECTION_GENERAL";
 export type ObjectionDecision = "NO_CHANGE" | "RIDER_PENALTY" | "RESULT_AMENDED";
 
+/** Nhãn hiển thị của phán quyết — dùng chung cho form trọng tài và panel Ban tổ chức. */
+export const OBJECTION_DECISION_LABELS: Record<ObjectionDecision, string> = {
+  NO_CHANGE: "No change to result",
+  RIDER_PENALTY: "Rider penalty, result stands",
+  RESULT_AMENDED: "Result amended",
+};
+
 export type RaceObjectionDraft = {
   kind: ObjectionKind;
   raisedByParticipantId: number;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  OBJECTION_DECISION_LABELS,
   ObjectionDecision,
   ObjectionKind,
   ParticipantVerification,
@@ -8,11 +9,7 @@ import {
 
 const FOUL_TYPES = ["interference", "crossing", "contact", "improper whip use", "other"];
 const SUBJECTS = ["referee decision", "track condition", "equipment", "other"];
-const DECISIONS: { value: ObjectionDecision; label: string }[] = [
-  { value: "NO_CHANGE", label: "No change to result" },
-  { value: "RIDER_PENALTY", label: "Rider penalty, result stands" },
-  { value: "RESULT_AMENDED", label: "Result amended" },
-];
+const DECISIONS = Object.entries(OBJECTION_DECISION_LABELS) as [ObjectionDecision, string][];
 
 const FIELD_CLASS =
   "mt-1 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-black text-slate-900 outline-none focus:border-[#007a68] focus:ring-2 focus:ring-[#007a68]/20";
@@ -230,9 +227,9 @@ export function ObjectionForm({
             onChange={(event) => setDecision(event.target.value as ObjectionDecision)}
             value={decision}
           >
-            {DECISIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
+            {DECISIONS.map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
               </option>
             ))}
           </select>

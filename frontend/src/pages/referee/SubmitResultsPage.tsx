@@ -6,6 +6,7 @@ import {
   getAssignedRace,
   getRaceParticipants,
   getRaceResultEntries,
+  OBJECTION_DECISION_LABELS,
   ParticipantResultEntry,
   ParticipantVerification,
   RaceObjectionDraft,
@@ -24,12 +25,6 @@ const LOCKED_STATUS_MESSAGES: Record<string, string> = {
 
 /** Khiếu nại đã ghi, kèm id phía client để biết cái nào đã gửi lên server rồi. */
 type RecordedObjection = RaceObjectionDraft & { clientId: number };
-
-const DECISION_LABELS: Record<string, string> = {
-  NO_CHANGE: "No change to result",
-  RIDER_PENALTY: "Rider penalty, result stands",
-  RESULT_AMENDED: "Result amended",
-};
 
 function EntryRow({
   badge,
@@ -416,7 +411,7 @@ export function SubmitResultsPage() {
                       {buildObjectionDescription(objection)}
                     </p>
                     <p className="mt-1 text-xs font-black uppercase tracking-wider text-amber-800">
-                      {DECISION_LABELS[objection.decision]}
+                      {OBJECTION_DECISION_LABELS[objection.decision]}
                     </p>
                   </li>
                 ))}

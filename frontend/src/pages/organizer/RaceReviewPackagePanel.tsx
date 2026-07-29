@@ -1,11 +1,6 @@
 import { useEffect, useState } from "react";
 import { getOrganizerReviewPackage, RaceReviewPackage } from "../../api/racingApi";
-
-const DECISION_LABELS: Record<string, string> = {
-  NO_CHANGE: "No change to result",
-  RIDER_PENALTY: "Rider penalty, result stands",
-  RESULT_AMENDED: "Result amended",
-};
+import { OBJECTION_DECISION_LABELS, ObjectionDecision } from "../../api/refereeApi";
 
 /**
  * BR-16: Ban tổ chức duyệt cả hồ sơ, không chỉ thứ hạng.
@@ -49,7 +44,9 @@ export function RaceReviewPackagePanel({ raceId }: { raceId: number }) {
                   {objection.description}
                 </p>
                 <p className="mt-1 text-[10px] font-black uppercase tracking-wider text-amber-800">
-                  {DECISION_LABELS[objection.penalty ?? ""] ?? objection.penalty ?? "No decision recorded"}
+                  {OBJECTION_DECISION_LABELS[objection.penalty as ObjectionDecision] ??
+                    objection.penalty ??
+                    "No decision recorded"}
                 </p>
               </li>
             ))}

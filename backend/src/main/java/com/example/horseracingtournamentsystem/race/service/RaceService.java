@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceSummaryResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.PublicRaceResultResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.PublicRacingSummaryResponse;
@@ -24,6 +25,9 @@ import com.example.horseracingtournamentsystem.championship.entity.RefereeContra
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
 import com.example.horseracingtournamentsystem.notification.service.NotificationService;
+import com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse;
+import com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository;
+import com.example.horseracingtournamentsystem.referee.repository.ViolationRepository;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
@@ -59,8 +63,8 @@ public class RaceService {
     private final TournamentParticipantRepository tournamentParticipantRepository;
     private final RefereeContractRepository refereeContractRepository;
     private final NotificationService notificationService;
-    private final com.example.horseracingtournamentsystem.referee.repository.ViolationRepository violationRepository;
-    private final com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository refereeReportRepository;
+    private final ViolationRepository violationRepository;
+    private final RefereeReportRepository refereeReportRepository;
 
     private static final Map<RaceStatus, Set<RaceStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             RaceStatus.SCHEDULED, Set.of(RaceStatus.CHECKING, RaceStatus.CANCELLED),
@@ -202,15 +206,14 @@ public class RaceService {
      * Chỉ đọc — không chặn nút Confirm, vì khiếu nại đã được trọng tài xử lý xong tại chỗ.
      */
     @Transactional(readOnly = true)
-    public com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse
-            getOrganizerReviewPackage(Long id, String organizerEmail) {
+    public RaceReviewPackageResponse getOrganizerReviewPackage(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
 
-        List<com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse> incidents =
+        List<RaceIncidentResponse> incidents =
                 violationRepository.findAllByRace_IdOrderByOccurredAtAsc(race.getId()).stream()
                         .map(violation -> {
                             RaceParticipant participant = violation.getParticipant();
-                            return new com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse(
+                            return new RaceIncidentResponse(
                                     violation.getId(),
                                     violation.getViolationType(),
                                     participant == null ? null : participant.getId(),
@@ -227,10 +230,9 @@ public class RaceService {
                         .toList();
 
         return refereeReportRepository.findFirstByRace_IdOrderByIdDesc(race.getId())
-                .map(report -> new com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse(
+                .map(report -> new RaceReviewPackageResponse(
                         report.getTitle(), report.getSummary(), report.getRejectionReason(), incidents))
-                .orElseGet(() -> new com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse(
-                        null, null, null, incidents));
+                .orElseGet(() -> new RaceReviewPackageResponse(null, null, null, incidents));
     }
 
     /** Đồng bộ trạng thái các dòng RaceResult theo trạng thái race khi chốt/công bố. */
