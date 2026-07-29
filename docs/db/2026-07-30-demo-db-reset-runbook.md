@@ -180,19 +180,28 @@ seed thì phải làm một trong hai:
 - Vào tab Actions trên GitHub, bấm **Run workflow** (`workflow_dispatch` đã bật), hoặc
 - SSH vào VPS rồi `cd /opt/hrts && git pull --ff-only` bằng tay.
 
-### B1. Commit và merge vào main
+### B1. Merge vào main
+
+Việc reset đã nằm trong 4 commit (`5d3d3b2`, `f27d302`, `0761560`, `709fc50`) — **không cần
+commit thêm gì**. Đừng chạy `git add -A`: nhánh này còn thay đổi **chưa commit** ở
+`frontend/src/pages/public/*` (RacesPage, RaceAgenda, SegmentedControl, racingDiscovery), và
+`add -A` sẽ quét chúng vào commit rồi đẩy lên production.
+
+Kiểm tra trước cho chắc:
 
 ```bash
-git add -A && git commit -m "feat: reset demo data - bo seed tien, timeline nhat quan, thu tu runner theo lane"
+git status --short
 ```
+
+Chỉ được thấy các file frontend đang dở. Chúng chưa commit nên **sẽ không theo lên main** —
+cứ để nguyên đó, làm tiếp sau.
 
 ```bash
 git checkout main && git pull && git merge refactor/refactor-client-UI && git push
 ```
 
-> Nhánh này còn thay đổi dở ở `frontend/src/pages/public/*` (RacesPage, RaceAgenda,
-> SegmentedControl, racingDiscovery). Merge vào main là đẩy luôn cả phần đó lên production.
-> Nếu chưa muốn thì cherry-pick riêng các commit của lần reset này.
+> Nếu nhánh này còn commit khác chưa muốn lên production, cherry-pick riêng 4 commit trên
+> thay vì merge cả nhánh.
 
 ### B2. Chờ GitHub Actions xanh
 

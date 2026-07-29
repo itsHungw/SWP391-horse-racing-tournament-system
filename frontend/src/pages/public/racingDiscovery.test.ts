@@ -4,6 +4,7 @@ import {
   groupAgendaRaces,
   groupRacesByTimeSlot,
   parseRaceDiscoveryQuery,
+  selectRacePulse,
   selectChampionshipInFocus,
   selectNextToPost,
 } from "./racingDiscovery";
@@ -93,7 +94,7 @@ describe("public racing discovery helpers", () => {
     ).toBe(2);
   });
 
-  it("groups agenda races by live, today, tomorrow, this week, and later", () => {
+  it("groups agenda races by exact race day", () => {
     const groups = groupAgendaRaces(
       [
         race(1, "2026-06-12T10:00:00", "ONGOING"),
@@ -106,11 +107,11 @@ describe("public racing discovery helpers", () => {
     );
 
     expect(groups.map((group) => group.label)).toEqual([
-      "Live Now",
-      "Today",
-      "Tomorrow",
-      "This Week",
-      "Later This Month",
+      "Live now",
+      "Today · Fri, Jun 12",
+      "Tomorrow · Sat, Jun 13",
+      "Mon, Jun 15",
+      "Thu, Jun 25",
     ]);
   });
 
@@ -137,4 +138,41 @@ describe("public racing discovery helpers", () => {
       expect.objectContaining({ scope: "UPCOMING", view: "agenda", page: 0 }),
     );
   });
+it("selects a live race before any latest result", () => {
+  const selected = selectRacePulse(
+    [race(1, "2026-07-29T14:00:00", "ONGOING")],
+    [race(2, "2026-07-28T14:00:00", "PUBLISHED")],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "LIVE", race: { id: 1 } });
+});
+
+it("selects the latest official result when no race is live", () => {
+  const selected = selectRacePulse(
+    [],
+    [
+      race(1, "2026-07-27T14:00:00", "RESULT_CONFIRMED"),
+      race(2, "2026-07-28T14:00:00", "PUBLISHED"),
+    ],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "LATEST_RESULT", race: { id: 2 } });
+});
+
+it("falls back to the nearest future race when no official result exists", () => {
+  const selected = selectRacePulse(
+    [race(1, "2026-07-28T14:00:00"), race(2, "2026-08-01T14:00:00")],
+    [],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "NEXT_RACE", race: { id: 2 } });
+});
+
+it("returns null when there is no live, official, or future race", () => {
+  expect(selectRacePulse([], [], new Date("2026-07-29T12:00:00"))).toBeNull();
+});
+
 });

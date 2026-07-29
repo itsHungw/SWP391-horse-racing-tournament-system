@@ -1,8 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getPublicRaceHighlight } from "../../api/raceMediaApi";
+import { getPublicRaceHighlight, getPublicRaceLiveStream } from "../../api/raceMediaApi";
 import { searchPublicRaces, searchPublicTournaments } from "../../api/racingApi";
 import type { RaceSummary } from "../../types/racing";
 import { clearPublicQueryCache } from "../../hooks/usePublicQuery";
@@ -15,6 +15,7 @@ vi.mock("../../api/racingApi", () => ({
 
 vi.mock("../../api/raceMediaApi", () => ({
   getPublicRaceHighlight: vi.fn(),
+  getPublicRaceLiveStream: vi.fn(),
 }));
 
 const upcoming: RaceSummary = {
@@ -52,6 +53,7 @@ describe("RacesPage", () => {
       size: 100,
     });
     vi.mocked(getPublicRaceHighlight).mockResolvedValue(null);
+    vi.mocked(getPublicRaceLiveStream).mockResolvedValue(null);
   });
 
   it("defaults to the upcoming agenda and keeps calendar as a secondary view", async () => {
@@ -61,18 +63,32 @@ describe("RacesPage", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Next To Post")).toBeInTheDocument();
+    expect(await screen.findByText("Next on the programme")).toBeInTheDocument();
     expect(screen.getAllByText(upcoming.name).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: /view race card/i }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("grid", { name: /race calendar/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("radiogroup", { name: "Race programme scope" }).parentElement).not.toHaveClass("overflow-x-auto");
-    expect(screen.getByRole("radiogroup", { name: "Race programme layout" }).parentElement).not.toHaveClass("overflow-x-auto");
+    expect(screen.getByRole("radiogroup", { name: "Race programme scope" })).toHaveAttribute("data-accent", "gold");
+    expect(screen.getByRole("radiogroup", { name: "Race programme layout" })).toHaveAttribute("data-accent", "neutral");
+
+    const filtersSummary = screen.getByText("Filters");
+    const filters = filtersSummary.closest("details");
+    expect(filters).not.toHaveAttribute("open");
+    fireEvent.click(filtersSummary);
+    expect(filters).toHaveAttribute("open");
+    expect(screen.getByLabelText("Search races")).toBeInTheDocument();
+
+    const contextualActions = screen.getAllByRole("article").find((article) =>
+      within(article).queryByRole("link", { name: /make prediction/i }) && within(article).queryByRole("link", { name: /view race card/i }),
+    );
+    expect(contextualActions).toBeDefined();
+    expect(within(contextualActions!).getAllByRole("link").map((link) => link.textContent?.trim())).toEqual(["View race card", "Make prediction"]);
 
     fireEvent.click(screen.getByRole("radio", { name: "Calendar" }));
     expect(await screen.findByRole("grid", { name: /race calendar/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /predict.*calendar/i })).not.toBeInTheDocument();
   });
 
-  it("shows the next race first and keeps the latest replay beside it", async () => {
+  it("shows the latest official highlight first and keeps the next race in context", async () => {
     const latestResult: RaceSummary = {
       ...upcoming,
       id: 24,
@@ -107,9 +123,15 @@ describe("RacesPage", () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText("Next To Post")).toBeInTheDocument();
-    expect(await screen.findByText("Latest replay")).toBeInTheDocument();
+    expect(await screen.findByText("Latest official result")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: latestResult.name })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /play replay: belmont sprint final highlight/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /watch highlight: belmont sprint final highlight/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /view full result/i })).toBeInTheDocument();
+    const resultPulse = screen.getByText("Latest official result").closest("article");
+    expect(resultPulse).toBeDefined();
+    expect(within(resultPulse!).queryByRole("link", { name: /^make prediction$/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Results" }));
+    expect(await screen.findByText("Sat, Jul 25")).toBeInTheDocument();
   });
 });
