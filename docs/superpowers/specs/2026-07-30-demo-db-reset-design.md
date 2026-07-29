@@ -230,7 +230,26 @@ Downtime ≈ start image + Flyway + 90s health start_period.
 - Seed demo `topup_orders` / `withdrawal_requests` / `user_bank_accounts`.
 - Sửa `WalletSummaryService` hay bất kỳ logic ví nào — không có bug ở đó.
 
-## 10. Deliverables
+## 10. Phát hiện thêm khi thực thi
+
+**`lane_number` và `start_number` không được code nào trong app ghi vào.** Hai cột này chỉ
+được đọc ra DTO (`RaceParticipantResponse`, `JockeyScheduleItemResponse`) và một native query;
+entity `RaceParticipant` khai báo chúng nhưng không có setter, không có factory nào gán, không
+có UPDATE nào trong service. Chỉ seed script điền. Hệ quả:
+
+- Với dữ liệu thật tạo qua app, `lane_number` luôn NULL, nên `order by laneNumber asc nulls
+  last, id asc` rơi về `id asc` — vẫn xác định và ổn định (id không đổi khi UPDATE dòng), đúng
+  thứ tự đăng ký. Fix vẫn đạt mục tiêu: hết non-determinism, hết reshuffle theo thời gian.
+- Tính năng gán số áo / bốc thăm lane chưa được làm. Nằm ngoài scope lần này.
+
+**`EnumStatusContractTest` đọc và assert trực tiếp `demo_data_script.sql`.** Test này neo vào
+tiêu đề section 13 nên vỡ khi đổi tên section (`StringIndexOutOfBounds` do `indexOf` trả −1).
+Đã sửa anchor và thêm assert cấm 4 dạng seed tiền, biến quyết định ở mục 3 thành contract có
+test canh thay vì chỉ là comment.
+
+**Giải OPEN_REGISTRATION nhận registration thật, không nhận race** — xem lý do ở mục 6.
+
+## 11. Deliverables
 
 - `demo_data_script.sql` đã dọn (commit 1: data demo).
 - `RaceParticipantRepository` + 15 call site + integration test (commit 2: bug sản phẩm).
