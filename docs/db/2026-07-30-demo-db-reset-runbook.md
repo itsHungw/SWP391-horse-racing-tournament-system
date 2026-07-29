@@ -63,14 +63,31 @@ docker exec hrts-postgres psql -U horseracing -d horseracing -tAc "SELECT count(
 
 ### A5. Chạy seed script
 
-`-v ON_ERROR_STOP=1` để psql dừng ngay khi có lỗi thay vì chạy tiếp và để lại DB nửa vời:
+**PowerShell không dùng được `<`** (`The '<' operator is reserved for future use`). Cách chạy
+file .sql trên Windows: copy file vào container rồi dùng `psql -f`.
 
-```bash
-docker exec -i hrts-postgres psql -U horseracing -d horseracing -v ON_ERROR_STOP=1 < demo_data_script.sql
+```powershell
+docker cp demo_data_script.sql hrts-postgres:/tmp/seed.sql
 ```
 
-Toàn bộ phần ghi dữ liệu nằm trong một khối `DO $$ ... $$` nên nếu lỗi giữa đường thì tự
-rollback sạch, không để lại dữ liệu dở dang.
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -v ON_ERROR_STOP=1 -f /tmp/seed.sql
+```
+
+`-v ON_ERROR_STOP=1` để psql dừng ngay khi có lỗi thay vì chạy tiếp và để lại DB nửa vời. Toàn
+bộ phần ghi dữ liệu nằm trong một khối `DO $$ ... $$` nên nếu lỗi giữa đường thì tự rollback
+sạch, không để lại dữ liệu dở dang.
+
+Cách khác, một dòng, nhờ `cmd` chạy phần redirect (đã test, chạy đúng):
+
+```powershell
+cmd /c "docker exec -i hrts-postgres psql -U horseracing -d horseracing -v ON_ERROR_STOP=1 < demo_data_script.sql"
+```
+
+**Đừng dùng `Get-Content ... | docker exec -i psql`**: PowerShell chèn BOM vào đầu stream, psql
+báo `syntax error at or near "﻿"` ngay dòng 1.
+
+Trên VPS là bash nên `<` chạy bình thường — xem bước B7.
 
 ### A6. Đọc kết quả — bảng INVARIANTS là chỗ quan trọng nhất
 
@@ -305,6 +322,82 @@ docker compose -f docker-compose.prod.yml --env-file infra/.env.prod exec -T pos
 Ngay sau seed: `wallets = 0`, `txns = 0`, `users = 26`, `race_participants = 128`.
 
 ---
+
+## Cheat sheet: dùng docker để truy cập DB (PowerShell)
+
+Tên container local: `hrts-postgres`. User/DB mặc định: `horseracing` / `horseracing` (theo
+`docker-compose.yml`, đổi theo `.env` nếu bạn sửa).
+
+**Vào shell psql để gõ SQL tương tác:**
+
+```powershell
+docker exec -it hrts-postgres psql -U horseracing -d horseracing
+```
+
+Trong shell đó: `\dt` liệt kê bảng, `\d users` xem cấu trúc bảng, `\dn` xem schema,
+`\l` liệt kê database, `\x` bật chế độ xem dọc (dễ đọc bảng nhiều cột), `\q` thoát.
+Nhớ có `;` cuối câu SQL.
+
+**Chạy một query không cần vào shell** (`-c`):
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT id, email, status FROM users ORDER BY id LIMIT 10;"
+```
+
+**Lấy đúng một giá trị, không viền bảng** (`-tAc` = tuples only + unaligned):
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -tAc "SELECT count(*) FROM race_participants;"
+```
+
+**Chạy file .sql**: xem bước A5 — `docker cp` rồi `psql -f`, hoặc `cmd /c "... < file.sql"`.
+
+**Chạy nhiều query một lần**: nối nhiều `-c`.
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT count(*) FROM wallets;" -c "SELECT count(*) FROM tournaments;"
+```
+
+**Xóa và tạo lại database** (`WITH (FORCE)` ngắt luôn connection đang mở nên không cần tắt backend):
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d postgres -c "DROP DATABASE IF EXISTS horseracing WITH (FORCE);" -c "CREATE DATABASE horseracing OWNER horseracing;"
+```
+
+**Xuất kết quả ra file để đọc kỹ:**
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT * FROM races ORDER BY id;" | Out-File -Encoding UTF8 races.txt
+```
+
+**Cắt output dài** cho khỏi tràn màn hình: `| Select-Object -Last 20` hoặc `-First 20`.
+
+### Vài query hay dùng để soát dữ liệu demo
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT (SELECT count(*) FROM wallets) AS wallets, (SELECT count(*) FROM wallet_transactions) AS txns, (SELECT count(*) FROM race_predictions) AS predictions, (SELECT count(*) FROM users) AS users, (SELECT count(*) FROM race_participants) AS race_participants;"
+```
+
+Ngay sau seed: `wallets`, `txns`, `predictions` đều **0**; `race_participants` = **128**.
+
+Thứ tự lane đúng như API sẽ trả về (phải ra `1,2,3,4,5,6,7,8` mọi race):
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT r.code, string_agg(p.lane_number::text, ',' ORDER BY ord) AS lane_order FROM races r JOIN LATERAL (SELECT lane_number, row_number() OVER () AS ord FROM race_participants WHERE race_id = r.id ORDER BY lane_number ASC NULLS LAST, id ASC) p ON true GROUP BY r.code, r.id ORDER BY r.code;"
+```
+
+Lịch đua và trạng thái:
+
+```powershell
+docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT t.code, r.race_number, r.status, r.race_at FROM races r JOIN tournaments t ON t.id=r.tournament_id ORDER BY t.code, r.race_number;"
+```
+
+### Ba cái bẫy PowerShell
+
+1. **`<` không tồn tại** — dùng `docker cp` + `psql -f`, hoặc bọc trong `cmd /c`.
+2. **`Get-Content | docker exec -i psql` chèn BOM** → `syntax error at or near "﻿"`.
+3. **psql ghi thông báo ra stderr, PowerShell tô đỏ thành `NativeCommandError`** dù lệnh chạy
+   đúng. Nhìn nội dung thông báo, đừng nhìn màu. Thêm `2>&1` cho đỡ rối.
 
 ## Xử lý sự cố
 
