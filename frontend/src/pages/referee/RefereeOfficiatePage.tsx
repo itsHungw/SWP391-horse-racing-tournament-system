@@ -430,22 +430,24 @@ export function RefereeOfficiatePage() {
               </div>
             </div>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Record finish order, elapsed times, and any referee notes. Escalate to admin review only when there is a dispute or serious incident.
+              The finish order, anything riders raised at weigh-in, and your report are all recorded on the result
+              package screen, then submitted to the organizer together.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5">
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
                 to={`/referee/races/${raceId}/results`}
               >
-                Submit results
-              </Link>
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-300 px-5 text-sm font-black text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
-                to={`/referee/races/${raceId}/report`}
-              >
-                Add incident report
+                Continue to result package
               </Link>
             </div>
+            <p className="mt-4 text-sm font-semibold text-slate-500">
+              Noticed something separate from the result?{" "}
+              <Link className="font-black text-[#007a68] underline" to={`/referee/races/${raceId}/report`}>
+                Log a race incident
+              </Link>
+              .
+            </p>
           </article>
         )
       ) : null}

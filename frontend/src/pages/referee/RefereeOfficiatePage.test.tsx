@@ -137,6 +137,40 @@ describe("RefereeOfficiatePage", () => {
     expect(screen.getByText("DNS")).toBeInTheDocument();
   });
 
+  it("points a finished race with no live draft at the result package, not the incident page", async () => {
+    // This is the common case, not the exception: the in-memory draft only exists if the
+    // referee finished the race in this browser session. Arriving from the races list or
+    // after a reload lands here, so it must not offer the incident page as an equal path.
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 5,
+      name: "Royal Ascendancy Cup 2026 - Race 3",
+      code: "R-5",
+      distanceMeters: 1400,
+      status: "FINISHED",
+    });
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+
+    render(
+      <MemoryRouter initialEntries={["/referee/races/5/officiate"]}>
+        <Routes>
+          <Route element={<RefereeOfficiatePage />} path="/referee/races/:id/officiate" />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("heading", { name: "Result package is the next step" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /continue to result package/i })).toHaveAttribute(
+      "href",
+      "/referee/races/5/results"
+    );
+    // The old label promised a report form that no longer lives on that page.
+    expect(screen.queryByRole("link", { name: /add incident report/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /log a race incident/i })).toHaveAttribute(
+      "href",
+      "/referee/races/5/report"
+    );
+  });
+
   it("captures a precise finish time between ticks instead of rounding to the tick size", async () => {
     const baseNow = 1_800_000_000_000;
     const dateNowSpy = vi.spyOn(Date, "now").mockReturnValue(baseNow);

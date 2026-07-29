@@ -503,6 +503,43 @@ describe("SubmitResultsPage", () => {
     expect(violationSpy).toHaveBeenCalledTimes(1);
   });
 
+  it("badges each row with the typed position, not its rank in the list", async () => {
+    // Two rows both typed as position 1 must both read P1. Ranking them P1/P2 would tell the
+    // referee the duplicate was resolved when it was not.
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Midnight Sovereign",
+        jockeyName: "Liam Carter",
+        position: 1,
+        finishTimeSeconds: 94.25,
+        status: "FINISHED",
+      },
+      {
+        participantId: 2,
+        horseName: "Aurora Belle",
+        jockeyName: "Emma Collins",
+        position: 1,
+        finishTimeSeconds: 94.25,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(screen.getAllByText("P1")).toHaveLength(2);
+    expect(screen.queryByText("P2")).not.toBeInTheDocument();
+  });
+
   it("shows the organizer's reason when the package was sent back", async () => {
     vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
     vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);

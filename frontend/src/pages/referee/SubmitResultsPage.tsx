@@ -336,9 +336,9 @@ export function SubmitResultsPage() {
           <div className="mt-5 space-y-3">
             <h3 className="text-sm font-black uppercase tracking-widest text-slate-700">Official top 3</h3>
             <div className="space-y-3">
-              {sortedFinishedEntries.slice(0, 3).map(({ entry, index }, position) => (
+              {sortedFinishedEntries.slice(0, 3).map(({ entry, index }) => (
                 <EntryRow
-                  badge={`P${position + 1}`}
+                  badge={entry.position ? `P${entry.position}` : null}
                   entry={entry}
                   isReadOnly={isReadOnly}
                   key={entry.participantId}
@@ -353,9 +353,9 @@ export function SubmitResultsPage() {
               <>
                 <h3 className="mt-6 text-sm font-black uppercase tracking-widest text-slate-700">Remaining finish order</h3>
                 <div className="space-y-3">
-                  {sortedFinishedEntries.slice(3).map(({ entry, index }, position) => (
+                  {sortedFinishedEntries.slice(3).map(({ entry, index }) => (
                     <EntryRow
-                      badge={`P${position + 4}`}
+                      badge={entry.position ? `P${entry.position}` : null}
                       entry={entry}
                       isReadOnly={isReadOnly}
                       key={entry.participantId}
