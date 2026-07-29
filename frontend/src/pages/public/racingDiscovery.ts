@@ -78,7 +78,14 @@ export function parseChampionshipDiscoveryQuery(params: URLSearchParams): Champi
   };
 }
 
-export function selectChampionshipInFocus(list: TournamentSummary[]) {
+/**
+ * Xếp hạng giải theo mức đáng chú ý với khán giả: đang chạy (và có race kế) trước,
+ * rồi đang mở đăng ký, rồi sắp tới, cuối cùng là đã xong.
+ *
+ * Trả về cả danh sách để banner lật được từng giải; {@link selectChampionshipInFocus}
+ * chỉ là phần tử đầu của chính danh sách này.
+ */
+export function rankChampionshipsInFocus(list: TournamentSummary[]) {
   const sorted = [...list].sort((a, b) => {
     const rank = (championship: TournamentSummary) => {
       if (championship.status === "ONGOING" && championship.nextRace) return 0;
@@ -94,19 +101,31 @@ export function selectChampionshipInFocus(list: TournamentSummary[]) {
     if (a.status === "COMPLETED") return timestamp(b.endDate, 0) - timestamp(a.endDate, 0);
     return timestamp(a.startDate) - timestamp(b.startDate);
   });
-  return sorted[0] ?? null;
+  return sorted;
+}
+
+export function selectChampionshipInFocus(list: TournamentSummary[]) {
+  return rankChampionshipsInFocus(list)[0] ?? null;
+}
+
+/**
+ * Xếp hạng race theo thứ tự khán giả quan tâm: đang chạy trước, rồi tới giờ xuất
+ * phát gần nhất, cuối cùng mới là kết quả vừa công bố (chỉ khi không còn race nào
+ * sắp chạy). Giữ đúng thứ tự ưu tiên mà selectNextToPost vẫn dùng.
+ */
+export function rankRacesToPost(upcoming: RaceSummary[], results: RaceSummary[]) {
+  const byPostTime = (a: RaceSummary, b: RaceSummary) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime);
+  const live = upcoming.filter((race) => LIVE_RACES.has(race.status.toUpperCase())).sort(byPostTime);
+  const scheduled = upcoming.filter((race) => !LIVE_RACES.has(race.status.toUpperCase())).sort(byPostTime);
+  if (live.length || scheduled.length) return [...live, ...scheduled];
+
+  return [...results]
+    .filter((race) => OFFICIAL_RESULTS.has(race.status.toUpperCase()) || race.resultOfficial)
+    .sort((a, b) => timestamp(b.raceDateTime, 0) - timestamp(a.raceDateTime, 0));
 }
 
 export function selectNextToPost(upcoming: RaceSummary[], results: RaceSummary[]) {
-  const active = upcoming
-    .filter((race) => LIVE_RACES.has(race.status.toUpperCase()))
-    .sort((a, b) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime))[0];
-  if (active) return active;
-  const next = [...upcoming].sort((a, b) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime))[0];
-  if (next) return next;
-  return [...results]
-    .filter((race) => OFFICIAL_RESULTS.has(race.status.toUpperCase()) || race.resultOfficial)
-    .sort((a, b) => timestamp(b.raceDateTime, 0) - timestamp(a.raceDateTime, 0))[0] ?? null;
+  return rankRacesToPost(upcoming, results)[0] ?? null;
 }
 
 export function groupAgendaRaces(races: RaceSummary[], now = new Date()): RaceGroup[] {

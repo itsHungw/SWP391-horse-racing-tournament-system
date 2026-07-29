@@ -4,16 +4,17 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { searchPublicRaces, searchPublicTournaments } from "../../api/racingApi";
 import heroImage from "../../assets/slide.jpg";
+import { BannerCarousel } from "../../components/client/BannerCarousel";
 import { ClientFooter } from "../../components/client/ClientFooter";
 import { ClientHeader } from "../../components/client/ClientHeader";
 import { Countdown } from "../../components/client/Countdown";
-import { Eyebrow, GoldRule, MotionReveal } from "../../components/client/primitives";
+import { GoldRule, MotionReveal } from "../../components/client/primitives";
 import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { usePublicQuery } from "../../hooks/usePublicQuery";
 import type { PageResponse, RaceSummary } from "../../types/racing";
 import { formatDistance, formatPostTime, raceStatus } from "./publicRacingData";
-import { parseRaceDiscoveryQuery, racesByDay, selectNextToPost } from "./racingDiscovery";
+import { parseRaceDiscoveryQuery, racesByDay, rankRacesToPost } from "./racingDiscovery";
 import { PublicPagination } from "./components/PublicPagination";
 import { RaceAgenda } from "./components/RaceAgenda";
 import { RaceCalendar } from "./components/RaceCalendar";
@@ -133,37 +134,64 @@ export function RacesPage() {
     }
     setParams(next);
   };
-  const featured = selectNextToPost(heroUpcoming, heroResults);
-  const latestResult = Boolean(featured && heroUpcoming.every((race) => race.id !== featured.id));
+  // Cùng lý do với ChampionshipsPage: các ô lọc khác áp dụng ngay, riêng search bắt
+  // bấm nút thì người dùng gõ xong tưởng trang hỏng. Cho search chạy trễ 350ms.
+  useEffect(() => {
+    if (draftSearch === state.search) return;
+    const timer = setTimeout(() => updateParams({ search: draftSearch, page: 0 }), 350);
+    return () => clearTimeout(timer);
+    // updateParams đọc `params` mới nhất mỗi lần chạy nên không cần vào deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftSearch, state.search]);
+
+  // Tối đa 5 race để lật, không chỉ một. `latestResult` xét theo từng race vì khi
+  // hết race sắp chạy thì danh sách rơi về kết quả vừa công bố.
+  const featuredRaces = rankRacesToPost(heroUpcoming, heroResults).slice(0, 5);
+  const isLatestResult = (race: RaceSummary) => heroUpcoming.every((upcomingRace) => upcomingRace.id !== race.id);
   const selectedRaces = selectedDay ? racesByDay(pageData.content).get(selectedDay) ?? [] : [];
 
   return (
     <div className="client-theme min-h-screen bg-turf-950 text-ivory">
       <ClientHeader />
       <main>
-        <section className="grain relative isolate overflow-hidden border-b border-white/10">
-          <img src={heroImage} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-30" />
+        {/* Masthead gọn: hero cũ cao gần hết màn hình mà không mang tin gì, đẩy race
+            kế tiếp — thứ khán giả vào đây để tìm — xuống dưới nếp gấp. */}
+        <section className="grain relative isolate overflow-hidden border-b border-white/10 bg-turf-900">
+          <img src={heroImage} alt="" className="absolute inset-0 -z-20 h-full w-full object-cover opacity-20" />
           <div className="turf-vignette absolute inset-0 -z-10" />
-          <div className="mx-auto max-w-[1400px] px-6 py-16 md:px-12 md:py-20">
-            <Eyebrow tone="gold">The Race Programme</Eyebrow>
-            <h1 className="mt-5 font-display text-5xl font-light tracking-tight md:text-7xl">Races<span className="text-foil">.</span></h1>
-            <p className="mt-5 max-w-xl text-lg leading-relaxed text-ivory-dim">Find the next post, make your prediction, or revisit the official finish order.</p>
+          <div className="mx-auto flex max-w-[1400px] flex-wrap items-end justify-between gap-x-8 gap-y-4 px-6 py-9 md:px-12">
+            <div>
+              <h1 className="font-display text-4xl font-light tracking-tight md:text-5xl">Races<span className="text-foil">.</span></h1>
+              <p className="mt-2 max-w-xl text-ivory-dim">Find the next post, make your prediction, or revisit the official finish order.</p>
+            </div>
+            <p role="status" aria-live="polite" className="font-data text-xs uppercase tracking-[0.18em] text-ivory-faint">
+              {pageData.totalElements} races
+            </p>
           </div>
         </section>
 
-        <section className="bg-turf-900 py-16 md:py-20" aria-labelledby="next-post-title">
+        {/* Race kế tiếp là nội dung đầu tiên có thể hành động — đặt cược. */}
+        <section className="bg-turf-900 pb-14 pt-6 md:pb-16" aria-labelledby="next-post-title">
           <div className="mx-auto max-w-[1400px] px-6 md:px-12">
             <h2 id="next-post-title" className="sr-only">Next to post</h2>
-            {heroLoading ? <div className="h-80 animate-pulse border border-white/10 bg-turf-950" aria-label="Loading next to post" /> : featured ? <NextToPost race={featured} latestResult={latestResult} authenticated={isAuthenticated} /> : heroFailed ? (
-              <div role="alert" className="border-l-2 border-nyraRed bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">The next race could not be loaded.</h3><p className="mt-3 text-ivory-dim">Check your connection and try again in a moment.</p></div>
+            {heroLoading ? <div className="h-80 animate-pulse border border-white/10 bg-turf-950" aria-label="Loading next to post" /> : featuredRaces.length > 0 ? (
+              <BannerCarousel
+                label="Races in focus"
+                slides={featuredRaces.map((race) => ({
+                  key: race.id,
+                  node: <NextToPost race={race} latestResult={isLatestResult(race)} authenticated={isAuthenticated} />,
+                }))}
+              />
+            ) : heroFailed ? (
+              <div role="alert" className="border border-nyraRed/50 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">The next race could not be loaded.</h3><p className="mt-3 text-ivory-dim">Check your connection and try again in a moment.</p></div>
             ) : (
-              <div className="border-l-2 border-gold-400 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">No race is on the card right now.</h3><p className="mt-3 text-ivory-dim">Check back when the next programme is published.</p></div>
+              <div className="border border-gold-400/40 bg-turf-950 px-7 py-9"><h3 className="font-display text-3xl font-light">No race is on the card right now.</h3><p className="mt-3 text-ivory-dim">Check back when the next programme is published.</p></div>
             )}
           </div>
         </section>
 
         <section className="bg-turf-950 pb-24" aria-labelledby="programme-title">
-          <div className="sticky top-[68px] z-30 border-y border-white/10 bg-turf-950/95 backdrop-blur-xl">
+          <div className="sticky top-[var(--client-header-h)] z-30 border-y border-white/10 bg-turf-950/95 backdrop-blur-xl">
             <div className="mx-auto max-w-[1400px] px-6 py-4 md:px-12">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex border border-white/15">
@@ -179,7 +207,6 @@ export function RacesPage() {
                 <select aria-label="Championship filter" value={state.tournamentId ?? ""} onChange={(event) => updateParams({ tournamentId: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70"><option value="">All championships</option>{tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name}</option>)}</select>
                 <input aria-label="From date" type="date" value={state.from ?? ""} onChange={(event) => updateParams({ from: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70" />
                 <input aria-label="To date" type="date" value={state.to ?? ""} onChange={(event) => updateParams({ to: event.target.value, page: 0 })} className="h-11 border border-white/15 bg-turf-900 px-3 text-sm text-ivory outline-none focus:border-gold-400/70" />
-                <button type="submit" className="h-11 bg-gold-400 px-5 text-xs font-bold uppercase tracking-[0.14em] text-turf-950 hover:bg-gold-300">Search</button>
               </form>
             </div>
           </div>
@@ -187,11 +214,10 @@ export function RacesPage() {
           <div className="mx-auto max-w-[1400px] px-6 pt-12 md:px-12">
             <MotionReveal className="mb-10 flex items-end justify-between gap-5 border-b border-white/10 pb-6">
               <div><h2 id="programme-title" className="font-display text-4xl font-light tracking-tight">{state.scope === "UPCOMING" ? "The next race days." : "Official record & review."}</h2><GoldRule className="mt-5 w-20" /></div>
-              <p role="status" aria-live="polite" className="font-data text-xs uppercase tracking-[0.18em] text-ivory-faint">{pageData.totalElements} races</p>
             </MotionReveal>
             {listQuery.loading ? <div className="space-y-4" aria-label="Loading race programme">{[0, 1, 2, 3].map((item) => <div key={item} className="h-32 animate-pulse border-t border-white/10 bg-white/[0.02]" />)}</div> : listQuery.error && !listQuery.data ? (
-              <div role="alert" className="border-l-2 border-nyraRed bg-turf-900 px-6 py-7"><p className="text-rose-300">Could not load the race programme right now.</p><button type="button" onClick={listQuery.retry} className="mt-5 inline-flex min-h-11 items-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60">Try again</button></div>
-            ) : pageData.content.length === 0 ? <div className="border-l-2 border-gold-400 bg-turf-900 px-7 py-9"><h3 className="font-display text-3xl font-light">{state.scope === "UPCOMING" ? "No upcoming races match this view." : "No results match this view."}</h3><p className="mt-3 text-ivory-dim">Adjust the filters or explore another championship.</p></div> : (
+              <div role="alert" className="border border-nyraRed/50 bg-turf-900 px-6 py-7"><p className="text-rose-300">Could not load the race programme right now.</p><button type="button" onClick={listQuery.retry} className="mt-5 inline-flex min-h-11 items-center border border-white/15 px-5 text-xs font-bold uppercase tracking-[0.14em] text-ivory transition-colors hover:border-gold-400/60">Try again</button></div>
+            ) : pageData.content.length === 0 ? <div className="border border-gold-400/40 bg-turf-900 px-7 py-9"><h3 className="font-display text-3xl font-light">{state.scope === "UPCOMING" ? "No upcoming races match this view." : "No results match this view."}</h3><p className="mt-3 text-ivory-dim">Adjust the filters or explore another championship.</p></div> : (
               <div aria-busy={listQuery.fetching} className={`transition-opacity duration-300 ${listQuery.fetching ? "opacity-50" : "opacity-100"}`}>
                 {state.view === "calendar" && pageData.totalElements > CALENDAR_BOUND ? (
                   <p className="mb-6 border border-gold-400/30 bg-turf-900 px-5 py-4 text-sm text-ivory-dim">
