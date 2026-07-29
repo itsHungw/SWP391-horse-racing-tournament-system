@@ -70,6 +70,7 @@ import type {
 } from "../../types/racing";
 import { getApiErrorMessage } from "../../utils/apiError";
 import { getTournamentDateValidationError } from "../../utils/tournamentDateValidation";
+import { RaceReviewPackagePanel } from "./RaceReviewPackagePanel";
 
 type ChampionshipTab = "overview" | "applications" | "participants" | "rounds" | "standings" | "controls";
 type ApplicationView = "horses" | "jockeys";
@@ -2265,8 +2266,11 @@ export function OrganizerTournamentDetailPage() {
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
                   <p className="text-sm font-black text-slate-950">Organizer Result Ratification</p>
                   <p className="text-xs font-semibold text-slate-500">
-                    Verify placement results and points. You can confirm them or send back to referee if corrections are required.
+                    Verify placement results, points, and anything the referee reported. You can confirm them or send back
+                    to referee if corrections are required.
                   </p>
+
+                  <RaceReviewPackagePanel raceId={selectedRace.id} />
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -2795,7 +2799,13 @@ function OfficialsTab({
 // ─────────────────────────────────────────────────────────────────────────────
 // FINISHING ORDER SUMMARY WORKSPACE
 // ─────────────────────────────────────────────────────────────────────────────
-function RaceResultSummary({ raceId }: { raceId: number }) {
+function nonFinishLabel(resultStatus: string): string {
+  if (resultStatus === "DISQUALIFIED") return "DSQ";
+  if (resultStatus === "WITHDRAWN") return "DNS";
+  return "DNF";
+}
+
+export function RaceResultSummary({ raceId }: { raceId: number }) {
   const [result, setResult] = useState<PublicRaceResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -2855,7 +2865,11 @@ function RaceResultSummary({ raceId }: { raceId: number }) {
                   <p className="text-[10px] text-slate-500">{e.jockeyName ?? "—"}</p>
                 </td>
                 <td className="px-4 py-2 text-right font-mono text-slate-800">
-                  {finished ? (e.finishTimeSeconds != null ? `${e.finishTimeSeconds.toFixed(2)}s` : "—") : "DNF"}
+                  {finished
+                    ? e.finishTimeSeconds != null
+                      ? `${e.finishTimeSeconds.toFixed(2)}s`
+                      : "—"
+                    : nonFinishLabel(e.resultStatus)}
                 </td>
                 <td className="px-4 py-2 text-right font-black text-slate-950">{e.points}</td>
               </tr>

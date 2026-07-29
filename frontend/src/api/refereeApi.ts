@@ -8,6 +8,8 @@ export type RaceSummary = {
   status: string;
   scheduledAt?: string;
   venue?: string;
+  /** Khác null khi Ban tổ chức đã trả hồ sơ về cho trọng tài sửa (BR-16). */
+  returnedReason?: string | null;
 };
 
 export async function getAssignedRaces(): Promise<RaceSummary[]> {
@@ -79,7 +81,64 @@ export type ViolationEntry = {
   offenderId: number;
   severity: "LOW" | "MEDIUM" | "HIGH";
   description: string;
+  /**
+   * OBJECTION_INTERFERENCE -> offenderId là bên BỊ khiếu nại.
+   * OBJECTION_GENERAL      -> offenderId là bên ĐỨNG ĐƠN (không có bị đơn).
+   * INCIDENT               -> trọng tài tự ghi nhận.
+   */
+  violationType?: string;
+  /** Phán quyết của trọng tài: NO_CHANGE | RIDER_PENALTY | RESULT_AMENDED. */
+  penalty?: string;
 };
+
+export type ObjectionKind = "OBJECTION_INTERFERENCE" | "OBJECTION_GENERAL";
+export type ObjectionDecision = "NO_CHANGE" | "RIDER_PENALTY" | "RESULT_AMENDED";
+
+/** Nhãn hiển thị của phán quyết — dùng chung cho form trọng tài và panel Ban tổ chức. */
+export const OBJECTION_DECISION_LABELS: Record<ObjectionDecision, string> = {
+  NO_CHANGE: "No change to result",
+  RIDER_PENALTY: "Rider penalty, result stands",
+  RESULT_AMENDED: "Result amended",
+};
+
+export type RaceObjectionDraft = {
+  kind: ObjectionKind;
+  raisedByParticipantId: number;
+  raisedByName: string;
+  againstParticipantId?: number;
+  againstName?: string;
+  foulType?: string;
+  subject?: string;
+  videoMarkSeconds?: number | "";
+  detail: string;
+  severity: "LOW" | "MEDIUM" | "HIGH";
+  decision: ObjectionDecision;
+};
+
+/**
+ * Dựng phần mô tả lưu vào Violation.description. Các dropdown ở form chỉ để trọng tài
+ * chọn thay vì gõ tay — dữ liệu cuối cùng vẫn là text, không cần bảng riêng.
+ */
+export function buildObjectionDescription(draft: Partial<RaceObjectionDraft>): string {
+  if (draft.kind === "OBJECTION_INTERFERENCE") {
+    const mark =
+      draft.videoMarkSeconds === "" || draft.videoMarkSeconds == null
+        ? ""
+        : ` — video mark ${draft.videoMarkSeconds}s`;
+    return [
+      `[Objection] ${draft.raisedByName} vs ${draft.againstName}`,
+      `Foul: ${draft.foulType}${mark}`,
+      `Detail: ${draft.detail}`,
+      `Decision: ${draft.decision}`,
+    ].join("\n");
+  }
+
+  return [
+    `[Objection] ${draft.raisedByName} — target: ${draft.subject}`,
+    `Detail: ${draft.detail}`,
+    `Decision: ${draft.decision}`,
+  ].join("\n");
+}
 
 export type RefereeReportEntry = {
   title: string;

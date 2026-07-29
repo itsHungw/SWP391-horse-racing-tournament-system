@@ -1,5 +1,6 @@
 package com.example.horseracingtournamentsystem.race;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -93,6 +94,12 @@ class RaceIntegrationTest {
 
     @Autowired
     private OrganizationRepository organizationRepository;
+
+    @Autowired
+    private com.example.horseracingtournamentsystem.referee.repository.ViolationRepository violationRepository;
+
+    @Autowired
+    private com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository refereeReportRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -382,6 +389,108 @@ class RaceIntegrationTest {
                 .andExpect(jsonPath("$.entries[0].finishTimeSeconds").value(72.341))
                 .andExpect(jsonPath("$.entries[0].note").doesNotExist())
                 .andExpect(jsonPath("$.entries[0].submittedBy").doesNotExist());
+    }
+
+    /** Dựng một race thuộc quyền quản lý của organizer đang đăng nhập, ở trạng thái RESULT_SUBMITTED. */
+    private Race organizerOwnedSubmittedRace(String slug, String email) {
+        User organizer = User.pending("Organizer " + slug, email, "hash");
+        organizer.verifyEmail();
+        organizer = userRepository.save(organizer);
+        Organization organization = Organization.application(
+                organizer,
+                "ORG_" + slug,
+                "Organizer " + slug + " Club",
+                "LIC-" + slug,
+                "ops-" + slug.toLowerCase() + "@example.com",
+                "0900000001",
+                slug + " operations",
+                "evidence.pdf",
+                null,
+                "Ready"
+        );
+        organization.approve(adminUser);
+        organization = organizationRepository.save(organization);
+        Tournament ownedTournament = Tournament.create(
+                "Organizer " + slug + " Cup", "ORG_" + slug + "_CUP", slug + " Cup", slug + " Track",
+                LocalDate.now(), LocalDate.now().plusDays(5),
+                LocalDateTime.now().minusDays(1), LocalDateTime.now().plusDays(1),
+                20, organizer
+        );
+        ownedTournament.assignOrganization(organization);
+        ownedTournament = tournamentRepository.save(ownedTournament);
+
+        Race race = Race.create(
+                ownedTournament, slug + " Round", "ORG_" + slug + "_R1",
+                LocalDateTime.now().minusHours(2), 1200, 12, organizer
+        );
+        race.assignReferee(organizer);
+        race.updateStatus(RaceStatus.RESULT_SUBMITTED);
+        return raceRepository.save(race);
+    }
+
+    @Test
+    @WithMockUser(username = "organizer-package@example.com", roles = "ORGANIZER")
+    void organizerReviewPackageExposesIncidentsAndRefereeReport() throws Exception {
+        Race race = organizerOwnedSubmittedRace("PACKAGE", "organizer-package@example.com");
+        User organizer = race.getTournament().getOrganization().getOwner();
+        RaceParticipant participant = createParticipant(race, "Package Runner", "PACKAGE-RUNNER");
+
+        violationRepository.save(com.example.horseracingtournamentsystem.referee.entity.Violation.create(
+                race,
+                participant,
+                organizer,
+                "OBJECTION_INTERFERENCE",
+                "[Objection] Emma Collins (Aurora Belle) vs Liam Carter (Package Runner)",
+                "RIDER_PENALTY",
+                "HIGH"
+        ));
+
+        com.example.horseracingtournamentsystem.referee.entity.RefereeReport report =
+                com.example.horseracingtournamentsystem.referee.entity.RefereeReport.create(race, organizer);
+        report.submit("Package Round report", "Track clear, one objection upheld.", "SUBMITTED");
+        refereeReportRepository.save(report);
+
+        mockMvc.perform(get("/api/v1/organizer/races/{id}/review-package", race.getId()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.reportSummary").value("Track clear, one objection upheld."))
+                .andExpect(jsonPath("$.incidents.length()").value(1))
+                .andExpect(jsonPath("$.incidents[0].violationType").value("OBJECTION_INTERFERENCE"))
+                .andExpect(jsonPath("$.incidents[0].penalty").value("RIDER_PENALTY"))
+                .andExpect(jsonPath("$.incidents[0].severity").value("HIGH"))
+                .andExpect(jsonPath("$.incidents[0].horseName").value("Package Runner"));
+    }
+
+    @Test
+    @WithMockUser(username = "organizer-sendback@example.com", roles = "ORGANIZER")
+    void sendingResultsBackKeepsPerRunnerNotesAndRecordsTheReasonOnTheReport() throws Exception {
+        Race race = organizerOwnedSubmittedRace("SENDBACK", "organizer-sendback@example.com");
+        User organizer = race.getTournament().getOrganization().getOwner();
+        RaceParticipant participant = createParticipant(race, "Sendback Runner", "SENDBACK-RUNNER");
+
+        RaceResult result = RaceResult.create(race, participant, organizer);
+        result.submit(
+                1, new BigDecimal("72.341"), BigDecimal.ZERO, new BigDecimal("72.341"),
+                ResultFinishStatus.FINISHED, ResultRecordStatus.SUBMITTED, organizer,
+                "Manual total time override from race summary."
+        );
+        raceResultRepository.save(result);
+
+        com.example.horseracingtournamentsystem.referee.entity.RefereeReport report =
+                com.example.horseracingtournamentsystem.referee.entity.RefereeReport.create(race, organizer);
+        report.submit("Sendback Round report", "Nothing notable.", "SUBMITTED");
+        refereeReportRepository.save(report);
+
+        mockMvc.perform(post("/api/v1/organizer/races/{id}/reopen-results", race.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Objection handling looks wrong\"}"))
+                .andExpect(status().isOk());
+
+        RaceResult after = raceResultRepository
+                .findByRace_IdAndParticipant_Id(race.getId(), participant.getId())
+                .orElseThrow();
+        assertThat(after.getNote()).isEqualTo("Manual total time override from race summary.");
+        assertThat(refereeReportRepository.findFirstByRace_IdOrderByIdDesc(race.getId()).orElseThrow()
+                .getRejectionReason()).isEqualTo("Objection handling looks wrong");
     }
 
     @Test

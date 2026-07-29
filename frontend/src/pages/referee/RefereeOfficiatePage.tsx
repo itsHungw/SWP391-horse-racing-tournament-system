@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -24,9 +24,10 @@ import {
   WorkspaceStage,
 } from "./race-day/refereeRaceDayModels";
 import {
-  applyLiveTick,
+  advanceLiveClock,
   applyPenalty,
   buildLiveRunners,
+  buildScratchedRunners,
   createFinishedSnapshot,
   markRunnerFinished,
   setLiveFlag,
@@ -104,6 +105,14 @@ export function RefereeOfficiatePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
+  const lastTickAtRef = useRef(Date.now());
+
+  const flushClock = useCallback((current: LiveRaceState) => {
+    const now = Date.now();
+    const next = advanceLiveClock(current, lastTickAtRef.current, now);
+    lastTickAtRef.current = now;
+    return next;
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -120,7 +129,18 @@ export function RefereeOfficiatePage() {
       setStage(stageFromRaceStatus(normalizedRace.status));
 
       if (normalizedRace.status === "ONGOING") {
-        setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners: buildLiveRunners(normalizedParticipants) }, "RACING", new Date().toISOString()));
+        lastTickAtRef.current = Date.now();
+        setLive(
+          setLiveFlag(
+            {
+              ...EMPTY_LIVE_STATE,
+              runners: buildLiveRunners(normalizedParticipants),
+              outOfRace: buildScratchedRunners(normalizedParticipants),
+            },
+            "RACING",
+            new Date().toISOString()
+          )
+        );
       }
     } catch {
       setError("Unable to load race control.");
@@ -139,11 +159,11 @@ export function RefereeOfficiatePage() {
     }
 
     const timer = window.setInterval(() => {
-      setLive((current) => applyLiveTick(current, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds));
+      setLive((current) => flushClock(current));
     }, REFEREE_RACE_DAY_CONFIG.operationTickMilliseconds);
 
     return () => window.clearInterval(timer);
-  }, [live.mode, stage]);
+  }, [live.mode, stage, flushClock]);
 
   const checksBlocked = participants.some(
     (participant) =>
@@ -190,7 +210,14 @@ export function RefereeOfficiatePage() {
       setSaving(true);
       setError(undefined);
       await startRace(raceId);
-      setLive(setLiveFlag({ ...EMPTY_LIVE_STATE, runners }, "RACING", new Date().toISOString()));
+      lastTickAtRef.current = Date.now();
+      setLive(
+        setLiveFlag(
+          { ...EMPTY_LIVE_STATE, runners, outOfRace: buildScratchedRunners(participants) },
+          "RACING",
+          new Date().toISOString()
+        )
+      );
       setRace((current) => (current ? { ...current, status: "ONGOING" } : current));
       setStage("ONGOING");
     } catch {
@@ -205,7 +232,7 @@ export function RefereeOfficiatePage() {
       return;
     }
 
-    setLive((current) => setLiveFlag(current, mode, new Date().toISOString()));
+    setLive((current) => setLiveFlag(flushClock(current), mode, new Date().toISOString()));
 
     if (mode === "ABORTED") {
       setStage("ABORTED");
@@ -344,7 +371,7 @@ export function RefereeOfficiatePage() {
             setLive((current) => applyPenalty(current, participantId, penaltyAction, new Date().toISOString()))
           }
           onRunnerFinish={(participantId: number) =>
-            setLive((current) => markRunnerFinished(current, participantId, new Date().toISOString()))
+            setLive((current) => markRunnerFinished(flushClock(current), participantId, new Date().toISOString()))
           }
           race={race}
           state={live}
@@ -392,11 +419,7 @@ export function RefereeOfficiatePage() {
 
       {stage === "FINISHED_DRAFT" ? (
         snapshot ? (
-          <RaceSummary
-            raceId={raceId}
-            snapshot={snapshot}
-            onConfirmed={() => setRace((current) => (current ? { ...current, status: "RESULT_CONFIRMED" } : current))}
-          />
+          <RaceSummary raceId={raceId} snapshot={snapshot} />
         ) : (
           <article className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
@@ -407,22 +430,24 @@ export function RefereeOfficiatePage() {
               </div>
             </div>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
-              Record finish order, elapsed times, and any referee notes. Escalate to admin review only when there is a dispute or serious incident.
+              The finish order, anything riders raised at weigh-in, and your report are all recorded on the result
+              package screen, then submitted to the organizer together.
             </p>
-            <div className="mt-5 flex flex-wrap gap-3">
+            <div className="mt-5">
               <Link
                 className="inline-flex min-h-12 items-center justify-center rounded-lg bg-[#007a68] px-5 text-sm font-black text-white transition hover:bg-[#006f5f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
                 to={`/referee/races/${raceId}/results`}
               >
-                Submit results
-              </Link>
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-lg border border-slate-300 px-5 text-sm font-black text-slate-800 transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007a68]"
-                to={`/referee/races/${raceId}/report`}
-              >
-                Add incident report
+                Continue to result package
               </Link>
             </div>
+            <p className="mt-4 text-sm font-semibold text-slate-500">
+              Noticed something separate from the result?{" "}
+              <Link className="font-black text-[#007a68] underline" to={`/referee/races/${raceId}/report`}>
+                Log a race incident
+              </Link>
+              .
+            </p>
           </article>
         )
       ) : null}

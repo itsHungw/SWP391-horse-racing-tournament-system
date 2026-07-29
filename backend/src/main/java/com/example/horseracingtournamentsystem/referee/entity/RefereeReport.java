@@ -85,8 +85,20 @@ public class RefereeReport {
         this.title = title;
         this.summary = summary == null || summary.isBlank() ? "Race report submitted." : summary;
         this.status = status;
+        // Nộp lại là đã xử lý xong lý do bị trả về trước đó.
+        this.rejectionReason = null;
         this.submittedAt = LocalDateTime.now();
         this.updatedAt = this.submittedAt;
+    }
+
+    /**
+     * BR-16: Ban tổ chức trả hồ sơ về cho trọng tài sửa, kèm lý do.
+     * Lý do thuộc về cả gói kết quả nên lưu ở đây, KHÔNG ghi đè note của từng ngựa.
+     */
+    public void markReturned(String reason) {
+        this.rejectionReason = reason;
+        this.status = STATUS_SUBMITTED;
+        this.updatedAt = LocalDateTime.now();
     }
 
     public void confirm(User admin) {

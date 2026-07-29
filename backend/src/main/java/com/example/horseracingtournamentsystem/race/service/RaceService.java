@@ -5,6 +5,7 @@ import com.example.horseracingtournamentsystem.race.dto.request.RaceRequest;
 import com.example.horseracingtournamentsystem.race.dto.response.JockeyScheduleItemResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceParticipantResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceResponse;
+import com.example.horseracingtournamentsystem.race.dto.response.RaceReviewPackageResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.RaceSummaryResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.PublicRaceResultResponse;
 import com.example.horseracingtournamentsystem.race.dto.response.PublicRacingSummaryResponse;
@@ -24,6 +25,9 @@ import com.example.horseracingtournamentsystem.championship.entity.RefereeContra
 import com.example.horseracingtournamentsystem.championship.repository.TournamentParticipantRepository;
 import com.example.horseracingtournamentsystem.championship.repository.RefereeContractRepository;
 import com.example.horseracingtournamentsystem.notification.service.NotificationService;
+import com.example.horseracingtournamentsystem.referee.dto.RaceIncidentResponse;
+import com.example.horseracingtournamentsystem.referee.repository.RefereeReportRepository;
+import com.example.horseracingtournamentsystem.referee.repository.ViolationRepository;
 import com.example.horseracingtournamentsystem.race.enums.RaceStatus;
 import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import com.example.horseracingtournamentsystem.tournament.enums.TournamentStatus;
@@ -59,6 +63,8 @@ public class RaceService {
     private final TournamentParticipantRepository tournamentParticipantRepository;
     private final RefereeContractRepository refereeContractRepository;
     private final NotificationService notificationService;
+    private final ViolationRepository violationRepository;
+    private final RefereeReportRepository refereeReportRepository;
 
     private static final Map<RaceStatus, Set<RaceStatus>> ALLOWED_STATUS_TRANSITIONS = Map.of(
             RaceStatus.SCHEDULED, Set.of(RaceStatus.CHECKING, RaceStatus.CANCELLED),
@@ -193,6 +199,40 @@ public class RaceService {
         applyPredictionLifecycle(race, previousStatus, targetStatus);
         applyResultGovernance(race, targetStatus, confirmer);
         return mapToResponse(race);
+    }
+
+    /**
+     * BR-16: gom hồ sơ trọng tài đã nộp (tường trình + sự cố/khiếu nại) để BTC đọc trước khi chốt.
+     * Chỉ đọc — không chặn nút Confirm, vì khiếu nại đã được trọng tài xử lý xong tại chỗ.
+     */
+    @Transactional(readOnly = true)
+    public RaceReviewPackageResponse getOrganizerReviewPackage(Long id, String organizerEmail) {
+        Race race = requireOrganizerRace(id, organizerEmail);
+
+        List<RaceIncidentResponse> incidents =
+                violationRepository.findAllByRace_IdOrderByOccurredAtAsc(race.getId()).stream()
+                        .map(violation -> {
+                            RaceParticipant participant = violation.getParticipant();
+                            return new RaceIncidentResponse(
+                                    violation.getId(),
+                                    violation.getViolationType(),
+                                    participant == null ? null : participant.getId(),
+                                    participant == null ? null : participant.getHorse().getName(),
+                                    participant == null || participant.getJockey() == null
+                                            ? null
+                                            : participant.getJockey().getFullName(),
+                                    violation.getDescription(),
+                                    violation.getPenalty(),
+                                    violation.getSeverity(),
+                                    violation.getOccurredAt()
+                            );
+                        })
+                        .toList();
+
+        return refereeReportRepository.findFirstByRace_IdOrderByIdDesc(race.getId())
+                .map(report -> new RaceReviewPackageResponse(
+                        report.getTitle(), report.getSummary(), report.getRejectionReason(), incidents))
+                .orElseGet(() -> new RaceReviewPackageResponse(null, null, null, incidents));
     }
 
     /** Đồng bộ trạng thái các dòng RaceResult theo trạng thái race khi chốt/công bố. */
@@ -366,10 +406,10 @@ public class RaceService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "A reason is required when sending results back for correction");
         }
-        for (RaceResult result : raceResultRepository.findByRace_Id(id)) {
-            result.markReopened(trimmed);
-            raceResultRepository.save(result);
-        }
+        // Lý do thuộc về cả gói kết quả -> lưu trên tường trình. Trước đây nó ghi đè
+        // RaceResult.note của TỪNG ngựa, xoá mất ghi chú trọng tài đã nhập lúc nộp.
+        refereeReportRepository.findFirstByRace_IdOrderByIdDesc(id)
+                .ifPresent(report -> report.markReturned(trimmed));
         race.updateStatus(RaceStatus.FINISHED);
         raceRepository.save(race);
         notificationService.notify(race.getReferee(), "RESULT_REOPENED", "Result sent back for correction",
