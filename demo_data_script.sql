@@ -86,7 +86,7 @@ BEGIN
         status, email, full_name, avatar_url, address, password_hash
     )
     VALUES
-    (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@gmail.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
+    -- (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@gmail.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
     (true, '1985-04-20', true, true, true, v_now, v_now, 'MALE',   '0901000002', 'ACTIVE', 'referee@gmail.com',   'Jonathan Whitmore',  NULL, 'London, United Kingdom', v_pw),
     (true, '2000-09-12', true, true, true, v_now, v_now, 'FEMALE', '0901000003', 'ACTIVE', 'spectator@gmail.com', 'Sophia Bennett',     NULL, 'London, United Kingdom', v_pw),
 
@@ -137,7 +137,14 @@ BEGIN
         (u.email = 'referee@gmail.com'   AND r.name = 'REFEREE') OR
         (u.email = 'spectator@gmail.com' AND r.name = 'SPECTATOR') OR
         (u.email LIKE 'owner%@gmail.com'        AND r.name = 'HORSE_OWNER') OR
-        (u.email LIKE 'jockey%@gmail.com'       AND r.name = 'JOCKEY');
+        (u.email LIKE 'jockey%@gmail.com'       AND r.name = 'JOCKEY')
+    /* user_roles không có unique (user_id, role_id), nên nếu admin đã được
+       DevDataSeeder gán role ADMIN ở local thì insert này sẽ tạo dòng ADMIN thứ hai.
+       Guard lại để chạy được trên DB đã có admin sẵn. */
+    WHERE NOT EXISTS (
+        SELECT 1 FROM user_roles ur
+        WHERE ur.user_id = u.id AND ur.role_id = r.id
+    );
 
     INSERT INTO user_role_history(
         user_role_id, old_status, new_status, changed_at, changed_by, reason
