@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as refereeApi from "../../api/refereeApi";
 import { SubmitResultsPage } from "./SubmitResultsPage";
 
 vi.mock("../../api/refereeApi");
+
+beforeEach(() => {
+  vi.restoreAllMocks();
+});
 
 const mockEntries = [
   {
@@ -40,7 +44,7 @@ describe("SubmitResultsPage", () => {
 
     fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
     fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
-    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: [
@@ -48,10 +52,13 @@ describe("SubmitResultsPage", () => {
           ...mockEntries[0],
           position: 1,
           finishTimeSeconds: 94.5,
+          rawFinishTimeSeconds: 94.5,
         },
       ],
       requiresAdminReview: false,
       reviewReason: null,
+      reportTitle: "Race Report: R-1",
+      reportSummary: "",
     });
   });
 
@@ -75,7 +82,7 @@ describe("SubmitResultsPage", () => {
     fireEvent.change(timeInput, { target: { value: "94.25" } });
     expect(timeInput).toHaveValue("94.25");
 
-    fireEvent.click(screen.getAllByRole("button", { name: /confirm result package/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
 
     expect(submitSpy).toHaveBeenCalledWith(1, {
       results: [
@@ -85,11 +92,488 @@ describe("SubmitResultsPage", () => {
           jockeyName: "Julian Sterling",
           position: 1,
           finishTimeSeconds: 94.25,
+          rawFinishTimeSeconds: 94.25,
           status: "FINISHED",
         },
       ],
       requiresAdminReview: false,
       reviewReason: null,
+      reportTitle: "Race Report: R-1",
+      reportSummary: "",
     });
+  });
+
+  it("renders read-only once results are already submitted", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: 1,
+        finishTimeSeconds: 94.5,
+        status: "FINISHED" as const,
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "RESULT_SUBMITTED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(
+      screen.getByText("Results submitted — awaiting organizer confirmation.")
+    ).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("1")).toBeDisabled();
+    expect(screen.getByPlaceholderText("94.25")).toBeDisabled();
+    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /submit package to organizer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit for review/i })).not.toBeInTheDocument();
+  });
+
+  it("disables position and time inputs for entries that are not finished", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: "",
+        finishTimeSeconds: "",
+        status: "DID_NOT_FINISH",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("1")).toBeDisabled();
+    expect(screen.getByPlaceholderText("94.25")).toBeDisabled();
+  });
+
+  it("shows a remaining finish order section for more than 3 finished entries", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Golden Arrow",
+        jockeyName: "Mina Park",
+        position: 1,
+        finishTimeSeconds: 62.345,
+        status: "FINISHED",
+      },
+      {
+        participantId: 2,
+        horseName: "Night Bloom",
+        jockeyName: "Ana Lee",
+        position: 2,
+        finishTimeSeconds: 63,
+        status: "FINISHED",
+      },
+      {
+        participantId: 3,
+        horseName: "Silver Comet",
+        jockeyName: "Tom Ruiz",
+        position: 3,
+        finishTimeSeconds: 64,
+        status: "FINISHED",
+      },
+      {
+        participantId: 4,
+        horseName: "Blue Ridge",
+        jockeyName: "Sam Cole",
+        position: 4,
+        finishTimeSeconds: 65,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Remaining finish order" })).toBeInTheDocument();
+    expect(screen.getByText("Blue Ridge")).toBeInTheDocument();
+    expect(screen.getByText("P4")).toBeInTheDocument();
+  });
+
+  it("shows did-not-finish entries in their own section with an editable status dropdown", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Golden Arrow",
+        jockeyName: "Mina Park",
+        position: 1,
+        finishTimeSeconds: 62.345,
+        status: "FINISHED",
+      },
+      {
+        participantId: 5,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: "",
+        finishTimeSeconds: "",
+        status: "DID_NOT_FINISH",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Did not start / did not finish / disqualified" })).toBeInTheDocument();
+
+    const thunderstrikeRow = screen.getByText("Thunderstrike").closest("article") as HTMLElement;
+    expect(within(thunderstrikeRow).getByRole("combobox")).toBeEnabled();
+    expect(within(thunderstrikeRow).queryByText(/^P\d+$/)).not.toBeInTheDocument();
+  });
+
+  it("orders finished entries by their typed position, not array order", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Night Bloom",
+        jockeyName: "Ana Lee",
+        position: 2,
+        finishTimeSeconds: 63,
+        status: "FINISHED",
+      },
+      {
+        participantId: 2,
+        horseName: "Golden Arrow",
+        jockeyName: "Mina Park",
+        position: 1,
+        finishTimeSeconds: 62.345,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    const horseNames = screen.getAllByText(/^(Night Bloom|Golden Arrow)$/).map((node) => node.textContent);
+    expect(horseNames).toEqual(["Golden Arrow", "Night Bloom"]);
+  });
+
+  it("locks the form immediately after a successful submit instead of staying editable", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+    vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    expect(await screen.findByText("Results submitted — awaiting organizer confirmation.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit package to organizer/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Package submitted. Awaiting organizer confirmation.")).not.toBeInTheDocument();
+  });
+
+  function mockFinishedRace() {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        jockeyWeight: 55,
+        gearOk: true,
+        healthOk: true,
+        status: "PASSED",
+      },
+    ]);
+  }
+
+  it("submits recorded objections as violations before submitting the package", async () => {
+    mockFinishedRace();
+    const violationSpy = vi.spyOn(refereeApi, "submitViolation").mockResolvedValue();
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    expect(violationSpy).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({
+        offenderId: 1,
+        violationType: "OBJECTION_GENERAL",
+        penalty: "NO_CHANGE",
+        severity: "LOW",
+      })
+    );
+  });
+
+  it("sends the official report together with the result package", async () => {
+    mockFinishedRace();
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+    fireEvent.change(screen.getByLabelText("Race summary and observations"), {
+      target: { value: "Track clear, one objection dismissed." },
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    expect(submitSpy.mock.calls[0][1].reportSummary).toBe("Track clear, one objection dismissed.");
+  });
+
+  it("keeps a recorded objection visible with no way to delete it", async () => {
+    mockFinishedRace();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    expect(screen.getByText(/1 objection recorded/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove objection/i })).not.toBeInTheDocument();
+  });
+
+  it("pre-fills from the live draft handed over by the race control screen", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[
+          {
+            pathname: "/referee/races/1/results",
+            state: {
+              draftEntries: [
+                {
+                  participantId: 1,
+                  horseName: "Thunderstrike",
+                  jockeyName: "Julian Sterling",
+                  position: 1,
+                  rawFinishTimeSeconds: 62.345,
+                  penaltySeconds: 0,
+                  finishTimeSeconds: 62.345,
+                  status: "FINISHED",
+                  note: null,
+                },
+              ],
+            },
+          },
+        ]}
+      >
+        <Routes>
+          <Route path="/referee/races/:id/results" element={<SubmitResultsPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    // Live-measured time survives the handoff instead of forcing the referee to retype it.
+    expect(screen.getByPlaceholderText("94.25")).toHaveValue("62.345");
+    expect(screen.getByPlaceholderText("1")).toHaveValue(1);
+  });
+
+  it("re-derives the raw finish time so an edited total still satisfies raw + penalty", async () => {
+    // Reproduces a 400 from the live backend: after a send-back the entries carry the raw
+    // time and penalty from the previous submission, but this screen only lets the referee
+    // edit the total. Shipping the stale raw makes finish != raw + penalty.
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Thunderstrike",
+        jockeyName: "Julian Sterling",
+        position: 1,
+        rawFinishTimeSeconds: 62.345,
+        penaltySeconds: 5,
+        finishTimeSeconds: 67.345,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+    const submitSpy = vi.spyOn(refereeApi, "submitRaceResultPackage").mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "70" } });
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+
+    await waitFor(() => expect(submitSpy).toHaveBeenCalled());
+    const entry = submitSpy.mock.calls[0][1].results[0];
+    expect(entry.finishTimeSeconds).toBe(70);
+    expect(entry.rawFinishTimeSeconds).toBe(65);
+    expect(Number(entry.rawFinishTimeSeconds) + Number(entry.penaltySeconds)).toBe(entry.finishTimeSeconds);
+  });
+
+  it("does not re-post an objection when a rejected package is submitted again", async () => {
+    // Objections are posted before the package. If the backend rejects the package, the
+    // referee fixes it and submits again — the objection must not be written twice.
+    mockFinishedRace();
+    const violationSpy = vi.spyOn(refereeApi, "submitViolation").mockResolvedValue();
+    const submitSpy = vi
+      .spyOn(refereeApi, "submitRaceResultPackage")
+      .mockRejectedValueOnce(new Error("400"))
+      .mockResolvedValue();
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("1"), { target: { value: "1" } });
+    fireEvent.change(screen.getByPlaceholderText("94.25"), { target: { value: "94.5" } });
+
+    fireEvent.click(screen.getByRole("radio", { name: /no opposing runner/i }));
+    fireEvent.change(screen.getByLabelText("Detail"), { target: { value: "penalty was not justified" } });
+    fireEvent.click(screen.getByRole("button", { name: /record objection/i }));
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+    await waitFor(() => expect(screen.getByText("Failed to submit result package.")).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByRole("button", { name: /submit package to organizer/i })[0]);
+    await waitFor(() => expect(submitSpy).toHaveBeenCalledTimes(2));
+
+    expect(violationSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("badges each row with the typed position, not its rank in the list", async () => {
+    // Two rows both typed as position 1 must both read P1. Ranking them P1/P2 would tell the
+    // referee the duplicate was resolved when it was not.
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue([
+      {
+        participantId: 1,
+        horseName: "Midnight Sovereign",
+        jockeyName: "Liam Carter",
+        position: 1,
+        finishTimeSeconds: 94.25,
+        status: "FINISHED",
+      },
+      {
+        participantId: 2,
+        horseName: "Aurora Belle",
+        jockeyName: "Emma Collins",
+        position: 1,
+        finishTimeSeconds: 94.25,
+        status: "FINISHED",
+      },
+    ]);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Submit race results")).toBeInTheDocument();
+    expect(screen.getAllByText("P1")).toHaveLength(2);
+    expect(screen.queryByText("P2")).not.toBeInTheDocument();
+  });
+
+  it("shows the organizer's reason when the package was sent back", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "FINISHED",
+      returnedReason: "Objection handling looks wrong",
+    });
+
+    renderPage();
+
+    const banner = await screen.findByRole("alert");
+    expect(banner).toHaveTextContent("Returned by the organizer");
+    expect(banner).toHaveTextContent("Objection handling looks wrong");
+  });
+
+  it("explains that the race has not finished instead of claiming results were submitted", async () => {
+    vi.spyOn(refereeApi, "getRaceResultEntries").mockResolvedValue(mockEntries);
+    vi.spyOn(refereeApi, "getRaceParticipants").mockResolvedValue([]);
+    vi.spyOn(refereeApi, "getAssignedRace").mockResolvedValue({
+      id: 1,
+      name: "Grand Derby",
+      code: "R-1",
+      distanceMeters: 1600,
+      status: "ONGOING",
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("This race has not finished yet — results cannot be submitted.")).toBeInTheDocument();
+    expect(screen.queryByText("Results already submitted.")).not.toBeInTheDocument();
   });
 });

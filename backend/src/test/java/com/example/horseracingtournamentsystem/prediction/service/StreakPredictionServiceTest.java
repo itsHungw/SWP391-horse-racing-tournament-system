@@ -75,7 +75,7 @@ class StreakPredictionServiceTest {
         when(raceRepository.findById(102L)).thenReturn(Optional.of(raceTwo));
         when(participantRepository.findById(1001L)).thenReturn(Optional.of(horseOne));
         when(participantRepository.findById(1002L)).thenReturn(Optional.of(horseTwo));
-        when(participantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
+        when(participantRepository.findAllByRaceAndStatusNotOrderByLane(
                 anyLong(), any(ParticipantStatus.class)))
                 .thenReturn(List.of(horseOne, horseTwo));
         when(oddsService.calculateStreakOddsMatrix(anyLong(), any())).thenReturn(Map.of(

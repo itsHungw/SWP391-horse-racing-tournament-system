@@ -156,7 +156,7 @@ public class SpectatorPredictionController {
         res.setWinnerDistributionVisible(hasWinnerPred);
         res.setHouseFeePercent(oddsCalculationService.getTakeoutRate().multiply(java.math.BigDecimal.valueOf(100)).setScale(0, java.math.RoundingMode.HALF_UP).intValue());
 
-        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
         res.setPositionOddsMatrix(oddsCalculationService.calculatePositionOddsMatrix(raceId, participants));
         res.setH2hMatchups(oddsCalculationService.calculateH2HMatchups(raceId, participants));
 

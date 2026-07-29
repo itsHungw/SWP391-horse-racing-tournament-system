@@ -75,10 +75,25 @@ export function buildLiveRunners(participants: PreRaceParticipant[]): LiveRunner
     .map((participant, index) => ({
       participantId: participant.participantId,
       horseName: participant.horseName,
+      jockeyName: participant.jockeyName,
       gateNumber: index + 1,
       progressPercent: 0,
       speedMultiplier: 1 - index * 0.025,
       status: "RUNNING",
+    }));
+}
+
+export function buildScratchedRunners(participants: PreRaceParticipant[]): LiveRunner[] {
+  return participants
+    .filter((participant) => participant.status === "SCRATCHED")
+    .map((participant, index) => ({
+      participantId: participant.participantId,
+      horseName: participant.horseName,
+      jockeyName: participant.jockeyName,
+      gateNumber: index + 1,
+      progressPercent: 0,
+      speedMultiplier: 1,
+      status: "DNS",
     }));
 }
 
@@ -141,6 +156,11 @@ export function applyLiveTick(state: LiveRaceState, elapsedMilliseconds: number)
     elapsedMilliseconds: nextElapsedMilliseconds,
     runners,
   };
+}
+
+export function advanceLiveClock(state: LiveRaceState, lastFlushAtMs: number, nowMs: number): LiveRaceState {
+  const delta = nowMs - lastFlushAtMs;
+  return delta > 0 ? applyLiveTick(state, delta) : state;
 }
 
 export function markRunnerFinished(

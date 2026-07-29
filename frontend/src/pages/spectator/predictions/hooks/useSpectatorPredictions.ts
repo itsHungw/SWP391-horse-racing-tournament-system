@@ -8,6 +8,8 @@ import {
   StreakPredictionResponse
 } from "../types/prediction.types";
 import { spectatorPredictionApi } from "../services/spectatorPredictionApi";
+import { walletApi } from "../../../../api/walletApi";
+import { setWalletBalance } from "../../../../hooks/useWalletBalance";
 
 export function useSpectatorPredictions() {
   const [pointAccount, setPointAccount] = useState<PointAccount | null>(null);
@@ -33,6 +35,16 @@ export function useSpectatorPredictions() {
       setOpenRaces(races);
       setMyPredictions(preds);
       setMyStreaks(streaks);
+
+      // Đặt cược trừ ví VND thật (PredictionService -> walletService.adjust), nhưng chip
+      // số dư trên ClientHeader chỉ refetch lúc mount — mà đặt cược xảy ra ngay tại trang
+      // này, không điều hướng, nên header không remount và hiển thị số cũ tới khi F5.
+      // refreshAll() chạy sau mọi hành động đổi số dư, nên publish lại ở đây là đủ.
+      // Fire-and-forget: ví lỗi thì arena vẫn phải dùng được.
+      walletApi
+        .getMyWallet()
+        .then((w) => setWalletBalance(w.balance))
+        .catch(() => undefined);
 
       if (races.length > 0) {
         const currentSelected = selectedRace 

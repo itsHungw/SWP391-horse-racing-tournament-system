@@ -3,31 +3,57 @@ import type { Tournament } from "../../types/racing";
 /* Shared formatting + status helpers for the public Championships / Races pages.
    All driven by the real getPublicTournaments() payload — no fabricated data. */
 
-export type StatusTone = "open" | "live" | "done" | "soon" | "neutral";
+export type StatusTone = "open" | "live" | "closed" | "soon" | "done" | "neutral";
 
+/**
+ * Trạng thái giải → nhãn + tông màu.
+ *
+ * Dùng switch trên đúng giá trị enum TournamentStatus của backend, KHÔNG so khớp
+ * chuỗi con. Cách cũ (`s.includes(...)`) khiến CLOSED_REGISTRATION dính nhánh
+ * "CLOSED" và hiện thành "Concluded" — một giải sắp chạy trông như đã kết thúc.
+ */
 export function championshipStatus(status: string | undefined): { label: string; tone: StatusTone } {
   const s = (status ?? "").toUpperCase();
-  if (["REGISTRATION_OPEN", "OPEN", "REGISTERING"].some((k) => s.includes(k))) {
-    return { label: "Registration Open", tone: "open" };
+  switch (s) {
+    case "OPEN_REGISTRATION":
+      return { label: "Registration Open", tone: "open" };
+    case "CLOSED_REGISTRATION":
+      return { label: "Registration Closed", tone: "closed" };
+    case "PARTICIPANTS_LOCKED":
+      return { label: "Field Locked", tone: "closed" };
+    case "SCHEDULE_PUBLISHED":
+      return { label: "Schedule Published", tone: "soon" };
+    case "ONGOING":
+      return { label: "Running Now", tone: "live" };
+    case "COMPLETED":
+      return { label: "Concluded", tone: "done" };
+    case "POSTPONED":
+      return { label: "Postponed", tone: "neutral" };
+    // Ba trạng thái dưới không lọt ra API công khai (xem PUBLIC_TOURNAMENT_STATUSES
+    // ở RaceService), nhưng vẫn map để trang nội bộ dùng chung được ngôn ngữ này.
+    case "DRAFT":
+      return { label: "Draft", tone: "neutral" };
+    case "PENDING_APPROVAL":
+      return { label: "Awaiting Approval", tone: "neutral" };
+    case "APPROVED":
+      return { label: "Approved", tone: "soon" };
+    default:
+      return { label: s ? toTitle(s) : "Scheduled", tone: "neutral" };
   }
-  if (["ONGOING", "ACTIVE", "RUNNING", "LIVE", "IN_PROGRESS"].some((k) => s.includes(k))) {
-    return { label: "Running", tone: "live" };
-  }
-  if (["FINISHED", "COMPLETED", "CLOSED", "ENDED"].some((k) => s.includes(k))) {
-    return { label: "Concluded", tone: "done" };
-  }
-  if (["UPCOMING", "SCHEDULED", "DRAFT", "PENDING", "PUBLISHED"].some((k) => s.includes(k))) {
-    return { label: "Upcoming", tone: "soon" };
-  }
-  return { label: status ? toTitle(s) : "Scheduled", tone: "neutral" };
 }
 
-export const toneClasses: Record<StatusTone, { dot: string; text: string; ring: string }> = {
-  open: { dot: "bg-emerald-soft", text: "text-emerald-soft", ring: "border-emerald-glow/40" },
-  live: { dot: "bg-gold-400", text: "text-gold-300", ring: "border-gold-400/45" },
-  done: { dot: "bg-ivory-faint", text: "text-ivory-faint", ring: "border-white/15" },
-  soon: { dot: "bg-gold-300", text: "text-gold-300", ring: "border-gold-400/30" },
-  neutral: { dot: "bg-ivory-dim", text: "text-ivory-dim", ring: "border-white/15" },
+/**
+ * Hai trạng thái hành động được (`live`, `open`) tô nền đặc, các trạng thái còn lại
+ * chỉ viền. Khác nhau về CẤU TRÚC chứ không chỉ sắc độ — trước đây "Running" và
+ * "Upcoming" đều là chữ gold-300 viền vàng nên nhìn lướt không tách được.
+ */
+export const toneClasses: Record<StatusTone, { dot: string; text: string; ring: string; solid: boolean }> = {
+  live: { dot: "bg-turf-950", text: "text-turf-950", ring: "border-gold-400 bg-gold-400", solid: true },
+  open: { dot: "bg-turf-950", text: "text-turf-950", ring: "border-emerald-soft bg-emerald-soft", solid: true },
+  soon: { dot: "bg-ivory", text: "text-ivory", ring: "border-white/35", solid: false },
+  closed: { dot: "bg-gold-600", text: "text-gold-400", ring: "border-gold-600/60", solid: false },
+  done: { dot: "bg-ivory-faint", text: "text-ivory-faint", ring: "border-white/12", solid: false },
+  neutral: { dot: "bg-ivory-dim", text: "text-ivory-dim", ring: "border-white/15", solid: false },
 };
 
 function toTitle(s: string) {
@@ -65,6 +91,28 @@ export function raceStatus(status: string | undefined): { label: string; tone: S
 /** True once a race has run (results exist or are being processed). */
 export function isRaceConcluded(status: string | undefined): boolean {
   return raceStatus(status).tone === "done";
+}
+
+export function formatDateInput(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Thời gian về đích theo cách giới đua ghi: dưới một phút thì đọc thẳng bằng giây
+ * (`58.412s`), từ một phút trở lên đổi sang `m:ss.SSS` — không ai đọc "117.340s".
+ *
+ * Chặn luôn giá trị vô lý: cự ly ngắn nhất trên hệ thống cũng mất vài giây, nên
+ * một con số dưới `MIN_PLAUSIBLE_FINISH_SECONDS` là dữ liệu rác (seed/nhập nhầm)
+ * chứ không phải kỷ lục — thà trả "TBA" còn hơn in "1.000s" lên trang chủ.
+ */
+const MIN_PLAUSIBLE_FINISH_SECONDS = 5;
+
+export function formatResultTime(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < MIN_PLAUSIBLE_FINISH_SECONDS) return "TBA";
+  if (seconds < 60) return `${seconds.toFixed(3)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+  return `${minutes}:${remainder.toFixed(3).padStart(6, "0")}`;
 }
 
 export function formatPostTime(value?: string): string {
@@ -108,7 +156,7 @@ export function isRegistrationOpen(t: Tournament): boolean {
 
 /** Sort: open/live first, then upcoming, then concluded; by start date within group. */
 export function sortChampionships(list: Tournament[]): Tournament[] {
-  const rank: Record<StatusTone, number> = { live: 0, open: 1, soon: 2, neutral: 3, done: 4 };
+  const rank: Record<StatusTone, number> = { live: 0, open: 1, soon: 2, closed: 3, neutral: 4, done: 5 };
   return [...list].sort((a, b) => {
     const ra = rank[championshipStatus(a.status).tone];
     const rb = rank[championshipStatus(b.status).tone];

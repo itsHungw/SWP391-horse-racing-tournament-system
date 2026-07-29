@@ -77,6 +77,21 @@ export async function getPublicRaceLiveStream(raceId: number): Promise<RaceMedia
   return response.status === 204 ? null : (response.data as RaceMediaPublicResponse);
 }
 
+/**
+ * Batch highlight lookup. Most races have no published replay, so probing
+ * `/races/{id}/highlight` one by one spends N requests to answer a question the
+ * server can answer in one. Ids are comma-joined because Spring binds
+ * `raceIds=1,2,3` to `List<Long>`, while axios' default array form (`raceIds[]=1`)
+ * does not bind at all. Returns only the races that actually have one.
+ */
+export async function getPublicRaceHighlights(raceIds: number[]): Promise<RaceMediaPublicResponse[]> {
+  if (raceIds.length === 0) return [];
+  const response = await httpClient.get<RaceMediaPublicResponse[]>("/races/highlights", {
+    params: { raceIds: raceIds.join(",") },
+  });
+  return Array.isArray(response.data) ? response.data : [];
+}
+
 export async function getPublicTournamentHighlights(tournamentId: number): Promise<RaceMediaPublicResponse[]> {
   const response = await httpClient.get<RaceMediaPublicResponse[]>("/races/highlights", { params: { tournamentId } });
   return Array.isArray(response.data) ? response.data : [];

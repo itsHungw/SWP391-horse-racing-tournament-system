@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceLiveClock,
   applyLiveTick,
   applyPenalty,
   buildLiveRunners,
@@ -67,6 +68,18 @@ describe("refereeRaceDayState", () => {
 
   it("excludes scratched horses from live runners", () => {
     expect(buildLiveRunners(participants).map((runner) => runner.participantId)).toEqual([7]);
+  });
+
+  it("advances the live clock by the real elapsed delta, not a fixed tick size", () => {
+    const next = advanceLiveClock(liveState, 1_000, 1_347);
+
+    expect(next.elapsedMilliseconds).toBe(liveState.elapsedMilliseconds + 347);
+  });
+
+  it("does not advance the live clock when no time has passed", () => {
+    const next = advanceLiveClock(liveState, 1_000, 1_000);
+
+    expect(next).toBe(liveState);
   });
 
   it("keeps runners moving without overtaking during safety car", () => {

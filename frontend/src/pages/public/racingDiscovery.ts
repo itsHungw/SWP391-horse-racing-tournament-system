@@ -42,8 +42,8 @@ function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthLabel(date: Date) {
-  return new Intl.DateTimeFormat("en", { month: "long", year: "numeric" }).format(date);
+function agendaDayLabel(date: Date) {
+  return new Intl.DateTimeFormat("en", { weekday: "short", month: "short", day: "numeric" }).format(date);
 }
 
 export function parseRaceDiscoveryQuery(params: URLSearchParams): RaceDiscoveryState {
@@ -78,35 +78,77 @@ export function parseChampionshipDiscoveryQuery(params: URLSearchParams): Champi
   };
 }
 
-export function selectChampionshipInFocus(list: TournamentSummary[]) {
+/**
+ * Xếp hạng giải theo mức đáng chú ý với khán giả: đang chạy trước (có race kế càng ưu tiên),
+ * rồi mở đăng ký, sắp tới, và cuối cùng là đã xong.
+ */
+export function rankChampionshipsInFocus(list: TournamentSummary[]) {
   const sorted = [...list].sort((a, b) => {
     const rank = (championship: TournamentSummary) => {
-      if (championship.status === "ONGOING" && championship.nextRace) return 0;
-      if (championship.status === "OPEN_REGISTRATION") return 1;
-      if (["CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED"].includes(championship.status)) return 2;
-      if (championship.status === "COMPLETED") return 3;
-      return 4;
+      const status = championship.status.toUpperCase();
+      if (status === "ONGOING" && championship.nextRace) return 0;
+      if (status === "ONGOING") return 1;
+      if (status === "OPEN_REGISTRATION") return 2;
+      if (["CLOSED_REGISTRATION", "SCHEDULE_PUBLISHED"].includes(status)) return 3;
+      if (status === "COMPLETED") return 4;
+      return 5;
     };
     const rankDifference = rank(a) - rank(b);
     if (rankDifference) return rankDifference;
-    if (a.status === "ONGOING") return timestamp(a.nextRace?.raceDateTime) - timestamp(b.nextRace?.raceDateTime);
-    if (a.status === "OPEN_REGISTRATION") return timestamp(a.registrationEndAt) - timestamp(b.registrationEndAt);
-    if (a.status === "COMPLETED") return timestamp(b.endDate, 0) - timestamp(a.endDate, 0);
+    const status = a.status.toUpperCase();
+    if (status === "ONGOING") return timestamp(a.nextRace?.raceDateTime) - timestamp(b.nextRace?.raceDateTime);
+    if (status === "OPEN_REGISTRATION") return timestamp(a.registrationEndAt) - timestamp(b.registrationEndAt);
+    if (status === "COMPLETED") return timestamp(b.endDate, 0) - timestamp(a.endDate, 0);
     return timestamp(a.startDate) - timestamp(b.startDate);
   });
-  return sorted[0] ?? null;
+  return sorted;
 }
 
-export function selectNextToPost(upcoming: RaceSummary[], results: RaceSummary[]) {
-  const active = upcoming
-    .filter((race) => LIVE_RACES.has(race.status.toUpperCase()))
-    .sort((a, b) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime))[0];
-  if (active) return active;
-  const next = [...upcoming].sort((a, b) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime))[0];
-  if (next) return next;
+export function selectChampionshipInFocus(list: TournamentSummary[]) {
+  return rankChampionshipsInFocus(list)[0] ?? null;
+}
+
+/**
+ * Xếp hạng race theo thứ tự khán giả quan tâm: đang chạy trước, rồi tới giờ xuất
+ * phát gần nhất, cuối cùng mới là kết quả vừa công bố (chỉ khi không còn race nào
+ * sắp chạy). Giữ đúng thứ tự ưu tiên mà selectNextToPost vẫn dùng.
+ */
+export function rankRacesToPost(upcoming: RaceSummary[], results: RaceSummary[], now = new Date()) {
+  const byPostTime = (a: RaceSummary, b: RaceSummary) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime);
+  const live = upcoming.filter((race) => LIVE_RACES.has(race.status.toUpperCase())).sort(byPostTime);
+  const scheduled = upcoming
+    .filter((race) => !LIVE_RACES.has(race.status.toUpperCase()) && timestamp(race.raceDateTime) >= now.getTime())
+    .sort(byPostTime);
+  if (live.length || scheduled.length) return [...live, ...scheduled];
+
   return [...results]
     .filter((race) => OFFICIAL_RESULTS.has(race.status.toUpperCase()) || race.resultOfficial)
-    .sort((a, b) => timestamp(b.raceDateTime, 0) - timestamp(a.raceDateTime, 0))[0] ?? null;
+    .sort((a, b) => timestamp(b.raceDateTime, 0) - timestamp(a.raceDateTime, 0));
+}
+
+export function selectNextToPost(upcoming: RaceSummary[], results: RaceSummary[], now = new Date()) {
+  return rankRacesToPost(upcoming, results, now)[0] ?? null;
+}
+
+export type RacePulseMode = "LIVE" | "LATEST_RESULT" | "NEXT_RACE";
+export type RacePulseSelection = { mode: RacePulseMode; race: RaceSummary };
+
+export function selectRacePulse(upcoming: RaceSummary[], results: RaceSummary[], now = new Date()): RacePulseSelection | null {
+  const byPostTime = (a: RaceSummary, b: RaceSummary) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime);
+  const live = upcoming
+    .filter((race) => LIVE_RACES.has(race.status.toUpperCase()))
+    .sort(byPostTime)[0];
+  if (live) return { mode: "LIVE", race: live };
+
+  const latestResult = results
+    .filter((race) => OFFICIAL_RESULTS.has(race.status.toUpperCase()) || race.resultOfficial)
+    .sort((a, b) => timestamp(b.raceDateTime, 0) - timestamp(a.raceDateTime, 0))[0];
+  if (latestResult) return { mode: "LATEST_RESULT", race: latestResult };
+
+  const nextRace = upcoming
+    .filter((race) => !LIVE_RACES.has(race.status.toUpperCase()) && timestamp(race.raceDateTime) >= now.getTime())
+    .sort(byPostTime)[0];
+  return nextRace ? { mode: "NEXT_RACE", race: nextRace } : null;
 }
 
 export function groupAgendaRaces(races: RaceSummary[], now = new Date()): RaceGroup[] {
@@ -114,9 +156,6 @@ export function groupAgendaRaces(races: RaceSummary[], now = new Date()): RaceGr
   const tomorrowDate = new Date(now);
   tomorrowDate.setDate(tomorrowDate.getDate() + 1);
   const tomorrow = dateKey(tomorrowDate);
-  const weekLimit = new Date(now);
-  weekLimit.setDate(weekLimit.getDate() + 7);
-
   const groups = new Map<string, RaceGroup>();
   const push = (key: string, label: string, race: RaceSummary) => {
     if (!groups.has(key)) groups.set(key, { key, label, races: [] });
@@ -126,19 +165,13 @@ export function groupAgendaRaces(races: RaceSummary[], now = new Date()): RaceGr
   for (const race of [...races].sort((a, b) => timestamp(a.raceDateTime) - timestamp(b.raceDateTime))) {
     const date = validDate(race.raceDateTime);
     if (!date) {
-      push("later", "Later", race);
+      push("later", "Date to be announced", race);
     } else if (LIVE_RACES.has(race.status.toUpperCase())) {
-      push("live", "Live Now", race);
-    } else if (dateKey(date) === today) {
-      push("today", "Today", race);
-    } else if (dateKey(date) === tomorrow) {
-      push("tomorrow", "Tomorrow", race);
-    } else if (date <= weekLimit) {
-      push("week", "This Week", race);
-    } else if (date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()) {
-      push("month", "Later This Month", race);
+      push("live", "Live now", race);
     } else {
-      push(monthKey(date), monthLabel(date), race);
+      const day = dateKey(date);
+      const exactDate = agendaDayLabel(date);
+      push(day, day === today ? `Today · ${exactDate}` : day === tomorrow ? `Tomorrow · ${exactDate}` : exactDate, race);
     }
   }
   return [...groups.values()];

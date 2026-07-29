@@ -29,6 +29,7 @@ export type PreRaceParticipant = {
 export type LiveRunner = {
   participantId: number;
   horseName: string;
+  jockeyName?: string;
   gateNumber: number;
   progressPercent: number;
   speedMultiplier: number;

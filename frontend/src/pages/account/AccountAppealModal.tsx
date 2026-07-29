@@ -55,8 +55,37 @@ export function AccountAppealModal({ data, onClose, onSubmit }: Props) {
           </label>
           <div>
             <p className="text-sm font-black text-slate-900">Evidence <span className="font-normal text-slate-500">(optional, up to 5 images)</span></p>
-            <label className="mt-2 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 hover:border-amber-500 hover:bg-amber-50"><FileImage className="h-4 w-4" aria-hidden="true" />{uploading ? "Uploading…" : "Add supporting image"}<input type="file" accept="image/*" disabled={uploading || busy || evidenceUrls.length >= 5} onChange={(event) => void upload(event.target.files?.[0])} className="sr-only" /></label>
-            {evidenceUrls.length > 0 && <p className="mt-2 text-xs font-semibold text-emerald-700">{evidenceUrls.length} image{evidenceUrls.length > 1 ? "s" : ""} attached</p>}
+            {/* Ảnh thu nhỏ lấy thẳng từ URL server sau khi upload xong: người dùng
+                thấy đúng ảnh mình vừa gửi, và việc nó hiện được cũng chính là bằng
+                chứng upload thành công. Không cần modal phóng to. */}
+            {evidenceUrls.length > 0 && (
+              <ul className="mt-3 flex flex-wrap gap-3">
+                {evidenceUrls.map((url, index) => (
+                  <li key={url} className="relative">
+                    <img
+                      src={url}
+                      alt={`Evidence ${index + 1} of ${evidenceUrls.length}`}
+                      className="h-20 w-20 rounded-xl border border-slate-200 bg-slate-100 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setEvidenceUrls((urls) => urls.filter((item) => item !== url))}
+                      disabled={busy || uploading}
+                      className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span className="sr-only">Remove evidence {index + 1}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {evidenceUrls.length < 5 ? (
+              <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 hover:border-amber-500 hover:bg-amber-50"><FileImage className="h-4 w-4" aria-hidden="true" />{uploading ? "Uploading…" : "Add supporting image"}<input type="file" accept="image/*" disabled={uploading || busy} onChange={(event) => void upload(event.target.files?.[0])} className="sr-only" /></label>
+            ) : (
+              <p className="mt-3 text-xs font-semibold text-slate-500">Maximum of 5 images reached.</p>
+            )}
+            {evidenceUrls.length > 0 && <p className="mt-2 text-xs font-semibold text-emerald-700" role="status">{evidenceUrls.length} of 5 images attached</p>}
           </div>
           <div className="flex gap-3 rounded-2xl bg-amber-50 p-4 text-sm leading-5 text-amber-950"><ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" /><p>Submitting starts a review. It does not automatically unlock your account or wallet.</p></div>
           {error && <p role="alert" className="flex gap-2 text-sm font-semibold text-red-700"><AlertCircle className="h-5 w-5 shrink-0" aria-hidden="true" />{error}</p>}

@@ -397,7 +397,7 @@ class JockeyInvitationContractIntegrationTest {
                 .andExpect(status().isOk());
 
         raceParticipantRepository.deleteAll();
-        assertTrue(raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(openingRound.getId()).isEmpty());
+        assertTrue(raceParticipantRepository.findAllByRaceOrderByLane(openingRound.getId()).isEmpty());
 
         mockMvc.perform(put("/api/v1/admin/tournaments/{id}/status", tournament.getId())
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
