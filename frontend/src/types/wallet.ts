@@ -26,6 +26,22 @@ export interface WalletTransaction {
   createdAt: string;
 }
 
+/** Dữ liệu VNPay trả về cho một lần nạp. Các field ngoài `txnRef` đều có thể null
+ *  với đơn nạp cũ hơn migration V39. */
+export interface TopUpPaymentDetail {
+  txnRef: string;
+  transactionNo: string | null;
+  bankCode: string | null;
+  bankTranNo: string | null;
+  cardType: string | null;
+  paidAt: string | null;
+}
+
+export interface WalletTransactionDetail extends WalletTransaction {
+  /** Chỉ có ở bút toán nạp tiền khớp được đơn; null với mọi loại còn lại. */
+  topUp: TopUpPaymentDetail | null;
+}
+
 export interface WalletSummary {
   balance: number;
   status: WalletStatus;
@@ -35,6 +51,8 @@ export interface WalletSummary {
 
 export interface TopUpReceipt {
   txnRef: string;
+  /** Mã giao dịch phía VNPay. Null khi đơn chưa/không thành công. */
+  transactionNo: string | null;
   status: "PENDING" | "SUCCESS" | "FAILED";
   amount: number;
   balanceAfter: number | null;

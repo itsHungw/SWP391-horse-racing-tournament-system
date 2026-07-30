@@ -11,6 +11,7 @@ vi.mock("../../api/walletApi", () => ({
     getSummary: vi.fn(),
     getTopUpReceipt: vi.fn(),
     getMyTransactions: vi.fn(),
+    getTransactionDetail: vi.fn(),
     getMyWithdrawals: vi.fn(),
     createTopUp: vi.fn(),
     getBankAccounts: vi.fn(),
@@ -33,6 +34,7 @@ describe("WalletPage", () => {
     });
     vi.mocked(walletApi.getTopUpReceipt).mockResolvedValue({
       txnRef: "TOPUP-21",
+      transactionNo: "14567890",
       status: "SUCCESS",
       amount: 50000,
       balanceAfter: 1295875,
@@ -72,6 +74,24 @@ describe("WalletPage", () => {
         createdAt: "2026-06-17T08:30:00Z",
       },
     ]);
+    vi.mocked(walletApi.getTransactionDetail).mockResolvedValue({
+      id: 5,
+      amount: 500000,
+      type: "TOPUP",
+      referenceType: "TOPUP_ORDER",
+      referenceId: 21,
+      balanceAfter: 1360875,
+      description: "VNPay top-up",
+      createdAt: "2026-06-17T08:30:00Z",
+      topUp: {
+        txnRef: "TOPUP-21",
+        transactionNo: "14567890",
+        bankCode: "NCB",
+        bankTranNo: "VNP14567890",
+        cardType: "ATM",
+        paidAt: "2026-06-17T08:29:00Z",
+      },
+    });
     vi.mocked(walletApi.getMyWithdrawals).mockResolvedValue([
       {
         id: 3,
@@ -172,6 +192,97 @@ describe("WalletPage", () => {
 
     expect(screen.getByRole("heading", { name: /payout queue/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /cancel withdrawal 3/i })).toBeInTheDocument();
+  });
+
+  it("opens a ledger row and shows the VNPay payment detail", async () => {
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /view details for top-up/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /transaction detail/i });
+    await waitFor(() => {
+      expect(walletApi.getTransactionDetail).toHaveBeenCalledWith(5);
+    });
+    expect(within(dialog).getByText("14567890")).toBeInTheDocument();
+    expect(within(dialog).getByText("VNP14567890")).toBeInTheDocument();
+    expect(within(dialog).getByText("Domestic ATM card")).toBeInTheDocument();
+    expect(within(dialog).getByText("TOPUP-21")).toBeInTheDocument();
+  });
+
+  it("omits payment rows a legacy top-up never recorded", async () => {
+    vi.mocked(walletApi.getTransactionDetail).mockResolvedValue({
+      id: 5,
+      amount: 500000,
+      type: "TOPUP",
+      referenceType: "TOPUP_ORDER",
+      referenceId: 21,
+      balanceAfter: 1360875,
+      description: "VNPay top-up",
+      createdAt: "2026-06-17T08:30:00Z",
+      topUp: {
+        txnRef: "TOPUP-21",
+        transactionNo: "14567890",
+        bankCode: null,
+        bankTranNo: null,
+        cardType: null,
+        paidAt: null,
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /view details for top-up/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /transaction detail/i });
+    expect(await within(dialog).findByText("14567890")).toBeInTheDocument();
+    expect(within(dialog).queryByText(/bank transaction no/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/^method$/i)).not.toBeInTheDocument();
+  });
+
+  it("resolves the payout destination for a withdrawal row without another request", async () => {
+    vi.mocked(walletApi.getMyTransactions).mockResolvedValue([
+      {
+        id: 8,
+        amount: -150000,
+        type: "WITHDRAWAL_HOLD",
+        referenceType: "WITHDRAWAL",
+        referenceId: 3,
+        balanceAfter: 1095875,
+        description: "Withdrawal hold",
+        createdAt: "2026-06-21T10:00:00Z",
+      },
+    ]);
+    vi.mocked(walletApi.getTransactionDetail).mockResolvedValue({
+      id: 8,
+      amount: -150000,
+      type: "WITHDRAWAL_HOLD",
+      referenceType: "WITHDRAWAL",
+      referenceId: 3,
+      balanceAfter: 1095875,
+      description: "Withdrawal hold",
+      createdAt: "2026-06-21T10:00:00Z",
+      topUp: null,
+    });
+
+    render(
+      <MemoryRouter initialEntries={["/wallet"]}>
+        <WalletPage />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: /view details for withdrawal hold/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /transaction detail/i });
+    expect(await within(dialog).findByText("Vietcombank")).toBeInTheDocument();
+    expect(within(dialog).getByText(/•••• 6789/)).toBeInTheDocument();
   });
 
   it("opens the add-money sheet from the hero", async () => {

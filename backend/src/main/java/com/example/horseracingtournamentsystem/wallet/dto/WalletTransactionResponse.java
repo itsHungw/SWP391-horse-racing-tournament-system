@@ -1,7 +1,6 @@
 package com.example.horseracingtournamentsystem.wallet.dto;
 
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
-import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
 import java.time.LocalDateTime;
 
 public record WalletTransactionResponse(
@@ -22,9 +21,7 @@ public record WalletTransactionResponse(
                 transaction.getReferenceType(),
                 transaction.getReferenceId(),
                 transaction.getBalanceAfter(),
-                transaction.getTransactionType() == WalletTransactionType.ADMIN_ADJUSTMENT
-                        ? "Admin transferred money"
-                        : transaction.getDescription(),
+                UserLedgerDescription.of(transaction),
                 transaction.getCreatedAt()
         );
     }

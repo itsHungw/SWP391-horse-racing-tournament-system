@@ -12,7 +12,6 @@ import {
   Search,
   Wallet as WalletIcon,
   X,
-  Flag,
 } from "lucide-react";
 
 import { walletApi } from "../../api/walletApi";
@@ -38,20 +37,12 @@ import { PerformanceChart } from "./PerformanceChart";
 import { SavedAccounts } from "./SavedAccounts";
 import { TopUpSheet } from "./TopUpSheet";
 import { PaymentResultDialog, type PaymentResultState } from "./PaymentResultDialog";
+import { TransactionDetailModal } from "./TransactionDetailModal";
+import { TX_LABEL } from "./transactionLabels";
 import { WithdrawSheet } from "./WithdrawSheet";
 import { CreateDisputeModal } from "../spectator/disputes/components/CreateDisputeModal";
 
 const vnd = new Intl.NumberFormat("en-US");
-
-const TX_LABEL: Record<WalletTransactionType, string> = {
-  TOPUP: "Top-up",
-  BET_PLACED: "Prediction entry",
-  BET_PAYOUT: "Race payout",
-  BET_REFUND: "Prediction refund",
-  WITHDRAWAL_HOLD: "Withdrawal hold",
-  WITHDRAWAL_REFUND: "Withdrawal refund",
-  ADMIN_ADJUSTMENT: "Adjustment",
-};
 
 const WITHDRAWAL_BADGE: Record<WithdrawalStatus, { label: string; className: string }> = {
   REQUESTED: { label: "Requested", className: "border-amber-300/25 bg-amber-300/10 text-amber-200" },
@@ -283,6 +274,7 @@ export function WalletPage() {
   const [cancelingId, setCancelingId] = useState<number | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [reportingTxId, setReportingTxId] = useState<number | null>(null);
+  const [detailTxId, setDetailTxId] = useState<number | null>(null);
   const [paymentResult, setPaymentResult] = useState<PaymentResultState | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -605,15 +597,27 @@ export function WalletPage() {
                         {group.items.map((tx) => {
                           const Icon = transactionIcon(tx.type);
                           const amountPositive = tx.amount >= 0;
+                          // The button is the real control (keyboard + screen reader); the row
+                          // click is a mouse-only convenience, so no ARIA role goes on <tr>.
                           return (
-                            <tr key={tx.id} data-wallet-transaction-id={tx.id} className="transition-colors hover:bg-white/[0.03] motion-reduce:transition-none">
+                            <tr
+                              key={tx.id}
+                              data-wallet-transaction-id={tx.id}
+                              onClick={() => setDetailTxId(tx.id)}
+                              className="cursor-pointer transition-colors hover:bg-white/[0.03] motion-reduce:transition-none"
+                            >
                               <td className="px-5 py-4">
-                                <div className="flex items-center gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => setDetailTxId(tx.id)}
+                                  aria-label={`View details for ${TX_LABEL[tx.type] ?? tx.type} on ${formatDateTime(tx.createdAt)}`}
+                                  className="flex items-center gap-3 rounded text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-400"
+                                >
                                   <span className={`grid h-9 w-9 place-items-center rounded-lg bg-white/[0.04] ${amountPositive ? "text-emerald-soft" : "text-rose-400"}`}>
                                     <Icon className="h-4 w-4" aria-hidden="true" />
                                   </span>
                                   <span className="font-bold text-ivory">{TX_LABEL[tx.type] ?? tx.type}</span>
-                                </div>
+                                </button>
                               </td>
                               <td className="max-w-[260px] px-5 py-4 text-ivory-dim">
                                 <span className="line-clamp-2">{tx.description || "Wallet transaction"}</span>
@@ -622,19 +626,10 @@ export function WalletPage() {
                               <td className={`px-5 py-4 text-right font-data font-black ${amountPositive ? "text-emerald-soft" : "text-rose-400"}`}>
                                 {formatVnd(tx.amount)}
                               </td>
+                              {/* Report moved into the detail modal: leaving it here would nest an
+                                  interactive control inside the now-clickable row. */}
                               <td className="px-5 py-4 text-right font-data text-xs text-ivory-dim">
-                                <div className="flex items-center justify-end gap-3">
-                                  <span>{tx.balanceAfter != null ? `${vnd.format(tx.balanceAfter)} VND` : "Pending"}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => setReportingTxId(tx.id)}
-                                    className="inline-flex items-center gap-1.5 rounded bg-white/5 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-ivory-dim transition-colors hover:bg-rose-500/10 hover:text-rose-300"
-                                    title="Report an issue with this transaction"
-                                  >
-                                    <Flag size={12} />
-                                    Report
-                                  </button>
-                                </div>
+                                {tx.balanceAfter != null ? `${vnd.format(tx.balanceAfter)} VND` : "Pending"}
                               </td>
                             </tr>
                           );
@@ -786,6 +781,16 @@ export function WalletPage() {
         onClose={() => setWithdrawOpen(false)}
         onSubmitted={() => {
           void refresh();
+        }}
+      />
+
+      <TransactionDetailModal
+        transactionId={detailTxId}
+        withdrawals={withdrawals}
+        onClose={() => setDetailTxId(null)}
+        onReport={(id) => {
+          setDetailTxId(null);
+          setReportingTxId(id);
         }}
       />
 
