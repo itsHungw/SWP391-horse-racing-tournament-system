@@ -39,6 +39,15 @@ spring:
           auth: ${MAIL_SMTP_AUTH:true}
           starttls:
             enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
+          # BẮT BUỘC phải có. JavaMail mặc định là -1 = chờ VÔ HẠN.
+          # Nhiều nhà cung cấp VPS (DigitalOcean) chặn outbound SMTP 25/465/587 bằng
+          # cách DROP gói tin chứ không REFUSE, nên socket không bao giờ báo lỗi:
+          # thread gửi mail treo vĩnh viễn -> nginx trả 504 sau proxy_read_timeout 60s
+          # -> user thấy "email bị timeout". Có timeout thì lỗi nổi lên sau 5s và
+          # log được, thay vì âm thầm treo.
+          connectiontimeout: ${MAIL_CONNECT_TIMEOUT_MS:5000}
+          timeout: ${MAIL_READ_TIMEOUT_MS:5000}
+          writetimeout: ${MAIL_WRITE_TIMEOUT_MS:5000}
 
 storage:
   s3:
@@ -135,6 +144,10 @@ app:
   mail:
     enabled: ${APP_MAIL_ENABLED:true}
     from: ${MAIL_FROM:no-reply@equinepro.local}
+    # true  = gửi mail trên thread nền, SAU khi transaction commit (mặc định cho chạy thật).
+    # false = gửi đồng bộ ngay trên thread gọi — chỉ dùng cho test, để assert được
+    #         ngay sau lời gọi HTTP mà không phải chờ thread nền.
+    async: ${APP_MAIL_ASYNC:true}
 
 # Actuator: expose only the health endpoint (with liveness/readiness probes) so
 # nginx/uptime checks and the docker-compose healthcheck can hit /actuator/health.
