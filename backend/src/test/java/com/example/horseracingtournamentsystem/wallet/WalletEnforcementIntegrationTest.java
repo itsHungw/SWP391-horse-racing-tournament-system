@@ -124,6 +124,85 @@ class WalletEnforcementIntegrationTest {
     }
 
     @Test
+    void adminCanCreditWalletAndInspectTheCompleteLedger() throws Exception {
+        walletService.adjust(
+                target, 100_000L, WalletTransactionType.TOPUP,
+                WalletTransaction.REF_TOPUP_ORDER, 88001L, "Confirmed VNPay top-up");
+
+        mockMvc.perform(post("/api/v1/admin/users/{id}/wallet/credit", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":250000,\"reason\":\"VNPay callback failed\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.amount").value(250_000))
+                .andExpect(jsonPath("$.balanceBefore").value(100_000))
+                .andExpect(jsonPath("$.balanceAfter").value(350_000));
+
+        mockMvc.perform(get("/api/v1/admin/users/{id}/wallet-control", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.balance").value(350_000));
+
+        mockMvc.perform(get("/api/v1/admin/users/{id}/wallet-transactions", target.getId())
+                        .param("page", "0")
+                        .param("size", "20")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].type").value("ADMIN_ADJUSTMENT"))
+                .andExpect(jsonPath("$.content[0].amount").value(250_000))
+                .andExpect(jsonPath("$.content[0].balanceBefore").value(100_000))
+                .andExpect(jsonPath("$.content[0].balanceAfter").value(350_000))
+                .andExpect(jsonPath("$.content[0].description").value(
+                        "Wallet Admin <wallet-admin@example.com>: VNPay callback failed"));
+
+        mockMvc.perform(get("/api/v1/wallet/me/transactions")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + targetToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].type").value("ADMIN_ADJUSTMENT"))
+                .andExpect(jsonPath("$[0].description").value("Admin transferred money"));
+    }
+
+    @Test
+    void adminCreditValidatesAmountActorAndWalletStatus() throws Exception {
+        mockMvc.perform(post("/api/v1/admin/users/{id}/wallet/credit", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":0,\"reason\":\"Invalid\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/admin/users/{id}/wallet/credit", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":50000001,\"reason\":\"Too large\"}"))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/v1/admin/users/{id}/wallet/credit", admin.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":100000,\"reason\":\"Self credit\"}"))
+                .andExpect(status().isForbidden());
+
+        transition("lock", "Financial review", "LOCKED", false);
+        mockMvc.perform(post("/api/v1/admin/users/{id}/wallet/credit", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":100000,\"reason\":\"Locked wallet\"}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminUserDetailIncludesLastLogin() throws Exception {
+        target.recordLogin();
+        target = userRepository.save(target);
+
+        mockMvc.perform(get("/api/v1/admin/users/{id}", target.getId())
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lastLoginAt").isNotEmpty());
+    }
+
+    @Test
     void affectedUserCanSeeWhyWithdrawalsWereFrozen() throws Exception {
         transition("lock", "Unusual withdrawal activity", "LOCKED", false);
 

@@ -32,6 +32,7 @@ public class WalletTransaction {
     public static final String REF_STREAK_PREDICTION = "STREAK_PREDICTION";
     public static final String REF_TOPUP_ORDER = "TOPUP_ORDER";
     public static final String REF_WITHDRAWAL = "WITHDRAWAL";
+    public static final String REF_ADMIN_BALANCE_CREDIT = "ADMIN_BALANCE_CREDIT";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,7 +59,7 @@ public class WalletTransaction {
     @Column(name = "balance_after")
     private Long balanceAfter;
 
-    @Column(name = "description", length = 500)
+    @Column(name = "description", columnDefinition = "text")
     private String description;
 
     @Column(name = "created_at", nullable = false)

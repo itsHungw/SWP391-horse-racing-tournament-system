@@ -10,6 +10,7 @@ export interface AdminUserDetail {
   status: string;
   emailVerified: boolean;
   roles: string[];
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt?: string;
 }
@@ -71,6 +72,25 @@ export interface WalletControl {
   userId: number;
   walletStatus: "ACTIVE" | "LOCKED";
   canWithdraw: boolean;
+  balance: number;
+}
+
+export interface AdminWalletCreditResponse {
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+}
+
+export interface AdminWalletTransaction {
+  id: number;
+  amount: number;
+  type: string;
+  referenceType?: string | null;
+  referenceId?: number | null;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  description?: string | null;
+  createdAt: string;
 }
 
 export interface WalletStatusHistoryItem {

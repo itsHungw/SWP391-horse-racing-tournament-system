@@ -10,6 +10,8 @@ import {
   AccountTransitionRequest,
   WalletControl,
   WalletStatusHistoryItem,
+  AdminWalletCreditResponse,
+  AdminWalletTransaction,
 } from "../types/adminUser";
 
 export const getAdminUsers = async (
@@ -88,3 +90,20 @@ export const enforceAdminUserWallet = async (
 
 export const getAdminUserWalletHistory = async (id: number): Promise<WalletStatusHistoryItem[]> =>
   (await httpClient.get<WalletStatusHistoryItem[]>(`/admin/users/${id}/wallet-status-history`)).data;
+
+
+export const creditAdminUserWallet = async (
+  id: number,
+  amount: number,
+  reason: string,
+): Promise<AdminWalletCreditResponse> =>
+  (await httpClient.post<AdminWalletCreditResponse>(`/admin/users/${id}/wallet/credit`, { amount, reason })).data;
+
+export const getAdminUserWalletTransactions = async (
+  id: number,
+  page = 0,
+  size = 20,
+): Promise<PageResponse<AdminWalletTransaction>> =>
+  (await httpClient.get<PageResponse<AdminWalletTransaction>>(`/admin/users/${id}/wallet-transactions`, {
+    params: { page, size },
+  })).data;
