@@ -1,4 +1,4 @@
-import type { ReceiptExtraction } from "./receiptFieldExtractor";
+import { requiresAcknowledgement, type ReceiptComparison, type ReceiptExtraction } from "./receiptFieldExtractor";
 
 export function ReceiptOcrResult({
   extraction,
@@ -13,13 +13,16 @@ export function ReceiptOcrResult({
   extraction: ReceiptExtraction;
   transferReference: string;
   onReferenceChange: (value: string) => void;
-  comparison: { amount: boolean | null; transferContent: boolean | null };
+  comparison: ReceiptComparison;
   mismatchAcknowledged: boolean;
   onMismatchAcknowledged: (value: boolean) => void;
   internalNote: string;
   onInternalNoteChange: (value: string) => void;
 }) {
-  const mismatch = comparison.amount === false || comparison.transferContent === false;
+  const needsReview = requiresAcknowledgement(comparison);
+  // Lệch và không đọc được đều phải xác nhận tay, nhưng nói rõ là ca nào để internal note
+  // ghi lại đúng chuyện đã xảy ra.
+  const contradicted = comparison.amount === false || comparison.transferContent === false;
 
   return (
     <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
@@ -67,19 +70,28 @@ export function ReceiptOcrResult({
         <MatchField label="Transfer content" value={extraction.transferContent ?? "Not detected"} match={comparison.transferContent} />
       </dl>
 
-      {mismatch ? (
+      {needsReview ? (
         <div className="border border-amber-200 bg-amber-50 p-3">
-          <label className="flex min-h-11 items-start gap-3 text-sm text-amber-950">
+          <p className="text-sm font-semibold text-amber-950">
+            {contradicted
+              ? "The receipt does not match the approved instruction."
+              : "The receipt could not be read in full, so nothing was verified automatically."}
+          </p>
+          <label className="mt-2 flex min-h-11 items-start gap-3 text-sm text-amber-950">
             <input
               type="checkbox"
               checked={mismatchAcknowledged}
               onChange={(event) => onMismatchAcknowledged(event.target.checked)}
               className="mt-1 h-4 w-4 accent-amber-700"
             />
-            <span>I reviewed the mismatch and still want to confirm this payment.</span>
+            <span>
+              {contradicted
+                ? "I reviewed the mismatch and still want to confirm this payment."
+                : "I checked the amount and transfer content on the receipt myself."}
+            </span>
           </label>
           <label className="mt-3 block">
-            <span className="text-xs font-semibold text-amber-900">Internal mismatch note</span>
+            <span className="text-xs font-semibold text-amber-900">Internal note</span>
             <textarea
               value={internalNote}
               onChange={(event) => onInternalNoteChange(event.target.value)}

@@ -23,6 +23,8 @@ public interface WalletTransactionRepository extends JpaRepository<WalletTransac
 
     List<WalletTransaction> findByUserIdOrderByCreatedAtDesc(Long userId);
 
+    Page<WalletTransaction> findByUserIdOrderByCreatedAtDescIdDesc(Long userId, Pageable pageable);
+
     boolean existsByUserIdAndTransactionType(Long userId, WalletTransactionType transactionType);
 
     boolean existsByReferenceTypeAndReferenceIdAndTransactionType(

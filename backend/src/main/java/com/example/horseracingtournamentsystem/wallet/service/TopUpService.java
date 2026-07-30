@@ -4,15 +4,18 @@ import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.wallet.config.VNPayProperties;
 import com.example.horseracingtournamentsystem.wallet.entity.TopUpOrder;
 import com.example.horseracingtournamentsystem.wallet.entity.TopUpStatus;
+import com.example.horseracingtournamentsystem.wallet.entity.VNPayPaymentDetails;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransaction;
 import com.example.horseracingtournamentsystem.wallet.entity.WalletTransactionType;
 import com.example.horseracingtournamentsystem.wallet.dto.TopUpReceiptResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.TopUpReceiptResponse.ReceiptStatus;
 import com.example.horseracingtournamentsystem.wallet.repository.TopUpOrderRepository;
 import com.example.horseracingtournamentsystem.wallet.repository.WalletTransactionRepository;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class TopUpService {
 
     private static final DateTimeFormatter REF_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    /** Định dạng của {@code vnp_PayDate}. Trùng pattern với {@link #REF_FMT} nhưng là hai việc
+     *  độc lập — một cái ta sinh ra, một cái VNPay gửi sang — nên không dùng chung hằng số. */
+    private static final DateTimeFormatter VNPAY_PAY_DATE_FMT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final ZoneId VN_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private final TopUpOrderRepository orderRepository;
@@ -94,7 +100,7 @@ public class TopUpService {
             return TopUpResult.FAILED;
         }
 
-        order.markSuccess(code, params.get("vnp_TransactionNo"));
+        order.markSuccess(code, extractPaymentDetails(params));
         orderRepository.save(order);
         walletService.adjust(
                 order.getUser(), order.getAmount(), WalletTransactionType.TOPUP,
@@ -127,11 +133,38 @@ public class TopUpService {
             case FAILED, EXPIRED -> ReceiptStatus.FAILED;
             case INITIATED, PENDING -> ReceiptStatus.PENDING;
         };
-        return new TopUpReceiptResponse(order.getVnpayTxnRef(), status, order.getAmount(),
+        return new TopUpReceiptResponse(order.getVnpayTxnRef(), order.getVnpayTransactionNo(),
+                status, order.getAmount(),
                 transaction == null ? null : transaction.getBalanceAfter(),
                 transaction == null ? null : transaction.getId(),
                 order.getPaidAt() != null ? order.getPaidAt() : order.getCreatedAt(),
                 status == ReceiptStatus.FAILED ? safeFailureReason(order.getVnpayResponseCode()) : null);
+    }
+
+    /**
+     * Gom dữ liệu VNPay trả kèm để user xem lại sau. Toàn bộ là thông tin hiển thị, nên parse
+     * phòng thủ: {@code vnp_PayDate} sai định dạng chỉ mất một dòng trên màn chi tiết, tuyệt đối
+     * không được ném ngoại lệ ra ngoài và chặn việc ghi-có ví ngay bên dưới.
+     */
+    private VNPayPaymentDetails extractPaymentDetails(Map<String, String> params) {
+        return new VNPayPaymentDetails(
+                params.get("vnp_TransactionNo"),
+                params.get("vnp_BankCode"),
+                params.get("vnp_BankTranNo"),
+                params.get("vnp_CardType"),
+                parseVnpayPayDate(params.get("vnp_PayDate"))
+        );
+    }
+
+    private LocalDateTime parseVnpayPayDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(raw, VNPAY_PAY_DATE_FMT);
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     private String safeFailureReason(String code) {

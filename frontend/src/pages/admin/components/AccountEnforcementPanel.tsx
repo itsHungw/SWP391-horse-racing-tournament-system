@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import {
+  creditAdminUserWallet,
   enforceAdminUserAccount,
   enforceAdminUserWallet,
   getAdminUserStatusHistory,
@@ -14,7 +15,9 @@ import type {
   WalletControl,
   WalletStatusHistoryItem,
 } from "../../../types/adminUser";
+import { formatVnd } from "../../../utils/money";
 import { AccountEnforcementModal } from "./AccountEnforcementModal";
+import { AdminBalanceCreditModal } from "./AdminBalanceCreditModal";
 import { WalletEnforcementModal } from "./WalletEnforcementModal";
 
 function availableActions(status: string): AccountEnforcementAction[] {
@@ -34,6 +37,7 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
   const [walletHistory, setWalletHistory] = useState<WalletStatusHistoryItem[]>([]);
   const [action, setAction] = useState<AccountEnforcementAction | null>(null);
   const [walletAction, setWalletAction] = useState<"lock" | "unlock" | null>(null);
+  const [creditOpen, setCreditOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,18 +73,18 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
         </div>
         <div className="flex flex-wrap gap-2">
           {availableActions(user.status).map((item) => (
-            <button key={item} disabled={isSelf || (item === "suspend" && !wallet)} onClick={() => { setError(null); setAction(item); }} className="rounded-full border border-slate-300 px-4 py-2 text-sm font-black capitalize hover:bg-slate-50 disabled:opacity-40">
+            <button type="button" key={item} disabled={isSelf || (item === "suspend" && !wallet)} onClick={() => { setError(null); setAction(item); }} className="min-h-11 rounded-full border border-slate-300 px-4 text-sm font-black capitalize hover:bg-slate-50 disabled:opacity-40">
               {item}
             </button>
           ))}
         </div>
       </div>
-      {isSelf && <p className="mt-3 text-xs font-semibold text-rose-600">Self-enforcement is disabled.</p>}
+      {isSelf && <p className="mt-3 text-xs font-semibold text-rose-600">Self-enforcement and self-credit are disabled.</p>}
 
       <div className="mt-5 border-t border-slate-200 pt-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <h3 className="text-sm font-black text-slate-900">Financial access</h3>
               {wallet && (
                 <StatusPill
@@ -90,6 +94,8 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
                 />
               )}
             </div>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">Current balance</p>
+            <p className="mt-1 text-2xl font-black text-[#070f4f]">{wallet ? formatVnd(wallet.balance) : "—"}</p>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">
               {wallet?.canWithdraw
                 ? "Eligible withdrawals remain available. Account restrictions still block betting and top-ups."
@@ -97,9 +103,19 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
             </p>
           </div>
           {wallet && (
-            <button disabled={isSelf} onClick={() => { setError(null); setWalletAction(wallet.canWithdraw ? "lock" : "unlock"); }} className="shrink-0 rounded-full border border-slate-300 px-4 py-2 text-sm font-black hover:bg-slate-50 disabled:opacity-40">
-              {wallet.canWithdraw ? "Freeze new withdrawals" : "Restore withdrawals"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={isSelf || wallet.walletStatus === "LOCKED"}
+                onClick={() => { setError(null); setCreditOpen(true); }}
+                className="min-h-11 rounded-full bg-[#070f4f] px-5 text-sm font-black text-white hover:bg-[#101a70] disabled:opacity-40"
+              >
+                Add Balance
+              </button>
+              <button type="button" disabled={isSelf} onClick={() => { setError(null); setWalletAction(wallet.canWithdraw ? "lock" : "unlock"); }} className="min-h-11 rounded-full border border-slate-300 px-4 text-sm font-black hover:bg-slate-50 disabled:opacity-40">
+                {wallet.canWithdraw ? "Freeze new withdrawals" : "Restore withdrawals"}
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -133,6 +149,23 @@ export function AccountEnforcementPanel({ user, isSelf, onChanged }: {
             await loadWallet();
           } catch (cause: any) {
             setError(cause.response?.data?.message ?? "Unable to update wallet access");
+          } finally {
+            setBusy(false);
+          }
+        }} />
+      )}
+
+      {creditOpen && wallet && (
+        <AdminBalanceCreditModal currentBalance={wallet.balance} busy={busy} error={error} onClose={() => !busy && setCreditOpen(false)} onSubmit={async ({ amount, reason }) => {
+          setBusy(true);
+          setError(null);
+          try {
+            const result = await creditAdminUserWallet(user.id, amount, reason);
+            setWallet({ ...wallet, balance: result.balanceAfter });
+            setCreditOpen(false);
+            onChanged();
+          } catch (cause: any) {
+            setError(cause.response?.data?.message ?? "Unable to add balance");
           } finally {
             setBusy(false);
           }
