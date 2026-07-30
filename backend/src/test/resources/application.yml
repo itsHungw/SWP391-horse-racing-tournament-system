@@ -64,6 +64,10 @@ app:
       cache-maximum-size: 50000
       cache-ttl-seconds: 1200
       trusted-proxies:
+  mail:
+    # Gửi đồng bộ trong test: integration test assert email ngay sau lời gọi HTTP,
+    # nếu để async thì assertion chạy trước khi thread nền kịp gửi -> test flaky.
+    async: false
   upload:
     root: target/test-uploads
   auth:

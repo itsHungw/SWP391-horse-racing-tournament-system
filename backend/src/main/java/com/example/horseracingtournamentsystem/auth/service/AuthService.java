@@ -8,7 +8,7 @@ import com.example.horseracingtournamentsystem.auth.dto.response.AuthResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.LoginResponse;
 import com.example.horseracingtournamentsystem.auth.dto.response.OAuth2UserInfo;
 import com.example.horseracingtournamentsystem.auth.enums.AuthProvider;
-import com.example.horseracingtournamentsystem.auth.email.EmailSender;
+import com.example.horseracingtournamentsystem.auth.email.AuthEmailRequestedEvent;
 import com.example.horseracingtournamentsystem.auth.entity.AuthSession;
 import com.example.horseracingtournamentsystem.auth.entity.EmailVerificationToken;
 import com.example.horseracingtournamentsystem.auth.exception.PasswordResetRejectedException;
@@ -31,6 +31,7 @@ import java.util.HexFormat;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -49,7 +50,10 @@ public class AuthService {
     
     private final PasswordEncoder passwordEncoder;
     private final OneTimeTokenService oneTimeTokenService;
-    private final EmailSender emailSender;
+    // Không gọi thẳng EmailSender ở đây: gửi SMTP giữa method @Transactional sẽ giữ
+    // connection DB (và row lock) suốt thời gian chờ mạng. Phát event để
+    // AuthEmailDispatcher gửi sau khi commit, trên thread nền.
+    private final ApplicationEventPublisher eventPublisher;
     private final JwtService jwtService;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -206,7 +210,7 @@ public class AuthService {
 
     private void sendVerificationEmail(User user) {
         String rawToken = oneTimeTokenService.createEmailVerificationToken(user);
-        emailSender.sendEmailVerification(user.getEmail(), rawToken);
+        eventPublisher.publishEvent(AuthEmailRequestedEvent.emailVerification(user.getEmail(), rawToken));
     }
 
     @Transactional
@@ -216,7 +220,7 @@ public class AuthService {
                 .filter(user -> UserStatus.PENDING_EMAIL_VERIFY == user.getStatus())
                 .ifPresent(user -> {
                     String rawToken = oneTimeTokenService.createEmailVerificationToken(user);
-                    emailSender.sendEmailVerification(user.getEmail(), rawToken);
+                    eventPublisher.publishEvent(AuthEmailRequestedEvent.emailVerification(user.getEmail(), rawToken));
                 });
     }
 
@@ -233,7 +237,7 @@ public class AuthService {
                 .filter(user -> UserStatus.ACTIVE.equals(user.getStatus()))
                 .ifPresent(user -> {
                     String rawToken = oneTimeTokenService.createPasswordResetToken(user);
-                    emailSender.sendPasswordReset(user.getEmail(), rawToken);
+                    eventPublisher.publishEvent(AuthEmailRequestedEvent.passwordReset(user.getEmail(), rawToken));
                 });
     }
 
