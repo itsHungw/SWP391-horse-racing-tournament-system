@@ -42,6 +42,8 @@ services:
     environment:
       # Container-internal DB address (compose service name).
       DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME}
+      TZ: Asia/Ho_Chi_Minh
+      JAVA_OPTS: "-XX:MaxRAMPercentage=75.0 -Duser.timezone=Asia/Ho_Chi_Minh"
     # Bind ONLY to localhost: the host's nginx proxies here, but the port is
     # never exposed to the public internet.
     ports:
