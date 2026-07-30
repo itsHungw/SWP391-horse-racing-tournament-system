@@ -328,12 +328,14 @@ Java entities/DTOs/requests updated `Integer → Long` accordingly. Rules going 
 | Type widening (§9) | **Done** — `V17` + entity/DTO changes |
 | Safety caps (§6) | **Done** — `app.prediction.*` config; min/max wager enforced at submit; max odds/payout at settlement |
 | Parimutuel settlement (§3, §12.1, §12.2) | **Done** — `PredictionSettlementScheduler` pays EXACT_POSITION + HEAD_TO_HEAD from pools (`payout = stake·P_net/S_win`); zero house risk; fixes B1–B4, B7. H2H is straight-up (handicap dropped); ties/DNF/no-winner → refund. |
-| Streak parlay (§12.3) | **Done** — multiplicative fair-odds with single end-margin + `max-total-odds`/`max-payout` caps; void leg ⇒ ×1; all-void ⇒ refund (fixes B5, B6). |
+| Streak parlay (§12.3) | **Diverges from spec.** As built (2026-07-30) the ticket multiplier is the **sum** of the legs' fair odds (`Σ O_leg`) with **no** `t_parlay` end-margin; only `max-total-odds`/`max-payout` bound it. Void leg contributes nothing and all-void ⇒ refund (B5 fixed), but the multiplicative single-margin formula in §12.3 is **not** implemented (B6 open) — see the as-built note there. |
 | Live **provisional** odds display (§3.3, §4) | **Pending** — `OddsCalculationService` still shows the old AMM number at bet time; payout is pool-based so this is a display-only mismatch (B1 in display, B8 `double`). Should show `P_net/S_o` and "final at close". |
 | Prediction edit/re-price path | **Closed by policy** — `PUT /api/v1/predictions/{id}` is disabled and returns method-not-allowed behavior; users place a new wager instead of editing an existing one. |
 
-Backend money-safety is complete (pools + caps + bounded parlay). Remaining work is the
-bet-time **display** of pool-provisional odds (UX); prediction editing is intentionally disabled.
+The pooled markets (EXACT_POSITION, HEAD_TO_HEAD) carry zero house risk and are complete.
+The streak market is bounded by caps but currently takes **no margin at all** — its liability
+is capped, not priced (see the §12.3 as-built note). Remaining work is the bet-time **display**
+of pool-provisional odds (UX); prediction editing is intentionally disabled.
 
 ---
 
@@ -551,6 +553,28 @@ payout     = min( wager · totalOdds , MAX_PAYOUT )
 | All legs but one voided | degrade to single Win bet (or refund) |
 | `< 2` legs at submit | reject (a streak needs ≥ 2) |
 
+**As built (2026-07-30) — the code does NOT follow the formula above**
+
+The shipped implementation sums the legs instead of multiplying them, and applies no
+`t_parlay` margin:
+
+```
+totalOdds = min( Σ O_leg , MAX_TOTAL_ODDS )      # no (1 − t_parlay) factor
+payout    = min( wager · totalOdds , MAX_PAYOUT )
+```
+
+Three call sites agree on this: `StreakPredictionService.createStreakPrediction`,
+`PredictionService.lockRacePredictions`, and `PredictionSettlementScheduler` (settlement).
+The frontend `computeStreakOdds` sums with the same cap, so display and settlement match.
+`app.prediction.streak-takeout` is still configured but no longer read by the payout path.
+
+**Known consequence — the streak market has no house hold.** Summing is *less* generous than
+multiplying for long-priced legs, but *more* generous for short-priced ones, because
+`Σ O > Π O` whenever the legs sit near 1.0. A ticket of 5 favourites at fair odds 1.10
+(≈62% chance all five land) pays `5 × 1.10 = 5.5×` against a fair price of `1.1⁵ = 1.61×`,
+i.e. an expected return of ~3.4× stake. Accepted deliberately for the current build; revisit
+before this market runs on real money at scale.
+
 ### 13. Cross-market bug catalog (current code → fix)
 
 | # | Where | Bug | Fix |
@@ -560,7 +584,7 @@ payout     = min( wager · totalOdds , MAX_PAYOUT )
 | B3 | settlement | EXACT_POSITION refund only on `WITHDRAWN`; other non-starters lose | refund any non-finisher column / unraced bet |
 | B4 | settlement L150-158 | H2H with a null finish time → lose (not refund); tie → A loses | refund on missing time / treat tie as push |
 | B5 | streak L247-248 | voided leg **added** to multiplier; ticket settles WON with void leg | void leg ⇒ ×1, recompute product |
-| B6 | streak odds | additive `Σ` (and compounded margin) ⇒ unplayable | multiplicative with single end-margin |
+| B6 | streak odds | additive `Σ` (and compounded margin) ⇒ unplayable | **Open** — the compounded per-leg margin is gone, but the ticket still sums (`Σ`) and now carries no end-margin at all. See the §12.3 as-built note. |
 | B7 | all | payout `wager·lockedOdds` from house funds, odds locked at bet time, bets refundable ⇒ lock-then-refund drain | pool model removes fixed liability; streak bounded by caps |
 | B8 | `OddsCalculationService` | `double` arithmetic on money | `BigDecimal` end-to-end |
 | B9 | all | no MAX_WAGER / MAX_ODDS / MAX_PAYOUT / market-liability caps | use `app.prediction.*` config (§6) |
@@ -572,7 +596,8 @@ payout     = min( wager · totalOdds , MAX_PAYOUT )
    lock; payout = `stake · P_net / S_win`; refund column when `S_win=0` or no finisher.
 2. **HEAD_TO_HEAD** → 2-outcome parimutuel per matchup; drop the 50/50 prior; handicap
    either removed or based on a comparable speed metric; fix tie/DNF to push/refund.
-3. **STREAK** → multiplicative fair-odds parlay, single end-margin, hard caps; void leg ⇒ ×1.
+3. **STREAK** → *as built:* summed fair-odds (`Σ`), no end-margin, hard caps; void leg contributes
+   nothing. The multiplicative single-margin parlay below is the recommendation, not the code.
 4. **Cross-cutting** → `BigDecimal` money math; caps in `app.prediction.*`; idempotent,
    pool-funded settlement; keep placed predictions immutable unless a future edit workflow settles wager deltas.
 

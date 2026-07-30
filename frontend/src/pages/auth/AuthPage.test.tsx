@@ -154,6 +154,69 @@ describe("Auth pages", () => {
     );
   });
 
+  it("ignores a returnTo the newly signed-in account cannot reach", async () => {
+    mockedLogin.mockResolvedValue({
+      accessToken: createAccessTokenWithRoles(["SPECTATOR"]),
+      email: "punter@nyra.com",
+      fullName: "Regular Punter",
+    });
+
+    // Logging out of the admin workspace leaves the guard's returnTo pointing at
+    // an admin route. Honouring it would drop the next account on access-denied.
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/login", state: { returnTo: "/admin/users" } }]}
+      >
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/admin/users" element={<h1>Admin users</h1>} />
+          <Route path="/" element={<h1>Home</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "punter@nyra.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "Password1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /secure login/i }));
+
+    expect(await screen.findByRole("heading", { name: /^home$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /admin users/i })).not.toBeInTheDocument();
+  });
+
+  it("still honours a returnTo the account can reach", async () => {
+    mockedLogin.mockResolvedValue({
+      accessToken: createAccessTokenWithRoles(["SPECTATOR"]),
+      email: "punter@nyra.com",
+      fullName: "Regular Punter",
+    });
+
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/login", state: { returnTo: "/spectator/predictions" } }]}
+      >
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/spectator/predictions" element={<h1>Predictions</h1>} />
+          <Route path="/" element={<h1>Home</h1>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByLabelText(/email address/i), {
+      target: { value: "punter@nyra.com" },
+    });
+    fireEvent.change(screen.getByLabelText(/^password$/i), {
+      target: { value: "Password1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /secure login/i }));
+
+    expect(await screen.findByRole("heading", { name: /predictions/i })).toBeInTheDocument();
+  });
+
   it("connects the NYRA-style register UI to the register API", async () => {
     mockedRegister.mockResolvedValue();
 

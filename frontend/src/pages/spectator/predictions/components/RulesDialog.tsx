@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -181,27 +181,45 @@ export function RulesDialog({ open, onClose, feePercent = HOUSE_TAKEOUT_PCT }: {
 
   const progress = useMemo(() => `${slideIndex + 1} / ${slides.length}`, [slideIndex, slides.length]);
 
-  const EASE = [0.16, 1, 0.3, 1];
+  const prefersReducedMotion = useReducedMotion();
+  // `as const` keeps this a 4-tuple cubic-bezier; without it TS widens to
+  // number[], which framer-motion's Easing type rejects.
+  const EASE = [0.16, 1, 0.3, 1] as const;
+  const backdropMotion = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: prefersReducedMotion ? 0.12 : 0.4 },
+  };
+  // Reduced motion keeps the dialog appearing (it still needs to be seen) but
+  // drops the slide and shortens it to a plain crossfade.
+  const panelMotion = prefersReducedMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.12 },
+      }
+    : {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: 10 },
+        transition: { duration: 0.6, delay: 0.05, ease: EASE },
+      };
 
   return createPortal(
     <AnimatePresence>
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" aria-hidden={false}>
           <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
+            {...backdropMotion}
             type="button"
             aria-label="Close guide"
             onClick={onClose}
             className="absolute inset-0 cursor-default bg-turf-950/80 backdrop-blur-sm"
           />
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 10 }}
-            transition={{ duration: 0.6, delay: 0.05, ease: EASE }}
+            {...panelMotion}
             role="dialog"
             aria-modal="true"
             aria-labelledby="rules-title"

@@ -15,6 +15,7 @@ import {
   validateVietnamesePhone,
 } from "../../utils/validation";
 import { setClientSession } from "../../utils/authSession";
+import { canAccessPath } from "../../utils/routeAccess";
 import { getApiErrorMessage } from "../../utils/apiError";
 
 type AuthMode = "login" | "register";
@@ -101,7 +102,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       const roles = getRolesFromAccessToken(apiResponse.accessToken);
       if (apiResponse.accountStatus === "BANNED") {
         navigate("/account-restricted", { replace: true });
-      } else if (returnTo) {
+      } else if (returnTo && canAccessPath(returnTo, roles)) {
         navigate(returnTo, { replace: true });
       } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });
@@ -177,7 +178,7 @@ export function AuthPage({ initialMode }: { initialMode: AuthMode }) {
       const roles = getRolesFromAccessToken(response.accessToken);
       if (response.accountStatus === "BANNED") {
         navigate("/account-restricted", { replace: true });
-      } else if (returnTo) {
+      } else if (returnTo && canAccessPath(returnTo, roles)) {
         navigate(returnTo, { replace: true });
       } else if (roles.includes("ADMIN")) {
         navigate("/admin", { replace: true });

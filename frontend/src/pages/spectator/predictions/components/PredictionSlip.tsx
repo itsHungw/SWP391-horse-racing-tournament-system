@@ -7,6 +7,7 @@ import {
   getBibClass,
   type Picks,
 } from "../predictionCockpitUtils";
+import { useRulesFirstRun } from "../useRulesFirstRun";
 import { MyPredictionsPanel } from "./MyPredictionsPanel";
 import { PayoutReceipt } from "./PayoutReceipt";
 import { RulesDialog } from "./RulesDialog";
@@ -93,14 +94,7 @@ export function PredictionSlip({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setRulesOpen(true), 150);
-    return () => clearTimeout(timer);
-  }, []);
-  const handleCloseRules = () => {
-    setRulesOpen(false);
-  };
+  const { rulesOpen, openRules, closeRules } = useRulesFirstRun();
   const [quote, setQuote] = useState<PredictionQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -287,7 +281,7 @@ export function PredictionSlip({
             <h2 className="font-display text-[15px] font-bold text-ivory">Bet Slip</h2>
             <button
               type="button"
-              onClick={() => setRulesOpen(true)}
+              onClick={openRules}
               className="inline-flex items-center gap-1.5 rounded-md border border-turf-700 px-2.5 py-1.5 text-[11px] font-bold text-ivory-dim transition-colors hover:border-gold-500/50 hover:text-gold-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300"
             >
               <HelpCircle className="h-3.5 w-3.5" />
@@ -344,7 +338,7 @@ export function PredictionSlip({
             quoteLoading={quoteLoading}
             quoteError={quoteError}
             feePercent={options?.houseFeePercent}
-            onOpenRules={() => setRulesOpen(true)}
+            onOpenRules={openRules}
           />
           </div>
 
@@ -397,7 +391,7 @@ export function PredictionSlip({
         </section>
       )}
 
-      <RulesDialog open={rulesOpen} onClose={handleCloseRules} feePercent={options?.houseFeePercent} />
+      <RulesDialog open={rulesOpen} onClose={closeRules} feePercent={options?.houseFeePercent} />
     </aside>
   );
 }

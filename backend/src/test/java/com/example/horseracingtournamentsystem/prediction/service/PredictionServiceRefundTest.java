@@ -8,6 +8,8 @@ import com.example.horseracingtournamentsystem.prediction.entity.RacePrediction;
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus;
 import com.example.horseracingtournamentsystem.prediction.repository.PredictionSettlementJobRepository;
 import com.example.horseracingtournamentsystem.prediction.repository.RacePredictionRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository;
+import com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceParticipantRepository;
 import com.example.horseracingtournamentsystem.race.repository.RaceRepository;
 import com.example.horseracingtournamentsystem.user.entity.User;
@@ -33,7 +35,9 @@ class PredictionServiceRefundTest {
                 mock(RaceRepository.class),
                 mock(WalletService.class),
                 mock(OddsCalculationService.class),
-                mock(RaceParticipantRepository.class));
+                mock(RaceParticipantRepository.class),
+                mock(StreakPredictionLegRepository.class),
+                mock(StreakPredictionRepository.class));
 
         service.refundCancelledRace(202L);
 

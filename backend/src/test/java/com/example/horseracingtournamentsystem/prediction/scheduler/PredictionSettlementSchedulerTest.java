@@ -64,36 +64,37 @@ class PredictionSettlementSchedulerTest {
     }
 
     @Test
-    void winningStreakPaysWagerTimesMultiplicativeOddsWithSingleMargin() {
+    void winningStreakPaysWagerTimesSummedLegOdds() {
         Fixture fixture = fixture(ResultFinishStatus.FINISHED, 1);
 
         scheduler.processJob(9L);
         scheduler.processJob(9L);
 
         assertEquals(StreakPredictionStatus.WON, fixture.streak().getStatus());
-        // 1.50 * 2.25 = 3.375 ; * (1 - 0.20 streak takeout) = 2.70
-        assertEquals(new BigDecimal("2.70"), fixture.streak().getTotalOdds());
-        assertEquals(27_000L, fixture.streak().getRewardPoints());
+        // Legs are summed, not multiplied, and no streak takeout is applied:
+        // 1.50 + 2.25 = 3.75
+        assertEquals(new BigDecimal("3.75"), fixture.streak().getTotalOdds());
+        assertEquals(37_500L, fixture.streak().getRewardPoints());
         verify(walletService, times(1)).adjust(
-                eq(fixture.spectator()), eq(27_000L),
+                eq(fixture.spectator()), eq(37_500L),
                 eq(WalletTransactionType.BET_PAYOUT),
                 eq(WalletTransaction.REF_STREAK_PREDICTION),
                 eq(51L), anyString());
     }
 
     @Test
-    void voidedLegDropsOutOfTheMultiplier() {
+    void voidedLegDropsOutOfTheSum() {
         Fixture fixture = fixture(ResultFinishStatus.WITHDRAWN, null);
 
         scheduler.processJob(9L);
 
         assertEquals(StreakPredictionStatus.REFUNDED, fixture.currentLeg().getStatus());
         assertEquals(BigDecimal.ZERO, fixture.currentLeg().getLockedOdds());
-        // only the surviving 1.50 leg counts ; * (1 - 0.20) = 1.20  (void leg = factor 1.0, not added)
-        assertEquals(new BigDecimal("1.20"), fixture.streak().getTotalOdds());
-        assertEquals(12_000L, fixture.streak().getRewardPoints());
+        // only the surviving 1.50 leg is added to the sum (void leg contributes nothing)
+        assertEquals(new BigDecimal("1.50"), fixture.streak().getTotalOdds());
+        assertEquals(15_000L, fixture.streak().getRewardPoints());
         verify(walletService).adjust(
-                eq(fixture.spectator()), eq(12_000L),
+                eq(fixture.spectator()), eq(15_000L),
                 eq(WalletTransactionType.BET_PAYOUT),
                 eq(WalletTransaction.REF_STREAK_PREDICTION),
                 eq(51L), anyString());

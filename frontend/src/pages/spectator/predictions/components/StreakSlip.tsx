@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History, HelpCircle, LockKeyhole } from "lucide-react";
 import type { StreakPredictionLeg, StreakPredictionResponse } from "../types/prediction.types";
 import { computeStreakOdds } from "../predictionCockpitUtils";
+import { useRulesFirstRun } from "../useRulesFirstRun";
 import { PayoutReceipt } from "./PayoutReceipt";
 import { RulesDialog } from "./RulesDialog";
 
@@ -36,14 +37,7 @@ export function StreakSlip({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
-  useEffect(() => {
-    const timer = setTimeout(() => setRulesOpen(true), 150);
-    return () => clearTimeout(timer);
-  }, []);
-  const handleCloseRules = () => {
-    setRulesOpen(false);
-  };
+  const { rulesOpen, openRules, closeRules } = useRulesFirstRun();
 
   // True parlay: multiply fair leg odds with a single end-margin (matches backend settlement).
   const streakOdds = computeStreakOdds(legs.map((leg) => leg.lockedOdds));
@@ -90,7 +84,7 @@ export function StreakSlip({
             <h2 className="font-display text-lg font-bold text-gold-400">Winning Streak</h2>
             <button
               type="button"
-              onClick={() => setRulesOpen(true)}
+              onClick={openRules}
               aria-label="How to play"
               className="grid h-6 w-6 place-items-center rounded-md border border-turf-700 text-ivory-dim transition-colors hover:border-gold-500/50 hover:text-gold-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300"
             >
@@ -209,7 +203,7 @@ export function StreakSlip({
             lockLabel="At confirmation"
             oddsNote={legs.length < 2 ? "Add 2+ legs" : undefined}
             footerCopy="Multiplier is confirmed when the streak is placed; 20% house fee is already included."
-            onOpenRules={() => setRulesOpen(true)}
+            onOpenRules={openRules}
           />
 
           {readOnly ? (
@@ -346,7 +340,7 @@ export function StreakSlip({
         </div>
       )}
 
-      <RulesDialog open={rulesOpen} onClose={handleCloseRules} />
+      <RulesDialog open={rulesOpen} onClose={closeRules} />
     </div>
   );
 }
