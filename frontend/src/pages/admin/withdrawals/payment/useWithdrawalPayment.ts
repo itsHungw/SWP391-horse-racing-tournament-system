@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { adminWalletApi } from "../../../../api/adminWalletApi";
 import type { AdminWithdrawalReview } from "../../../../types/wallet";
-import { compareReceipt, type ReceiptExtraction } from "./receiptFieldExtractor";
+import { compareReceipt, requiresAcknowledgement, type ReceiptExtraction } from "./receiptFieldExtractor";
 import { createReceiptOcr, type ReceiptOcr } from "./receiptOcr";
 
 type PaymentBusyState = "IDLE" | "OCR" | "CONFIRMING" | "REJECTING";
@@ -41,7 +41,7 @@ export function useWithdrawalPayment(
       transferContent: instruction.transferContent,
     });
   }, [extraction, instruction]);
-  const mismatch = comparison.amount === false || comparison.transferContent === false;
+  const mismatch = requiresAcknowledgement(comparison);
   const dirty = Boolean(
     receipt || transferReference || internalNote || publicReason || noTransferConfirmed,
   );

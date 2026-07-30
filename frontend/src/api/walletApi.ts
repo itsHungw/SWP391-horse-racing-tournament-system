@@ -6,6 +6,7 @@ import type {
   Wallet,
   WalletSummary,
   WalletTransaction,
+  WalletTransactionDetail,
   Withdrawal,
 } from "../types/wallet";
 
@@ -17,6 +18,11 @@ export const walletApi = {
 
   getMyTransactions: async () => {
     const response = await httpClient.get<WalletTransaction[]>("/wallet/me/transactions");
+    return response.data;
+  },
+
+  getTransactionDetail: async (id: number) => {
+    const response = await httpClient.get<WalletTransactionDetail>(`/wallet/me/transactions/${id}`);
     return response.data;
   },
 

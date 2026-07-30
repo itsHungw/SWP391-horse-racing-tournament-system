@@ -4,15 +4,18 @@ import com.example.horseracingtournamentsystem.user.entity.User;
 import com.example.horseracingtournamentsystem.user.repository.UserRepository;
 import com.example.horseracingtournamentsystem.wallet.dto.WalletResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.WalletSummaryResponse;
+import com.example.horseracingtournamentsystem.wallet.dto.WalletTransactionDetailResponse;
 import com.example.horseracingtournamentsystem.wallet.dto.WalletTransactionResponse;
 import com.example.horseracingtournamentsystem.wallet.service.WalletService;
 import com.example.horseracingtournamentsystem.wallet.service.WalletSummaryService;
+import com.example.horseracingtournamentsystem.wallet.service.WalletTransactionDetailService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,6 +27,7 @@ public class WalletController {
 
     private final WalletService walletService;
     private final WalletSummaryService walletSummaryService;
+    private final WalletTransactionDetailService walletTransactionDetailService;
     private final UserRepository userRepository;
 
     @GetMapping("/me")
@@ -46,6 +50,13 @@ public class WalletController {
                         .map(WalletTransactionResponse::from)
                         .toList()
         );
+    }
+
+    @GetMapping("/me/transactions/{id}")
+    public ResponseEntity<WalletTransactionDetailResponse> getMyTransactionDetail(
+            @PathVariable Long id, Authentication authentication) {
+        User user = currentUser(authentication);
+        return ResponseEntity.ok(walletTransactionDetailService.detailForUser(id, user.getId()));
     }
 
     private User currentUser(Authentication authentication) {

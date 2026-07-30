@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 
 public record TopUpReceiptResponse(
         String txnRef,
+        /** Mã giao dịch phía VNPay. Null khi đơn chưa/không thành công. */
+        String transactionNo,
         ReceiptStatus status,
         long amount,
         Long balanceAfter,

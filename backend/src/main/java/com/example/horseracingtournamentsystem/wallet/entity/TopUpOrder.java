@@ -51,6 +51,19 @@ public class TopUpOrder {
     @Column(name = "vnpay_transaction_no", length = 50)
     private String vnpayTransactionNo;
 
+    @Column(name = "vnpay_bank_code", length = 20)
+    private String vnpayBankCode;
+
+    @Column(name = "vnpay_bank_tran_no", length = 50)
+    private String vnpayBankTranNo;
+
+    @Column(name = "vnpay_card_type", length = 20)
+    private String vnpayCardType;
+
+    /** Thời điểm VNPay ghi nhận thanh toán (giờ VN), khác {@link #paidAt} là lúc hệ thống ghi-có. */
+    @Column(name = "vnpay_pay_date")
+    private LocalDateTime vnpayPayDate;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -71,10 +84,14 @@ public class TopUpOrder {
         return status == TopUpStatus.SUCCESS || status == TopUpStatus.FAILED || status == TopUpStatus.EXPIRED;
     }
 
-    public void markSuccess(String responseCode, String transactionNo) {
+    public void markSuccess(String responseCode, VNPayPaymentDetails details) {
         this.status = TopUpStatus.SUCCESS;
         this.vnpayResponseCode = responseCode;
-        this.vnpayTransactionNo = transactionNo;
+        this.vnpayTransactionNo = details.transactionNo();
+        this.vnpayBankCode = details.bankCode();
+        this.vnpayBankTranNo = details.bankTranNo();
+        this.vnpayCardType = details.cardType();
+        this.vnpayPayDate = details.payDate();
         this.paidAt = LocalDateTime.now();
     }
 

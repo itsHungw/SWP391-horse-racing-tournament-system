@@ -12,6 +12,7 @@ import { useClientSession } from "../../hooks/useClientSession";
 import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { AdminLayout } from "../../layouts/AdminLayout";
 import { AccountEnforcementPanel } from "./components/AccountEnforcementPanel";
+import { AdminBalanceHistory } from "./components/AdminBalanceHistory";
 
 const AVAILABLE_ROLES = [
   { name: "ADMIN", label: "Admin" },
@@ -39,7 +40,7 @@ export function AdminUserDetailPage() {
   const [user, setUser] = useState<AdminUserDetail | null>(null);
   const [history, setHistory] = useState<UserRoleHistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"profile" | "roles" | "history">("profile");
+  const [activeTab, setActiveTab] = useState<"profile" | "roles" | "history" | "balance">("profile");
 
   // Profile Form State
   const [profileForm, setProfileForm] = useState({
@@ -201,11 +202,30 @@ export function AdminUserDetailPage() {
           </button>
         </div>
 
+        <section aria-label="Account summary" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">User ID</p>
+            <p className="mt-2 font-black text-slate-950">#{user.id}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Created</p>
+            <p className="mt-2 font-bold text-slate-950">{new Date(user.createdAt).toLocaleString()}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Last login</p>
+            <p className="mt-2 font-bold text-slate-950">{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Never"}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">Email verification</p>
+            <p className="mt-2 font-bold text-slate-950">{user.emailVerified ? "Verified" : "Not verified"}</p>
+          </div>
+        </section>
+
         <AccountEnforcementPanel user={user} isSelf={isSelf} onChanged={() => void loadData()} />
 
         {/* Tab Headers */}
         <div className="border-b border-[#d8d8d8]">
-          <nav className="flex gap-6">
+          <nav aria-label="User detail sections" className="flex gap-6 overflow-x-auto">
             <button
               onClick={() => setActiveTab("profile")}
               className={`pb-4 text-sm font-bold border-b-2 ${
@@ -229,6 +249,15 @@ export function AdminUserDetailPage() {
               }`}
             >
               Role Audit History
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("balance")}
+              className={`whitespace-nowrap pb-4 text-sm font-bold border-b-2 ${
+                activeTab === "balance" ? "border-[#b3193a] text-[#b3193a]" : "border-transparent text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              Balance History
             </button>
           </nav>
         </div>
@@ -364,6 +393,8 @@ export function AdminUserDetailPage() {
               </div>
             </form>
           )}
+
+          {activeTab === "balance" && <AdminBalanceHistory userId={user.id} />}
 
           {activeTab === "history" && (
             <div className="overflow-x-auto">

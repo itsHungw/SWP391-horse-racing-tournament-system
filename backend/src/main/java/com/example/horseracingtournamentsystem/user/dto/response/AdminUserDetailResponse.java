@@ -1,10 +1,10 @@
 package com.example.horseracingtournamentsystem.user.dto.response;
 
 import com.example.horseracingtournamentsystem.user.entity.User;
+import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Set;
-import com.example.horseracingtournamentsystem.user.enums.UserStatus;
 
 public record AdminUserDetailResponse(
     Long id,
@@ -18,6 +18,7 @@ public record AdminUserDetailResponse(
     UserStatus status,
     boolean emailVerified,
     Set<String> roles,
+    LocalDateTime lastLoginAt,
     LocalDateTime createdAt,
     LocalDateTime updatedAt
 ) {
@@ -34,6 +35,7 @@ public record AdminUserDetailResponse(
             user.getStatus(),
             user.isEmailVerified(),
             user.getActiveRoleNames(),
+            user.getLastLoginAt(),
             user.getCreatedAt(),
             user.getUpdatedAt()
         );
