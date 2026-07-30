@@ -17,6 +17,8 @@ public class StreakPredictionResponse {
     private String tournamentName;
     private Long wagerAmount;
     private BigDecimal totalOdds;
+    private BigDecimal placedTotalOdds;
+    private BigDecimal expectedTotalOdds;
     private StreakPredictionStatus status;
     private Long rewardPoints;
     private LocalDateTime createdAt;

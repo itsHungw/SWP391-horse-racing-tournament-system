@@ -117,9 +117,12 @@ export interface StreakPredictionLeg {
   id?: number;
   raceId: number;
   raceName: string;
+  raceStartTime?: string;
   predictedWinnerId: number;
   horseName?: string;
   predictedWinnerName?: string;
+  placedOdds?: number;
+  expectedOdds?: number;
   lockedOdds: number;
   status: string;
 }
@@ -129,6 +132,8 @@ export interface StreakPredictionResponse {
   tournamentId: number;
   wagerAmount: number;
   totalOdds: number;
+  placedTotalOdds?: number;
+  expectedTotalOdds?: number;
   status: string;
   rewardPoints: number;
   createdAt: string;

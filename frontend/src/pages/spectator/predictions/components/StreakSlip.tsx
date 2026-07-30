@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CheckCircle2, RefreshCw, Trash2, X, Plus, Minus, History, HelpCircle, LockKeyhole } from "lucide-react";
 import type { StreakPredictionLeg, StreakPredictionResponse } from "../types/prediction.types";
 import { computeStreakOdds } from "../predictionCockpitUtils";
+import { useRulesFirstRun } from "../useRulesFirstRun";
 import { PayoutReceipt } from "./PayoutReceipt";
 import { RulesDialog } from "./RulesDialog";
 
@@ -36,7 +37,7 @@ export function StreakSlip({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
+  const { rulesOpen, openRules, closeRules } = useRulesFirstRun();
 
   // True parlay: multiply fair leg odds with a single end-margin (matches backend settlement).
   const streakOdds = computeStreakOdds(legs.map((leg) => leg.lockedOdds));
@@ -83,7 +84,7 @@ export function StreakSlip({
             <h2 className="font-display text-lg font-bold text-gold-400">Winning Streak</h2>
             <button
               type="button"
-              onClick={() => setRulesOpen(true)}
+              onClick={openRules}
               aria-label="How to play"
               className="grid h-6 w-6 place-items-center rounded-md border border-turf-700 text-ivory-dim transition-colors hover:border-gold-500/50 hover:text-gold-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-300"
             >
@@ -202,7 +203,7 @@ export function StreakSlip({
             lockLabel="At confirmation"
             oddsNote={legs.length < 2 ? "Add 2+ legs" : undefined}
             footerCopy="Multiplier is confirmed when the streak is placed; 20% house fee is already included."
-            onOpenRules={() => setRulesOpen(true)}
+            onOpenRules={openRules}
           />
 
           {readOnly ? (
@@ -276,17 +277,35 @@ export function StreakSlip({
                           <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
                             streak.status === 'WON' ? 'bg-green-500/20 text-green-400' :
                             streak.status === 'LOST' ? 'bg-red-500/20 text-red-400' :
+                            streak.status === 'IN_PROGRESS' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-[0_0_8px_rgba(245,158,11,0.5)] animate-pulse' :
                             'bg-gold-500/20 text-gold-400'
                           }`}>
-                            {streak.status}
+                            {streak.status === 'IN_PROGRESS' ? 'LIVE NOW' : streak.status}
                           </span>
                         </div>
                         <div className="p-3 space-y-2">
                           {streak.legs.map((leg, idx) => (
                             <div key={leg.id} className="flex items-center justify-between text-sm">
-                              <span className="text-[10px] uppercase font-bold text-ivory-dim">Leg {idx + 1}</span>
-                              <span className="font-semibold text-ivory">{leg.predictedWinnerName}</span>
-                              <span className="font-data text-gold-300">{leg.lockedOdds.toFixed(2)}</span>
+                              <div className="flex flex-col w-1/3">
+                                <span className="text-[10px] uppercase font-bold text-ivory-dim">Leg {idx + 1} &bull; {leg.raceName}</span>
+                                {leg.raceStartTime && <span className="text-[9px] text-turf-500 font-data">{new Date(leg.raceStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                              </div>
+                              <div className="flex flex-col items-center justify-center w-1/3">
+                                <span className="font-semibold text-ivory text-center">{leg.predictedWinnerName}</span>
+                                {leg.status === 'WON' && <span className="mt-0.5 rounded bg-green-500/20 px-1.5 py-0.5 text-[9px] font-bold text-green-400 uppercase">Correct</span>}
+                                {leg.status === 'LOST' && <span className="mt-0.5 rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400 uppercase">Failed</span>}
+                              </div>
+                              <div className="flex flex-col text-right">
+                                {leg.placedOdds != null && (
+                                  <span className="font-data text-turf-400 text-[10px]">
+                                    Selected: {leg.placedOdds.toFixed(2)}
+                                  </span>
+                                )}
+                                <span className="font-data text-gold-300">
+                                  {leg.status === 'PENDING' ? 'Expected: ' : 'Actual: '} 
+                                  {(leg.expectedOdds ?? leg.lockedOdds).toFixed(2)}
+                                </span>
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -296,8 +315,11 @@ export function StreakSlip({
                             <span className="font-data font-semibold text-ivory">{streak.wagerAmount.toLocaleString()} VND</span>
                           </div>
                           <div className="flex flex-col text-right">
-                            <span className="text-[10px] uppercase text-ivory-dim font-bold">Total Odds</span>
-                            <span className="font-data font-bold text-gold-400">{streak.totalOdds.toFixed(2)}</span>
+                            <span className="font-data text-turf-400 text-[10px]">Selected Total: {(streak.placedTotalOdds ?? streak.totalOdds).toFixed(2)}</span>
+                            <span className="font-data font-bold text-gold-400">
+                              {['PENDING', 'IN_PROGRESS'].includes(streak.status) ? 'Expected Total: ' : 'Locked Total: '}
+                              {(streak.expectedTotalOdds ?? streak.totalOdds).toFixed(2)}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -318,7 +340,7 @@ export function StreakSlip({
         </div>
       )}
 
-      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <RulesDialog open={rulesOpen} onClose={closeRules} />
     </div>
   );
 }

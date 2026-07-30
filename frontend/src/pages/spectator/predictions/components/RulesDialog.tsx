@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -147,42 +148,83 @@ export function RulesDialog({ open, onClose, feePercent = HOUSE_TAKEOUT_PCT }: {
   const isFirst = slideIndex === 0;
   const isLast = slideIndex === slides.length - 1;
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (open) {
+      setSlideIndex(0);
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    setSlideIndex(0);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
       if (e.key === "ArrowRight") setSlideIndex((current) => Math.min(current + 1, slides.length - 1));
       if (e.key === "ArrowLeft") setSlideIndex((current) => Math.max(current - 1, 0));
     };
     document.addEventListener("keydown", onKey);
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    closeRef.current?.focus();
+    
+    const timer = setTimeout(() => closeRef.current?.focus(), 10);
+    
     return () => {
+      clearTimeout(timer);
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-  }, [open, onClose, slides.length]);
+  }, [open, slides.length]);
 
   const progress = useMemo(() => `${slideIndex + 1} / ${slides.length}`, [slideIndex, slides.length]);
 
-  if (!open) return null;
+  const prefersReducedMotion = useReducedMotion();
+  // `as const` keeps this a 4-tuple cubic-bezier; without it TS widens to
+  // number[], which framer-motion's Easing type rejects.
+  const EASE = [0.16, 1, 0.3, 1] as const;
+  const backdropMotion = {
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
+    transition: { duration: prefersReducedMotion ? 0.12 : 0.4 },
+  };
+  // Reduced motion keeps the dialog appearing (it still needs to be seen) but
+  // drops the slide and shortens it to a plain crossfade.
+  const panelMotion = prefersReducedMotion
+    ? {
+        initial: { opacity: 0 },
+        animate: { opacity: 1 },
+        exit: { opacity: 0 },
+        transition: { duration: 0.12 },
+      }
+    : {
+        initial: { opacity: 0, y: 20 },
+        animate: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: 10 },
+        transition: { duration: 0.6, delay: 0.05, ease: EASE },
+      };
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" aria-hidden={false}>
-      <button
-        type="button"
-        aria-label="Close guide"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-turf-950/80 backdrop-blur-sm motion-safe:animate-[fadeIn_180ms_ease-out]"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rules-title"
-        className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-turf-700 bg-turf-900 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.92)] sm:rounded-2xl motion-safe:animate-[panelIn_220ms_cubic-bezier(0.22,1,0.36,1)]"
-      >
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" aria-hidden={false}>
+          <motion.button
+            {...backdropMotion}
+            type="button"
+            aria-label="Close guide"
+            onClick={onClose}
+            className="absolute inset-0 cursor-default bg-turf-950/80 backdrop-blur-sm"
+          />
+          <motion.div
+            {...panelMotion}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rules-title"
+            className="relative flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-turf-700 bg-turf-900 shadow-[0_40px_120px_-40px_rgba(0,0,0,0.92)] sm:rounded-2xl"
+          >
         <div className="flex items-start justify-between gap-4 border-b border-turf-800 bg-turf-850 px-5 py-4">
           <div className="flex min-w-0 items-center gap-3">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold-400/12 text-gold-300 ring-1 ring-gold-500/25">
@@ -303,9 +345,11 @@ export function RulesDialog({ open, onClose, feePercent = HOUSE_TAKEOUT_PCT }: {
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+        </motion.div>
+        </div>
+      )}
+    </AnimatePresence>,
+    document.body
   );
 }
 
