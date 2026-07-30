@@ -33,23 +33,35 @@ public class PredictionService {
     private final WalletService walletService;
     private final OddsCalculationService oddsCalculationService;
     private final RaceParticipantRepository raceParticipantRepository;
+    private final com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository streakPredictionLegRepo;
+    private final com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository streakPredictionRepo;
 
     /** Minimum stake per bet (VND). */
     @Value("${app.prediction.min-wager:10000}")
     private long minWager;
+
+    @Value("${app.prediction.streak-takeout:0.20}")
+    private java.math.BigDecimal parlayTakeout;
+
+    @Value("${app.prediction.max-total-odds:100}")
+    private java.math.BigDecimal maxTotalOdds;
 
     public PredictionService(RacePredictionRepository predictionRepo,
                              PredictionSettlementJobRepository jobRepo,
                              RaceRepository raceRepo,
                              WalletService walletService,
                              OddsCalculationService oddsCalculationService,
-                             RaceParticipantRepository raceParticipantRepository) {
+                             RaceParticipantRepository raceParticipantRepository,
+                             com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionLegRepository streakPredictionLegRepo,
+                             com.example.horseracingtournamentsystem.prediction.repository.StreakPredictionRepository streakPredictionRepo) {
         this.predictionRepo = predictionRepo;
         this.jobRepo = jobRepo;
         this.raceRepo = raceRepo;
         this.walletService = walletService;
         this.oddsCalculationService = oddsCalculationService;
         this.raceParticipantRepository = raceParticipantRepository;
+        this.streakPredictionLegRepo = streakPredictionLegRepo;
+        this.streakPredictionRepo = streakPredictionRepo;
     }
 
     @Transactional
@@ -181,6 +193,39 @@ public class PredictionService {
             p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED);
             p.setLockedAt(LocalDateTime.now());
             predictionRepo.save(p);
+        }
+
+        // Lock Streak Prediction Legs
+        List<com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg> activeLegs = streakPredictionLegRepo.findActiveLegsByRaceId(raceId);
+        if (!activeLegs.isEmpty()) {
+            Map<Long, java.math.BigDecimal> streakOddsMatrix = oddsCalculationService.calculateStreakOddsMatrix(raceId, participants);
+            java.util.Set<com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction> affectedStreaks = new java.util.HashSet<>();
+            for (com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg leg : activeLegs) {
+                if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(leg.getStatus())) {
+                    java.math.BigDecimal newOdds = streakOddsMatrix.get(leg.getPredictedWinner().getId());
+                    if (newOdds != null) {
+                        leg.setLockedOdds(newOdds);
+                        streakPredictionLegRepo.save(leg);
+                        affectedStreaks.add(leg.getStreakPrediction());
+                    }
+                }
+            }
+
+            for (com.example.horseracingtournamentsystem.prediction.entity.StreakPrediction streak : affectedStreaks) {
+                java.math.BigDecimal sumOdds = java.math.BigDecimal.ZERO;
+                for (com.example.horseracingtournamentsystem.prediction.entity.StreakPredictionLeg leg : streak.getLegs()) {
+                    if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED.equals(leg.getStatus())) {
+                        continue;
+                    }
+                    sumOdds = sumOdds.add(leg.getLockedOdds() != null && leg.getLockedOdds().compareTo(java.math.BigDecimal.ZERO) > 0 ? leg.getLockedOdds() : java.math.BigDecimal.ZERO);
+                }
+                java.math.BigDecimal totalOdds = sumOdds;
+                if (totalOdds.compareTo(maxTotalOdds) > 0) {
+                    totalOdds = maxTotalOdds;
+                }
+                streak.setTotalOdds(totalOdds.setScale(2, java.math.RoundingMode.HALF_UP));
+                streakPredictionRepo.save(streak);
+            }
         }
     }
 

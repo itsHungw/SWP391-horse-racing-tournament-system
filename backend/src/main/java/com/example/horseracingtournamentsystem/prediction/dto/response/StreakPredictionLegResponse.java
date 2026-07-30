@@ -13,8 +13,11 @@ public class StreakPredictionLegResponse {
     private Long id;
     private Long raceId;
     private String raceName;
+    private java.time.LocalDateTime raceStartTime;
     private Long predictedWinnerId;
     private String predictedWinnerName;
+    private BigDecimal placedOdds;
+    private BigDecimal expectedOdds;
     private BigDecimal lockedOdds;
     private StreakPredictionStatus status;
 }

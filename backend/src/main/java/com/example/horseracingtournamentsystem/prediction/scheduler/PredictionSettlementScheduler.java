@@ -326,9 +326,8 @@ public class PredictionSettlementScheduler {
                 boolean hasLost = false;
                 boolean allFinished = true;
                 int wonCount = 0;
-                // True parlay: multiply the WON legs' fair odds. REFUNDED (void) legs contribute
-                // factor 1.0 (skipped), never their odds — fixes the additive/void-leg overpay bug.
-                java.math.BigDecimal product = java.math.BigDecimal.ONE;
+                // True parlay modified: sum the WON legs' fair odds. 
+                java.math.BigDecimal sumOdds = java.math.BigDecimal.ZERO;
 
                 for (StreakPredictionLeg l : streak.getLegs()) {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST.equals(l.getStatus())) {
@@ -338,7 +337,7 @@ public class PredictionSettlementScheduler {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(l.getStatus())) {
                         allFinished = false;
                     } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus())) {
-                        product = product.multiply(l.getLockedOdds());
+                        sumOdds = sumOdds.add(l.getLockedOdds());
                         wonCount++;
                     }
                 }
@@ -359,7 +358,7 @@ public class PredictionSettlementScheduler {
                             "Streak refund (all legs voided) #" + streak.getId()
                         );
                     } else {
-                        java.math.BigDecimal totalOdds = product.multiply(java.math.BigDecimal.ONE.subtract(streakTakeout));
+                        java.math.BigDecimal totalOdds = sumOdds;
                         if (totalOdds.compareTo(maxTotalOdds) > 0) {
                             totalOdds = maxTotalOdds;
                         }
@@ -379,7 +378,7 @@ public class PredictionSettlementScheduler {
                     }
                 } else {
                     streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS);
-                    java.math.BigDecimal partial = product.multiply(java.math.BigDecimal.ONE.subtract(streakTakeout));
+                    java.math.BigDecimal partial = sumOdds;
                     if (partial.compareTo(maxTotalOdds) > 0) {
                         partial = maxTotalOdds;
                     }

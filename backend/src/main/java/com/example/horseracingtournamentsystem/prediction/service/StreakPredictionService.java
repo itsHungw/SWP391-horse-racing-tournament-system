@@ -96,7 +96,6 @@ public class StreakPredictionService {
             .build();
 
         // True parlay modified: each leg priced as fair decimal odds (1/p).
-        // The commission (parlayTakeout) is applied directly to each leg's odds.
         // Then the odds are summed together, with a hard cap on the total.
         BigDecimal sumOdds = BigDecimal.ZERO;
 
@@ -115,7 +114,6 @@ public class StreakPredictionService {
                 throw new IllegalArgumentException("Participant is withdrawn: " + participant.getHorse().getName());
             }
 
-            // Tỉ lệ động Pari-mutuel lấy trực tiếp từ quỹ tiền Cược Chuỗi
             List<RaceParticipant> allParticipants = raceParticipantRepository
                     .findAllByRaceAndStatusNotOrderByLane(
                             race.getId(),
@@ -133,6 +131,7 @@ public class StreakPredictionService {
             StreakPredictionLeg leg = StreakPredictionLeg.builder()
                 .race(race)
                 .predictedWinner(participant)
+                .placedOdds(legOdds)
                 .lockedOdds(legOdds)
                 .status(StreakPredictionStatus.PENDING)
                 .build();
@@ -165,23 +164,52 @@ public class StreakPredictionService {
     }
 
     private StreakPredictionResponse mapToResponse(StreakPrediction sp) {
-        List<StreakPredictionLegResponse> legResponses = sp.getLegs().stream().map(leg -> 
-            StreakPredictionLegResponse.builder()
+        BigDecimal expectedTotalOdds = BigDecimal.ZERO;
+        BigDecimal placedTotalOdds = BigDecimal.ZERO;
+        List<StreakPredictionLegResponse> legResponses = sp.getLegs().stream().map(leg -> {
+            BigDecimal expectedOdds = leg.getLockedOdds();
+            if (StreakPredictionStatus.PENDING.equals(leg.getStatus()) && RaceStatus.SCHEDULED.equals(leg.getRace().getStatus())) {
+                List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(
+                        leg.getRace().getId(), ParticipantStatus.WITHDRAWN);
+                Map<Long, BigDecimal> streakOddsMatrix = oddsCalculationService.calculateStreakOddsMatrix(leg.getRace().getId(), participants);
+                if (streakOddsMatrix.containsKey(leg.getPredictedWinner().getId())) {
+                    expectedOdds = streakOddsMatrix.get(leg.getPredictedWinner().getId());
+                }
+            }
+            return StreakPredictionLegResponse.builder()
                 .id(leg.getId())
                 .raceId(leg.getRace().getId())
                 .raceName(leg.getRace().getName())
+                .raceStartTime(leg.getRace().getRaceAt())
                 .predictedWinnerId(leg.getPredictedWinner().getId())
                 .predictedWinnerName(leg.getPredictedWinner().getHorse().getName())
+                .placedOdds(leg.getPlacedOdds() != null ? leg.getPlacedOdds() : leg.getLockedOdds())
+                .expectedOdds(expectedOdds)
                 .lockedOdds(leg.getLockedOdds())
                 .status(leg.getStatus())
-                .build()
-        ).collect(Collectors.toList());
+                .build();
+        }).collect(Collectors.toList());
+
+        for (StreakPredictionLegResponse legResponse : legResponses) {
+            if (!StreakPredictionStatus.REFUNDED.equals(legResponse.getStatus())) {
+                expectedTotalOdds = expectedTotalOdds.add(legResponse.getExpectedOdds() != null ? legResponse.getExpectedOdds() : BigDecimal.ZERO);
+                placedTotalOdds = placedTotalOdds.add(legResponse.getPlacedOdds() != null ? legResponse.getPlacedOdds() : BigDecimal.ZERO);
+            }
+        }
+        if (expectedTotalOdds.compareTo(maxTotalOdds) > 0) {
+            expectedTotalOdds = maxTotalOdds;
+        }
+        if (placedTotalOdds.compareTo(maxTotalOdds) > 0) {
+            placedTotalOdds = maxTotalOdds;
+        }
 
         return StreakPredictionResponse.builder()
             .id(sp.getId())
             .tournamentId(sp.getTournament().getId())
             .wagerAmount(sp.getWagerAmount())
             .totalOdds(sp.getTotalOdds())
+            .placedTotalOdds(placedTotalOdds.setScale(2, RoundingMode.HALF_UP))
+            .expectedTotalOdds(expectedTotalOdds.setScale(2, RoundingMode.HALF_UP))
             .status(sp.getStatus())
             .rewardPoints(sp.getRewardPoints())
             .createdAt(sp.getCreatedAt())
