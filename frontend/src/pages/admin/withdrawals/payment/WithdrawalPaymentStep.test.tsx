@@ -119,6 +119,36 @@ describe("WithdrawalPaymentStep", () => {
     });
   });
 
+  it("blocks confirmation until an unreadable amount is acknowledged by hand", async () => {
+    vi.mocked(createReceiptOcr).mockResolvedValue({
+      recognize: vi.fn().mockResolvedValue({ ...matchedExtraction, amount: null, confidence: "MEDIUM" as const }),
+      terminate: vi.fn().mockResolvedValue(undefined),
+    });
+    render(<WithdrawalPaymentStep review={approvedReview} onPaid={vi.fn()} onStateChange={vi.fn()} />);
+
+    fireEvent.change(screen.getByLabelText(/receipt image/i), {
+      target: { files: [new File(["image"], "receipt.png", { type: "image/png" })] },
+    });
+
+    expect(await screen.findByDisplayValue("FT-20260723-001")).toBeInTheDocument();
+    expect(await screen.findByText(/could not be read in full/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /confirm paid/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /i checked the amount and transfer content/i }));
+    fireEvent.change(screen.getByLabelText(/internal note/i), {
+      target: { value: "Amount read manually off the receipt: 250,000 VND" },
+    });
+
+    expect(screen.getByRole("button", { name: /confirm paid/i })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /confirm paid/i }));
+
+    await waitFor(() => {
+      expect(adminWalletApi.markPaid).toHaveBeenCalledWith(123, expect.objectContaining({
+        mismatchAcknowledged: true,
+      }));
+    });
+  });
+
   it("keeps manual transfer usable when QR is unavailable", () => {
     render(
       <WithdrawalPaymentStep
