@@ -151,11 +151,25 @@ class EnumStatusContractTest {
         assertFalse(jockeyApplications.contains("'APPROVED'"));
         assertTrue(jockeyApplications.contains("'APPROVED_FOR_POOL'"));
 
-        String raceParticipants = sql.substring(
-                sql.indexOf("INSERT INTO race_participants("),
-                sql.indexOf("13. BLOG + SPECTATOR PREDICTION DEMO"));
+        // Neo vào "13. BLOG" chứ không phải tiêu đề dài: section 13 từng tên là
+        // "13. BLOG + SPECTATOR PREDICTION DEMO", nay seed không tạo prediction nữa nên
+        // phần đó đã bỏ. Anchor ngắn khớp cả hai, và indexOf trả -1 sẽ làm substring nổ
+        // ngay thay vì âm thầm bỏ qua assert.
+        int raceParticipantsStart = sql.indexOf("INSERT INTO race_participants(");
+        int blogSectionStart = sql.indexOf("13. BLOG");
+        assertTrue(raceParticipantsStart >= 0, "seed phai co INSERT INTO race_participants(");
+        assertTrue(blogSectionStart > raceParticipantsStart, "seed phai co section 13. BLOG sau section 12");
+
+        String raceParticipants = sql.substring(raceParticipantsStart, blogSectionStart);
         assertFalse(raceParticipants.contains("'PENDING'"));
         assertTrue(raceParticipants.contains("'NOT_CHECKED'"));
+
+        // Seed không được tạo tiền: số dư không có topup_orders hay hành động admin nào
+        // đối chiếu thì lịch sử giao dịch không dựng lại được số dư.
+        assertFalse(sql.contains("INSERT INTO wallets("), "seed khong duoc tao vi");
+        assertFalse(sql.contains("INSERT INTO wallet_transactions("), "seed khong duoc tao giao dich vi");
+        assertFalse(sql.contains("INSERT INTO race_predictions("), "seed khong duoc tao du doan (moi du doan la mot lenh tru tien)");
+        assertFalse(sql.contains("INSERT INTO prediction_settlement_jobs("), "seed khong duoc tao settlement job");
     }
 
     private void assertStringEnumField(Class<?> entityType, String fieldName, Class<? extends Enum<?>> enumType)

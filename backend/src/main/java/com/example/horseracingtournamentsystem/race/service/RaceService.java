@@ -301,7 +301,7 @@ public class RaceService {
 
     public List<RaceParticipantResponse> getOrganizerRaceParticipants(Long id, String organizerEmail) {
         Race race = requireOrganizerRace(id, organizerEmail);
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream().map(this::mapParticipantToResponse).collect(Collectors.toList());
     }
 
@@ -501,10 +501,14 @@ public class RaceService {
 
         List<Long> raceIds = races.getContent().stream().map(Race::getId).toList();
         Map<Long, Long> participantCounts = toCountMap(raceParticipantRepository.countActiveByRaceIds(raceIds));
-        Map<Long, RaceResult> winners = raceResultRepository
-                .findAllByRace_IdInAndPositionAndStatusIn(raceIds, 1, PUBLIC_RESULT_STATUSES)
-                .stream()
-                .collect(Collectors.toMap(RaceResult::getRaceId, Function.identity(), (first, ignored) -> first));
+        Map<Long, RaceResultRepository.PublicWinnerProjection> winners = "RESULTS".equals(normalizedScope)
+                ? raceResultRepository.findPublicWinners(raceIds, PUBLIC_RESULT_STATUSES).stream()
+                        .collect(Collectors.toMap(
+                                RaceResultRepository.PublicWinnerProjection::getRaceId,
+                                Function.identity(),
+                                (first, ignored) -> first
+                        ))
+                : Map.of();
         return races.map(race -> mapToSummary(
                 race,
                 participantCounts.getOrDefault(race.getId(), 0L),
@@ -546,7 +550,7 @@ public class RaceService {
     public List<RaceParticipantResponse> getRaceParticipants(Long raceId) {
         Race race = raceRepository.findByIdAndDeletedAtIsNull(raceId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Race not found"));
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream()
                 .map(this::mapParticipantToResponse)
                 .collect(Collectors.toList());
@@ -595,7 +599,11 @@ public class RaceService {
         return counts;
     }
 
-    private RaceSummaryResponse mapToSummary(Race race, long participantCount, RaceResult winner) {
+    private RaceSummaryResponse mapToSummary(
+            Race race,
+            long participantCount,
+            RaceResultRepository.PublicWinnerProjection winner
+    ) {
         boolean resultOfficial = Set.of(RaceStatus.RESULT_CONFIRMED, RaceStatus.PUBLISHED).contains(race.getStatus());
         return RaceSummaryResponse.builder()
                 .id(race.getId())
@@ -614,9 +622,8 @@ public class RaceService {
                 .predictionCloseTime(race.getRaceAt())
                 .resultOfficial(resultOfficial)
                 .winner(!resultOfficial || winner == null ? null : RaceSummaryResponse.WinnerSummary.builder()
-                        .horseName(winner.getParticipant().getHorse().getName())
-                        .jockeyName(winner.getParticipant().getJockey() == null
-                                ? null : winner.getParticipant().getJockey().getFullName())
+                        .horseName(winner.getHorseName())
+                        .jockeyName(winner.getJockeyName())
                         .finishTimeSeconds(winner.getFinishTimeSeconds())
                         .build())
                 .build();

@@ -83,7 +83,7 @@ public class RefereeRaceDayService {
 
     public List<ParticipantVerificationResponse> getParticipants(Long raceId, String refereeEmail) {
         Race race = requireAssignedVisibleRace(raceId, refereeEmail);
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream()
                 .map(this::mapParticipant)
                 .toList();
@@ -131,7 +131,7 @@ public class RefereeRaceDayService {
             preRaceCheckRepository.save(check);
         }
 
-        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceOrderByLane(race.getId());
         if (!participants.isEmpty() && participants.stream().allMatch(p -> COMPLETE_CHECK_STATUSES.contains(p.getCheckStatus()))) {
             race.updateStatus(RaceStatus.READY);
         }
@@ -146,7 +146,7 @@ public class RefereeRaceDayService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Race must be ready before it can start");
         }
         boolean hasActiveParticipant = raceParticipantRepository
-                .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(race.getId(), ParticipantStatus.WITHDRAWN)
+                .findAllByRaceAndStatusNotOrderByLane(race.getId(), ParticipantStatus.WITHDRAWN)
                 .stream()
                 .anyMatch(p -> !ParticipantStatus.DISQUALIFIED.equals(p.getStatus()));
         if (!hasActiveParticipant) {
@@ -185,7 +185,7 @@ public class RefereeRaceDayService {
                     .toList();
         }
 
-        return raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId())
+        return raceParticipantRepository.findAllByRaceOrderByLane(race.getId())
                 .stream()
                 .map(participant -> new ParticipantResultEntry(
                         participant.getId(),
@@ -307,7 +307,7 @@ public class RefereeRaceDayService {
                 yield mapRace(race);
             }
             case CHECKING -> {
-                List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
+                List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceOrderByLane(race.getId());
                 if (participants.stream().anyMatch(p -> !COMPLETE_CHECK_STATUSES.contains(p.getCheckStatus()))) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All participants must be verified before proceeding");
                 }
@@ -335,7 +335,7 @@ public class RefereeRaceDayService {
     }
 
     private RefereeRaceResponse mapRace(Race race) {
-        int participantCount = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId()).size();
+        int participantCount = raceParticipantRepository.findAllByRaceOrderByLane(race.getId()).size();
         User referee = race.getReferee();
         return new RefereeRaceResponse(
                 race.getId(),
@@ -407,7 +407,7 @@ public class RefereeRaceDayService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Result list cannot be empty");
         }
 
-        List<RaceParticipant> participants = raceParticipantRepository.findAllByRace_IdOrderByCreatedAtAsc(race.getId());
+        List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceOrderByLane(race.getId());
         Map<Long, RaceParticipant> participantsById = new HashMap<>();
         for (RaceParticipant participant : participants) {
             participantsById.put(participant.getId(), participant);

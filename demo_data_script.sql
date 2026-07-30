@@ -6,12 +6,21 @@
     - 01 ADMIN, 01 REFEREE, 01 SPECTATOR, 08 HORSE_OWNER, 08 JOCKEY
     - 04 ORGANIZER + 03 user trạng thái khác (SUSPENDED / BANNED / PENDING_EMAIL_VERIFY)
     - 04 organizations (ACTIVE / PENDING / SUSPENDED / REJECTED)
-    - 02 giải chính (8 owner-horse-jockey, 8 race) + 07 giải phủ các pha
-      (DRAFT / PENDING_APPROVAL / APPROVED / OPEN_REGISTRATION / ONGOING / COMPLETED / POSTPONED)
+    - 02 giải chính (8 owner-horse-jockey, 8 race, 8 participant mỗi race)
+    - 03 giải phủ pha đầu vòng đời: DRAFT / PENDING_APPROVAL / OPEN_REGISTRATION
+      (giải OPEN_REGISTRATION có registration + jockey application thật đang chờ xét)
     - referee_contracts đủ PENDING / ACTIVE / DECLINED / TERMINATED
     - role_requests đủ PENDING / APPROVED / REJECTED / CANCELLED
     - Race 1 của giải A đã PUBLISHED: race_results + referee_report + pre_race_checks
-      + violation + prediction_settlement_job + dự đoán đã chấm (CORRECT / INCORRECT)
+      + violation, mọi timestamp neo vào giờ đua thật
+
+    KHÔNG SEED TIỀN — CỐ Ý:
+    Script này không tạo dòng nào trong wallets, wallet_transactions, topup_orders,
+    race_predictions, prediction_settlement_jobs, withdrawal_requests. Ví tự sinh với
+    balance 0 khi user mở trang (WalletService.getOrCreateAccount). Lý do: số dư seed
+    thẳng vào DB không có topup_orders hay hành động admin nào đối chiếu, nên lịch sử
+    giao dịch không dựng lại được số dư — ledger tiền thật phải do app ghi. Muốn demo
+    nạp/cược thì nạp qua VNPay sandbox rồi đặt cược trên race chưa diễn ra.
 
     Mật khẩu mẫu cho toàn bộ tài khoản:
     BCrypt: $2a$12$SIzd3JpjQSPzLKmp3u30cOylqxatSJmktQ5YVwOCN9cxSRV.8gHkW
@@ -39,14 +48,17 @@ DECLARE
 
     v_active_org_id bigint;
 
-    v_tourn_a     bigint;
-    v_tourn_b     bigint;
-    v_lc_approved bigint;
-    v_lc_open     bigint;
-    v_lc_ongoing  bigint;
+    v_tourn_a    bigint;
+    v_tourn_b    bigint;
+    v_lc_draft   bigint;
+    v_lc_pending bigint;
+    v_lc_open    bigint;
 
-    v_first_race_id          bigint;
-    v_winner_participant_id  bigint;
+    /* Race 1 giải A: showcase kết quả đã publish. Mọi timestamp của showcase neo vào
+       v_first_race_at (giờ đua thật) thay vì v_now, để không sinh ra "kết quả chính thức
+       của cuộc đua chưa diễn ra". */
+    v_first_race_id bigint;
+    v_first_race_at timestamp(6);
 BEGIN
     /* ================================================================
        1. ROLES
@@ -74,7 +86,7 @@ BEGIN
         status, email, full_name, avatar_url, address, password_hash
     )
     VALUES
-    (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@gmail.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
+    -- (true, '1990-01-15', true, true, true, v_now, v_now, 'MALE',   '0901000001', 'ACTIVE', 'admin@gmail.com',     'Alexander Sterling', NULL, 'London, United Kingdom', v_pw),
     (true, '1985-04-20', true, true, true, v_now, v_now, 'MALE',   '0901000002', 'ACTIVE', 'referee@gmail.com',   'Jonathan Whitmore',  NULL, 'London, United Kingdom', v_pw),
     (true, '2000-09-12', true, true, true, v_now, v_now, 'FEMALE', '0901000003', 'ACTIVE', 'spectator@gmail.com', 'Sophia Bennett',     NULL, 'London, United Kingdom', v_pw),
 
@@ -125,7 +137,14 @@ BEGIN
         (u.email = 'referee@gmail.com'   AND r.name = 'REFEREE') OR
         (u.email = 'spectator@gmail.com' AND r.name = 'SPECTATOR') OR
         (u.email LIKE 'owner%@gmail.com'        AND r.name = 'HORSE_OWNER') OR
-        (u.email LIKE 'jockey%@gmail.com'       AND r.name = 'JOCKEY');
+        (u.email LIKE 'jockey%@gmail.com'       AND r.name = 'JOCKEY')
+    /* user_roles không có unique (user_id, role_id), nên nếu admin đã được
+       DevDataSeeder gán role ADMIN ở local thì insert này sẽ tạo dòng ADMIN thứ hai.
+       Guard lại để chạy được trên DB đã có admin sẵn. */
+    WHERE NOT EXISTS (
+        SELECT 1 FROM user_roles ur
+        WHERE ur.user_id = u.id AND ur.role_id = r.id
+    );
 
     INSERT INTO user_role_history(
         user_role_id, old_status, new_status, changed_at, changed_by, reason
@@ -244,35 +263,14 @@ BEGIN
     FROM OwnerRows;
 
     /* ================================================================
-       7. WALLETS + SEED BALANCES (tiền thật VND)
+       7. VÍ — CỐ Ý KHÔNG SEED
+       ================================================================
+       Không tạo dòng nào trong wallets / wallet_transactions. Ví tự sinh với balance 0
+       ở lần đọc đầu tiên (WalletService.getOrCreateAccount), nên mọi user vẫn mở được
+       trang ví ngay sau seed. Số dư seed thẳng vào DB sẽ không có topup_orders hay hành
+       động admin nào đối chiếu (ADMIN_ADJUSTMENT chỉ tồn tại trong enum, không endpoint
+       nào tạo ra nó) — tức là số dư mà lịch sử giao dịch không dựng lại được.
        ================================================================ */
-    INSERT INTO wallets(user_id, balance, status, updated_at)
-    SELECT u.id,
-           CASE WHEN u.id = v_spectator_id THEN 1000000 ELSE 100000 END,
-           'ACTIVE',
-           v_now
-    FROM users u
-    WHERE u.email IN ('admin@gmail.com', 'referee@gmail.com', 'spectator@gmail.com')
-       OR u.email LIKE 'owner%@gmail.com'
-       OR u.email LIKE 'jockey%@gmail.com';
-
-    INSERT INTO wallet_transactions(
-        amount, created_at, reference_id, user_id, reference_type,
-        transaction_type, balance_after, description
-    )
-    SELECT
-        CASE WHEN u.id = v_spectator_id THEN 1000000 ELSE 100000 END,
-        v_now,
-        NULL,
-        u.id,
-        'SEED',
-        'ADMIN_ADJUSTMENT',
-        CASE WHEN u.id = v_spectator_id THEN 1000000 ELSE 100000 END,
-        'Initial demo balance'
-    FROM users u
-    WHERE u.email IN ('admin@gmail.com', 'referee@gmail.com', 'spectator@gmail.com')
-       OR u.email LIKE 'owner%@gmail.com'
-       OR u.email LIKE 'jockey%@gmail.com';
 
     /* ================================================================
        8. TOURNAMENTS
@@ -285,12 +283,15 @@ BEGIN
     )
     VALUES
     (
-        CURRENT_DATE + 40,
+        /* Giải A đang diễn ra thật: khai mạc 2 ngày trước, đăng ký đã đóng trước ngày
+           khai mạc. Race 1 vì thế nằm ở quá khứ và được publish kết quả hợp lý, 7 race
+           còn lại ở tương lai để demo đặt cược. */
+        CURRENT_DATE + 21,
         8, 1,
-        CURRENT_DATE + 5,
+        CURRENT_DATE - 2,
         v_now, v_admin_id,
-        v_now + INTERVAL '3 days',
-        v_now - INTERVAL '20 days',
+        v_now - INTERVAL '5 days',
+        v_now - INTERVAL '30 days',
         v_now,
         'SCHEDULE_PUBLISHED',
         'HRT-CHAMPIONSHIP-2026-A',
@@ -456,7 +457,10 @@ BEGIN
         num.n,
         v_now,
         v_admin_id,
-        t.start_date::timestamp + INTERVAL '9 hours' + (num.n * 3) * INTERVAL '1 day',
+        /* Race 1 chạy đúng ngày khai mạc, mỗi vòng sau cách 3 ngày. Dùng (n-1) chứ không
+           phải n: với n thì race 1 đã lùi 3 ngày so với start_date, khiến giải A "đang
+           diễn ra" mà chưa vòng nào tới hạn. */
+        t.start_date::timestamp + INTERVAL '9 hours' + ((num.n - 1) * 3) * INTERVAL '1 day',
         v_referee_id,
         t.id,
         v_now,
@@ -506,10 +510,14 @@ BEGIN
       ON ji.tournament_id = t.id
      AND ji.horse_id = p.horse_id
      AND ji.jockey_id = p.jockey_id
-    WHERE t.code IN ('HRT-CHAMPIONSHIP-2026-A', 'HRT-CHAMPIONSHIP-2026-B');
+    WHERE t.code IN ('HRT-CHAMPIONSHIP-2026-A', 'HRT-CHAMPIONSHIP-2026-B')
+    /* Không có ORDER BY thì hash join trên jockey_invitations phát row theo thứ tự bucket
+       (thực đo: lane 8→1), và vì mọi dòng dùng chung v_now nên ORDER BY created_at ở tầng
+       query không cứu được. Sắp ở đây để thứ tự heap khớp luôn lane. */
+    ORDER BY r.id, p.rn;
 
     /* ================================================================
-       13. BLOG + SPECTATOR PREDICTION DEMO
+       13. BLOG
        ================================================================ */
     INSERT INTO blogs(
         author_id, created_at, updated_at, status,
@@ -527,60 +535,20 @@ BEGIN
         'International Racing Championship Guide 2026'
     );
 
-    SELECT r.id INTO v_first_race_id
+    /* Race 1 giải A — mốc neo cho toàn bộ showcase kết quả ở section 17. */
+    SELECT r.id, r.race_at INTO v_first_race_id, v_first_race_at
     FROM races r
     JOIN tournaments t ON t.id = r.tournament_id
     WHERE t.code = 'HRT-CHAMPIONSHIP-2026-A'
     ORDER BY r.race_number
     LIMIT 1;
 
-    SELECT id INTO v_winner_participant_id
-    FROM race_participants
-    WHERE race_id = v_first_race_id
-    ORDER BY lane_number
-    LIMIT 1;
+    IF v_first_race_id IS NULL THEN
+        RAISE EXCEPTION 'Seed lookup failed: khong tim thay race dau tien cua HRT-CHAMPIONSHIP-2026-A';
+    END IF;
 
-    INSERT INTO race_predictions(
-        entry_cost_points, reward_points, created_at, evaluated_at,
-        locked_at, predicted_position,
-        predicted_winner_id, race_id, spectator_id, updated_at,
-        prediction_type, status
-    )
-    VALUES
-    (
-        10, 0, v_now, NULL, NULL,
-        NULL,
-        v_winner_participant_id, v_first_race_id, v_spectator_id, v_now,
-        'WINNER', 'PENDING'
-    ),
-    (
-        20, 0, v_now, NULL, NULL,
-        2,
-        v_winner_participant_id, v_first_race_id, v_spectator_id, v_now,
-        'EXACT_POSITION', 'PENDING'
-    );
-
-    UPDATE wallets
-    SET balance = balance - 30,
-        updated_at = v_now
-    WHERE user_id = v_spectator_id;
-
-    INSERT INTO wallet_transactions(
-        amount, created_at, reference_id, user_id,
-        reference_type, transaction_type, balance_after, description
-    )
-    SELECT
-        -entry_cost_points,
-        created_at,
-        id,
-        spectator_id,
-        'RACE_PREDICTION',
-        'BET_PLACED',
-        NULL,
-        CONCAT('Bet on ', prediction_type)
-    FROM race_predictions
-    WHERE spectator_id = v_spectator_id
-      AND race_id = v_first_race_id;
+    /* Không seed race_predictions: mỗi dự đoán là một lệnh trừ tiền, nên seed dự đoán là
+       seed tiền. Demo cá cược bằng cách nạp VNPay sandbox rồi đặt trên race 2..8 (tương lai). */
 
     /* ================================================================
        15. ORGANIZER LAYER — user_roles, organizations, gắn giải vào tổ chức
@@ -623,38 +591,92 @@ BEGIN
         updated_at      = v_now
     WHERE code IN ('HRT-CHAMPIONSHIP-2026-A', 'HRT-CHAMPIONSHIP-2026-B');
 
-    /* ----- 7 giải shell phủ đủ các pha vòng đời (thuộc tổ chức ACTIVE) ----- */
+    /* ----- 3 giải phủ pha đầu vòng đời, thuộc tổ chức ACTIVE -----
+       Chỉ giữ những pha mà một giải CHƯA có lịch đua vẫn hợp lý: DRAFT,
+       PENDING_APPROVAL, OPEN_REGISTRATION. Các pha APPROVED / ONGOING / COMPLETED /
+       POSTPONED đã bỏ: theo TournamentStatus thì races chỉ tồn tại từ SCHEDULE_PUBLISHED
+       trở đi, nên một giải ONGOING hay COMPLETED mà 0 race, 0 participant là dữ liệu tự
+       mâu thuẫn — giải A/B đã phủ ONGOING đầy đủ và có thật. Tên/code đặt như giải thật,
+       không gắn nhãn trạng thái. */
     INSERT INTO tournaments(
         end_date, max_horses, max_horses_per_owner, start_date, created_at, created_by,
         registration_end_at, registration_start_at, updated_at, status, code, name,
         description, location, organization_id, approved_by, approved_at, rejection_reason
     )
     VALUES
-    (CURRENT_DATE + 70, 8, 1, CURRENT_DATE + 40, v_now, v_org1_owner, v_now + INTERVAL '30 days', v_now + INTERVAL '10 days', v_now, 'DRAFT',             'HRT-LC-DRAFT',     'Spring Maiden Trophy (Draft)',          'Draft tournament still being prepared by the organizer.',    'Newmarket Racecourse, United Kingdom', v_active_org_id, NULL,       NULL,  NULL),
-    (CURRENT_DATE + 75, 8, 1, CURRENT_DATE + 45, v_now, v_org1_owner, v_now + INTERVAL '35 days', v_now + INTERVAL '12 days', v_now, 'PENDING_APPROVAL',  'HRT-LC-PENDING',   'Summer Distance Cup (Pending Approval)','Submitted to admin for launch approval (Cong 2 / BR-17).',   'Ascot Racecourse, United Kingdom',     v_active_org_id, NULL,       NULL,  NULL),
-    (CURRENT_DATE + 80, 8, 1, CURRENT_DATE + 50, v_now, v_org1_owner, v_now + INTERVAL '40 days', v_now + INTERVAL '14 days', v_now, 'APPROVED',          'HRT-LC-APPROVED',  'Autumn Sprint Series (Approved)',       'Approved by admin, organizer about to open registration.',   'York Racecourse, United Kingdom',      v_active_org_id, v_admin_id, v_now, NULL),
-    (CURRENT_DATE + 50, 8, 1, CURRENT_DATE + 20, v_now, v_org1_owner, v_now + INTERVAL '10 days', v_now - INTERVAL '2 days',  v_now, 'OPEN_REGISTRATION', 'HRT-LC-OPEN',      'Winter Classic (Open Registration)',    'Registration window currently open for owners and jockeys.', 'Chantilly Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL),
-    (CURRENT_DATE + 8,  8, 1, CURRENT_DATE - 6,  v_now, v_org1_owner, v_now - INTERVAL '12 days', v_now - INTERVAL '25 days', v_now, 'ONGOING',           'HRT-LC-ONGOING',   'Grand Prix Championship (Ongoing)',     'Championship currently in progress.',                        'Longchamp Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL),
-    (CURRENT_DATE - 10, 8, 1, CURRENT_DATE - 40, v_now, v_org1_owner, v_now - INTERVAL '45 days', v_now - INTERVAL '60 days', v_now, 'COMPLETED',         'HRT-LC-COMPLETED', 'Heritage Gold Cup (Completed)',         'Concluded championship retained for history.',               'Newmarket Racecourse, United Kingdom', v_active_org_id, v_admin_id, v_now, NULL),
-    (CURRENT_DATE + 90, 8, 1, CURRENT_DATE + 60, v_now, v_org1_owner, v_now + INTERVAL '50 days', v_now + INTERVAL '20 days', v_now, 'POSTPONED',         'HRT-LC-POSTPONED', 'Coastal Invitational (Postponed)',      'Postponed due to scheduling.',                               'Deauville Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL);
+    (CURRENT_DATE + 70, 8, 1, CURRENT_DATE + 40, v_now, v_org1_owner, v_now + INTERVAL '30 days', v_now + INTERVAL '10 days', v_now, 'DRAFT',            'HRT-SPRING-MAIDEN-2026',    'Spring Maiden Trophy', 'A maiden-class trophy for first-season thoroughbreds, opening the spring calendar.', 'Newmarket Racecourse, United Kingdom', v_active_org_id, NULL,       NULL,  NULL),
+    (CURRENT_DATE + 75, 8, 1, CURRENT_DATE + 45, v_now, v_org1_owner, v_now + INTERVAL '35 days', v_now + INTERVAL '12 days', v_now, 'PENDING_APPROVAL', 'HRT-SUMMER-DISTANCE-2026',  'Summer Distance Cup',  'A long-distance summer series testing stamina over eight extended rounds.',          'Ascot Racecourse, United Kingdom',     v_active_org_id, NULL,       NULL,  NULL),
+    (CURRENT_DATE + 50, 8, 1, CURRENT_DATE + 20, v_now, v_org1_owner, v_now + INTERVAL '10 days', v_now - INTERVAL '2 days',  v_now, 'OPEN_REGISTRATION','HRT-WINTER-CLASSIC-2026',   'Winter Classic',       'The winter headline meeting at Chantilly, now accepting horse and jockey entries.',  'Chantilly Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL);
 
-    /* ----- referee_contracts: đủ PENDING / ACTIVE / DECLINED / TERMINATED ----- */
-    SELECT id INTO v_tourn_a     FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-A';
-    SELECT id INTO v_tourn_b     FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-B';
-    SELECT id INTO v_lc_approved FROM tournaments WHERE code = 'HRT-LC-APPROVED';
-    SELECT id INTO v_lc_open     FROM tournaments WHERE code = 'HRT-LC-OPEN';
-    SELECT id INTO v_lc_ongoing  FROM tournaments WHERE code = 'HRT-LC-ONGOING';
+    SELECT id INTO v_lc_draft   FROM tournaments WHERE code = 'HRT-SPRING-MAIDEN-2026';
+    SELECT id INTO v_lc_pending FROM tournaments WHERE code = 'HRT-SUMMER-DISTANCE-2026';
+    SELECT id INTO v_lc_open    FROM tournaments WHERE code = 'HRT-WINTER-CLASSIC-2026';
+
+    IF v_lc_draft IS NULL OR v_lc_pending IS NULL OR v_lc_open IS NULL THEN
+        RAISE EXCEPTION 'Seed lookup failed: lifecycle tournaments draft=%, pending=%, open=%',
+            v_lc_draft, v_lc_pending, v_lc_open;
+    END IF;
+
+    /* ----- Winter Classic đang OPEN_REGISTRATION: phải có đơn thật đang chờ xét -----
+       Giải ở pha này chưa có lịch đua nên KHÔNG seed races/participants. Thứ đúng nghiệp
+       vụ là đơn đăng ký ngựa và đơn ứng tuyển jockey: 5 đơn PENDING (admin chưa xét) +
+       2 đơn APPROVED, và 4 jockey PENDING. Nhờ vậy giải này mở ra vẫn có nội dung thật
+       thay vì rỗng trơn. */
+    INSERT INTO tournament_registrations(
+        created_at, horse_id, owner_id, reviewed_at, reviewed_by,
+        tournament_id, updated_at, status, note, rejection_reason
+    )
+    SELECT
+        v_now - (p.rn * INTERVAL '4 hours'),
+        p.horse_id, p.owner_id,
+        CASE WHEN p.rn <= 2 THEN v_now - INTERVAL '2 hours' ELSE NULL END,
+        CASE WHEN p.rn <= 2 THEN v_admin_id ELSE NULL END,
+        v_lc_open,
+        v_now,
+        CASE WHEN p.rn <= 2 THEN 'APPROVED' ELSE 'PENDING' END,
+        CASE WHEN p.rn <= 2
+             THEN 'Entry approved for the Winter Classic entry list.'
+             ELSE 'Entry submitted, awaiting review.' END,
+        NULL
+    FROM tmp_pairs p
+    WHERE p.rn <= 7
+    ORDER BY p.rn;
+
+    INSERT INTO jockey_tournament_applications(
+        created_at, jockey_id, reviewed_at, reviewed_by,
+        tournament_id, updated_at, withdrawn_at,
+        status, message, rejection_reason
+    )
+    SELECT
+        v_now - (p.rn * INTERVAL '3 hours'),
+        p.jockey_id, NULL, NULL,
+        v_lc_open, v_now, NULL,
+        'PENDING',
+        'Applying to ride in the Winter Classic.',
+        NULL
+    FROM tmp_pairs p
+    WHERE p.rn <= 4
+    ORDER BY p.rn;
+
+    /* ----- referee_contracts: đủ PENDING / ACTIVE / DECLINED / TERMINATED -----
+       Hợp đồng của giải A/B ký trước ngày khai mạc, không phải "vừa ký xong lúc seed". */
+    SELECT id INTO v_tourn_a FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-A';
+    SELECT id INTO v_tourn_b FROM tournaments WHERE code = 'HRT-CHAMPIONSHIP-2026-B';
+
+    IF v_tourn_a IS NULL OR v_tourn_b IS NULL THEN
+        RAISE EXCEPTION 'Seed lookup failed: tournament A=%, B=%', v_tourn_a, v_tourn_b;
+    END IF;
 
     INSERT INTO referee_contracts(
         tournament_id, referee_id, invited_by, terminated_by, created_at, updated_at,
         responded_at, terminated_at, status, agreement_url, reason
     )
     VALUES
-    (v_tourn_a,     v_referee_id, v_org1_owner, NULL,         v_now, v_now, v_now, NULL,  'ACTIVE',     '/uploads/contracts/ref-tourn-a.pdf', 'Season-long officiating contract.'),
-    (v_tourn_b,     v_referee_id, v_org1_owner, NULL,         v_now, v_now, v_now, NULL,  'ACTIVE',     '/uploads/contracts/ref-tourn-b.pdf', 'Season-long officiating contract.'),
-    (v_lc_approved, v_referee_id, v_org1_owner, NULL,         v_now, v_now, NULL,  NULL,  'PENDING',    NULL,                                 'Invitation awaiting referee response.'),
-    (v_lc_open,     v_referee_id, v_org1_owner, NULL,         v_now, v_now, v_now, NULL,  'DECLINED',   NULL,                                 'Referee declined due to a schedule conflict.'),
-    (v_lc_ongoing,  v_referee_id, v_org1_owner, v_org1_owner, v_now, v_now, v_now, v_now, 'TERMINATED', '/uploads/contracts/ref-ongoing.pdf', 'Contract terminated mid-season by the organizer.');
+    (v_tourn_a,     v_referee_id, v_org1_owner, NULL,         v_now - INTERVAL '28 days', v_now, v_now - INTERVAL '26 days', NULL,                      'ACTIVE',     '/uploads/contracts/ref-tourn-a.pdf', 'Season-long officiating contract.'),
+    (v_tourn_b,     v_referee_id, v_org1_owner, NULL,         v_now - INTERVAL '9 days',  v_now, v_now - INTERVAL '8 days',  NULL,                      'ACTIVE',     '/uploads/contracts/ref-tourn-b.pdf', 'Season-long officiating contract.'),
+    (v_lc_open,     v_referee_id, v_org1_owner, NULL,         v_now - INTERVAL '2 days',  v_now, NULL,                       NULL,                      'PENDING',    NULL,                                 'Invitation awaiting referee response.'),
+    (v_lc_draft,    v_referee_id, v_org1_owner, NULL,         v_now - INTERVAL '6 days',  v_now, v_now - INTERVAL '5 days',  NULL,                      'DECLINED',   NULL,                                 'Referee declined due to a schedule conflict.'),
+    (v_lc_pending,  v_referee_id, v_org1_owner, v_org1_owner, v_now - INTERVAL '11 days', v_now, v_now - INTERVAL '10 days', v_now - INTERVAL '4 days', 'TERMINATED', '/uploads/contracts/ref-summer.pdf',   'Organizer withdrew the invitation before launch approval.');
 
     /* ================================================================
        16. ROLE REQUESTS — đủ PENDING / APPROVED / REJECTED / CANCELLED
@@ -671,11 +693,29 @@ BEGIN
 
     /* ================================================================
        17. RESULTS SHOWCASE — Race 1 của giải A đã PUBLISHED
-       (race_results + referee_report + pre_race_checks + violation +
-        settlement job + dự đoán đã chấm CORRECT/INCORRECT + standings)
+       (race_results + referee_report + pre_race_checks + violation + standings)
+
+       Mọi timestamp neo vào v_first_race_at — giờ đua thật, 2 ngày trước — theo đúng
+       trình tự nghiệp vụ: kiểm tra trước đua (−1h) → đua → trọng tài nộp (+15..20′) →
+       admin xác nhận (+45..50′) → publish (+1h). Nếu dùng v_now thì thành "kết quả được
+       publish lúc seed" cho cuộc đua đã chạy hai ngày trước, và trước khi sửa công thức
+       race_at thì còn tệ hơn: kết quả chính thức của cuộc đua chưa diễn ra.
        ================================================================ */
-    UPDATE races       SET status = 'PUBLISHED', updated_at = v_now WHERE id = v_first_race_id;
-    UPDATE tournaments SET status = 'ONGOING',   updated_at = v_now WHERE code = 'HRT-CHAMPIONSHIP-2026-A';
+    UPDATE races
+    SET status = 'PUBLISHED', updated_at = v_first_race_at + INTERVAL '1 hour'
+    WHERE id = v_first_race_id;
+
+    UPDATE tournaments
+    SET status = 'ONGOING', updated_at = v_now
+    WHERE code = 'HRT-CHAMPIONSHIP-2026-A';
+
+    /* Participant của race đã đua phải mang check_status PASSED để khớp pre_race_checks
+       bên dưới; section 12 insert mặc định NOT_CHECKED cho mọi race. */
+    UPDATE race_participants
+    SET check_status = 'PASSED',
+        check_note   = 'Pre-race inspection passed.',
+        updated_at   = v_first_race_at - INTERVAL '1 hour'
+    WHERE race_id = v_first_race_id;
 
     INSERT INTO race_results(
         finish_time_seconds, penalty_seconds, points, position, prize_points,
@@ -690,7 +730,15 @@ BEGIN
         x.position,
         CASE x.position WHEN 1 THEN 1000 WHEN 2 THEN 600 WHEN 3 THEN 300 ELSE 0 END,
         (70 + x.position)::numeric(10,3),
-        v_now, v_admin_id, v_now, x.id, v_now, v_first_race_id, v_now, v_referee_id, v_now,
+        v_first_race_at + INTERVAL '45 minutes',   /* confirmed_at */
+        v_admin_id,
+        v_first_race_at + INTERVAL '15 minutes',   /* created_at   */
+        x.id,
+        v_first_race_at + INTERVAL '1 hour',       /* published_at */
+        v_first_race_id,
+        v_first_race_at + INTERVAL '15 minutes',   /* submitted_at */
+        v_referee_id,
+        v_first_race_at + INTERVAL '1 hour',       /* updated_at   */
         'FINISHED', 'PUBLISHED', 'Official published result.'
     FROM (
         SELECT rp.id,
@@ -707,7 +755,14 @@ BEGIN
         updated_at, status, title, ai_summary, rejection_reason, summary
     )
     VALUES(
-        v_now, v_admin_id, v_now, v_first_race_id, v_referee_id, v_now, v_now, 'CONFIRMED',
+        v_first_race_at + INTERVAL '50 minutes',   /* confirmed_at */
+        v_admin_id,
+        v_first_race_at + INTERVAL '20 minutes',   /* created_at   */
+        v_first_race_id,
+        v_referee_id,
+        v_first_race_at + INTERVAL '20 minutes',   /* submitted_at */
+        v_first_race_at + INTERVAL '50 minutes',   /* updated_at   */
+        'CONFIRMED',
         'Round 1 Official Report', 'Clean race; one minor crowding incident.', NULL,
         'All eight runners completed. Result confirmed and published.'
     );
@@ -716,49 +771,34 @@ BEGIN
         equipment_ok, health_ok, horse_identity_ok, jockey_identity_ok, weight_ok,
         checked_at, created_at, participant_id, race_id, referee_id, result, note
     )
-    SELECT true, true, true, true, true, v_now, v_now, rp.id, v_first_race_id, v_referee_id, 'PASSED', 'Pre-race inspection passed.'
+    SELECT true, true, true, true, true,
+        v_first_race_at - INTERVAL '1 hour',   /* checked_at: kiểm tra TRƯỚC giờ đua */
+        v_first_race_at - INTERVAL '1 hour',   /* created_at */
+        rp.id, v_first_race_id, v_referee_id, 'PASSED', 'Pre-race inspection passed.'
     FROM race_participants rp
-    WHERE rp.race_id = v_first_race_id;
+    WHERE rp.race_id = v_first_race_id
+    ORDER BY rp.lane_number;
 
     INSERT INTO violations(
         created_at, occurred_at, participant_id, race_id, reported_by, updated_at,
         severity, violation_type, penalty, description
     )
-    SELECT v_now, v_now, rp.id, v_first_race_id, v_referee_id, v_now,
+    SELECT
+        v_first_race_at + INTERVAL '10 minutes',   /* created_at  */
+        v_first_race_at + INTERVAL '5 minutes',    /* occurred_at */
+        rp.id, v_first_race_id, v_referee_id,
+        v_first_race_at + INTERVAL '10 minutes',   /* updated_at  */
         'MINOR', 'CROWDING', 'Official warning', 'Minor crowding on the final bend; warning issued.'
     FROM race_participants rp
     WHERE rp.race_id = v_first_race_id
     ORDER BY rp.lane_number
     LIMIT 1;
 
-    INSERT INTO prediction_settlement_jobs(
-        failed_count, processed_count, retry_count, rewarded_count, completed_at,
-        created_at, race_id, started_at, updated_at, status, error_message
-    )
-    VALUES(0, 2, 0, 1, v_now, v_now, v_first_race_id, v_now, v_now, 'COMPLETED', NULL);
-
-    UPDATE race_predictions
-    SET status = 'CORRECT', reward_points = 50, evaluated_at = v_now, locked_at = v_now, updated_at = v_now
-    WHERE race_id = v_first_race_id AND prediction_type = 'WINNER';
-
-    UPDATE race_predictions
-    SET status = 'INCORRECT', reward_points = 0, evaluated_at = v_now, locked_at = v_now, updated_at = v_now
-    WHERE race_id = v_first_race_id AND prediction_type = 'EXACT_POSITION';
-
-    UPDATE wallets
-    SET balance = balance + 50, updated_at = v_now
-    WHERE user_id = v_spectator_id;
-
-    INSERT INTO wallet_transactions(
-        amount, created_at, reference_id, user_id, reference_type, transaction_type, balance_after, description
-    )
-    SELECT 50, v_now, id, v_spectator_id, 'RACE_PREDICTION', 'BET_PAYOUT', NULL,
-        'Winner bet payout for published race.'
-    FROM race_predictions
-    WHERE race_id = v_first_race_id AND prediction_type = 'WINNER';
+    /* Không seed prediction_settlement_jobs: race này không có dự đoán nào để chấm, một
+       settlement job processed_count=2 sẽ là job đã chấm hai bản ghi không tồn tại. */
 
     UPDATE tournament_participants tp
-    SET points = rr.points, updated_at = v_now
+    SET points = rr.points, updated_at = v_first_race_at + INTERVAL '1 hour'
     FROM race_participants rp
     JOIN race_results rr ON rr.participant_id = rp.id
     WHERE rp.horse_id = tp.horse_id
@@ -769,6 +809,9 @@ END $$;
 
 /* ================================================================
    14. KIỂM TRA KẾT QUẢ
+
+   Query cuối cùng (INVARIANTS) là cái quan trọng nhất: mọi dòng phải ra PASS.
+   Một dòng FAIL nghĩa là seed sinh ra dữ liệu tự mâu thuẫn — đừng đem lên deploy.
    ================================================================ */
 SELECT 'Users' AS data_group, COUNT(*) AS total FROM users
 UNION ALL
@@ -825,3 +868,89 @@ LEFT JOIN race_participants rp ON rp.race_id = r.id
 WHERE t.code LIKE 'HRT-CHAMPIONSHIP-2026-%'
 GROUP BY t.code, r.race_number, r.code, r.status
 ORDER BY t.code, r.race_number;
+
+/* ================================================================
+   INVARIANTS — mọi dòng phải PASS
+   ================================================================ */
+WITH checks(seq, check_name, actual) AS (
+    /* Không một đồng nào được sinh bởi script. */
+    SELECT 1, 'money tables empty (phai = 0)',
+           (SELECT COUNT(*) FROM wallets)
+         + (SELECT COUNT(*) FROM wallet_transactions)
+         + (SELECT COUNT(*) FROM topup_orders)
+         + (SELECT COUNT(*) FROM race_predictions)
+         + (SELECT COUNT(*) FROM prediction_settlement_jobs)
+         + (SELECT COUNT(*) FROM withdrawal_requests)
+
+    /* Giải đã có lịch đua thì không được rỗng người. */
+    UNION ALL
+    SELECT 2, 'giai co lich dua ma 0 participant',
+           (SELECT COUNT(*) FROM tournaments t
+             WHERE t.status IN ('SCHEDULE_PUBLISHED', 'ONGOING', 'COMPLETED')
+               AND NOT EXISTS (SELECT 1 FROM tournament_participants tp
+                                WHERE tp.tournament_id = t.id))
+
+    UNION ALL
+    SELECT 3, 'race khong du 8 participant',
+           (SELECT COUNT(*) FROM races r
+             WHERE (SELECT COUNT(*) FROM race_participants rp WHERE rp.race_id = r.id) <> 8)
+
+    /* Lane phải đúng tập 1..8, không trùng không thiếu. */
+    UNION ALL
+    SELECT 4, 'race co lane khong phai 1..8',
+           (SELECT COUNT(*) FROM (
+                SELECT rp.race_id
+                FROM race_participants rp
+                GROUP BY rp.race_id
+                HAVING array_agg(rp.lane_number ORDER BY rp.lane_number)
+                       <> ARRAY[1,2,3,4,5,6,7,8]
+            ) bad_lanes)
+
+    /* Thứ tự vật lý trong heap khớp lane: query nào thiếu ORDER BY cũng vẫn ra đúng. */
+    UNION ALL
+    SELECT 5, 'heap order khong khop lane order',
+           (SELECT COUNT(*) FROM (
+                SELECT rp.race_id
+                FROM race_participants rp
+                GROUP BY rp.race_id
+                HAVING array_agg(rp.lane_number ORDER BY rp.id)
+                       <> array_agg(rp.lane_number ORDER BY rp.lane_number)
+            ) bad_heap)
+
+    /* Không publish kết quả cho cuộc đua chưa diễn ra. */
+    UNION ALL
+    SELECT 6, 'race PUBLISHED ma race_at o tuong lai',
+           (SELECT COUNT(*) FROM races
+             WHERE status = 'PUBLISHED' AND race_at > localtimestamp)
+
+    UNION ALL
+    SELECT 7, 'race_result publish truoc gio dua',
+           (SELECT COUNT(*) FROM race_results rr
+              JOIN races r ON r.id = rr.race_id
+             WHERE rr.published_at < r.race_at)
+
+    UNION ALL
+    SELECT 8, 'pre_race_check thuc hien sau gio dua',
+           (SELECT COUNT(*) FROM pre_race_checks prc
+              JOIN races r ON r.id = prc.race_id
+             WHERE prc.checked_at > r.race_at)
+
+    /* Đăng ký phải đóng trước ngày khai mạc. */
+    UNION ALL
+    SELECT 9, 'dang ky dong sau ngay khai mac',
+           (SELECT COUNT(*) FROM tournaments
+             WHERE registration_end_at IS NOT NULL
+               AND start_date IS NOT NULL
+               AND registration_end_at::date > start_date)
+
+    /* Participant của race đã đua phải đã được kiểm tra. */
+    UNION ALL
+    SELECT 10, 'participant race da dua ma chua check',
+           (SELECT COUNT(*) FROM race_participants rp
+              JOIN races r ON r.id = rp.race_id
+             WHERE r.status = 'PUBLISHED' AND rp.check_status <> 'PASSED')
+)
+SELECT seq, check_name, actual,
+       CASE WHEN actual = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
+FROM checks
+ORDER BY seq;

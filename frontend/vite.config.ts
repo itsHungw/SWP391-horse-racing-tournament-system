@@ -39,6 +39,14 @@ export default defineConfig(({ mode }) => {
       environment: "jsdom",
       globals: true,
       setupFiles: fileURLToPath(new URL("./src/test/setup.ts", import.meta.url)),
+      // Vitest mặc định mở worker theo số core. Ở mức song song đó, các test render
+      // trang nặng bắt đầu vượt testTimeout hoặc làm jsdom ném AggregateError trên
+      // XHR — cùng một file lúc pass lúc fail tuỳ máy và tuỳ số file trong lần chạy.
+      // Giới hạn 2 worker cho kết quả tất định mà vẫn giữ cách ly theo từng file.
+      maxWorkers: 2,
+      minWorkers: 1,
+      // 5s là quá sát cho các trang render nặng; hết giờ không có nghĩa là hỏng.
+      testTimeout: 20000,
     },
   };
 });

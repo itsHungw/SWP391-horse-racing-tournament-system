@@ -247,7 +247,9 @@ class RaceIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.totalElements").value(1))
                 .andExpect(jsonPath("$.content[0].id").value(emeraldRace.getId()))
-                .andExpect(jsonPath("$.content[0].winner.horseName").value("Emerald King"));
+                .andExpect(jsonPath("$.content[0].winner.horseName").value("Emerald King"))
+                .andExpect(jsonPath("$.content[0].winner.jockeyName").value("EMERALD-KING Jockey"))
+                .andExpect(jsonPath("$.content[0].winner.finishTimeSeconds").value(72.341));
     }
 
     @Test

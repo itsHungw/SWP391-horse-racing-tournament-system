@@ -117,7 +117,7 @@ public class StreakPredictionService {
 
             // Tỉ lệ động Pari-mutuel lấy trực tiếp từ quỹ tiền Cược Chuỗi
             List<RaceParticipant> allParticipants = raceParticipantRepository
-                    .findAllByRace_IdAndStatusNotOrderByCreatedAtAsc(
+                    .findAllByRaceAndStatusNotOrderByLane(
                             race.getId(),
                             ParticipantStatus.WITHDRAWN
                     );

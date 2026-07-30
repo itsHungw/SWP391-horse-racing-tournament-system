@@ -3,6 +3,7 @@ package com.example.horseracingtournamentsystem.result.repository;
 import com.example.horseracingtournamentsystem.result.entity.RaceResult;
 import com.example.horseracingtournamentsystem.result.enums.ResultRecordStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.math.BigDecimal;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -21,10 +22,22 @@ public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
 
     Optional<RaceResult> findByRace_IdAndParticipant_Id(Long raceId, Long participantId);
 
-    List<RaceResult> findAllByRace_IdInAndPositionAndStatusIn(
-            Collection<Long> raceIds,
-            Integer position,
-            Collection<ResultRecordStatus> statuses
+    @Query("""
+            SELECT r.race.id AS raceId,
+                   horse.name AS horseName,
+                   jockey.fullName AS jockeyName,
+                   r.finishTimeSeconds AS finishTimeSeconds
+            FROM RaceResult r
+            JOIN r.participant participant
+            JOIN participant.horse horse
+            LEFT JOIN participant.jockey jockey
+            WHERE r.race.id IN :raceIds
+              AND r.position = 1
+              AND r.status IN :statuses
+            """)
+    List<PublicWinnerProjection> findPublicWinners(
+            @Param("raceIds") Collection<Long> raceIds,
+            @Param("statuses") Collection<ResultRecordStatus> statuses
     );
 
     List<RaceResult> findAllByRace_IdAndStatusInOrderByPositionAscCreatedAtAsc(
@@ -109,4 +122,11 @@ public interface RaceResultRepository extends JpaRepository<RaceResult, Long> {
             GROUP BY r.participant.horse.id
             """)
     List<Object[]> getAverageFinishTimeByHorseIds(@Param("horseIds") Collection<Long> horseIds);
+
+    interface PublicWinnerProjection {
+        Long getRaceId();
+        String getHorseName();
+        String getJockeyName();
+        BigDecimal getFinishTimeSeconds();
+    }
 }

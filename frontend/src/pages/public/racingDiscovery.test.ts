@@ -4,6 +4,7 @@ import {
   groupAgendaRaces,
   groupRacesByTimeSlot,
   parseRaceDiscoveryQuery,
+  selectRacePulse,
   selectChampionshipInFocus,
   selectNextToPost,
 } from "./racingDiscovery";
@@ -49,18 +50,51 @@ describe("public racing discovery helpers", () => {
     expect(focus?.name).toBe("Live Cup");
   });
 
+  it("keeps a running championship without a published next race ahead of closed registration", () => {
+    const focus = selectChampionshipInFocus([
+      {
+        id: 1,
+        name: "Closed Registration Cup",
+        status: "CLOSED_REGISTRATION",
+        raceCount: 0,
+        participantCount: 0,
+      },
+      {
+        id: 2,
+        name: "Running Cup",
+        status: "ONGOING",
+        raceCount: 8,
+        participantCount: 8,
+        nextRace: null,
+      },
+    ]);
+
+    expect(focus?.name).toBe("Running Cup");
+  });
+
   it("selects the nearest upcoming race and falls back to the latest result", () => {
     expect(
       selectNextToPost(
         [race(2, "2026-06-13T14:00:00"), race(1, "2026-06-12T14:00:00")],
         [race(3, "2026-06-10T14:00:00", "RESULT_CONFIRMED")],
+        new Date("2026-06-11T12:00:00"),
       )?.id,
     ).toBe(1);
 
     expect(selectNextToPost([], [race(3, "2026-06-10T14:00:00", "RESULT_CONFIRMED")])?.id).toBe(3);
   });
 
-  it("groups agenda races by live, today, tomorrow, this week, and later", () => {
+  it("does not label a stale scheduled race as next to post", () => {
+    expect(
+      selectNextToPost(
+        [race(1, "2026-07-25T14:00:00"), race(2, "2026-08-01T14:00:00")],
+        [],
+        new Date("2026-07-29T12:00:00"),
+      )?.id,
+    ).toBe(2);
+  });
+
+  it("groups agenda races by exact race day", () => {
     const groups = groupAgendaRaces(
       [
         race(1, "2026-06-12T10:00:00", "ONGOING"),
@@ -73,11 +107,11 @@ describe("public racing discovery helpers", () => {
     );
 
     expect(groups.map((group) => group.label)).toEqual([
-      "Live Now",
-      "Today",
-      "Tomorrow",
-      "This Week",
-      "Later This Month",
+      "Live now",
+      "Today · Fri, Jun 12",
+      "Tomorrow · Sat, Jun 13",
+      "Mon, Jun 15",
+      "Thu, Jun 25",
     ]);
   });
 
@@ -104,4 +138,41 @@ describe("public racing discovery helpers", () => {
       expect.objectContaining({ scope: "UPCOMING", view: "agenda", page: 0 }),
     );
   });
+it("selects a live race before any latest result", () => {
+  const selected = selectRacePulse(
+    [race(1, "2026-07-29T14:00:00", "ONGOING")],
+    [race(2, "2026-07-28T14:00:00", "PUBLISHED")],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "LIVE", race: { id: 1 } });
+});
+
+it("selects the latest official result when no race is live", () => {
+  const selected = selectRacePulse(
+    [],
+    [
+      race(1, "2026-07-27T14:00:00", "RESULT_CONFIRMED"),
+      race(2, "2026-07-28T14:00:00", "PUBLISHED"),
+    ],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "LATEST_RESULT", race: { id: 2 } });
+});
+
+it("falls back to the nearest future race when no official result exists", () => {
+  const selected = selectRacePulse(
+    [race(1, "2026-07-28T14:00:00"), race(2, "2026-08-01T14:00:00")],
+    [],
+    new Date("2026-07-29T12:00:00"),
+  );
+
+  expect(selected).toMatchObject({ mode: "NEXT_RACE", race: { id: 2 } });
+});
+
+it("returns null when there is no live, official, or future race", () => {
+  expect(selectRacePulse([], [], new Date("2026-07-29T12:00:00"))).toBeNull();
+});
+
 });
