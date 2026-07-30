@@ -94,6 +94,13 @@ export function PredictionSlip({
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setRulesOpen(true), 150);
+    return () => clearTimeout(timer);
+  }, []);
+  const handleCloseRules = () => {
+    setRulesOpen(false);
+  };
   const [quote, setQuote] = useState<PredictionQuote | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string | null>(null);
@@ -390,7 +397,7 @@ export function PredictionSlip({
         </section>
       )}
 
-      <RulesDialog open={rulesOpen} onClose={() => setRulesOpen(false)} feePercent={options?.houseFeePercent} />
+      <RulesDialog open={rulesOpen} onClose={handleCloseRules} feePercent={options?.houseFeePercent} />
     </aside>
   );
 }
