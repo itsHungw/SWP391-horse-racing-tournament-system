@@ -106,6 +106,7 @@ Script tự in ra 4 bảng. Ba bảng đầu là số lượng, bảng cuối l�
    8 | pre_race_check thuc hien sau gio dua  |      0 | PASS
    9 | dang ky dong sau ngay khai mac        |      0 | PASS
   10 | participant race da dua ma chua check |      0 | PASS
+  11 | giai co prize pool = 0                |      0 | PASS
 ```
 
 **Bất kỳ dòng nào FAIL thì dừng, không đem lên VPS.** Mỗi dòng FAIL là một loại dữ liệu tự
@@ -301,7 +302,7 @@ set -a; . infra/.env.prod; set +a
 
 ### B8. Đọc lại bảng INVARIANTS
 
-Giống bước A6: **cả 10 dòng phải PASS**. Nếu có dòng FAIL, dữ liệu đã vào DB nhưng sai — chạy
+Giống bước A6: **cả 11 dòng phải PASS**. Nếu có dòng FAIL, dữ liệu đã vào DB nhưng sai — chạy
 lại từ B5 sau khi sửa script (khối `DO` là atomic nhưng bảng INVARIANTS chạy sau khi đã commit,
 nên FAIL nghĩa là phải reset lại chứ không rollback tự động).
 
@@ -408,6 +409,7 @@ docker exec hrts-postgres psql -U horseracing -d horseracing -c "SELECT t.code, 
 | Seed báo `Seed lookup failed: ...` | Migration mới đổi cột/enum mà script chưa theo | Đọc tên biến trong thông báo, sửa script chỗ tương ứng |
 | INVARIANTS dòng 1 FAIL | Có ai/đoạn nào seed tiền trở lại | `grep -n "INSERT INTO wallet" demo_data_script.sql` — phải không có kết quả |
 | INVARIANTS dòng 6/7 FAIL | Công thức `race_at` hoặc timestamp showcase bị sửa lệch | Xem section 11 và 17 của script |
+| INVARIANTS dòng 11 FAIL | Có giải mới thêm vào seed mà quên `total_prize_pool` (cột `NOT NULL DEFAULT 0`) | Bổ sung cột vào INSERT ở section 8; trang giải công khai sẽ hiện "0 VND prize" nếu bỏ qua |
 | Bảng runner vẫn lộn xộn | Backend trên VPS vẫn là image cũ | Kiểm tra job `build-and-push` đã xanh, rồi `docker compose pull` + `up -d` |
 | VPS không có seed script mới | Bẫy path trigger ở B0 | Chạy `workflow_dispatch` hoặc `git pull` tay trên VPS |
 

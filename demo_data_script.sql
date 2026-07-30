@@ -275,11 +275,13 @@ BEGIN
     /* ================================================================
        8. TOURNAMENTS
        ================================================================ */
+    /* total_prize_pool là VND, cột NOT NULL DEFAULT 0 (V25). Bỏ trống thì trang giải
+       công khai hiện "0 VND prize" — FE check `!= null` nên số 0 vẫn render. */
     INSERT INTO tournaments(
         end_date, max_horses, max_horses_per_owner, start_date,
         created_at, created_by, registration_end_at,
         registration_start_at, updated_at, status, code,
-        name, description, location
+        name, description, location, total_prize_pool
     )
     VALUES
     (
@@ -297,7 +299,8 @@ BEGIN
         'HRT-CHAMPIONSHIP-2026-A',
         'Royal Ascendancy Cup 2026',
         'An international eight-round championship featuring eight elite owners, jockeys and thoroughbred horses.',
-        'Newmarket Racecourse, United Kingdom'
+        'Newmarket Racecourse, United Kingdom',
+        500000000
     ),
     (
         CURRENT_DATE + 80,
@@ -311,7 +314,8 @@ BEGIN
         'HRT-CHAMPIONSHIP-2026-B',
         'Continental Crown Championship 2026',
         'A prestigious continental racing series with eight confirmed competitors in every scheduled round.',
-        'Chantilly Racecourse, France'
+        'Chantilly Racecourse, France',
+        350000000
     );
 
     /* ================================================================
@@ -601,12 +605,13 @@ BEGIN
     INSERT INTO tournaments(
         end_date, max_horses, max_horses_per_owner, start_date, created_at, created_by,
         registration_end_at, registration_start_at, updated_at, status, code, name,
-        description, location, organization_id, approved_by, approved_at, rejection_reason
+        description, location, organization_id, approved_by, approved_at, rejection_reason,
+        total_prize_pool
     )
     VALUES
-    (CURRENT_DATE + 70, 8, 1, CURRENT_DATE + 40, v_now, v_org1_owner, v_now + INTERVAL '30 days', v_now + INTERVAL '10 days', v_now, 'DRAFT',            'HRT-SPRING-MAIDEN-2026',    'Spring Maiden Trophy', 'A maiden-class trophy for first-season thoroughbreds, opening the spring calendar.', 'Newmarket Racecourse, United Kingdom', v_active_org_id, NULL,       NULL,  NULL),
-    (CURRENT_DATE + 75, 8, 1, CURRENT_DATE + 45, v_now, v_org1_owner, v_now + INTERVAL '35 days', v_now + INTERVAL '12 days', v_now, 'PENDING_APPROVAL', 'HRT-SUMMER-DISTANCE-2026',  'Summer Distance Cup',  'A long-distance summer series testing stamina over eight extended rounds.',          'Ascot Racecourse, United Kingdom',     v_active_org_id, NULL,       NULL,  NULL),
-    (CURRENT_DATE + 50, 8, 1, CURRENT_DATE + 20, v_now, v_org1_owner, v_now + INTERVAL '10 days', v_now - INTERVAL '2 days',  v_now, 'OPEN_REGISTRATION','HRT-WINTER-CLASSIC-2026',   'Winter Classic',       'The winter headline meeting at Chantilly, now accepting horse and jockey entries.',  'Chantilly Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL);
+    (CURRENT_DATE + 70, 8, 1, CURRENT_DATE + 40, v_now, v_org1_owner, v_now + INTERVAL '30 days', v_now + INTERVAL '10 days', v_now, 'DRAFT',            'HRT-SPRING-MAIDEN-2026',    'Spring Maiden Trophy', 'A maiden-class trophy for first-season thoroughbreds, opening the spring calendar.', 'Newmarket Racecourse, United Kingdom', v_active_org_id, NULL,       NULL,  NULL,  80000000),
+    (CURRENT_DATE + 75, 8, 1, CURRENT_DATE + 45, v_now, v_org1_owner, v_now + INTERVAL '35 days', v_now + INTERVAL '12 days', v_now, 'PENDING_APPROVAL', 'HRT-SUMMER-DISTANCE-2026',  'Summer Distance Cup',  'A long-distance summer series testing stamina over eight extended rounds.',          'Ascot Racecourse, United Kingdom',     v_active_org_id, NULL,       NULL,  NULL, 150000000),
+    (CURRENT_DATE + 50, 8, 1, CURRENT_DATE + 20, v_now, v_org1_owner, v_now + INTERVAL '10 days', v_now - INTERVAL '2 days',  v_now, 'OPEN_REGISTRATION','HRT-WINTER-CLASSIC-2026',   'Winter Classic',       'The winter headline meeting at Chantilly, now accepting horse and jockey entries.',  'Chantilly Racecourse, France',         v_active_org_id, v_admin_id, v_now, NULL, 250000000);
 
     SELECT id INTO v_lc_draft   FROM tournaments WHERE code = 'HRT-SPRING-MAIDEN-2026';
     SELECT id INTO v_lc_pending FROM tournaments WHERE code = 'HRT-SUMMER-DISTANCE-2026';
@@ -949,6 +954,12 @@ WITH checks(seq, check_name, actual) AS (
            (SELECT COUNT(*) FROM race_participants rp
               JOIN races r ON r.id = rp.race_id
              WHERE r.status = 'PUBLISHED' AND rp.check_status <> 'PASSED')
+
+    /* Giải nào cũng phải có tiền thưởng: cột NOT NULL DEFAULT 0 nên quên set là ra
+       "0 VND prize" trên trang công khai mà không báo lỗi gì. */
+    UNION ALL
+    SELECT 11, 'giai co prize pool = 0',
+           (SELECT COUNT(*) FROM tournaments WHERE total_prize_pool <= 0)
 )
 SELECT seq, check_name, actual,
        CASE WHEN actual = 0 THEN 'PASS' ELSE 'FAIL' END AS verdict
