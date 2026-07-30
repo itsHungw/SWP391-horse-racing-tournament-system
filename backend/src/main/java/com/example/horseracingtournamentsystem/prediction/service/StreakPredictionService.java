@@ -68,26 +68,33 @@ public class StreakPredictionService {
         this.walletService = walletService;
     }
 
+    // Đặt cược chuỗi (Streak Prediction - Cược xiên)
     @Transactional
     public StreakPredictionResponse submitStreakPrediction(Long spectatorId, SubmitStreakPredictionRequest request) {
+        // Lấy thông tin người chơi
         User spectator = spectatorRepository.findById(spectatorId)
             .orElseThrow(() -> new IllegalArgumentException("Spectator not found"));
 
+        // Lấy thông tin giải đấu
         Tournament tournament = tournamentRepository.findById(request.getTournamentId())
             .orElseThrow(() -> new IllegalArgumentException("Tournament not found"));
 
+        // Một cược chuỗi (xiên) yêu cầu ít nhất 2 lựa chọn (chân cược - legs)
         if (request.getLegs() == null || request.getLegs().size() < 2) {
             throw new IllegalArgumentException("A streak prediction must have at least 2 legs");
         }
 
+        // Kiểm tra số tiền cược phải hợp lệ
         if (request.getWagerAmount() == null || request.getWagerAmount() <= 0) {
             throw new IllegalArgumentException("Invalid wager amount");
         }
 
+        // Kiểm tra số dư ví xem có đủ tiền cược không
         if (walletService.getBalance(spectator.getId()) < request.getWagerAmount()) {
             throw new IllegalArgumentException("Insufficient balance");
         }
 
+        // Tạo bản ghi cược chuỗi với trạng thái ban đầu là PENDING (Đang chờ)
         StreakPrediction streakPrediction = StreakPrediction.builder()
             .spectator(spectator)
             .tournament(tournament)
@@ -95,14 +102,16 @@ public class StreakPredictionService {
             .status(StreakPredictionStatus.PENDING)
             .build();
 
-        // True parlay modified: each leg priced as fair decimal odds (1/p).
-        // Then the odds are summed together, with a hard cap on the total.
+        // Cược xiên thực sự (True parlay) được sửa đổi: mỗi chân cược được định giá theo tỷ lệ thập phân công bằng (1/p).
+        // Sau đó các tỷ lệ này được cộng dồn lại với nhau, với một giới hạn tối đa (hard cap) cho tổng tỷ lệ cược.
         BigDecimal sumOdds = BigDecimal.ZERO;
 
         for (StreakPredictionLegRequest legReq : request.getLegs()) {
+            // Kiểm tra từng cuộc đua trong xiên
             Race race = raceRepository.findById(legReq.getRaceId())
                 .orElseThrow(() -> new IllegalArgumentException("Race not found: " + legReq.getRaceId()));
 
+            // Chỉ cho phép đặt khi cuộc đua chưa bắt đầu
             if (RaceStatus.SCHEDULED != race.getStatus()) {
                 throw new IllegalStateException("Predictions are closed for race: " + race.getName());
             }
@@ -110,15 +119,18 @@ public class StreakPredictionService {
             RaceParticipant participant = raceParticipantRepository.findById(legReq.getPredictedWinnerId())
                 .orElseThrow(() -> new IllegalArgumentException("Participant not found"));
 
+            // Không cho phép chọn ngựa đã rút lui
             if (ParticipantStatus.WITHDRAWN == participant.getStatus()) {
                 throw new IllegalArgumentException("Participant is withdrawn: " + participant.getHorse().getName());
             }
 
+            // Lấy danh sách ngựa đua không bị rút lui
             List<RaceParticipant> allParticipants = raceParticipantRepository
                     .findAllByRaceAndStatusNotOrderByLane(
                             race.getId(),
                             ParticipantStatus.WITHDRAWN
                     );
+            // Tính toán tỷ lệ cược cho chân cược hiện tại
             Map<Long, BigDecimal> streakOddsMatrix = oddsCalculationService.calculateStreakOddsMatrix(race.getId(), allParticipants);
             BigDecimal legOdds = streakOddsMatrix.get(participant.getId());
             if (legOdds == null || legOdds.compareTo(BigDecimal.ZERO) <= 0) {
@@ -126,28 +138,33 @@ public class StreakPredictionService {
                     "Cannot price streak leg for participant " + participant.getId() + " in race " + race.getId());
             }
 
-            sumOdds = sumOdds.add(legOdds);
+            sumOdds = sumOdds.add(legOdds); // Cộng dồn tỷ lệ cược của các chân cược
 
+            // Tạo đối tượng đại diện cho một phần cược trong xiên
             StreakPredictionLeg leg = StreakPredictionLeg.builder()
                 .race(race)
                 .predictedWinner(participant)
                 .placedOdds(legOdds)
-                .lockedOdds(legOdds)
+                .lockedOdds(legOdds) // Lưu tỷ lệ tại thời điểm đặt cược
                 .status(StreakPredictionStatus.PENDING)
                 .build();
 
             streakPrediction.addLeg(leg);
         }
 
-        // Just use the sum directly, no further commission applied here
+        // Giới hạn tổng tỷ lệ cược bằng maxTotalOdds để tránh rủi ro quá lớn cho nhà cái
+        // Sử dụng trực tiếp tổng tỷ lệ, không tính thêm phí hoa hồng (commission) ở đây
         BigDecimal totalOdds = sumOdds;
         if (totalOdds.compareTo(maxTotalOdds) > 0) {
             totalOdds = maxTotalOdds;
         }
+        // Ghi nhận tỷ lệ cược tổng cộng với làm tròn 2 chữ số thập phân
         streakPrediction.setTotalOdds(totalOdds.setScale(2, RoundingMode.HALF_UP));
 
+        // Lưu cược chuỗi vào DB
         StreakPrediction saved = streakPredictionRepository.saveAndFlush(streakPrediction);
 
+        // Trừ tiền từ ví của người chơi (gắn với mã giao dịch là ID của cược chuỗi này)
         walletService.adjust(
             spectator, -request.getWagerAmount(), WalletTransactionType.BET_PLACED,
             WalletTransaction.REF_STREAK_PREDICTION, saved.getId(),

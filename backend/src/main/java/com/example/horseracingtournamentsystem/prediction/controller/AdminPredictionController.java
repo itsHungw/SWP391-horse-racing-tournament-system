@@ -61,6 +61,7 @@ public class AdminPredictionController {
         this.streakRepo = streakRepo;
     }
 
+    // API lấy danh sách tất cả các dự đoán chuỗi (Streak Predictions) của người chơi
     @GetMapping("/streaks")
     public ResponseEntity<List<AdminStreakPredictionResponse>> getStreaks() {
         List<StreakPrediction> streaks = streakRepo.findAll();
@@ -98,6 +99,7 @@ public class AdminPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API lấy danh sách tóm tắt tất cả các cuộc đua và thông tin cược tương ứng
     @GetMapping("/races")
     public ResponseEntity<List<AdminRaceSummaryResponse>> getRaces() {
         List<Race> races = raceRepo.findAll();
@@ -146,6 +148,7 @@ public class AdminPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API lấy thông tin chi tiết về cược của một cuộc đua cụ thể (dựa vào raceId)
     @GetMapping("/races/{raceId}")
     public ResponseEntity<AdminRaceDetailResponse> getRaceDetail(@PathVariable Long raceId) {
         Race r = raceRepo.findById(raceId)
@@ -203,6 +206,7 @@ public class AdminPredictionController {
         return ResponseEntity.ok(d);
     }
 
+    // API lấy danh sách chi tiết các vé cược (Audit) của một cuộc đua cụ thể
     @GetMapping("/races/{raceId}/predictions")
     public ResponseEntity<List<AdminAuditPredictionResponse>> getRacePredictions(@PathVariable Long raceId) {
         List<RacePrediction> preds = predictionRepo.findByRace_Id(raceId);
@@ -283,6 +287,7 @@ public class AdminPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API thử chạy lại tiến trình trả thưởng (Settlement Job) nếu trước đó bị lỗi (FAILED)
     @PostMapping("/settlement-jobs/{jobId}/retry")
     public ResponseEntity<Void> retryJob(@PathVariable Long jobId) {
         PredictionSettlementJob job = jobRepo.findById(jobId)
@@ -297,17 +302,23 @@ public class AdminPredictionController {
         return ResponseEntity.ok().build();
     }
 
+    // API lấy cấu hình chung của hệ thống cược (như thanh khoản ảo, tỷ lệ hoa hồng)
+    // - displaySeed: Lượng điểm ảo ban đầu dùng để tính toán tỷ lệ cược mượt mà (Price Smoothing)
+    // - takeoutRate: Tỷ lệ phần trăm hoa hồng hệ thống giữ lại từ tổng cược (ví dụ: 0.15 = 15%)
     @GetMapping("/settings")
     public ResponseEntity<PredictionSettingResponse> getSettings() {
+        // Lấy cấu hình lưu trong database (ID luôn bằng 1 vì chỉ có 1 cấu hình chung).
+        // Nếu database chưa có, hệ thống sẽ tự khởi tạo bằng giá trị mặc định.
         PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
             PredictionSetting s = new PredictionSetting();
             s.setId(1L);
-            s.setDisplaySeed(40000000.0);
-            s.setTakeoutRate(BigDecimal.valueOf(0.15));
+            s.setDisplaySeed(40000000.0); // Mặc định điểm ảo khởi tạo
+            s.setTakeoutRate(BigDecimal.valueOf(0.15)); // Mặc định hoa hồng 15%
             s.setUpdatedAt(LocalDateTime.now());
             return predictionSettingRepo.save(s);
         });
 
+        // Build object trả về cho Frontend (Admin Dashboard)
         PredictionSettingResponse response = new PredictionSettingResponse();
         response.setDisplaySeed(setting.getDisplaySeed());
         response.setTakeoutRate(setting.getTakeoutRate());
@@ -318,27 +329,35 @@ public class AdminPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API cập nhật cấu hình chung của hệ thống cược
+    // Cho phép Admin tùy chỉnh thay đổi mức điểm ảo (displaySeed) hoặc tỷ lệ hoa hồng (takeoutRate) theo tình hình thực tế
     @PutMapping("/settings")
     public ResponseEntity<PredictionSettingResponse> updateSettings(
             @jakarta.validation.Valid @RequestBody UpdatePredictionSettingRequest request,
             org.springframework.security.core.Authentication authentication
     ) {
+        // Lấy thông tin user hiện tại (Admin) đang thực hiện thay đổi để lưu vào biến updatedBy (Track lịch sử)
         User user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.UNAUTHORIZED, "User not found"));
 
+        // Lấy cấu hình cũ ra hoặc tạo mới nếu chưa có
         PredictionSetting setting = predictionSettingRepo.findById(1L).orElseGet(() -> {
             PredictionSetting s = new PredictionSetting();
             s.setId(1L);
             return s;
         });
 
+        // Gán đè các giá trị mới từ Request (Dữ liệu Admin điền vào form)
         setting.setDisplaySeed(request.getDisplaySeed());
         setting.setTakeoutRate(request.getTakeoutRate());
         setting.setUpdatedAt(LocalDateTime.now());
-        setting.setUpdatedBy(user);
+        setting.setUpdatedBy(user); // Lưu lại ai là người cập nhật
+        
+        // Lưu cấu hình mới xuống database
         predictionSettingRepo.save(setting);
 
+        // Build object trả về cho Frontend
         PredictionSettingResponse response = new PredictionSettingResponse();
         response.setDisplaySeed(setting.getDisplaySeed());
         response.setTakeoutRate(setting.getTakeoutRate());

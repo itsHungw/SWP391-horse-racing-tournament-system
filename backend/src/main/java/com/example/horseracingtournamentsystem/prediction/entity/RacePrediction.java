@@ -11,6 +11,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * Entity lưu trữ thông tin Cược Đơn (Single Race Prediction) của người chơi.
+ * Bao gồm cả cược Vị trí chính xác (Exact Position) và Cược đối đầu (Head-to-Head).
+ */
 @Entity
 @Table(name = "race_predictions")
 @Getter
@@ -37,29 +41,29 @@ public class RacePrediction {
     private User spectator;
 
     @Column(name = "prediction_type", nullable = false, length = 30)
-    private String predictionType;
+    private String predictionType; // Loại cược: EXACT_POSITION hoặc HEAD_TO_HEAD
 
     @Column(name = "predicted_winner_id", nullable = false)
-    private Long predictedWinnerId; // Used as horseId for EXACT_POSITION
+    private Long predictedWinnerId; // ID của ngựa được chọn (áp dụng cho cả 2 loại cược)
 
     @Column(name = "predicted_position")
-    private Integer predictedPosition;
+    private Integer predictedPosition; // Vị trí dự đoán (Dành cho EXACT_POSITION)
 
     @Column(name = "matchup_opponent_id")
-    private Long matchupOpponentId;
+    private Long matchupOpponentId; // ID ngựa đối thủ (Dành cho HEAD_TO_HEAD)
 
     @Column(name = "handicap_seconds")
-    private Double handicapSeconds;
+    private Double handicapSeconds; // Số giây chấp (Dành cho HEAD_TO_HEAD)
 
     @Column(name = "entry_cost_points", nullable = false)
     private Long entryCostPoints;
 
     @Column(name = "reward_points", nullable = false)
-    private long rewardPoints = 0;
+    private long rewardPoints = 0; // Số tiền thắng cược (0 nếu thua)
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private PredictionStatus status = PredictionStatus.PENDING;
+    private PredictionStatus status = PredictionStatus.PENDING; // Trạng thái vé cược (PENDING, LOCKED, CORRECT, INCORRECT, REFUNDED)
 
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
@@ -74,10 +78,10 @@ public class RacePrediction {
     private LocalDateTime updatedAt;
 
     @Column(name = "wager_amount")
-    private Long wagerAmount;
+    private Long wagerAmount; // Số tiền cược thực tế (VND)
 
     @Column(name = "locked_odds", precision = 18, scale = 4)
-    private BigDecimal lockedOdds;
+    private BigDecimal lockedOdds; // Tỷ lệ cược được chốt lại khi trận đấu bắt đầu (LOCKED)
 
     public static RacePrediction create(Race race, User spectator, String predictionType, Long predictedWinnerId, Integer predictedPosition, Long matchupOpponentId, Double handicapSeconds, long entryCostPoints) {
         if ("WINNER".equals(predictionType) || "EXACT_POSITION".equals(predictionType) || "HEAD_TO_HEAD".equals(predictionType)) {

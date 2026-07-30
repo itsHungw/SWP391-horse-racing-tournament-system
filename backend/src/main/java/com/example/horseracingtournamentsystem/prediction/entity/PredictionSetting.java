@@ -5,6 +5,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import com.example.horseracingtournamentsystem.user.entity.User;
 
+/**
+ * Entity lưu trữ cấu hình chung của hệ thống cược (chỉ có 1 record duy nhất với id = 1).
+ * Quản lý điểm ảo và tỷ lệ hoa hồng của hệ thống.
+ */
 @Entity
 @Table(name = "prediction_settings")
 public class PredictionSetting {
@@ -13,10 +17,10 @@ public class PredictionSetting {
     private Long id;
 
     @Column(name = "display_seed", nullable = false)
-    private double displaySeed;
+    private double displaySeed; // Điểm ảo làm mồi (seed) để làm mượt tỷ lệ cược khi mới bắt đầu
 
     @Column(name = "takeout_rate", nullable = false, precision = 5, scale = 4)
-    private BigDecimal takeoutRate;
+    private BigDecimal takeoutRate; // Tỷ lệ hoa hồng nhà cái giữ lại (VD: 0.15 = 15%)
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;

@@ -99,11 +99,13 @@ public class PredictionSettlementScheduler {
         }
     }
 
+    // Lấy công việc (job) để xử lý (đảm bảo atomic/đồng bộ giữa các thread nếu có)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int claimJob(Long jobId) {
         return jobRepo.claimJobAtomic(jobId);
     }
 
+    // Xử lý trả thưởng / hoàn tiền cho một job đã được lấy
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processJob(Long jobId) {
         PredictionSettlementJob job = jobRepo.findById(jobId)
@@ -111,31 +113,36 @@ public class PredictionSettlementScheduler {
 
         log.info("Processing prediction settlement job #{} for raceId={}", job.getId(), job.getRace().getId());
 
-        // Fetch official results
+        // Lấy kết quả chính thức của cuộc đua
         List<RaceResult> results = resultRepo.findByRace_Id(job.getRace().getId());
 
+        // Map lưu vị trí về đích của từng ngựa đua (Mã ngựa -> Vị trí)
         Map<Long, Integer> participantPositions = results.stream()
             .filter(r -> r.getPosition() != null)
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getPosition, (p1, p2) -> p1));
 
+        // Map lưu trạng thái về đích của ngựa (Hoàn thành, DNF, Bỏ cuộc...)
         Map<Long, com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus> participantStatuses = results.stream()
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getResultStatus, (p1, p2) -> p1));
 
+        // Map lưu thời gian hoàn thành vòng đua của ngựa
         Map<Long, java.math.BigDecimal> participantFinishTimes = results.stream()
             .filter(r -> r.getFinishTimeSeconds() != null)
             .collect(Collectors.toMap(RaceResult::getParticipantId, RaceResult::getFinishTimeSeconds, (p1, p2) -> p1));
 
+        // Lấy tất cả dự đoán cho cuộc đua này
         List<RacePrediction> predictions = predictionRepo.findByRace_Id(job.getRace().getId());
 
-        // Invert the result table: finishing position -> the participant that finished there.
+        // Đảo ngược bảng kết quả: Vị trí về đích -> Ngựa nào về vị trí đó
         Map<Integer, Long> horseAtPosition = new java.util.HashMap<>();
         participantPositions.forEach((pid, pos) -> horseAtPosition.put(pos, pid));
 
-        // Pari-mutuel keep ratio (1 - takeout). Total payout of any pool == pool * keep,
-        // so the house can never pay out more than it took in (zero house risk).
+        // Tỷ lệ giữ lại của nhà cái trong mô hình pari-mutuel (1 - takeout). 
+        // Tổng tiền trả thưởng của bất kỳ nhóm (pool) nào = pool * keep
+        // Do đó nhà cái không bao giờ trả thưởng nhiều hơn số tiền thu vào (không có rủi ro cho nhà cái).
         java.math.BigDecimal keep = java.math.BigDecimal.ONE.subtract(getTakeoutRate());
 
-        // Only PENDING / LOCKED bets are settled.
+        // Chỉ những vé cược đang ở trạng thái PENDING hoặc LOCKED mới được xử lý trả thưởng
         List<RacePrediction> active = predictions.stream()
             .filter(p -> com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING.equals(p.getStatus())
                       || com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED.equals(p.getStatus()))
@@ -145,13 +152,14 @@ public class PredictionSettlementScheduler {
         int rewardedCount = 0;
         int failedCount = 0;
 
-        // 1. Group bets into pools. Bets on a withdrawn horse leave the pool (refunded).
-        //    EXACT_POSITION (+ legacy WINNER = position 1) -> one pool per finishing position.
-        //    HEAD_TO_HEAD -> one 2-outcome pool per (unordered) matchup.
+        // 1. Nhóm các cược vào các pool (nhóm cược). Các cược vào ngựa đã rút lui sẽ bị loại khỏi pool (được hoàn tiền).
+        //    EXACT_POSITION (Cược vị trí chính xác) -> mỗi vị trí là một pool.
+        //    HEAD_TO_HEAD (Đối đầu) -> mỗi cặp đấu là một pool gồm 2 kết quả.
         Map<Integer, List<RacePrediction>> exactByPosition = new java.util.HashMap<>();
         Map<String, List<RacePrediction>> h2hByMatchup = new java.util.HashMap<>();
 
         for (RacePrediction p : active) {
+            // Kiểm tra xem ngựa cược (hoặc đối thủ trong kèo đối đầu) có bị rút lui hay không
             boolean withdrawn = com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN
                     .equals(participantStatuses.get(p.getPredictedWinnerId()));
             if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
@@ -159,29 +167,31 @@ public class PredictionSettlementScheduler {
                         .equals(participantStatuses.get(p.getMatchupOpponentId()));
             }
             if (withdrawn) {
+                // Hoàn tiền cho những vé cược mà ngựa bị rút lui
                 refundBet(p, "Refund " + stakeOf(p) + " VND (horse withdrawn)");
                 continue;
             }
 
+            // Phân loại cược vào các pool tương ứng
             if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(p.getPredictionType())) {
                 long a = p.getPredictedWinnerId();
                 long b = p.getMatchupOpponentId();
-                String key = Math.min(a, b) + "-" + Math.max(a, b);
+                String key = Math.min(a, b) + "-" + Math.max(a, b); // Khóa chung cho 2 ngựa đối đầu
                 h2hByMatchup.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(p);
             } else {
                 int pos = (RacePrediction.TYPE_WINNER.equals(p.getPredictionType()) || p.getPredictedPosition() == null)
-                        ? 1 : p.getPredictedPosition();
+                        ? 1 : p.getPredictedPosition(); // Mặc định là vị trí 1 nếu không chỉ định
                 exactByPosition.computeIfAbsent(pos, k -> new java.util.ArrayList<>()).add(p);
             }
         }
 
-        // 2. EXACT_POSITION / WINNER pools: the winner of a column is the horse that finished there.
+        // 2. Xử lý trả thưởng cho cược vị trí chính xác (EXACT_POSITION): người thắng pool là người đoán trúng ngựa về đúng vị trí đó
         for (Map.Entry<Integer, List<RacePrediction>> e : exactByPosition.entrySet()) {
             Long winningHorse = horseAtPosition.get(e.getKey());
             rewardedCount += settlePool(e.getValue(), winningHorse, keep);
         }
 
-        // 3. HEAD_TO_HEAD pools: the winner is the horse that finished ahead (straight-up; ties/DNF -> refund).
+        // 3. Xử lý trả thưởng cho cược đối đầu (HEAD_TO_HEAD): người thắng pool là người đoán trúng ngựa có thời gian hoàn thành nhỏ hơn. Nếu hòa hoặc không về đích -> hoàn tiền.
         for (List<RacePrediction> bets : h2hByMatchup.values()) {
             Long winningSide = headToHeadWinner(bets.get(0), participantFinishTimes);
             rewardedCount += settlePool(bets, winningSide, keep);
@@ -203,16 +213,16 @@ public class PredictionSettlementScheduler {
         jobRepo.save(job);
     }
 
-    // ---- Pari-mutuel pool settlement helpers ----
+    // ---- Các hàm hỗ trợ tính toán pool (Pari-mutuel) ----
 
-    /** Effective stake of a bet (new wager, or legacy entry cost for old rows). */
+    /** Lấy số tiền cược hợp lệ (tiền cược hiện tại hoặc chi phí vé vào cũ). */
     private long stakeOf(RacePrediction p) {
         return p.getWagerAmount() != null ? p.getWagerAmount() : p.getEntryCostPoints();
     }
 
-    /** Refund one bet's full stake (idempotent by prediction id). House-neutral. */
+    /** Hoàn trả toàn bộ tiền cược cho một vé (idempotent qua ID cược). Không ảnh hưởng rủi ro nhà cái. */
     private void refundBet(RacePrediction p, String description) {
-        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED);
+        p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.REFUNDED); // Đặt trạng thái Hoàn tiền
         p.setEvaluatedAt(LocalDateTime.now());
         predictionRepo.save(p);
         walletService.adjust(
@@ -222,10 +232,10 @@ public class PredictionSettlementScheduler {
     }
 
     /**
-     * Settle one pari-mutuel pool. A bet wins iff {@code predictedWinnerId == winningHorseId}.
-     * Total paid out == pool * keep (<= pool), so the house can never lose on the pool.
-     * If nobody backed the winner (or the market is void), every bet is refunded.
-     * Returns the number of winning (paid) bets.
+     * Xử lý trả thưởng cho một pool (nhóm cược). Một vé thắng nếu {@code predictedWinnerId == winningHorseId}.
+     * Tổng số tiền trả thưởng = tổng tiền pool * keep (<= pool), đảm bảo nhà cái không bao giờ lỗ.
+     * Nếu không ai cược trúng ngựa thắng (hoặc kèo bị hủy), mọi vé đều được hoàn tiền.
+     * Trả về số lượng vé thắng được trả thưởng.
      */
     private int settlePool(List<RacePrediction> bets, Long winningHorseId, java.math.BigDecimal keep) {
         if (winningHorseId == null) {
@@ -279,8 +289,8 @@ public class PredictionSettlementScheduler {
     }
 
     /**
-     * Straight-up Head-to-Head winner: the horse that finished ahead (smaller finish time).
-     * Returns null for a push (exact tie) or when neither finished — caller refunds the pool.
+     * Xác định người chiến thắng đối đầu (Head-to-Head) trực tiếp: ngựa hoàn thành vòng đua với thời gian ngắn hơn.
+     * Trả về null nếu hòa (thời gian bằng nhau) hoặc cả 2 không về đích -> hàm gọi sẽ hoàn tiền cả pool.
      */
     private Long headToHeadWinner(RacePrediction sample, Map<Long, java.math.BigDecimal> finishTimes) {
         Long x = sample.getPredictedWinnerId();
@@ -293,12 +303,13 @@ public class PredictionSettlementScheduler {
             if (cmp > 0) return y;
             return null; // exact tie -> push
         }
-        if (tx != null) return x; // opponent did not finish
-        if (ty != null) return y; // backed horse did not finish, opponent did
-        return null; // both DNF -> refund
+        if (tx != null) return x; // đối thủ không về đích
+        if (ty != null) return y; // ngựa mình cược không về đích, nhưng đối thủ về đích
+        return null; // cả 2 đều không hoàn thành (DNF) -> hoàn tiền
     }
 
     private void processStreakLegs(Long raceId, Map<Long, Integer> participantPositions, Map<Long, com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus> participantStatuses) {
+        // Lấy tất cả các chân cược (legs) thuộc về cuộc đua này
         List<StreakPredictionLeg> legs = streakPredictionLegRepo.findByRace_Id(raceId);
 
         for (StreakPredictionLeg leg : legs) {
@@ -308,36 +319,40 @@ public class PredictionSettlementScheduler {
 
             Long winnerId = leg.getPredictedWinner().getId();
 
+            // Nếu ngựa được chọn bị rút lui -> hoàn tiền chân cược này (đổi odds thành 0)
             if (com.example.horseracingtournamentsystem.result.enums.ResultFinishStatus.WITHDRAWN.equals(participantStatuses.get(winnerId))) {
                 leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED);
                 leg.setLockedOdds(java.math.BigDecimal.ZERO);
             } else {
                 Integer pos = participantPositions.get(winnerId);
+                // Nếu ngựa về đích đầu tiên (vị trí 1) -> chân cược thắng
                 if (pos != null && pos == 1) {
                     leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON);
                 } else {
+                    // Nếu không -> chân cược thua
                     leg.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST);
                 }
             }
             streakPredictionLegRepo.save(leg);
 
+            // Kiểm tra trạng thái toàn bộ chuỗi xiên (Streak Prediction) sau khi cập nhật chân cược này
             StreakPrediction streak = leg.getStreakPrediction();
             if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(streak.getStatus()) || com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.IN_PROGRESS.equals(streak.getStatus())) {
                 boolean hasLost = false;
                 boolean allFinished = true;
                 int wonCount = 0;
-                // True parlay modified: sum the WON legs' fair odds. 
+                // Cược xiên thực sự (True parlay) được sửa đổi: tính tổng tỷ lệ cược công bằng của các chân cược THẮNG. 
                 java.math.BigDecimal sumOdds = java.math.BigDecimal.ZERO;
 
                 for (StreakPredictionLeg l : streak.getLegs()) {
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.LOST.equals(l.getStatus())) {
-                        hasLost = true;
+                        hasLost = true; // Chỉ cần 1 chân thua -> toàn bộ xiên thua
                         break;
                     }
                     if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.PENDING.equals(l.getStatus())) {
-                        allFinished = false;
+                        allFinished = false; // Vẫn còn chân cược chưa có kết quả
                     } else if (com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.WON.equals(l.getStatus())) {
-                        sumOdds = sumOdds.add(l.getLockedOdds());
+                        sumOdds = sumOdds.add(l.getLockedOdds()); // Cộng dồn tỷ lệ cược của các chân thắng
                         wonCount++;
                     }
                 }
@@ -348,7 +363,7 @@ public class PredictionSettlementScheduler {
                 } else if (allFinished) {
                     streak.setEvaluatedAt(LocalDateTime.now());
                     if (wonCount == 0) {
-                        // Every leg was voided -> refund the stake (house-neutral).
+                        // Mọi chân cược đều bị hủy (ví dụ: ngựa rút lui hết) -> hoàn tiền vé xiên (không ảnh hưởng nhà cái).
                         streak.setStatus(com.example.horseracingtournamentsystem.prediction.enums.StreakPredictionStatus.REFUNDED);
                         streak.setTotalOdds(java.math.BigDecimal.ONE.setScale(2, java.math.RoundingMode.HALF_UP));
                         streak.setRewardPoints(streak.getWagerAmount());

@@ -66,50 +66,62 @@ public class PredictionService {
 
     @Transactional
     public RacePrediction submitPrediction(User spectator, SubmitPredictionRequest request) {
+        // Tìm kiếm thông tin cuộc đua dựa trên ID được gửi lên
         Race race = raceRepo.findById(request.getRaceId())
             .orElseThrow(() -> new IllegalArgumentException("Race not found"));
 
-        // Rule: Submission is ONLY allowed when the race is SCHEDULED
+        // Quy tắc: Chỉ cho phép đặt cược khi cuộc đua đang ở trạng thái SCHEDULED (Đã lên lịch)
         if (RaceStatus.SCHEDULED != race.getStatus()) {
             throw new IllegalStateException("Predictions can only be made when the race is SCHEDULED");
         }
 
-        // TOP3 market has been removed; reject any lingering client/API submissions.
+        // Loại bỏ kèo TOP3; từ chối bất kỳ yêu cầu nào từ client/API gửi lên cho loại kèo này.
+        // Chỉ hỗ trợ EXACT_POSITION (Dự đoán vị trí chính xác) và HEAD_TO_HEAD (Đối đầu 1v1)
         if (!RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType())
                 && !RacePrediction.TYPE_HEAD_TO_HEAD.equals(request.getPredictionType())) {
             throw new IllegalArgumentException("Unsupported prediction type: " + request.getPredictionType());
         }
 
-        long cost = request.getWagerAmount();
+        long cost = request.getWagerAmount(); // Số tiền cược
+        // Kiểm tra xem số tiền cược có lớn hơn hoặc bằng mức tối thiểu không
         if (cost < minWager) {
             throw new IllegalArgumentException("Minimum wager is " + minWager + " VND");
         }
         Long opponentId = null;
         Double handicapSeconds = null;
 
-        // Calculate Odds
+        // Tính toán tỷ lệ cược (Odds)
+        // Tìm kiếm chiến mã dự đoán thắng dựa trên ID
         RaceParticipant participant = raceParticipantRepository.findById(request.getPredictedWinnerId())
             .orElseThrow(() -> new IllegalArgumentException("Predicted participant not found"));
 
+        // Xử lý logic cho loại cược EXACT_POSITION (Dự đoán vị trí chính xác)
         if (RacePrediction.TYPE_EXACT_POSITION.equals(request.getPredictionType())) {
             if (request.getPredictedPosition() == null) {
                 throw new IllegalArgumentException("Predicted position is required for EXACT_POSITION");
             }
+            // Lấy danh sách các ngựa đua không bị rút lui
             List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            // Tính toán ma trận tỷ lệ cược cho các vị trí
             Map<Long, Map<Integer, java.math.BigDecimal>> oddsMatrix = oddsCalculationService.calculatePositionOddsMatrix(race.getId(), participants);
             Map<Integer, java.math.BigDecimal> horseOdds = oddsMatrix.get(request.getPredictedWinnerId());
+            // Kiểm tra tính hợp lệ của tỷ lệ cược cho vị trí dự đoán
             if (horseOdds == null || !horseOdds.containsKey(request.getPredictedPosition())) {
                 throw new IllegalArgumentException("Invalid prediction parameters or participant is withdrawn");
             }
         } else if (RacePrediction.TYPE_HEAD_TO_HEAD.equals(request.getPredictionType())) {
+            // Xử lý logic cho loại cược HEAD_TO_HEAD (Đối đầu)
             List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(race.getId(), com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+            // Lấy danh sách các cặp đấu đối đầu
             List<HeadToHeadMatchup> h2hMatchups = oddsCalculationService.calculateH2HMatchups(race.getId(), participants);
 
+            // Tìm cặp đấu chứa chiến mã được dự đoán
             HeadToHeadMatchup selectedMatchup = h2hMatchups.stream()
                 .filter(m -> m.getParticipantAId().equals(request.getPredictedWinnerId()) || m.getParticipantBId().equals(request.getPredictedWinnerId()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Invalid participant for H2H matchup"));
 
+            // Xác định ID của đối thủ và điểm chấp (handicap) tương ứng
             if (selectedMatchup.getParticipantAId().equals(request.getPredictedWinnerId())) {
                 opponentId = selectedMatchup.getParticipantBId();
                 handicapSeconds = selectedMatchup.getHandicapSeconds();
@@ -119,7 +131,7 @@ public class PredictionService {
             }
         }
 
-        // 1. Create and flush the prediction first to get the database-generated ID
+        // 1. Tạo và lưu dự đoán trước vào cơ sở dữ liệu để có ID
         RacePrediction prediction = RacePrediction.create(
             race, spectator, request.getPredictionType(),
             request.getPredictedWinnerId(), request.getPredictedPosition(),
@@ -128,7 +140,7 @@ public class PredictionService {
         prediction.setWagerAmount(cost);
         RacePrediction saved = predictionRepo.saveAndFlush(prediction);
 
-        // 2. Trừ tiền cược khỏi ví (idempotent theo prediction id) và ghi sổ cái
+        // 2. Trừ tiền cược khỏi ví (idempotent theo prediction id) và ghi lại giao dịch vào sổ cái
         walletService.adjust(
             spectator, -cost, WalletTransactionType.BET_PLACED,
             WalletTransaction.REF_RACE_PREDICTION, saved.getId(),
@@ -138,11 +150,13 @@ public class PredictionService {
         return saved;
     }
 
+    // Hàm dùng để lấy báo giá (tỷ lệ cược) cho một dự đoán trước khi người dùng thực sự đặt cược
     @Transactional(readOnly = true)
     public PredictionQuoteResponse quotePrediction(SubmitPredictionRequest request) {
         Race race = raceRepo.findById(request.getRaceId())
             .orElseThrow(() -> new IllegalArgumentException("Race not found"));
 
+        // Báo giá chỉ áp dụng khi cuộc đua vẫn đang mở (SCHEDULED)
         if (RaceStatus.SCHEDULED != race.getStatus()) {
             throw new IllegalStateException("Predictions can only be quoted when the race is SCHEDULED");
         }
@@ -180,17 +194,21 @@ public class PredictionService {
         throw new IllegalArgumentException("Unsupported prediction type: " + request.getPredictionType());
     }
 
+    // Khóa cược cho cuộc đua: Chuyển các cược từ PENDING sang LOCKED và cố định tỷ lệ cược
     @Transactional
     public void lockPredictionsForRace(Long raceId) {
+        // Lấy tất cả dự đoán đang chờ xử lý
         List<RacePrediction> pendingPredictions = predictionRepo.findByRace_IdAndStatus(raceId, com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.PENDING);
         List<RaceParticipant> participants = raceParticipantRepository.findAllByRaceAndStatusNotOrderByLane(
             raceId, com.example.horseracingtournamentsystem.race.enums.ParticipantStatus.WITHDRAWN);
+        
+        // Tính toán tỷ lệ cược cuối cùng tại thời điểm chốt cược
         Map<Long, Map<Integer, java.math.BigDecimal>> positionOdds = oddsCalculationService.calculatePositionOddsMatrix(raceId, participants);
         List<HeadToHeadMatchup> h2hMatchups = oddsCalculationService.calculateH2HMatchups(raceId, participants);
 
         for (RacePrediction p : pendingPredictions) {
-            p.setLockedOdds(resolveLockedOdds(p, positionOdds, h2hMatchups));
-            p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED);
+            p.setLockedOdds(resolveLockedOdds(p, positionOdds, h2hMatchups)); // Lưu tỷ lệ cược cố định
+            p.setStatus(com.example.horseracingtournamentsystem.prediction.enums.PredictionStatus.LOCKED); // Chuyển trạng thái sang Đã khóa
             p.setLockedAt(LocalDateTime.now());
             predictionRepo.save(p);
         }

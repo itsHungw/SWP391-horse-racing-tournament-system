@@ -49,12 +49,18 @@ public class OddsCalculationService {
         this.streakLegRepo = streakLegRepo;
     }
 
+    // Lấy lượng thanh khoản ảo (display seed) từ database hoặc dùng mặc định.
+    // Lượng điểm/tiền ảo này đóng vai trò mồi (seed) để tính toán tỷ lệ cược khi chưa có người nào đặt cược,
+    // giúp tránh lỗi chia cho 0 và làm mượt tỷ lệ cược, không bị biến động quá mạnh (Price Smoothing) ở giai đoạn đầu.
     private double getDisplaySeed() {
         return predictionSettingRepo.findById(1L)
                 .map(PredictionSetting::getDisplaySeed)
                 .orElse(defaultDisplaySeed);
     }
 
+    // Lấy tỷ lệ hoa hồng (takeout rate) mà hệ thống sẽ thu.
+    // Ví dụ: 0.15 nghĩa là hệ thống sẽ giữ lại 15% tổng số tiền cược thực tế của những người thua. 
+    // Phần 85% còn lại sẽ được chia đều cho những người đoán trúng (Pari-mutuel).
     public BigDecimal getTakeoutRate() {
         return predictionSettingRepo.findById(1L)
                 .map(PredictionSetting::getTakeoutRate)
@@ -93,6 +99,10 @@ public class OddsCalculationService {
         return BigDecimal.valueOf(rawOdds).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Báo giá tỷ lệ cược dự kiến (quote) cho người chơi khi họ chuẩn bị đặt cược Vị trí chính xác (Exact Position).
+     * Hàm này tính toán và trả về tỷ lệ cược "Hiện tại" và tỷ lệ cược "Sau khi người chơi đặt cược" (bị ảnh hưởng bởi số tiền cược - Price Impact).
+     */
     public PredictionQuoteResponse quoteExactPosition(
             Long raceId,
             List<RaceParticipant> participants,
@@ -157,13 +167,22 @@ public class OddsCalculationService {
             }
         }
 
+        // Tính xác suất được chuẩn hóa cho ngựa này ở vị trí này dựa trên lịch sử
         double normalizedProb = rawProb.get(participantId).get(position) / colSum.get(position);
+        // Kéo xác suất lịch sử về phía trung bình (phân phối đều 1/n) để tránh tỷ lệ cược ban đầu quá vô lý
         double flat = (normalizedProb + 1.0 / n) / 2.0;
+        
+        // Tính lượng thanh khoản ảo sẽ phân bổ cho riêng lựa chọn (ngựa/vị trí) này
         double displaySeedVal = getDisplaySeed();
         double selectedPricingLiquidity = displaySeedVal * flat;
+        
+        // Tỷ lệ tiền cược dùng để trả thưởng sau khi trừ hoa hồng
         double keep = 1.0 - getTakeoutRate().doubleValue();
 
+        // Tỷ lệ cược hiện tại (chưa tính tiền của người chơi này)
         BigDecimal currentOdds = calculateOdds(displaySeedVal, playerPoolBefore, keep, selectedPricingLiquidity, outcomeStakeBefore);
+        
+        // Tỷ lệ cược dự kiến sau khi cộng thêm số tiền (stake) của người chơi này vào tổng quỹ và tổng cược của ngựa
         BigDecimal oddsAfterStake = calculateOdds(displaySeedVal, playerPoolBefore + stake, keep, selectedPricingLiquidity, outcomeStakeBefore + stake);
 
         return buildQuote(
@@ -181,6 +200,10 @@ public class OddsCalculationService {
         );
     }
 
+    /**
+     * Báo giá tỷ lệ cược dự kiến (quote) cho người chơi khi họ chuẩn bị đặt cược Đối đầu (Head-to-Head).
+     * Hàm này tìm cặp đối đầu tương ứng và tính toán sự thay đổi tỷ lệ cược khi có thêm số tiền đặt cược.
+     */
     public PredictionQuoteResponse quoteHeadToHead(
             Long raceId,
             List<RaceParticipant> participants,
@@ -277,6 +300,10 @@ public class OddsCalculationService {
         return response;
     }
 
+    /**
+     * Tính toán ma trận tỷ lệ cược cho tất cả các vị trí có thể của tất cả các ngựa tham gia.
+     * Thường được dùng để trả về frontend nhằm hiển thị trên bảng tỷ lệ cược tổng quát (Odds Board).
+     */
     public Map<Long, Map<Integer, BigDecimal>> calculatePositionOddsMatrix(Long raceId,
             List<RaceParticipant> participants) {
         int N = participants.size();
@@ -376,6 +403,10 @@ public class OddsCalculationService {
         return matrix;
     }
 
+    /**
+     * Tính toán ma trận tỷ lệ cược đặc biệt dành riêng cho cược Chuỗi (Streak).
+     * Tỷ lệ này độc lập với cược vị trí và chỉ quan tâm đến vị trí Top 1.
+     */
     public Map<Long, BigDecimal> calculateStreakOddsMatrix(Long raceId, List<RaceParticipant> participants) {
         int N = participants.size();
         if (N == 0) return new HashMap<>();
@@ -434,6 +465,11 @@ public class OddsCalculationService {
         return matrix;
     }
 
+    /**
+     * Tính toán và ghép cặp đối đầu (Head-to-Head) cho một cuộc đua.
+     * Thuật toán sẽ tính toán tỷ lệ thắng (dựa trên số lần về nhất / tổng số trận) và ghép cặp 
+     * 2 chú ngựa có trình độ hoặc tỷ lệ thắng gần nhau nhất với nhau để đảm bảo sự kịch tính.
+     */
     public List<HeadToHeadMatchup> calculateH2HMatchups(Long raceId, List<RaceParticipant> participants) {
         List<HeadToHeadMatchup> matchups = new ArrayList<>();
         if (participants.size() < 2)

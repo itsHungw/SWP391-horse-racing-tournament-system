@@ -10,6 +10,10 @@ import lombok.Setter;
 
 import com.example.horseracingtournamentsystem.prediction.enums.PredictionSettlementJobStatus;
 
+/**
+ * Entity lưu trữ thông tin về một Job trả thưởng (Settlement Job) cho một cuộc đua.
+ * Dùng để theo dõi tiến trình chạy ngầm phân bổ tiền thắng cược sau khi đua xong.
+ */
 @Entity
 @Table(name = "prediction_settlement_jobs")
 @Getter
@@ -28,19 +32,19 @@ public class PredictionSettlementJob {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private PredictionSettlementJobStatus status = PredictionSettlementJobStatus.PENDING;
+    private PredictionSettlementJobStatus status = PredictionSettlementJobStatus.PENDING; // Trạng thái Job (PENDING, PROCESSING, COMPLETED, FAILED)
 
     @Column(name = "processed_count", nullable = false)
-    private Integer processedCount = 0;
+    private Integer processedCount = 0; // Số vé cược đã duyệt qua
 
     @Column(name = "rewarded_count", nullable = false)
-    private Integer rewardedCount = 0;
+    private Integer rewardedCount = 0; // Số vé cược thắng/được trả thưởng
 
     @Column(name = "failed_count", nullable = false)
-    private Integer failedCount = 0;
+    private Integer failedCount = 0; // Số vé cược xử lý lỗi
 
     @Column(name = "retry_count", nullable = false)
-    private Integer retryCount = 0;
+    private Integer retryCount = 0; // Số lần thử chạy lại (retry) khi bị lỗi
 
     @Column(name = "error_message")
     private String errorMessage;

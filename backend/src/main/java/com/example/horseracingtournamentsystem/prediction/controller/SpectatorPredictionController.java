@@ -61,6 +61,7 @@ public class SpectatorPredictionController {
         this.streakPredictionService = streakPredictionService;
     }
 
+    // API lấy danh sách các cuộc đua đang mở cho phép người chơi đặt cược
     @GetMapping("/races/open-for-prediction")
     public ResponseEntity<List<OpenRacePredictionResponse>> getOpenForPredictions(Authentication authentication) {
         List<Race> openRaces = raceRepo.findOpenRacesForPrediction();
@@ -109,6 +110,7 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API lấy thông tin chi tiết các lựa chọn (ngựa, tỷ lệ cược) để đặt cược cho một cuộc đua
     @GetMapping("/races/{raceId}/prediction-options")
     public ResponseEntity<PredictionOptionsResponse> getOptions(@PathVariable Long raceId, Authentication authentication) {
         Race race = raceRepo.findById(raceId)
@@ -187,6 +189,7 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(res);
     }
 
+    // API gửi yêu cầu đặt cược cho một cuộc đua (Cược đơn - Single Prediction)
     @PostMapping("/predictions")
     public ResponseEntity<UserPredictionResponse> submitPrediction(@Valid @RequestBody SubmitPredictionRequest request, Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
@@ -197,6 +200,7 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(UserPredictionResponse.from(prediction, getHorseNamesForPredictions(List.of(prediction)), roundNumbers.get(prediction.getRace().getId())));
     }
 
+    // API lấy báo giá dự kiến (tỷ lệ cược, số tiền thắng) trước khi xác nhận đặt cược
     @PostMapping("/predictions/quote")
     public ResponseEntity<PredictionQuoteResponse> quotePrediction(@Valid @RequestBody SubmitPredictionRequest request) {
         return ResponseEntity.ok(predictionService.quotePrediction(request));
@@ -207,6 +211,7 @@ public class SpectatorPredictionController {
         throw new ResponseStatusException(HttpStatus.METHOD_NOT_ALLOWED, "Predictions cannot be edited after placement.");
     }
 
+    // API lấy danh sách lịch sử cược (Cược đơn) của chính người chơi đang đăng nhập
     @GetMapping("/predictions/my")
     public ResponseEntity<List<UserPredictionResponse>> getMyPredictions(Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
@@ -218,6 +223,7 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(predictions.stream().map(p -> UserPredictionResponse.from(p, horseNames, roundNumbers.get(p.getRace().getId()))).toList());
     }
 
+    // API gửi yêu cầu đặt cược chuỗi (Cược xiên - Streak Prediction)
     @PostMapping("/streak")
     public ResponseEntity<StreakPredictionResponse> submitStreakPrediction(
             Authentication authentication,
@@ -230,6 +236,7 @@ public class SpectatorPredictionController {
         return ResponseEntity.ok(response);
     }
 
+    // API lấy danh sách lịch sử cược chuỗi (xiên) của người chơi
     @GetMapping("/streak")
     public ResponseEntity<List<StreakPredictionResponse>> getSpectatorStreaks(
             Authentication authentication) {
@@ -276,6 +283,7 @@ public class SpectatorPredictionController {
         return roundNumbers;
     }
 
+    // API kiểm tra số dư ví (điểm/tiền) hiện tại của người chơi
     @GetMapping("/point-accounts/me")
     public ResponseEntity<Map<String, Object>> getMyPoints(Authentication authentication) {
         User spectator = userRepo.findByEmail(authentication.getName())
