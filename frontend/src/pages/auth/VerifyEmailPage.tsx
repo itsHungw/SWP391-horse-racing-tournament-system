@@ -142,6 +142,7 @@ export function VerifyEmailPage() {
     inputRefs.current[focusIdx]?.focus();
   };
 
+  // F1: Xác thực email
   const handleVerify = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 

@@ -25,6 +25,7 @@ public class UserRoleRequestController {
         return userRoleRequestService.listMine(authentication.getName());
     }
 
+    // F1: Gửi yêu cầu vai trò
     @PostMapping
     public UserRoleRequestResponse submit(
             Authentication authentication,
