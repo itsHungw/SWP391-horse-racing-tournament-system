@@ -1,5 +1,9 @@
 # Frontend Architecture
 
+> This document is the architectural summary. The file-level walkthrough — guards, session
+> handling, API layer, design tokens and component map — is in
+> [`../../reference/frontend-source-guide.md`](../../reference/frontend-source-guide.md).
+
 ## 1. Source Layout
 
 ```text
@@ -54,11 +58,13 @@ User:
 - `/profile`
 - `/wallet`
 - `/my-role-requests`
+- `/account-restricted`
 - `/organizer/register`
 
 Spectator:
 
 - `/spectator/predictions`
+- `/spectator/disputes`
 
 Owner:
 
@@ -67,6 +73,7 @@ Owner:
 - `/owner/horses/:horseId`
 - `/owner/profile`
 - `/owner/registrations`
+- `/owner/invitations`
 
 Jockey:
 
@@ -118,27 +125,37 @@ Admin:
 - `/admin/predictions`
 - `/admin/predictions/races/:raceId`
 - `/admin/withdrawals`
+- `/admin/disputes`
+- `/admin/finance`
+- `/admin/finance/transactions`
+- `/admin/finance/topups`
 
 ## 4. API Client Pattern
 
 API clients live in `frontend/src/api` and call backend `/api/v1` endpoints through the shared Axios client. The shared client owns token attachment, refresh handling, and common error behavior.
 
-Key clients:
+Clients exporting named functions:
 
 - `authApi.ts`
 - `profileApi.ts`
+- `ownerProfileApi.ts`
 - `roleRequestApi.ts`
 - `adminRoleRequestApi.ts`
 - `adminUserApi.ts`
-- `organizationApi.ts`
-- `organizerApi.ts`
-- `walletApi.ts`
-- `predictionApi.ts`
+- `adminTournamentApi.ts`
+- `adminRaceApi.ts`
 - `adminPredictionApi.ts`
-- `blogApi.ts`
-- `ownerProfileApi.ts`
-- `racingApi.ts`
+- `adminDashboardApi.ts`
+- `racingApi.ts` - the largest client, covering public racing, owner horses and registrations, organizer onboarding and tournaments, referee contracts, jockey pool, and result ratification
 - `refereeApi.ts`
+- `raceMediaApi.ts`
+- `notificationApi.ts`
+- `leaderboardApi.ts`
+- `accountAppealApi.ts`
+- `accountRestrictionApi.ts`
+
+Clients exporting a namespace object: `walletApi.ts`, `adminWalletApi.ts`,
+`adminFinanceApi.ts`, `blogApi.ts`, `disputeApi.ts`.
 
 ## 5. Header And Dashboard Switching
 

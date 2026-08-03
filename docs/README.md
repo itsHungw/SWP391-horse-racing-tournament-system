@@ -30,17 +30,22 @@ The documentation follows the source structure in `backend/src` and `frontend/sr
 
 ## Reading Path For Developers
 
-1. `specs/technical/01_tech-stack.md`
-2. `specs/technical/02_backend-architecture.md`
-3. `specs/technical/03_frontend-architecture.md`
-4. `specs/technical/04_api-and-ui.md`
+1. `reference/backend-source-guide.md` - package-by-package walkthrough of `backend/src`
+2. `reference/frontend-source-guide.md` - directory-by-directory walkthrough of `frontend/src`
+3. `reference/api-endpoints.md` - all 264 endpoints with their access requirements
+4. `specs/technical/01_tech-stack.md`
 5. `specs/data/01_database-design.md`
 6. `specs/data/02_erd-and-status-lifecycles.md`
 7. `specs/business/02_business-rules.md`
 8. `specs/technical/08_prediction-odds-and-payout.md`
 
+The `reference/` folder documents the code as it exists and is the place to look when
+changing it. The `specs/` folder documents what the product does and why, and is the place to
+look when explaining it.
+
 ## Documentation Structure
 
+- `reference/`: source-level guides for backend, frontend, and the API surface.
 - `specs/product/`: product overview, scope, roles, user stories.
 - `specs/business/`: domain model, business rules, workflows, prediction, blog publishing.
 - `specs/technical/`: tech stack, backend/frontend architecture, API/UI contract, errors, AI notes, file storage, prediction odds.

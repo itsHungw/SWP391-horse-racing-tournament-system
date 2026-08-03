@@ -1,124 +1,125 @@
-# Horse Racing Tournament Frontend
+# Frontend
 
-Frontend cho hệ thống Horse Racing Tournament, dùng React, TypeScript, Vite, Tailwind CSS, React Router và Axios.
+React 19 single-page app on Vite 6 and TypeScript, styled with Tailwind CSS 4. It serves the
+public racing site and six role-gated workspaces (spectator, owner, jockey, referee,
+organizer, admin) from one bundle graph.
 
-## Yêu cầu
+For the directory-by-directory walkthrough see
+[docs/reference/frontend-source-guide.md](../docs/reference/frontend-source-guide.md).
 
-- Node.js 22 trở lên
-- npm 11 trở lên
+## Requirements
 
-Kiểm tra phiên bản:
+- Node.js 20 or newer
+- A running backend on `http://localhost:8080` (see [../backend/README.md](../backend/README.md))
 
-```bash
-node --version
-npm --version
-```
-
-## Cài đặt
-
-Từ thư mục gốc project:
+## Running
 
 ```bash
-cd frontend
 npm install
-```
-
-## Chạy môi trường dev
-
-```bash
 npm run dev
 ```
 
-Mặc định Vite sẽ mở server tại:
+Vite serves `http://localhost:5173` and proxies `/api` and `/uploads` to the backend, so no
+CORS configuration is needed locally.
 
-```text
-http://localhost:5173/
-```
+| Script | Effect |
+| --- | --- |
+| `npm run dev` | dev server with HMR |
+| `npm run build` | `tsc -b` then a production build into `dist/` |
+| `npm run preview` | serve the production build locally |
+| `npm test` | Vitest in watch mode |
+| `npm test -- --run` | Vitest, single pass |
 
-Nếu muốn bind rõ host/port:
-
-```bash
-npm run dev -- --host 127.0.0.1 --port 5173
-```
-
-## Cấu hình API
-
-Frontend dùng Axios client tại `src/api/httpClient.ts`.
-
-Mặc định API base URL là:
-
-```text
-/api
-```
-
-Để đổi endpoint backend, tạo file `.env.local` trong thư mục `frontend/`:
-
-```env
-VITE_API_BASE_URL=http://localhost:8080/api
-```
-
-Sau khi đổi `.env.local`, cần restart dev server.
-
-## Scripts
+Before committing, run at minimum:
 
 ```bash
-npm run dev
+npm test -- --run && npm run build
 ```
 
-Chạy Vite dev server.
+## Configuration
 
-```bash
-npm run build
-```
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | `/api/v1` | base URL for the Axios client. Leave unset locally so the dev proxy handles it |
+| `VITE_BACKEND_ORIGIN` | `http://localhost:8080` | proxy target for `/api` and `/uploads` |
 
-Type-check và build production vào thư mục `dist/`.
+Put them in `frontend/.env.local` and restart the dev server.
 
-```bash
-npm run preview
-```
-
-Preview bản production build.
-
-```bash
-npm test -- --run
-```
-
-Chạy test một lần bằng Vitest.
-
-```bash
-npm test
-```
-
-Chạy Vitest ở watch mode.
-
-## Cấu trúc chính
+## Structure
 
 ```text
 src/
-  api/          Axios client và API services
-  components/   Component dùng lại
-  hooks/        React hooks dùng lại
-  layouts/      Layout/app shell
-  pages/        Page theo nhóm route
-  routes/       Route definitions
+├── main.tsx        createRoot + StrictMode
+├── App.tsx         BrowserRouter > AppErrorBoundary > AppRouter
+├── styles.css      Tailwind entry and every design token
+├── api/            one module per backend area, over a shared Axios client
+├── assets/         images and icons
+├── components/     cross-page components (client/, office/, organizer/, race-media/, common/, errors/)
+├── hooks/          session, wallet balance, public-query cache, document title
+├── layouts/        workspace shells per role
+├── pages/          route-level pages grouped by audience
+├── routes/         route table and access guards
+├── test/           Vitest setup
+├── types/          shared API/domain types
+└── utils/          session, route access, money, validation helpers
 ```
 
-## Route hiện có
+Composition runs `routes → layouts → pages → components/hooks → api → backend`. Page-local
+components live beside their page in `pages/<area>/components/`; only genuinely cross-page
+components go in the top-level `components/`.
 
-- `/` - public home
-- `/spectator`
-- `/owner`
-- `/jockey`
-- `/referee`
-- `/admin`
+## Routing and access
 
-Các route theo role hiện là placeholder để nối tiếp phần auth, protected route và API thật.
+`routes/AppRouter.tsx` is the single route table. Public and auth pages are imported eagerly
+because they are the first-paint surfaces; every role workspace is `lazy()`-loaded, so an
+anonymous visitor never downloads the admin, organizer, owner, jockey or referee bundles.
 
-## Kiểm tra trước khi commit
+Four guards compose into the route wrappers:
 
-Chạy tối thiểu:
+| Guard | Checks |
+| --- | --- |
+| `RequireAuthRoute` | a session exists |
+| `RequireAdminRoute` | the session holds `ADMIN` |
+| `RequireRoleRoute` | the session holds the named role |
+| `RequireAccountAccessRoute` | the account status permits business actions |
 
-```bash
-npm test -- --run
-npm run build
-```
+`/wallet` and `/account-restricted` sit outside `RequireAccountAccessRoute` on purpose: a
+suspended user must still be able to see their money and file an appeal.
+
+**Adding a workspace touches three places** — the prefix rule in the backend's
+`SecurityConfig`, the guard wrapper in `AppRouter`, and the prefix map in
+`utils/routeAccess.ts`, which exists to vet a post-login `returnTo`.
+
+## Session handling
+
+The access token is held **in memory only**; `localStorage` keeps just the display fields
+(name, email, account status). The refresh token is an HttpOnly cookie. On reload the first
+`401` triggers a silent refresh, and `api/httpClient.ts` replays the original request with the
+new token. A `403` carrying `ACCOUNT_SUSPENDED` or `ACCOUNT_BANNED` updates the stored status,
+which is what drives the redirect to `/account-restricted`.
+
+## Styling
+
+`styles.css` defines every token in one `@theme` block. Three families coexist deliberately:
+
+| Family | Prefix | Used by |
+| --- | --- | --- |
+| Legacy brand | `--color-nyra*` | older admin surfaces |
+| "Night at the Races" | `--color-turf-*`, `--color-gold-*`, `--color-ivory*`, `--font-display` | public and spectator pages |
+| "Race Office" | `--color-office-*` | organizer workspace |
+
+Use the tokens rather than raw hex — the accessibility budget per token is recorded in the
+comments beside it. See [../DESIGN.md](../DESIGN.md).
+
+> Contrast gotcha: Tailwind v4 `/opacity` colours compute to `oklab()`. Contrast checks that
+> parse `rgb()` strings return wrong numbers against them without failing — measure via canvas.
+
+## Tests
+
+96 test files sit beside the code they cover: route guards, layout switching, API clients,
+money formatting, session handling, tournament date rules and page rendering.
+
+`vite.config.ts` pins `maxWorkers: 2` and `testTimeout: 20000`. Both are deliberate: at the
+default worker count, heavy page-render tests intermittently exceeded the timeout or made
+jsdom throw `AggregateError` on XHR, so results depended on the machine and on how many files
+were in the run.

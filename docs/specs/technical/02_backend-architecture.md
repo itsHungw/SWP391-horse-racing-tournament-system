@@ -1,5 +1,9 @@
 # Backend Architecture
 
+> This document is the architectural summary. The file-level walkthrough — every package,
+> service, scheduler, migration and test convention — is in
+> [`../../reference/backend-source-guide.md`](../../reference/backend-source-guide.md).
+
 ## 1. Package Strategy
 
 The backend uses a domain-first package structure under:
@@ -7,20 +11,21 @@ The backend uses a domain-first package structure under:
 `com.example.horseracingtournamentsystem`
 
 ```text
-aiinsight/
 auth/
 blog/
 championship/
 common/
 config/
 dashboard/
+dispute/
 filestorage/
+finance/
 horse/
 leaderboard/
 notification/
 organization/
 prediction/
-race/
+race/            (includes the self-contained race/media sub-module)
 referee/
 result/
 security/
@@ -29,6 +34,9 @@ tournamentregistration/
 user/
 wallet/
 ```
+
+`aiinsight/`, `common/config/`, `common/exception/` and `common/response/` exist on disk but
+contain only `.gitkeep`. They are reserved package slots, not implemented features.
 
 Most active domains keep the same internal shape:
 
@@ -69,12 +77,16 @@ sequenceDiagram
 - `tournamentregistration`: owner registration workflow and registration review.
 - `championship`: jockey pool application, owner-jockey contracts, referee contracts, participant lock/workspace.
 - `race`: public/admin/organizer race APIs, result publish/reopen/confirm, jockey schedule.
+- `race/media`: YouTube highlights and live streams, provider-verified before publishing.
 - `referee`: assigned race operations, pre-checks, result package, incidents, violations, reports.
 - `result`: race result persistence.
 - `prediction`: spectator prediction APIs, quotes, streak predictions, admin audit APIs, settlement scheduler.
 - `wallet`: wallet account, transaction ledger, VNPay top-up, withdrawals, saved bank accounts.
+- `finance`: admin-only reporting over the wallet ledger, reconciliation and orphan-credit detection.
+- `dispute`: spectator disputes and account appeals for suspended/banned users.
 - `blog`: public blog APIs and admin blog management.
 - `leaderboard`: public leaderboard.
+- `dashboard`: aggregated admin overview.
 - `notification`: persisted user notifications.
 - `filestorage`: generic file upload/download and private file access.
 - `common`: global exception handling and upload support.
