@@ -12,15 +12,27 @@ frontend, PostgreSQL, deployed at [app.aqueduct.me](https://app.aqueduct.me).
 
 ## Contents
 
-- [What the system does](#what-the-system-does)
-- [Architecture](#architecture)
-- [Technology](#technology)
-- [Repository layout](#repository-layout)
-- [Local development](#local-development)
-- [Configuration](#configuration)
-- [Tests](#tests)
-- [Deployment](#deployment)
-- [Documentation](#documentation)
+- [Horse Racing Tournament System](#horse-racing-tournament-system)
+  - [Contents](#contents)
+  - [What the system does](#what-the-system-does)
+    - [Roles](#roles)
+    - [Three moderation gates](#three-moderation-gates)
+    - [Money](#money)
+  - [Architecture](#architecture)
+  - [Technology](#technology)
+  - [Repository layout](#repository-layout)
+  - [Local development](#local-development)
+    - [1. Start the local infrastructure](#1-start-the-local-infrastructure)
+    - [2. Run the backend](#2-run-the-backend)
+    - [3. Run the frontend](#3-run-the-frontend)
+    - [Accounts](#accounts)
+    - [Resetting the database](#resetting-the-database)
+  - [Configuration](#configuration)
+  - [Tests](#tests)
+  - [Deployment](#deployment)
+  - [Documentation](#documentation)
+    - [Working on the code](#working-on-the-code)
+    - [Understanding the product](#understanding-the-product)
 
 ---
 
@@ -63,7 +75,7 @@ row in an append-only ledger that records the balance after the entry.
 ---
 
 ## Architecture
-
+![alt text](image.png)
 ```text
                     ┌─────────────────────────┐
    browser ────────▶│  React SPA (Vercel)     │
